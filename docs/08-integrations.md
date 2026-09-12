@@ -116,17 +116,42 @@ The honest statement: **the market feedback loop is a meaningful future capabili
 
 ## Bounties
 
-Pursue only where the integration already serves the demo.
+**Track: Onchain Finance & Trading** ($30,000, split three ways). The track explicitly names undercollateralised lending priced on onchain credit history.
 
-| Sponsor | Prize | Fit |
-|---|---|---|
-| Perpl | $3,000 Analytics/Risk | Strong — the stress engine is literally this |
-| Chainlink | $3,000 CRE | Strong, if access lands |
-| Envio | $1,000 | Natural — indexing is on the spine |
-| MetaMask | $2,500 Agent Wallet | Good — policy layer exists |
-| Kuru | $5,000 | Only via the gates above |
-| Nansen | $5,000 | Only if it changes a demonstrated decision |
+Pursue only where the integration already serves the demo. Fits below are assessed against each bounty's **stated requirement**, not its sponsor name.
 
-Realistic reachable set **$9.5k–$14.5k** without distorting the build.
+### Pursue — already on the spine
 
-**Bounties reward eligible submissions at judges' discretion. They are not expected revenue or a guaranteed return on integration work.**
+| Sponsor | Prize | Requirement | Why it fits |
+|---|---|---|---|
+| Envio | $1,000 | HyperIndex/HyperSync/HyperRPC powering a **core feature** | Lifecycle reconstruction from indexed events is a core feature, not a bolt-on |
+| Chainlink | $3,000 | CRE workflow as an orchestration layer — **"build, simulate, or deploy"** | Simulation qualifies, so the attestation path can enter even if deployment access never lands |
+
+### Conditional — genuine fit, gated
+
+| Sponsor | Prize | Requirement | Condition |
+|---|---|---|---|
+| Kuru | $5,000 | **New assets and markets** — a new tradable class *plus the infrastructure to make it viable* | `NoteSeries` tokenized agent debt is literally a new asset class. Behind the 25 Sep and 2 Oct gates above. |
+| Nansen | $5,000 | A product experience **beyond exposing raw data** | Provenance-tagged enrichment that demonstrably changes an underwriting decision |
+
+### Do not chase — would require building something else
+
+| Sponsor | Prize | Requirement | Why it does not fit |
+|---|---|---|---|
+| Perpl | $3,000 | Analytics/risk dashboard **focused on Perpl** | The stress engine underwrites Credence accounts, not Perpl positions |
+| Perpl | $5,000 | **Production-ready trading bot** on Perpl | The agent trades spot through our own adapter; the basis trade is deferred to adapter #2 |
+| MetaMask | $2,500 | A **plugin** extending the Agent Wallet's plugin architecture | A separate deliverable, not a byproduct of the account policy layer |
+
+Everything else — Agora (mobile apps), Cleanverse, Aurora, Privy, Dynamic, Alchemy, Hunyuan, KIMI, Qwen, Mera — requires a product shape this release does not have.
+
+**Check eligibility, not fit:** Monad Foundation's *Best Community Team Project* ($5,000) turns on whether the team qualifies as a Metropolis community supporter. Confirm during milestone one.
+
+### Expectation
+
+| Outcome | Range |
+|---|---|
+| Likely — Envio + CRE | $1k–$4k |
+| Kuru clears its gates | $6k–$9k |
+| Everything lands | ~$14k |
+
+**Bounties reward eligible submissions at judges' discretion. They are not expected revenue or a guaranteed return on integration work.** An integration that would not otherwise earn a place in the demo is not worth its bounty.
