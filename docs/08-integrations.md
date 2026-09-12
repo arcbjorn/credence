@@ -8,7 +8,7 @@ Five deliverables each: documented capability check, normalized adapter, fixture
 
 Status: `Unverified` · `Proven in spike` · `Integrated` · `Accepted` · `Deferred`.
 
-**The baseline must work with zero optional providers.** Each has a defined omission behavior.
+**The baseline must work with zero optional providers.** Each has a defined omission behavior. Required chain access, custody execution, and release identity verification remain dependencies. A fallback for development does not automatically satisfy release acceptance, and no fallback changes the evidence or authorization policy of an existing facility.
 
 ## Matrix
 
@@ -16,11 +16,11 @@ Status: `Unverified` · `Proven in spike` · `Integrated` · `Accepted` · `Defe
 |---|---|---|---|
 | Monad RPC | Chain, tokens, read consistency, transactions, explorer | Full state plus a successful and a reverting transaction | Another RPC; selected-chain deployment still required |
 | Execution venue | Assets, custody, approvals, liquidity, pricing, bounded exit | Trade and unwind, proceeds to account | Labeled scenario venue; no external-market claim |
-| ERC-8004 | Registry addresses, ABI, binding and feedback permissions | Registered identity, attributable feedback, transfer handling | Explicit local adapter; integration marked incomplete |
+| ERC-8004 | Registry addresses, ABI, binding and feedback permissions | Registered identity, attributable feedback, transfer handling, independent reader on the selected network | Local adapter for development only; integration incomplete and release identity gate remains open |
 | Envio | Events, lag, reorg handling, hosting | Reconstruct lifecycle with evidence links | Direct log indexer is baseline |
 | Perpl | Supported endpoints on chosen network | A documented field changes an assessment | Feature absent |
 | Nansen | Account coverage, quotas | A sourced feature demonstrably affects a decision | Omit, disclose coverage |
-| CRE | Deployment access, network and forwarder, consumer path | Valid report accepted; invalid bounds rejected | Development attestation; CRE marked incomplete |
+| CRE | Deployment access, network and forwarder, consumer path | Valid report accepted; invalid bounds and wrong routes rejected | Separate development-attested baseline; an existing CRE facility blocks new risk and cannot fall back to a development key |
 | Kuru | Market creation, quote asset, fills, redemption | Tradable claim with completed redemption | Omitted from working-product claims |
 | Agent wallet | SDK and policy boundary | Agent signs permitted action; prohibited custody fails | Basic runner wallet; no plugin claim |
 
@@ -60,7 +60,7 @@ Spot-only carries **one** unknown: which venue. Eleven days to the baseline, one
 
 Consensus across independent nodes on a workflow that fetches your endpoint means **N nodes agreeing on the same fabricated response.** Consensus protects workflow *execution*, not input *truth*.
 
-Two adapters, separate authorization domains: development EIP-712, and a CRE receiver validating expected forwarder and workflow identity. **A facility claiming CRE verification must require its CRE path** — a development key cannot remain an equally powerful alternative.
+Two adapters, separate authorization domains: development EIP-712, and a CRE receiver validating expected forwarder and workflow identity. **Each facility pins its required route for the epoch.** A facility claiming CRE verification requires its CRE path for both origination and monitoring; a development key cannot remain an equally powerful alternative. The baseline development facility is separately bound. Adapter authentication precedes normalization into the common fields in [05 · Contracts](05-contracts.md).
 
 | Level | What was established |
 |---|---|
@@ -70,7 +70,15 @@ Two adapters, separate authorization domains: development EIP-712, and a CRE rec
 
 **A returned `model_hash` string does not prove that model ran.**
 
-The first useful workflow independently reads account and facility state, checks request and bounds, validates evidence commitments and freshness, and rejects inconsistent payloads. State which upstream data remain trusted — **identical responses from one project-controlled API do not establish independent evidence.**
+The first useful workflow performs five named checks:
+
+1. Independently read account and facility state and match the identity, configuration, policy, and state-version binding.
+2. Check the assessment kind: origination matches its committed request; monitoring matches the existing loan and contains no origination terms.
+3. Validate permitted identifiers and explicit arithmetic and policy bounds, including amount, APR, term, and risk permission where applicable.
+4. Validate input and evidence commitments against the retained payloads.
+5. Check sequence and validity windows; required evidence freshness is necessary for an allowed result. A stale-evidence monitoring report may only publish blocked permission.
+
+State which upstream data remain trusted — **identical responses from one project-controlled API do not establish independent evidence.** These checks do not establish model recomputation.
 
 Contracts retain their own exposure, epoch, state, and expiry checks because state changes after workflow execution. Prove rejection of at least one fabricated out-of-bounds assessment; **do not claim this establishes the truth of every in-bounds assessment.**
 

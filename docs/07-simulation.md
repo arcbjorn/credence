@@ -1,6 +1,6 @@
 # 07 · Simulation
 
-There are no real agents and no real history. Six weeks on a testnet cannot produce the multi-month arcs the thesis describes. **Build the synthetic population deliberately and say so.**
+There is no independent borrower population or repayment history yet. The 32-day build cannot produce the multi-month arcs the thesis describes. **Build the synthetic population deliberately and say so.** A model-backed runner can make real proposals while operating on this synthetic economic evidence.
 
 Presented correctly — evaluating an underwriting model against a synthetic population, which is what a risk team actually does — this is more convincing than thin real data, because it exercises failure paths real data could not surface in time.
 
@@ -11,6 +11,8 @@ Deterministic queue ordered by virtual timestamp, scenario sequence number, and 
 Each run records generator version, seed, input distribution, schedule, agent configuration, model and policy hashes, and all generated events. **A fixture pack is immutable once used in a recorded demonstration.**
 
 Concurrency may fetch independent providers, but scenario events apply in deterministic order. **The simulator manipulates only scenario state; it never advances live chain timestamps.**
+
+Local-chain tests may advance their isolated test clock explicitly. Public-network demonstrations use real chain timestamps for interest, quote expiry, and maturity; use declared short loan terms or recorded transaction traces when needed. Imported virtual history remains synthetic and is accepted only by a scenario facility. Do not present virtual elapsed time as the age of a public-chain loan or its forecast window.
 
 Events include market moves, liquidity changes, agent decisions, funding, execution, repayments, top-ups, stale-data periods, forecast resolution, and failed recovery.
 
@@ -36,7 +38,7 @@ Measure what the implemented collection path realizes across several recovery ou
 
 The agent lives outside the risk core with structured tools: inspect account, propose allocation, estimate forecast, request or decline terms, execute, repay. Every action validated against deterministic rules.
 
-One model-backed agent makes a visible proposal and acceptance decision in the demo. The runner records model identifier, prompt and configuration hash, tool calls, proposed forecast, and decision. **Credentials never enter the risk snapshot or browser.**
+One model-backed agent supplies a retained proposal and acceptance trace, shown live or as an explicitly labeled replay in the demo. The runner records model identifier, prompt and configuration hash, tool calls, proposed forecast, expected-benefit estimate and costs on the loan horizon, and decision. **Credentials never enter the risk snapshot or browser.**
 
 Use prerecorded decisions or a deterministic policy agent for regression runs, and **display replay mode explicitly.** A replayed trace demonstrates system behavior; it must not be presented as a fresh model decision.
 
@@ -46,7 +48,7 @@ Use prerecorded decisions or a deterministic policy agent for regression runs, a
 
 | Scenario | Initial condition | Required behavior |
 |---|---|---|
-| **Performer** · 184 | Sufficient equity, supported allocation, eligible history, reasonable forecast | Bounded approval, execution, repayment, documented history update, improved next terms; **three sequential loans** |
+| **Performer** · 184 | Sufficient equity, supported allocation, no eligible repayment history at loan 1, reasonable forecast | Bounded approval, execution, repayment, documented history update, improved next terms; **three sequential loans** |
 | **Concentrated** · 207 | Good prior repayments, excessive current risky exposure | Denial or lower cap **despite favorable history**; attempted additional risk fails |
 | **Overconfident** · 311 | Repeated understated probabilities, adverse outcomes | Forecast penalty, **no invented fraud claim**, recovery after health or maturity trigger, visible realized lender loss |
 
