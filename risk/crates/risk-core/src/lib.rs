@@ -10,9 +10,11 @@
 //! are still in flux.
 
 pub mod canonical;
+pub mod capacity;
 pub mod evidence;
 pub mod input;
 pub mod snapshot;
+pub mod stress;
 pub mod interest;
 pub mod units;
 
