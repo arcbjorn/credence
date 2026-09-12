@@ -53,6 +53,10 @@ pub struct Request {
     pub max_accepted_apr: Bps,
     pub action_envelope_hash: String,
     pub intent_hash: String,
+    /// What the principal will be used for. Capacity is solved on the
+    /// **post-action** portfolio, so this is an input to the decision, not
+    /// a note attached to it (`docs/03`).
+    pub intended_action: crate::stress::IntendedAction,
 }
 
 /// An outstanding obligation. Monitoring only.
