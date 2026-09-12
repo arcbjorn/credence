@@ -2,15 +2,15 @@
 
 ![Underwriting order](diagrams/underwriting-order.svg)
 
-## Evaluation order — fixed
+## Origination evaluation order — fixed
 
 1. Validate binding, units, coverage, freshness, supported assets
-2. Validate request and intended action against account policy
+2. Validate origination kind, request, and intended action against account policy
 3. Mark value; compute recoverable values under **three named shocks**
 4. Reserve maximum full-term interest, execution cost, bounded keeper fee
 5. Compute maximum safe draw on the **post-action** portfolio
 6. Apply history, configuration continuity, concentration, utilization, hard caps
-7. Apply bounded forecast penalty where enough eligible outcomes exist
+7. Apply the bounded forecast cap, using the conservative default when outcomes are insufficient
 8. Price with the versioned policy schedule
 9. Approve, deny, or mark unavailable with binding constraints and evidence references
 
@@ -19,26 +19,41 @@
 **Step 5's post-action framing is essential.** A draw adds both cash and a debt obligation, and the intended trade changes recoverability. Computing capacity from the pre-draw portfolio is insufficient.
 
 ```text
-approved_principal = min(stress_capacity, history_growth_cap, account_hard_cap,
-                         remaining_strategy_budget, remaining_vault_budget,
-                         available_cash)
+forecast_cap = floor(account_hard_cap * (10_000 - forecast_penalty_bps) / 10_000)
+agent_capacity = min(stress_capacity, history_growth_cap, account_hard_cap,
+                     forecast_cap)
+drawable_capacity = min(agent_capacity, debt_headroom_capacity,
+                        remaining_strategy_budget, remaining_vault_budget,
+                        available_cash)
 ```
 
-Bounded monotone search, verified against a slow reference implementation.
+These are principal amounts for an **origination** assessment under the declared action and term. `stress_capacity` includes the post-action concentration constraints. `debt_headroom_capacity` is the largest principal whose principal plus reserved full-term interest fits `available_credit`. Strategy and vault budgets are likewise converted to remaining principal capacity after reserving existing obligations and the new loan's full-term interest. Costs are deducted once from recoverable assets, not again from debt.
+
+Use bounded monotone search where the permitted action has a monotone feasible range, verified against a slow reference implementation. Recheck the exact requested portfolio; a capacity estimate does not authorize a different allocation. With an active or recovering loan, an inactive epoch, a pause, or an independent account restriction, `drawable_capacity` is zero. If required evidence is unavailable, capacity is absent rather than an invented zero-risk amount. A new eligible origination assessment may supersede a prior blocked assessment; the prior result alone is not a permanent denial.
+
+**With complete required evidence, v0 grants the exact requested amount or denies the request.** For an otherwise eligible request with `0 < requested_principal <= drawable_capacity`, `approved_principal = requested_principal`. Otherwise return `Denied` with no proposed terms and explain the limiting capacity when known. An agent wanting a smaller loan submits a new intent and request; there is no implicit partial fill. A request for 1,000 with capacity 5,000 grants 1,000; a request for 6,000 is denied.
+
+Monitoring assessments evaluate the existing loan and current account policy, without solving or quoting a hypothetical new loan. See **Continuous underwriting** below and [04 · Evidence Contract](04-evidence-contract.md).
 
 ## The five quantities
 
 Distinct everywhere. The vision conflated them.
 
 ```text
-facility_limit       what the facility permits in total
+facility_limit       binding's total debt ceiling under the pinned facility policy
 requested_principal  what the agent asked for
-approved_principal   what this assessment permits now
-outstanding_debt     principal + accrued interest currently owed
-available_credit     facility_limit - outstanding_debt          (headroom)
+approved_principal   exact principal granted; absent unless origination is approved
+outstanding_debt     outstanding principal + unpaid accrued interest
+available_credit     max(facility_limit - outstanding_debt, 0)   (headroom)
 ```
 
-**`available_credit` is headroom, not drawable cash.** The one-active-loan rule can block a draw while headroom is positive; vault budget can block it too. Never present headroom as immediately borrowable.
+**`available_credit` is debt headroom, not drawable cash.** The separate `drawable_capacity` accounts for reserved interest, borrower capacity, lender liquidity, and origination gates. The one-active-loan rule can block a draw while headroom is positive; vault budget can block it too. Never present headroom as immediately borrowable. The demo's changing behavioral limit is `agent_capacity`; it does not change the pinned `facility_limit`.
+
+## Forecast penalty
+
+The versioned policy declares a positive integer `min_forecast_outcomes`, a maximum penalty with `0 < max_forecast_penalty_bps < 10_000`, and a table mapping comparable mean Brier loss to `forecast_penalty_bps` between zero and that maximum. Higher loss cannot reduce the penalty. With sufficient eligible resolved observations, use that table; otherwise use the **maximum penalty**, including when outcomes are missing or unobservable. No forecast credit is earned merely because observations are absent.
+
+The penalty affects **only `forecast_cap`**, not APR or stress assumptions. Good observations can remove some or all of it; every other eligibility and capacity constraint still applies. Publish the table, sample requirement, selected penalty, and resulting cap with the assessment. These are policy assumptions, not a calibration claim. History may still bind below the conservative forecast cap, allowing a new account to receive its secured base loan.
 
 ## Pricing
 
@@ -55,7 +70,9 @@ All three on the **same horizon**. Price the term, then annualize for display �
 
 Label funding expense, operating expense, uncollected interest, expected loss, and gross interest separately. **Gross interest minus expected loss is not lender profit** — that needs a probability-weighted cash-flow model.
 
-**Do not make every borrower acceptable by raising APR.** Deny when stress coverage fails, evidence is insufficient, price exceeds policy, or the agent's committed expected benefit does not support the cost.
+**Do not make every borrower acceptable by raising APR.** Return `Denied` when complete evidence establishes that the request breaches capacity, action policy, term limits, or the borrower's maximum APR. Return `Unavailable` when required evidence is missing, stale, conflicting beyond tolerance, or unsupported. Missing optional enrichment is omitted without a clean-history benefit.
+
+The agent separately accepts or declines offered terms using its retained expected-benefit estimate on the same horizon after costs. The engine does not require a return forecast or treat an agent's benefit estimate as evidence of repayment capacity. This preserves the one scored forecast dimension in [06 · Identity & Forecasts](06-identity-forecasts.md).
 
 ## Reconciliation examples
 
@@ -93,11 +110,12 @@ Reserve maximum full-term interest when sizing capacity. Price from the pre-draw
 ## Score — derived, not invented
 
 ```text
-agent_capacity = min(stress_capacity, history_growth_cap, account_hard_cap)
-score          = 300 + 600 × (agent_capacity / account_hard_cap)        # 300–900
+agent_capacity = min(stress_capacity, history_growth_cap, account_hard_cap,
+                     forecast_cap)
+score          = 300 + floor(600 * agent_capacity / account_hard_cap)  # 300–900
 ```
 
-**`agent_capacity` deliberately excludes every lender-side term** — vault budget, strategy budget, available cash. Scoring `approved_principal` would let a borrower-quality number move when nothing about the borrower changed: at a 12,000 cap and 9,000 capacity the score is 750, but if vault cash fell to 4,500 the same agent would score 525. Vault scarcity belongs in `available_credit`.
+**`agent_capacity` deliberately excludes every lender-side term** — vault budget, strategy budget, available cash — and the size of the request. Scoring a liquidity-constrained amount would let a borrower-quality number move when nothing about the borrower changed: at a 12,000 cap and 9,000 capacity the score is 750, but if vault cash fell to 4,500 the same agent would score 525. Vault scarcity belongs in `drawable_capacity`; contractual debt headroom remains `available_credit`. Require a positive `account_hard_cap`; omit the score when borrower capacity cannot be evaluated.
 
 It is a **facility-relative capacity index, not portable borrower quality** — scaled by *this* facility's hard cap, so it is not comparable across facilities. Label it that way on screen. **It is not a credit rating.** Never show a letter grade: A/AAA implies a calibrated default scale that does not exist.
 
@@ -105,9 +123,9 @@ Always show the binding constraint beside the score. The score alone hides *why*
 
 ## Factors — measured, not attributed
 
-Re-run the pure engine with each feature set to a **declared policy reference value** — never with evidence removed. Removing positions or valuation triggers the evidence policy, which returns `Unavailable`: the limit is then undefined, not higher, and the comparison is meaningless. **Every counterfactual must be a complete, valid portfolio yielding an executable limit.**
+Re-run the pure engine with each feature set to a **declared policy reference value** — never with evidence removed. Removing positions or valuation triggers the evidence policy, which returns `Unavailable`: the capacity is then undefined, not higher, and the comparison is meaningless. **Every counterfactual must have complete, valid inputs yielding a defined `agent_capacity`.** Approval and lender liquidity do not determine whether this borrower-capacity comparison exists.
 
-| Factor | Counterfactual reference | Limit | Δ |
+| Factor | Counterfactual reference | Agent capacity | Δ capacity |
 |---|---|---|---|
 | 37 repayments, exposure-weighted | zero-history baseline | 6,400 | −2,600 |
 | Low historical drawdown | policy median drawdown | 7,800 | −1,200 |
@@ -115,9 +133,9 @@ Re-run the pure engine with each feature set to a **declared policy reference va
 | ETH concentration | diversified reference | 10,100 | +1,100 |
 | Leverage increase | policy reference leverage | 9,600 | +600 |
 
-*Illustrative against 9,000 agent capacity and a 12,000 hard cap. Every reference value is versioned policy, published with the panel.*
+*Illustrative against 9,000 agent capacity and a 12,000 hard cap, expressed in settlement-token units. `Δ capacity = counterfactual agent_capacity - actual agent_capacity`. Every reference value is versioned policy, published with the panel. Counterfactual allocations use only the supported settlement and risky assets.*
 
-**Deltas do not sum to the score.** `approved_principal` is a `min()` over competing constraints, so effects are non-additive — a factor that is not binding contributes nothing until it becomes binding. Present each row as *"what this factor is worth right now"*, never as a decomposition. Genuine missing-data behavior is tested separately.
+**Deltas do not sum to the score.** `agent_capacity` is a `min()` over competing constraints, so effects are non-additive — a factor that is not binding contributes nothing until it becomes binding. Label each row as the change in capacity under that reference, not as score points or a decomposition. Genuine missing-data behavior is tested separately.
 
 This is stronger than a weighted panel: each value is a measured consequence a judge can reproduce with `credence risk assess`.
 
@@ -137,7 +155,7 @@ Every run reports the **binding constraint by name**. **Fixtures must be calibra
 
 ### Three sequential loans — release requirement
 
-The ablation proves history *would* change terms. It does not show credit **compounding**, which is the original thesis. The performer completes at least three sequential loans in one run, unchanged policy and model hash, facility recomputed after each:
+The ablation proves history *would* change terms. It does not show credit **compounding**, which is the original thesis. The performer completes at least three sequential loans in one run, unchanged policy and model hash, `agent_capacity` recomputed after each:
 
 | Loan | History at request | Limit | APR | Binding constraint |
 |---|---|---|---|---|
@@ -157,14 +175,18 @@ The original's climax is a shock changing risk **while a loan is open and the ag
 
 | Property | Specification |
 |---|---|
-| Owner | Go scheduler — the only component with a clock |
+| Owner | Go scheduler — owns reassessment timing; contracts independently check chain time |
 | Trigger | Price move beyond policy threshold, or evidence staleness |
 | Interval | Declared per deployment; measured in the latency report |
-| Effect | Changes **future borrowing permission** |
+| Effect | Refreshes or blocks risk permission for subsequent risk-increasing actions; future draws still require a new origination assessment |
 | Explicitly not | Repricing the outstanding loan, or forcing recovery on its own |
 | Failure | Scheduler offline → evidence stales → risk-increasing actions blocked, repayment open. **Fail-closed, never fail-silent.** |
 
 **Changing what an agent may borrow next is not the same as recovering what it already owes.** Continuous underwriting governs permission; recovery governs exposure.
+
+Use `assessment_kind = Monitoring` with the active `loan_id` and its fixed terms, not a fabricated borrower request. Evaluate current marked health, stressed coverage against existing debt and remaining contractual interest, evidence freshness, and account restrictions. The monitoring thresholds are pinned policy; they do not reprice the loan. An `Approved` monitoring result permits only consideration of subsequent risk-increasing actions subject to contract checks. `Denied` or `Unavailable` blocks them. All monitoring results contain **no proposed loan terms** and cannot fund a loan.
+
+The accepted update shares the binding's assessment sequence and supersedes unused quotes. Onchain authorization requires a current allowed risk state bound to the current account state version; expired or absent permission blocks risk increases even if the scheduler is offline. Repayment and permitted recovery do not require an allowed monitoring result. An update with an invalid binding is retained for diagnosis but cannot change another binding's chain state.
 
 ## Presentation discipline
 
