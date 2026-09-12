@@ -155,16 +155,25 @@ CREATE TABLE IF NOT EXISTS chain_cursors (
 
 -- Exactly-once economic effects come from request ids and contract nonces;
 -- network delivery itself is not exactly once (docs/04).
+-- Deliberately no foreign key on binding_key. This is an audit trail of
+-- what was attempted, and it must remain writable regardless of whether the
+-- binding is registered yet. Coupling delivery to referential state would
+-- let a missing row block a publish, or make a historical attempt
+-- unrecordable once the reconciliation trail is what matters most.
 CREATE TABLE IF NOT EXISTS transactions (
     idempotency_key TEXT PRIMARY KEY,
-    binding_key     TEXT REFERENCES bindings(binding_key),
+    binding_key     TEXT NOT NULL,
     kind            TEXT    NOT NULL,
-    status          TEXT    NOT NULL CHECK (status IN ('Pending','Submitted','Confirmed','Failed')),
+    -- Superseded is distinct from Failed: a newer sequence won the race,
+    -- so this delivery can never be accepted and must not be retried.
+    status          TEXT    NOT NULL CHECK (status IN ('Pending','Confirmed','Failed','Superseded')),
     tx_hash         TEXT,
+    sequence        INTEGER,
     nonce           INTEGER,
     attempts        INTEGER NOT NULL DEFAULT 0,
     created_at      INTEGER NOT NULL,
     updated_at      INTEGER NOT NULL,
+    detail          TEXT    NOT NULL DEFAULT '',
     payload         BLOB    NOT NULL
 );
 
