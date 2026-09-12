@@ -11,7 +11,7 @@
 | Losses are accounted for | Realized collection and final settlement reconcile |
 | Underwriting is continuous | Unprompted reassessment reaching chain within a declared interval |
 | Forecasts are evaluated | Prior commitment, specified outcome protocol, retained resolutions |
-| Reputation is independently verifiable | Standalone reader using no Credence endpoint |
+| Reputation is independently verifiable | Standalone reader using the accepted selected-network registry and no Credence endpoint |
 | CRE checks an assessment | Exact deployed workflow checks and report evidence |
 | A note is tradable debt exposure | Defined holder rights, market transfer, redemption |
 
@@ -65,16 +65,16 @@ With respect to borrowed capital, yes — the account secures it. The claim is t
 Nothing stops identity creation, and we claim **no profitability bound.** Three mechanisms *constrain* it: exposure×duration weighting makes cheap history earn little; the credit account stops a defaulting agent walking away with principal; v0 requires agent equity. Cheap history still earns something, and imperfect execution rules leave room for value extraction — which is why bad-price trades through approved venues are tested explicitly.
 
 **"Your PD is made up."**
-Yes — a policy model, labeled as such. Determinism gives auditability, not accuracy. LGD is likewise a named assumption: custody creates a recovery route, not a recovery rate, and realized LGD runs 0% to 88% across shock severities.
+Yes — `assumed_pd` is a named scenario assumption, separate from the policy APR. Determinism gives auditability, not accuracy. Custody creates a recovery route, not a guaranteed recovery rate. The hand-calculated examples in [02 · Credit Accounts](02-credit-accounts.md) produce illustrative principal LGDs of 0%–88%; they are not measured results. Label realized scenario LGD only after retaining the corresponding collection and loss records.
 
 **"Does CRE actually verify anything?"**
-It verifies its five named checks and nothing more. Consensus protects execution, not input truth.
+When its deployed path is demonstrated, it performs the five named policy checks in [08 · Integrations](08-integrations.md). A development attestation alone earns no CRE claim. Consensus protects workflow execution, not input truth or offchain model execution.
 
 **"Why not over-collateralize?"**
-A secured account does not require the agent to supply all financed capital upfront — that is the distinction v0 demonstrates: 5,000 of equity controlling 10,000 of assets. Full over-collateralization requires the agent to already hold what it wants to deploy, and the premise disappears.
+The account can be overcollateralized while the agent contributes less than the capital it deploys. With 5,000 of equity and 5,000 borrowed, 10,000 of gross account assets secure 5,000 of principal; borrowed-funded assets are collateral too. Net stressed coverage also accounts for price shocks, closeout costs, and reserved interest. The distinction is contributed equity versus total collateral, with history setting capacity and price within those coverage constraints.
 
 **"Someone already built agent credit scores."**
 Conceptually adjacent work exists; we make no claim about what it does or does not demonstrate. State what Credence demonstrates directly: a forecast committed onchain before disbursement and scored against a defined rule, an assessment replayed byte-identically from retained evidence, a prohibited withdrawal reverting onchain, a default with reconciled lender loss, three sequential loans under one policy, and a controlled ablation showing which evidence moved the terms.
 
 **"Is your demo data real?"**
-No, and it says so on every screen. Synthetic scenarios, deliberately built, with provenance per factor. It is how a risk team evaluates an underwriting model before deployment, and it exercises failure paths real data could not surface in six weeks.
+The economic histories and generated market scenarios are synthetic and labeled per factor. Contract transactions and account observations may be real on the test network, while still reflecting project-generated economic activity. The interface distinguishes both origins and any replayed agent trace. These scenarios exercise failure paths that an independent borrower population could not establish during the 32-day build.
