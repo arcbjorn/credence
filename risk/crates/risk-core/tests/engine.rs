@@ -519,3 +519,31 @@ fn holding_yields_more_capacity_than_deploying() {
         cap(&holding)
     );
 }
+
+/// Emits a runnable fixture pack: snapshot, policy, and the assessment they
+/// produce. The CLI is tested against these, and the demo replays them.
+/// Regenerate with:
+///   cargo test --test engine -- --ignored emit_fixture_pack
+#[test]
+#[ignore]
+fn emit_fixture_pack() {
+    use std::fs;
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .ancestors()
+        .nth(3)
+        .unwrap()
+        .join("fixtures/performer");
+    fs::create_dir_all(&root).unwrap();
+
+    let i = input(2_000_000_000, 5_000_000_000);
+    let p = policy();
+    let a = evaluate(&i, &p);
+
+    for (name, value) in [
+        ("input.json", serde_json::to_value(&i).unwrap()),
+        ("policy.json", serde_json::to_value(&p).unwrap()),
+        ("assessment.json", serde_json::to_value(&a).unwrap()),
+    ] {
+        fs::write(root.join(name), serde_json::to_string_pretty(&value).unwrap() + "\n").unwrap();
+    }
+}
