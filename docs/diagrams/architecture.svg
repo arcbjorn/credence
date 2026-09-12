@@ -1,0 +1,90 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 430" width="760" height="430" font-family="ui-sans-serif,system-ui,sans-serif">
+<style>
+ .b{fill:#fbfbfd;stroke:#c7c9d1;stroke-width:1.2;rx:6}
+ .core{fill:#eef2ff;stroke:#6366f1;stroke-width:1.6}
+ .chain{fill:#f0fdf4;stroke:#16a34a;stroke-width:1.4}
+ .ext{fill:#fff;stroke:#d4d4d8;stroke-dasharray:4 3}
+ .t{font-size:12px;fill:#18181b}
+ .s{font-size:10px;fill:#65748b}
+ .lbl{font-size:9.5px;fill:#8b8b96}
+ .a{stroke:#6b7280;stroke-width:1.3;fill:none;marker-end:url(#h)}
+ .ad{stroke:#b4b7c0;stroke-width:1.1;fill:none;stroke-dasharray:4 3;marker-end:url(#hd)}
+ @media (prefers-color-scheme:dark){
+  .b{fill:#1c1c20;stroke:#3f3f46}.core{fill:#1e1b4b;stroke:#818cf8}
+  .chain{fill:#052e16;stroke:#4ade80}.ext{fill:#18181b;stroke:#3f3f46}
+  .t{fill:#e4e4e7}.s{fill:#a1a1aa}.lbl{fill:#71717a}
+  .a{stroke:#9ca3af}.ad{stroke:#52525b}
+ }
+</style>
+<defs>
+ <marker id="h" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6" fill="none" stroke="#6b7280" stroke-width="1.2"/></marker>
+ <marker id="hd" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6" fill="none" stroke="#b4b7c0" stroke-width="1"/></marker>
+</defs>
+
+<text x="12" y="18" class="s">EVIDENCE</text>
+<rect class="b ext" x="12" y="26" width="120" height="26"/><text x="22" y="43" class="t">Monad RPC</text>
+<rect class="b ext" x="12" y="58" width="120" height="26"/><text x="22" y="75" class="t">Envio</text>
+<rect class="b ext" x="12" y="90" width="120" height="26"/><text x="22" y="107" class="t">Perpl · Nansen</text>
+<rect class="b ext" x="12" y="122" width="120" height="26"/><text x="22" y="139" class="t">ERC-8004</text>
+<text x="12" y="164" class="lbl">optional · may fail</text>
+
+<rect class="b" x="178" y="26" width="150" height="122"/>
+<text x="192" y="46" class="t">Go gateway</text>
+<text x="192" y="64" class="s">evidence acquisition</text>
+<text x="192" y="79" class="s">canonical snapshots</text>
+<text x="192" y="94" class="s">SQLite (sole writer)</text>
+<text x="192" y="109" class="s">virtual clock</text>
+<text x="192" y="124" class="s">reassessment scheduler</text>
+<text x="192" y="139" class="s">event reconciliation</text>
+
+<rect class="b core" x="374" y="26" width="150" height="122"/>
+<text x="388" y="46" class="t">Rust risk-core</text>
+<text x="388" y="64" class="s">pure · no I/O · no clock</text>
+<text x="388" y="79" class="s">validation, valuation</text>
+<text x="388" y="94" class="s">stress capacity</text>
+<text x="388" y="109" class="s">pricing policy</text>
+<text x="388" y="124" class="s">explanations</text>
+<text x="388" y="139" class="s">deterministic · replayable</text>
+
+<line class="a" x1="132" y1="87" x2="176" y2="87"/>
+<text x="136" y="81" class="lbl">Evidence&lt;T&gt;</text>
+<line class="a" x1="328" y1="87" x2="372" y2="87"/>
+<text x="330" y="81" class="lbl">RiskInput</text>
+
+<rect class="b" x="570" y="26" width="176" height="60"/>
+<text x="584" y="46" class="t">RiskAssessment</text>
+<text x="584" y="64" class="s">Approved | Denied | Unavailable</text>
+<text x="584" y="78" class="s">+ binding_constraints[]</text>
+<line class="a" x1="524" y1="60" x2="568" y2="60"/>
+
+<text x="570" y="112" class="s">AUTHORIZATION</text>
+<rect class="b" x="570" y="120" width="84" height="30"/><text x="580" y="139" class="t">dev EIP-712</text>
+<rect class="b ext" x="662" y="120" width="84" height="30"/><text x="672" y="139" class="t">CRE report</text>
+<line class="a" x1="612" y1="86" x2="612" y2="118"/>
+<line class="ad" x1="700" y1="86" x2="700" y2="118"/>
+<text x="662" y="164" class="lbl">gated · §12</text>
+
+<text x="178" y="204" class="s">MONAD — enforcement</text>
+<rect class="b chain" x="178" y="212" width="568" height="128"/>
+<rect class="b" x="196" y="230" width="124" height="44"/><text x="206" y="248" class="t">RiskOracle</text><text x="206" y="264" class="s">sequence · expiry</text>
+<rect class="b" x="338" y="230" width="124" height="44"/><text x="348" y="248" class="t">LoanManager</text><text x="348" y="264" class="s">debt · aggregate cap</text>
+<rect class="b" x="480" y="230" width="124" height="44"/><text x="490" y="248" class="t">CreditVault</text><text x="490" y="264" class="s">epoch · lender ledger</text>
+<rect class="b" x="622" y="230" width="106" height="44"/><text x="632" y="248" class="t">Identity</text><text x="632" y="264" class="s">ERC-8004</text>
+
+<rect class="b core" x="196" y="288" width="266" height="38"/>
+<text x="206" y="306" class="t">CreditAccount</text>
+<text x="206" y="320" class="s">custody · no withdrawal while debt lives</text>
+<rect class="b" x="480" y="288" width="248" height="38"/>
+<text x="490" y="306" class="t">StrategyAdapter</text>
+<text x="490" y="320" class="s">fixed selectors · proceeds return here</text>
+<line class="a" x1="462" y1="307" x2="478" y2="307"/>
+
+<line class="a" x1="612" y1="150" x2="612" y2="210"/>
+<text x="618" y="176" class="lbl">signed assessment</text>
+
+<line class="a" x1="240" y1="340" x2="240" y2="368"/>
+<rect class="b" x="178" y="370" width="568" height="30"/>
+<text x="192" y="390" class="t">lending events — origination · repayment · recovery · realized loss</text>
+<path class="a" d="M178,385 L150,385 L150,140 L176,140"/>
+<text x="60" y="385" class="lbl">authoritative history → next assessment</text>
+</svg>
