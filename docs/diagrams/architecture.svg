@@ -22,11 +22,11 @@
 </defs>
 
 <text x="12" y="18" class="s">EVIDENCE</text>
-<rect class="b ext" x="12" y="26" width="120" height="26"/><text x="22" y="43" class="t">Monad RPC</text>
-<rect class="b ext" x="12" y="58" width="120" height="26"/><text x="22" y="75" class="t">Envio</text>
+<rect class="b" x="12" y="26" width="120" height="26"/><text x="22" y="43" class="s">Monad RPC · required</text>
+<rect class="b ext" x="12" y="58" width="120" height="26"/><text x="22" y="75" class="s">Envio · optional</text>
 <rect class="b ext" x="12" y="90" width="120" height="26"/><text x="22" y="107" class="t">Perpl · Nansen</text>
-<rect class="b ext" x="12" y="122" width="120" height="26"/><text x="22" y="139" class="t">ERC-8004</text>
-<text x="12" y="164" class="lbl">optional · may fail</text>
+<rect class="b" x="12" y="122" width="120" height="26"/><text x="22" y="139" class="s">ERC-8004 · release</text>
+<text x="12" y="164" class="lbl">required failure → blocked</text>
 
 <rect class="b" x="178" y="26" width="150" height="122"/>
 <text x="192" y="46" class="t">Go gateway</text>
@@ -62,7 +62,10 @@
 <rect class="b ext" x="662" y="120" width="84" height="30"/><text x="672" y="139" class="t">CRE report</text>
 <line class="a" x1="612" y1="86" x2="612" y2="118"/>
 <line class="ad" x1="700" y1="86" x2="700" y2="118"/>
-<text x="662" y="164" class="lbl">gated · §12</text>
+<line class="a" x1="612" y1="150" x2="612" y2="164"/>
+<line class="ad" x1="700" y1="150" x2="700" y2="164"/>
+<rect class="b" x="570" y="166" width="176" height="28"/>
+<text x="580" y="184" class="s">one route per facility · see 08</text>
 
 <text x="178" y="204" class="s">MONAD — enforcement</text>
 <rect class="b chain" x="178" y="212" width="568" height="128"/>
@@ -76,11 +79,10 @@
 <text x="206" y="320" class="s">custody · no withdrawal while debt lives</text>
 <rect class="b" x="480" y="288" width="248" height="38"/>
 <text x="490" y="306" class="t">StrategyAdapter</text>
-<text x="490" y="320" class="s">fixed selectors · proceeds return here</text>
+<text x="490" y="320" class="s">fixed selectors · return to account</text>
 <line class="a" x1="462" y1="307" x2="478" y2="307"/>
 
-<line class="a" x1="612" y1="150" x2="612" y2="210"/>
-<text x="618" y="176" class="lbl">signed assessment</text>
+<line class="a" x1="612" y1="194" x2="612" y2="210"/>
 
 <line class="a" x1="240" y1="340" x2="240" y2="368"/>
 <rect class="b" x="178" y="370" width="568" height="30"/>

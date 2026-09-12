@@ -1,10 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 400" width="680" height="400" font-family="ui-sans-serif,system-ui,sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 440" width="800" height="440" font-family="ui-sans-serif,system-ui,sans-serif">
 <style>
  .s1{fill:#fbfbfd;stroke:#c7c9d1;stroke-width:1.2;rx:5}
  .gate{fill:#fef2f2;stroke:#dc2626;stroke-width:1.4;rx:5}
  .out{fill:#eef2ff;stroke:#6366f1;stroke-width:1.5;rx:5}
- .t{font-size:11.5px;fill:#18181b}.n{font-size:10px;fill:#a1a1aa}
- .s{font-size:9.5px;fill:#71717a}
+ .t{font-size:11px;fill:#18181b}.n{font-size:10px;fill:#a1a1aa}
+ .s{font-size:10px;fill:#71717a}
  .a{stroke:#6b7280;stroke-width:1.2;fill:none;marker-end:url(#h)}
  @media (prefers-color-scheme:dark){
   .s1{fill:#1c1c20;stroke:#3f3f46}.gate{fill:#450a0a;stroke:#f87171}
@@ -12,31 +12,39 @@
 </style>
 <defs><marker id="h" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6" fill="none" stroke="#6b7280" stroke-width="1.2"/></marker></defs>
 
-<rect class="s1 gate" x="40" y="14" width="400" height="30"/><text x="16" y="34" class="n">1</text><text x="54" y="33" class="t">Validate binding, units, coverage, freshness, supported assets</text>
-<rect class="s1 gate" x="40" y="52" width="400" height="30"/><text x="16" y="72" class="n">2</text><text x="54" y="71" class="t">Validate request and intended action against account policy</text>
-<rect class="s1" x="40" y="90" width="400" height="30"/><text x="16" y="110" class="n">3</text><text x="54" y="109" class="t">Mark value · recoverable value under three named shocks</text>
-<rect class="s1" x="40" y="128" width="400" height="30"/><text x="16" y="148" class="n">4</text><text x="54" y="147" class="t">Reserve max full-term interest, execution cost, keeper fee</text>
-<rect class="s1" x="40" y="166" width="400" height="30"/><text x="16" y="186" class="n">5</text><text x="54" y="185" class="t">Max safe draw on the POST-ACTION portfolio</text>
-<rect class="s1" x="40" y="204" width="400" height="30"/><text x="16" y="224" class="n">6</text><text x="54" y="223" class="t">Apply history, continuity, concentration, utilization, caps</text>
-<rect class="s1" x="40" y="242" width="400" height="30"/><text x="16" y="262" class="n">7</text><text x="54" y="261" class="t">Bounded forecast penalty (cannot relax the stress floor)</text>
-<rect class="s1" x="40" y="280" width="400" height="30"/><text x="16" y="300" class="n">8</text><text x="54" y="299" class="t">Price with the versioned policy schedule</text>
-<rect class="s1 out" x="40" y="318" width="400" height="30"/><text x="16" y="338" class="n">9</text><text x="54" y="337" class="t">Approve · Deny · Unavailable + binding_constraints[]</text>
+<text x="40" y="18" class="t">Origination assessment</text>
+<rect class="s1 gate" x="40" y="30" width="420" height="30"/><text x="16" y="50" class="n">1</text><text x="54" y="49" class="t">Validate binding, units, coverage, freshness, supported assets</text>
+<rect class="s1 gate" x="40" y="68" width="420" height="30"/><text x="16" y="88" class="n">2</text><text x="54" y="87" class="t">Validate assessment kind, request, and intended action</text>
+<rect class="s1" x="40" y="106" width="420" height="30"/><text x="16" y="126" class="n">3</text><text x="54" y="125" class="t">Mark value · recoverable value under three named shocks</text>
+<rect class="s1" x="40" y="144" width="420" height="30"/><text x="16" y="164" class="n">4</text><text x="54" y="163" class="t">Reserve full-term interest; deduct closeout costs once</text>
+<rect class="s1" x="40" y="182" width="420" height="30"/><text x="16" y="202" class="n">5</text><text x="54" y="201" class="t">Maximum safe principal on the post-action portfolio</text>
+<rect class="s1" x="40" y="220" width="420" height="30"/><text x="16" y="240" class="n">6</text><text x="54" y="239" class="t">Apply history, continuity, concentration, utilization, caps</text>
+<rect class="s1" x="40" y="258" width="420" height="30"/><text x="16" y="278" class="n">7</text><text x="54" y="277" class="t">Forecast cap; maximum penalty for insufficient outcomes</text>
+<rect class="s1" x="40" y="296" width="420" height="30"/><text x="16" y="316" class="n">8</text><text x="54" y="315" class="t">Price with versioned policy; respect borrower APR ceiling</text>
+<rect class="s1 out" x="40" y="334" width="420" height="30"/><text x="16" y="354" class="n">9</text><text x="54" y="353" class="t">Approve exact request · Deny · Unavailable + reasons</text>
 
-<line class="a" x1="240" y1="44" x2="240" y2="50"/><line class="a" x1="240" y1="82" x2="240" y2="88"/>
-<line class="a" x1="240" y1="120" x2="240" y2="126"/><line class="a" x1="240" y1="158" x2="240" y2="164"/>
-<line class="a" x1="240" y1="196" x2="240" y2="202"/><line class="a" x1="240" y1="234" x2="240" y2="240"/>
-<line class="a" x1="240" y1="272" x2="240" y2="278"/><line class="a" x1="240" y1="310" x2="240" y2="316"/>
+<line class="a" x1="240" y1="60" x2="240" y2="66"/><line class="a" x1="240" y1="98" x2="240" y2="104"/>
+<line class="a" x1="240" y1="136" x2="240" y2="142"/><line class="a" x1="240" y1="174" x2="240" y2="180"/>
+<line class="a" x1="240" y1="212" x2="240" y2="218"/><line class="a" x1="240" y1="250" x2="240" y2="256"/>
+<line class="a" x1="240" y1="288" x2="240" y2="294"/><line class="a" x1="240" y1="326" x2="240" y2="332"/>
 
-<path class="a" d="M440,29 L500,29 L500,333 L442,333"/>
-<path class="a" d="M440,67 L480,67 L480,333"/>
-<text x="510" y="26" class="t">Unavailable</text>
-<text x="510" y="42" class="s">missing or stale evidence</text>
-<text x="510" y="56" class="s">never yields terms</text>
+<path class="a" d="M460,45 L494,45 L494,349 L462,349"/>
+<text x="520" y="42" class="t">Unavailable → blocked permission</text>
+<text x="520" y="60" class="s">Required evidence missing, stale,</text>
+<text x="520" y="76" class="s">conflicting, or unsupported: no terms.</text>
+<text x="520" y="98" class="s">Optional enrichment absent: omit it.</text>
+<text x="520" y="114" class="s">Never substitute synthetic evidence.</text>
 
-<rect class="s1" x="510" y="150" width="152" height="88"/>
-<text x="524" y="170" class="t">approved_principal</text>
-<text x="524" y="188" class="s">= min(stress_capacity,</text>
-<text x="524" y="202" class="s">history_growth_cap,</text>
-<text x="524" y="216" class="s">hard_cap, budgets,</text>
-<text x="524" y="230" class="s">available_cash)</text>
+<rect class="s1" x="520" y="144" width="264" height="162"/>
+<text x="534" y="164" class="t">drawable_capacity = min(</text>
+<text x="534" y="184" class="s">  agent_capacity,</text>
+<text x="534" y="200" class="s">  debt_headroom_capacity,</text>
+<text x="534" y="216" class="s">  remaining strategy/vault budgets,</text>
+<text x="534" y="232" class="s">  available_cash)</text>
+<text x="534" y="254" class="s">Apply origination gates separately.</text>
+<text x="534" y="276" class="t">Approved principal = requested principal</text>
+<text x="534" y="294" class="s">only when the exact request is eligible.</text>
+
+<rect class="s1" x="40" y="390" width="744" height="36"/>
+<text x="54" y="412" class="t">Monitoring evaluates the existing loan and updates permission only; it never grants principal or loan terms.</text>
 </svg>
