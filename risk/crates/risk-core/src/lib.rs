@@ -9,6 +9,7 @@
 //! is why this crate can be developed and verified offline while contracts
 //! are still in flux.
 
+pub mod canonical;
 pub mod interest;
 pub mod units;
 
