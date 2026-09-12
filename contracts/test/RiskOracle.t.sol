@@ -27,6 +27,7 @@ contract RiskOracleTest is Test {
 
         oracle = new RiskOracle(OPERATOR, DEPLOYMENT);
         vm.startPrank(OPERATOR);
+        oracle.setLoanManager(CONSUMER);
         oracle.pinRoute(FACILITY, Route.Development);
         oracle.setSigner(Route.Development, devSigner, true);
         oracle.setSigner(Route.CRE, creSigner, true);
@@ -189,7 +190,7 @@ contract RiskOracleTest is Test {
         assertEq(approved, 5_000e6, "terms stored with quote");
 
         vm.prank(CONSUMER);
-        Terms memory t = oracle.consumeQuote(b, 5_000e6, CONSUMER);
+        Terms memory t = oracle.consumeQuote(b, 5_000e6);
         assertEq(t.aprBps, 1_200);
     }
 
@@ -203,7 +204,7 @@ contract RiskOracleTest is Test {
         vm.expectRevert(
             abi.encodeWithSelector(RiskOracle.AmountMismatch.selector, 5_000e6, 4_000e6)
         );
-        oracle.consumeQuote(_binding(), 4_000e6, CONSUMER);
+        oracle.consumeQuote(_binding(), 4_000e6);
     }
 
     function test_quoteConsumedOnlyOnce() public {
@@ -212,9 +213,9 @@ contract RiskOracleTest is Test {
         Binding memory b = _binding();
 
         vm.startPrank(CONSUMER);
-        oracle.consumeQuote(b, 5_000e6, CONSUMER);
+        oracle.consumeQuote(b, 5_000e6);
         vm.expectRevert(RiskOracle.QuoteConsumed.selector);
-        oracle.consumeQuote(b, 5_000e6, CONSUMER);
+        oracle.consumeQuote(b, 5_000e6);
         vm.stopPrank();
     }
 
@@ -243,7 +244,7 @@ contract RiskOracleTest is Test {
 
         vm.prank(CONSUMER);
         vm.expectRevert(RiskOracle.NoQuote.selector);
-        oracle.consumeQuote(_binding(), 5_000e6, CONSUMER);
+        oracle.consumeQuote(_binding(), 5_000e6);
     }
 
     /// Monitoring shares the sequence and also supersedes an unused quote.
@@ -256,7 +257,7 @@ contract RiskOracleTest is Test {
 
         vm.prank(CONSUMER);
         vm.expectRevert(RiskOracle.NoQuote.selector);
-        oracle.consumeQuote(_binding(), 5_000e6, CONSUMER);
+        oracle.consumeQuote(_binding(), 5_000e6);
     }
 
     // --- Route enforcement ---
@@ -324,7 +325,7 @@ contract RiskOracleTest is Test {
 
         vm.prank(CONSUMER);
         vm.expectRevert(RiskOracle.NoQuote.selector);
-        oracle.consumeQuote(_binding(), 5_000e6, CONSUMER);
+        oracle.consumeQuote(_binding(), 5_000e6);
     }
 
     function test_expiredAssessmentRejected() public {

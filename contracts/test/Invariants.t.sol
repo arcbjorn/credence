@@ -5,8 +5,11 @@ import {Test} from "forge-std/Test.sol";
 import {CreditAccount} from "../src/CreditAccount.sol";
 import {CreditVault} from "../src/CreditVault.sol";
 import {LoanManager} from "../src/LoanManager.sol";
+import {RiskOracle} from "../src/RiskOracle.sol";
+import {Assessment, Binding, Class, Decision, Kind, Permission, Route, Terms} from "../src/Assessment.sol";
 import {IERC20} from "../src/IERC20.sol";
 import {MockERC20} from "./MockERC20.sol";
+import {OracleHarness} from "./OracleHarness.sol";
 
 /// Drives the protocol through random sequences. Only the operator-permitted
 /// paths are exposed, so the invariants describe what must hold under any
@@ -16,7 +19,12 @@ contract LifecycleHandler is Test {
     CreditVault public vault;
     LoanManager public manager;
     CreditAccount public account;
+    RiskOracle public oracle;
     address public immutable operator;
+    uint256 constant SIGNER_KEY = 0xD30;
+    uint256 constant DEPLOYMENT = 7;
+    uint256 constant FACILITY = 1;
+    uint64 public seq;
 
     uint256 public loanId;
     uint256 public ghostLent;
@@ -27,12 +35,14 @@ contract LifecycleHandler is Test {
         CreditVault vault_,
         LoanManager manager_,
         CreditAccount account_,
+        RiskOracle oracle_,
         address operator_
     ) {
         token = token_;
         vault = vault_;
         manager = manager_;
         account = account_;
+        oracle = oracle_;
         operator = operator_;
     }
 
@@ -43,8 +53,14 @@ contract LifecycleHandler is Test {
         principal = bound(principal, 1e6, 10_000e6);
         if (principal > vault.idleCash()) return;
 
-        vm.prank(operator);
-        loanId = manager.originate(account, principal, 1_200, 10 days);
+        Binding memory b =
+            OracleHarness.binding(address(account), account.stateVersion(), FACILITY);
+        Assessment memory a = OracleHarness.approvedQuote(
+            b, ++seq, principal, 1_200, 10 days, 0, address(token), DEPLOYMENT,
+            uint64(block.timestamp)
+        );
+        oracle.accept(a, OracleHarness.sign(oracle, a, SIGNER_KEY));
+        loanId = manager.originate(b, principal);
         ghostLent += principal;
     }
 
@@ -88,6 +104,7 @@ contract LifecycleHandler is Test {
 contract InvariantsTest is Test {
     MockERC20 token;
     CreditVault vault;
+    RiskOracle oracle;
     LoanManager manager;
     CreditAccount account;
     LifecycleHandler handler;
@@ -97,9 +114,14 @@ contract InvariantsTest is Test {
     function setUp() public {
         token = new MockERC20();
         vault = new CreditVault(IERC20(address(token)), OPERATOR, 100_000e6);
-        manager = new LoanManager(IERC20(address(token)), vault, OPERATOR);
-        vm.prank(OPERATOR);
+        oracle = new RiskOracle(OPERATOR, 7);
+        manager = new LoanManager(IERC20(address(token)), vault, oracle, OPERATOR);
+        vm.startPrank(OPERATOR);
         vault.setLoanManager(address(manager));
+        oracle.setLoanManager(address(manager));
+        oracle.pinRoute(1, Route.Development);
+        oracle.setSigner(Route.Development, vm.addr(0xD30), true);
+        vm.stopPrank();
         account = new CreditAccount(address(manager), address(0xB2), address(0xC3));
 
         address lender = address(0xE5);
@@ -113,7 +135,7 @@ contract InvariantsTest is Test {
 
         token.mint(address(account), 20_000e6);
 
-        handler = new LifecycleHandler(token, vault, manager, account, OPERATOR);
+        handler = new LifecycleHandler(token, vault, manager, account, oracle, OPERATOR);
         targetContract(address(handler));
     }
 
@@ -170,6 +192,7 @@ contract InvariantsTest is Test {
 contract HandlerReachabilityTest is Test {
     MockERC20 token;
     CreditVault vault;
+    RiskOracle oracle;
     LoanManager manager;
     CreditAccount account;
     LifecycleHandler handler;
@@ -178,9 +201,14 @@ contract HandlerReachabilityTest is Test {
     function setUp() public {
         token = new MockERC20();
         vault = new CreditVault(IERC20(address(token)), OPERATOR, 100_000e6);
-        manager = new LoanManager(IERC20(address(token)), vault, OPERATOR);
-        vm.prank(OPERATOR);
+        oracle = new RiskOracle(OPERATOR, 7);
+        manager = new LoanManager(IERC20(address(token)), vault, oracle, OPERATOR);
+        vm.startPrank(OPERATOR);
         vault.setLoanManager(address(manager));
+        oracle.setLoanManager(address(manager));
+        oracle.pinRoute(1, Route.Development);
+        oracle.setSigner(Route.Development, vm.addr(0xD30), true);
+        vm.stopPrank();
         account = new CreditAccount(address(manager), address(0xB2), address(0xC3));
 
         address lender = address(0xE5);
@@ -193,7 +221,7 @@ contract HandlerReachabilityTest is Test {
         vault.activate();
         token.mint(address(account), 20_000e6);
 
-        handler = new LifecycleHandler(token, vault, manager, account, OPERATOR);
+        handler = new LifecycleHandler(token, vault, manager, account, oracle, OPERATOR);
     }
 
     function test_handlerReachesEveryState() public {

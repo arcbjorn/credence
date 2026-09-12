@@ -5,14 +5,29 @@ import {Test} from "forge-std/Test.sol";
 import {CreditAccount} from "../src/CreditAccount.sol";
 import {CreditVault} from "../src/CreditVault.sol";
 import {LoanManager} from "../src/LoanManager.sol";
+import {RiskOracle} from "../src/RiskOracle.sol";
+import {Assessment, Binding, Class, Decision, Kind, Permission, Route, Terms} from "../src/Assessment.sol";
 import {IERC20} from "../src/IERC20.sol";
 import {MockERC20} from "./MockERC20.sol";
+import {OracleHarness} from "./OracleHarness.sol";
+
+/// Minimal adapter used to advance an account's state version.
+contract NoopAdapter {
+    function act() external {}
+}
 
 contract LifecycleTest is Test {
     MockERC20 token;
     CreditVault vault;
+    RiskOracle oracle;
     LoanManager manager;
     CreditAccount account;
+    NoopAdapter noop;
+
+    uint256 constant DEPLOYMENT = 7;
+    uint256 constant FACILITY = 1;
+    uint256 constant SIGNER_KEY = 0xD30;
+    uint64 seq;
 
     address constant OPERATOR = address(0xA1);
     address constant OWNER = address(0xB2);
@@ -26,12 +41,18 @@ contract LifecycleTest is Test {
     function setUp() public {
         token = new MockERC20();
         vault = new CreditVault(IERC20(address(token)), OPERATOR, CAP);
-        manager = new LoanManager(IERC20(address(token)), vault, OPERATOR);
+        oracle = new RiskOracle(OPERATOR, DEPLOYMENT);
+        manager = new LoanManager(IERC20(address(token)), vault, oracle, OPERATOR);
 
-        vm.prank(OPERATOR);
+        vm.startPrank(OPERATOR);
         vault.setLoanManager(address(manager));
+        oracle.setLoanManager(address(manager));
+        oracle.pinRoute(FACILITY, Route.Development);
+        oracle.setSigner(Route.Development, vm.addr(SIGNER_KEY), true);
+        vm.stopPrank();
 
         account = new CreditAccount(address(manager), OWNER, AGENT);
+        noop = new NoopAdapter();
 
         _fund(LENDER_A, 60_000e6);
         _fund(LENDER_B, 40_000e6);
@@ -40,6 +61,58 @@ contract LifecycleTest is Test {
 
         // Agent equity, per docs/02: no equity, no credit in v0.
         token.mint(address(account), 5_000e6);
+    }
+
+
+    /// Publishes a signed quote for `acct` and originates against it, which
+    /// is now the only way a loan can exist (`docs/05` step 6-8).
+    function _originate(CreditAccount acct, uint256 principal, uint32 aprBps, uint64 term)
+        internal
+        returns (uint256 loanId)
+    {
+        return _originateOn(manager, oracle, acct, principal, aprBps, term);
+    }
+
+    /// Publishes the quote WITHOUT originating, so a test can wrap only the
+    /// origination call in `vm.expectRevert`.
+    function _publish(
+        RiskOracle orc,
+        CreditAccount acct,
+        uint256 principal,
+        uint32 aprBps,
+        uint64 term
+    ) internal returns (Binding memory b) {
+        b = OracleHarness.binding(address(acct), acct.stateVersion(), FACILITY);
+        Assessment memory a = OracleHarness.approvedQuote(
+            b, ++seq, principal, aprBps, term, 0, address(token), DEPLOYMENT,
+            uint64(block.timestamp)
+        );
+        orc.accept(a, OracleHarness.sign(orc, a, SIGNER_KEY));
+    }
+
+    function _originateOn(
+        LoanManager mgr,
+        RiskOracle orc,
+        CreditAccount acct,
+        uint256 principal,
+        uint32 aprBps,
+        uint64 term
+    ) internal returns (uint256 loanId) {
+        Binding memory b =
+            OracleHarness.binding(address(acct), acct.stateVersion(), FACILITY);
+        Assessment memory a = OracleHarness.approvedQuote(
+            b,
+            ++seq,
+            principal,
+            aprBps,
+            term,
+            0,
+            address(token),
+            DEPLOYMENT,
+            uint64(block.timestamp)
+        );
+        orc.accept(a, OracleHarness.sign(orc, a, SIGNER_KEY));
+        return mgr.originate(b, principal);
     }
 
     function _fund(address lender, uint256 amount) private {
@@ -56,8 +129,7 @@ contract LifecycleTest is Test {
     /// Go, Rust, frontend, and Solidity. This asserts the exact base-unit
     /// figure that `risk-core`'s test suite asserts for the same inputs.
     function test_interestMatchesRiskCore() public {
-        vm.prank(OPERATOR);
-        uint256 loanId = manager.originate(account, 5_000e6, 1_200, 10 days);
+        uint256 loanId = _originate(account, 5_000e6, 1_200, 10 days);
 
         vm.warp(block.timestamp + 10 days);
         // risk-core: full_term(5_000_000_000, 1200, 864000) == 16_438_357
@@ -67,8 +139,7 @@ contract LifecycleTest is Test {
 
     /// docs/03: accrual stops at maturity. No late penalty, no compounding.
     function test_accrualStopsAtMaturity() public {
-        vm.prank(OPERATOR);
-        uint256 loanId = manager.originate(account, 5_000e6, 1_200, 10 days);
+        uint256 loanId = _originate(account, 5_000e6, 1_200, 10 days);
 
         vm.warp(block.timestamp + 10 days);
         uint256 atMaturity = manager.accruedInterest(loanId);
@@ -81,8 +152,7 @@ contract LifecycleTest is Test {
     function test_repaidPathConservesFunds() public {
         uint256 before = token.balanceOf(address(vault));
 
-        vm.prank(OPERATOR);
-        uint256 loanId = manager.originate(account, 5_000e6, 1_200, 10 days);
+        uint256 loanId = _originate(account, 5_000e6, 1_200, 10 days);
         assertEq(vault.outstandingPrincipal(), 5_000e6);
         assertTrue(account.debtOutstanding());
 
@@ -100,24 +170,22 @@ contract LifecycleTest is Test {
 
     /// docs/05: one active loan per account.
     function test_secondLoanBlockedWhileActive() public {
-        vm.startPrank(OPERATOR);
-        manager.originate(account, 1_000e6, 1_200, 10 days);
+        _originate(account, 1_000e6, 1_200, 10 days);
+        Binding memory b = _publish(oracle, account, 1_000e6, 1_200, 10 days);
         vm.expectRevert(LoanManager.AccountHasActiveLoan.selector);
-        manager.originate(account, 1_000e6, 1_200, 10 days);
-        vm.stopPrank();
+        manager.originate(b, 1_000e6);
     }
 
     /// docs/05: a pause halts originations but never blocks repayment.
     function test_pauseBlocksOriginationNotRepayment() public {
-        vm.prank(OPERATOR);
-        uint256 loanId = manager.originate(account, 1_000e6, 1_200, 10 days);
+        uint256 loanId = _originate(account, 1_000e6, 1_200, 10 days);
 
         vm.prank(OPERATOR);
         manager.setPaused(true);
 
-        vm.prank(OPERATOR);
+        Binding memory b = _publish(oracle, account, 1_000e6, 1_200, 10 days);
         vm.expectRevert(LoanManager.Paused.selector);
-        manager.originate(account, 1_000e6, 1_200, 10 days);
+        manager.originate(b, 1_000e6);
 
         manager.repay(loanId); // still open
         assertEq(uint8(manager.status(loanId)), uint8(LoanManager.Status.Repaid));
@@ -127,8 +195,7 @@ contract LifecycleTest is Test {
 
     /// docs/05: collection accounting is idempotent across several calls.
     function test_recoveryCollectsInStages() public {
-        vm.prank(OPERATOR);
-        uint256 loanId = manager.originate(account, 5_000e6, 1_200, 10 days);
+        uint256 loanId = _originate(account, 5_000e6, 1_200, 10 days);
         vm.warp(block.timestamp + 10 days);
 
         vm.prank(OPERATOR);
@@ -148,8 +215,7 @@ contract LifecycleTest is Test {
     /// docs/02 worked loss path: the shortfall lands on lenders, and
     /// principal loss is recorded separately from unpaid interest.
     function test_defaultAllocatesLossToVault() public {
-        vm.prank(OPERATOR);
-        uint256 loanId = manager.originate(account, 5_000e6, 1_200, 10 days);
+        uint256 loanId = _originate(account, 5_000e6, 1_200, 10 days);
         vm.warp(block.timestamp + 10 days);
 
         vm.prank(OPERATOR);
@@ -176,16 +242,15 @@ contract LifecycleTest is Test {
     /// docs/05: a binding with an unresolved default takes no new loans.
     function test_defaultedBindingBlockedFromNewCredit() public {
         _driveToDefault();
-        vm.prank(OPERATOR);
+        Binding memory b = _publish(oracle, account, 1_000e6, 1_200, 10 days);
         vm.expectRevert(LoanManager.AccountInDefault.selector);
-        manager.originate(account, 1_000e6, 1_200, 10 days);
+        manager.originate(b, 1_000e6);
     }
 
     /// docs/05: unavailable liquidity leaves the loan RecoveryPending. It is
     /// never resolved because a timeout elapsed.
     function test_cannotDefaultWhileAssetsRemain() public {
-        vm.prank(OPERATOR);
-        uint256 loanId = manager.originate(account, 5_000e6, 1_200, 10 days);
+        uint256 loanId = _originate(account, 5_000e6, 1_200, 10 days);
         vm.warp(block.timestamp + 10 days);
 
         vm.startPrank(OPERATOR);
@@ -199,8 +264,7 @@ contract LifecycleTest is Test {
 
     /// docs/05: the epoch cannot settle while a receivable is unresolved.
     function test_settleBlockedWhileReceivableOpen() public {
-        vm.prank(OPERATOR);
-        uint256 loanId = manager.originate(account, 5_000e6, 1_200, 10 days);
+        uint256 loanId = _originate(account, 5_000e6, 1_200, 10 days);
 
         vm.startPrank(OPERATOR);
         vault.beginResolving();
@@ -256,9 +320,15 @@ contract LifecycleTest is Test {
     /// a request between the two must fail on the cap specifically.
     function test_lendingRespectsGlobalCap() public {
         CreditVault capped = new CreditVault(IERC20(address(token)), OPERATOR, 10_000e6);
-        LoanManager cappedManager = new LoanManager(IERC20(address(token)), capped, OPERATOR);
-        vm.prank(OPERATOR);
+        RiskOracle cappedOracle = new RiskOracle(OPERATOR, DEPLOYMENT);
+        LoanManager cappedManager =
+            new LoanManager(IERC20(address(token)), capped, cappedOracle, OPERATOR);
+        vm.startPrank(OPERATOR);
         capped.setLoanManager(address(cappedManager));
+        cappedOracle.setLoanManager(address(cappedManager));
+        cappedOracle.pinRoute(FACILITY, Route.Development);
+        cappedOracle.setSigner(Route.Development, vm.addr(SIGNER_KEY), true);
+        vm.stopPrank();
 
         token.mint(LENDER_A, 50_000e6);
         vm.startPrank(LENDER_A);
@@ -269,14 +339,78 @@ contract LifecycleTest is Test {
         capped.activate();
 
         CreditAccount acct = new CreditAccount(address(cappedManager), OWNER, AGENT);
-        vm.prank(OPERATOR);
+        Binding memory b = _publish(cappedOracle, acct, 10_001e6, 1_200, 10 days);
         vm.expectRevert(CreditVault.ExceedsGlobalCap.selector);
-        cappedManager.originate(acct, 10_001e6, 1_200, 10 days);
+        cappedManager.originate(b, 10_001e6);
+    }
+
+    // --- Authorization is load-bearing ---
+
+    /// Without a standing quote there is no loan. The operator cannot
+    /// originate on trust alone.
+    function test_originationRequiresQuote() public {
+        Binding memory b =
+            OracleHarness.binding(address(account), account.stateVersion(), FACILITY);
+        vm.expectRevert(RiskOracle.NoQuote.selector);
+        manager.originate(b, 5_000e6);
+    }
+
+    /// `docs/03`: exact requested amount or denial. A quote for 5,000 cannot
+    /// fund 4,000.
+    function test_drawMustMatchApprovedAmount() public {
+        Binding memory b = _publish(oracle, account, 5_000e6, 1_200, 10 days);
+        vm.expectRevert(
+            abi.encodeWithSelector(RiskOracle.AmountMismatch.selector, 5_000e6, 4_000e6)
+        );
+        manager.originate(b, 4_000e6);
+    }
+
+    /// A quote is consumed once. The second draw finds nothing standing.
+    function test_quoteCannotFundTwoLoans() public {
+        Binding memory b = _publish(oracle, account, 1_000e6, 1_200, 10 days);
+        uint256 loanId = manager.originate(b, 1_000e6);
+        manager.repay(loanId);
+
+        vm.expectRevert(RiskOracle.QuoteConsumed.selector);
+        manager.originate(b, 1_000e6);
+    }
+
+    /// The binding must describe the account as it stands. If the account
+    /// executed after assessment, the assessed portfolio no longer exists.
+    function test_staleAccountStateRejected() public {
+        Binding memory b = _publish(oracle, account, 1_000e6, 1_200, 10 days);
+
+        // Account acts between assessment and draw, the way it really would.
+        vm.prank(OPERATOR);
+        manager.setAccountAdapter(account, address(noop), true);
+        vm.prank(AGENT);
+        account.execute(address(noop), abi.encodeCall(NoopAdapter.act, ()));
+
+        vm.expectRevert(
+            abi.encodeWithSelector(LoanManager.StaleAccountState.selector, 0, 1)
+        );
+        manager.originate(b, 1_000e6);
+    }
+
+    /// `docs/02`: an agent with no equity receives no credit in v0.
+    function test_insufficientEquityRejected() public {
+        CreditAccount poor = new CreditAccount(address(manager), OWNER, AGENT);
+        Binding memory b =
+            OracleHarness.binding(address(poor), poor.stateVersion(), FACILITY);
+        Assessment memory a = OracleHarness.approvedQuote(
+            b, ++seq, 1_000e6, 1_200, 10 days, 5_000e6, address(token), DEPLOYMENT,
+            uint64(block.timestamp)
+        );
+        oracle.accept(a, OracleHarness.sign(oracle, a, SIGNER_KEY));
+
+        vm.expectRevert(
+            abi.encodeWithSelector(LoanManager.InsufficientEquity.selector, 5_000e6, 0)
+        );
+        manager.originate(b, 1_000e6);
     }
 
     function _driveToDefault() private {
-        vm.prank(OPERATOR);
-        uint256 loanId = manager.originate(account, 5_000e6, 1_200, 10 days);
+        uint256 loanId = _originate(account, 5_000e6, 1_200, 10 days);
         vm.warp(block.timestamp + 10 days);
         vm.prank(OPERATOR);
         manager.openRecovery(loanId, KEEPER);
