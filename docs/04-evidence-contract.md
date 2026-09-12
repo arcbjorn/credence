@@ -8,6 +8,7 @@ Freeze schema v1 **conventions** in milestone one — asset identifiers, units, 
 - Token identity: chain ID + contract address. **Symbols are not identifiers**
 - Price: integer mantissa + declared scale + quote asset
 - Rates: integer basis points annually; probabilities at a declared fixed scale
+- Coverage and LTV policy thresholds: exact integer ratios; rounded percentages are display-only
 - Checked integer or fixed-decimal arithmetic. **No floating-point path produces an amount used in authorization**
 - Timestamps distinguish observation, retrieval, assessment, and virtual scenario time
 - Asset values round down; permitted debt rounds down; obligations round up
@@ -34,41 +35,48 @@ Evidence<T>
 ### Provenance as a feature
 
 ```text
-37 repayments, exposure-weighted   +142   [live: Credence]
-Low historical drawdown            +104   [scenario]
-ETH concentration                   -41   [live: Perpl]
+Factor                         Reference                 Δ capacity   Origin
+37 exposure-weighted repayments zero eligible history       -2,600   Synthetic
+Low historical drawdown         policy median drawdown      -1,200   Synthetic
+ETH concentration               supported mixed allocation  +1,100   Synthetic
 ```
 
-A judge reads rigor, not hand-waving. Full narrative scope **and** complete honesty.
+Illustrative counterfactual changes in settlement-token units, using the 9,000 capacity example in [03 · Underwriting](03-underwriting.md). These are not score contributions or observed results. Actual panels show each factor's source, acquisition time, origin, and lineage independently; fetching a synthetic record live does not make its origin observed.
 
 ## RiskInput — minimum
 
 | Group | Contents |
 |---|---|
-| Envelope | Schema version, mode, explicit assessment time, scenario identity |
-| Binding | Registry namespace, agent ID, operator, account, facility, deployment, policy epoch, config hash |
-| Request | Request ID, settlement asset, principal, duration, max accepted APR, action envelope, intent hash |
-| Account | Complete balances and positions, state version, all debt in facility, restrictions |
+| Envelope | Schema version, mode, `assessment_kind: Origination \| Monitoring`, explicit assessment time, scenario identity, proposed sequence and validity window |
+| Binding | Registry chain and address, agent ID, operator, account, facility, deployment, policy epoch and hash, config version and hash, current accepted sequence |
+| Request — origination only | Request ID, settlement asset, `requested_principal`, `term_seconds`, max accepted APR, action envelope, intent hash |
+| Active loan — monitoring only | `loan_id`, settlement asset, original principal, outstanding principal, fixed APR, origination and maturity times, recovery state, interest already collected |
+| Account | Complete balances and positions, state version, all debt in facility, restrictions, pinned `facility_limit` |
 | Market | Price observations, freshness, valuation haircuts, liquidity bounds, **realized volatility over a declared window** |
 | History | Eligible repayment exposure and duration, resolved defaults, breaches, coverage |
-| Forecasts | Commitments, resolved outcomes, unresolved or unobservable, baseline scoring data |
+| Forecasts | Commitments, comparable resolved outcomes, unresolved or unobservable, scoring method and policy reference |
 | Portfolio | Strategy exposure, vault-wide utilization snapshot |
 | Model policy | Model ID and hash, policy ID and hash, thresholds, optional scenario probability assumptions |
+
+The two assessment kinds have mutually exclusive request and active-loan contexts. A monitoring assessment needs no borrower request and cannot carry an origination quote. The gateway supplies sequence and time proposals as explicit inputs; the engine validates them against the snapshot and pinned policy, including evidence-age limits for an allowed result. Contracts independently enforce sequence, binding, and chain-time validity.
 
 ## RiskAssessment — minimum
 
 ```text
-assessment_id, schema_version
+assessment_id, schema_version, assessment_kind
 model_id, model_hash, policy_hash
 input_hash, evidence_root
-binding, request_id, intent_hash, assessment_time
+binding, assessment_time
+request_id?, intent_hash?, loan_id?
 decision: Approved | Denied | Unavailable
+risk_permission: Allowed | Blocked
 authorization_class: ScenarioOnly | ObservedShadow | PrototypeEligible
-proposed_terms?              # principal, apr_bps, term_seconds, max_ltv,
-                             #   required_equity, available_credit
+facility_limit?, outstanding_debt?, available_credit?
+agent_capacity?, drawable_capacity?, requested_principal?, approved_principal?
+proposed_terms?              # apr_bps, term_seconds, max_ltv, required_equity
 proposed_action_bounds?
-outstanding_exposure, available_credit, marked_value,
-  stressed_values[], binding_constraints[]
+marked_value?, marked_ltv?, stressed_values[], stressed_ltvs[]
+binding_constraints[], forecast_penalty_bps?, forecast_cap?, score?
 trust_summary, portfolio_risk_summary
 forecast_quality_summary, evidence_quality_summary
 reasons[]                    # stable codes + parameters + evidence refs
@@ -77,7 +85,11 @@ confidence                   # evidence completeness, NOT model certainty
 policy_epoch, sequence, valid_after, valid_until
 ```
 
-Missing evidence produces `Unavailable` with an informative explanation and **no executable terms**. It must never produce an apparently approved zero-risk loan. An observed/shadow approval remains non-executable by authorization class.
+Missing, stale, conflicting beyond tolerance, or unsupported **required** evidence produces `Unavailable` with `risk_permission = Blocked` and no proposed terms, approved principal, or action authorization. Uncomputable numeric fields are absent with reasons. Known values may remain visible for diagnosis; absence must not become zero. Missing optional enrichment is omitted under the policy below.
+
+An eligible origination has `decision = Approved`, `risk_permission = Allowed`, and `approved_principal = requested_principal`, with proposed terms and action bounds. A policy rejection has `decision = Denied`, `risk_permission = Blocked`, and no grant or proposed terms. An observed/shadow approval is still non-executable by authorization class.
+
+Monitoring always omits request fields, granted principal, proposed terms, and proposed action bounds. It also omits the hypothetical new-loan capacity and score fields. `Approved` means the existing account meets the monitoring policy and sets `risk_permission = Allowed`; `Denied` or `Unavailable` sets `Blocked`. It updates risk permission only. The recorded `loan_id`, current debt, marked and stressed values, and reasons explain the result.
 
 ### Mapping from the original output spec
 
@@ -85,12 +97,12 @@ Several entries are **narrower claims**, not renamings. Do not read this as equi
 
 | Original | Here | Change |
 |---|---|---|
-| `credit_limit` | `facility_limit` | — |
+| `credit_limit` | `facility_limit` | **narrower** — pinned debt ceiling; changing borrower capacity is `agent_capacity` |
 | *(request)* | `requested_principal` | new, explicit |
 | *(grant)* | `approved_principal` | new, explicit |
 | `available_credit` | `available_credit` | **narrower** — headroom, not necessarily drawable |
 | `recommended_apr` | `proposed_terms.apr_bps` | — |
-| `max_ltv` | `proposed_terms.max_ltv` | **defined here**, not inherited |
+| `max_ltv` | `proposed_terms.max_ltv` | **policy ceiling**; actual ratios are `marked_ltv` and `stressed_ltvs[]` |
 | `required_collateral` | `proposed_terms.required_equity` | **narrower** — equity only |
 | `probability_of_default` | `assumed_pd` | **narrower** — assumption, not estimate |
 | `expected_loss` | `scenario_expected_loss` | **narrower** — scenario-conditional |
@@ -102,22 +114,34 @@ Several entries are **narrower claims**, not renamings. Do not read this as equi
 
 **`required_equity` is not total collateral.** The account holds contributed equity *and* assets bought with borrowed funds; both secure the debt, only the first is the agent's contribution.
 
-**`max_ltv` is `debt_including_accrued_interest / net_recoverable_value`** — not the conventional `principal / gross_market_value`. Publish the formula beside the number.
+**`max_ltv` is a policy ceiling, not a measured ratio.** Use the following definitions and publish their valuation basis beside displayed values:
+
+```text
+marked_ltv     = outstanding_debt / marked_net_recoverable_value
+stressed_ltv_s = debt_with_reserved_interest / stressed_net_recoverable_value_s
+max_ltv        = 1 / minimum_stressed_origination_coverage
+```
+
+Origination evaluates the requested post-action portfolio with principal and reserved maximum full-term interest in the debt numerator. Monitoring uses existing principal, unpaid accrued interest, and remaining contractual interest to maturity or recovery entry. Closeout costs are deducted once in each net recoverable value. All three origination stresses must satisfy `stressed_ltv_s <= max_ltv`. Marked maintenance and recovery thresholds remain distinct, as specified in [02 · Credit Accounts](02-credit-accounts.md).
+
+Thresholds are exact ratios encoded as integer numerator and denominator; compare by checked cross-multiplication. At minimum stressed coverage `6/5`, `max_ltv = 5/6`; do not enforce a rounded displayed 83.33% as a different limit. A zero or negative recoverable value with positive debt fails coverage, and its displayed ratio is undefined rather than zero. A missing valuation produces `Unavailable` instead of a solvency conclusion.
 
 ## Evidence policy
 
 | Problem | Behavior |
 |---|---|
-| Missing balances, debt, binding, or valuation | No new authorization |
-| Stale required market observation | No risk-increasing action; repayment stays open |
+| Missing required balances, debt, binding, or valuation | `Unavailable`; risk permission blocked |
+| Stale required market observation | `Unavailable`; no risk-increasing action; repayment stays open |
 | Conflicting prices beyond tolerance | Unavailable pending resolution |
-| No repayment history | New account, base cap, no history uplift |
+| Verified absence of repayment history | New account, base history cap, no history uplift |
 | Missing optional enrichment | Omit feature, explain absence, **no clean-history benefit** |
-| Forecast outcome unmeasurable | Unresolved; no success credit |
-| Synthetic required evidence | Scenario-only authorization domain |
+| Forecast outcome unmeasurable | Unresolved; no success credit; insufficient samples use the maximum forecast penalty |
+| Synthetic evidence used in a decision | Requires a configured scenario domain, whether the feature is required or optional; observed-evidence facilities reject its use |
 | Bot-generated note prices | Informational panel only |
 
 **Missing debt is unknown debt, not zero debt. Missing liquidation records are not a clean history.**
+
+An acquisition failure changes evidence availability, not its origin. Never replace observed evidence with synthetic values to keep an observed facility running. Any synthetic input that affects terms or risk permission requires `ScenarioOnly`, including derived history and optional enrichment. A separate informational panel may show excluded synthetic comparisons, but those values cannot affect executable output. Scenario fallback starts or resumes a separately bound scenario deployment. Optional enrichment remains absent; if policy makes a field required, its failure follows the required-evidence rule.
 
 ## Determinism and replay
 
@@ -126,6 +150,8 @@ assess(canonical_input, pinned_model, pinned_policy) -> canonical_assessment
 ```
 
 No I/O, clock access, entropy, or hash-map iteration dependence. Randomized generation lives outside the engine.
+
+Derive `assessment_id` from the canonical tuple `(schema_version, input_hash, model_hash, policy_hash)`. Sequence and time proposals are included in the input hash; the engine does not allocate IDs, read a counter, or choose a wall-clock timestamp. `assessment_hash` commits to the complete canonical output for authorization; signatures are attached outside the engine. A blocked monitoring update may have a policy-bounded delivery window despite stale market evidence, but it can only revoke permission. An invalid binding cannot be published as a state update.
 
 Define canonical encoding once: UTF-8, deterministic key ordering, fixed decimal strings, no non-finite values, deterministic ordering of semantically unordered collections. Reject duplicate evidence IDs. Preserve order where it represents a real sequence. **Shared reference vectors prove Go and Rust produce identical snapshot hashes.**
 

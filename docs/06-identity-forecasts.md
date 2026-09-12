@@ -5,10 +5,12 @@
 Reference agents by registry chain, address, and agent ID — **never a bare integer.** Bind financing to the tuple present at origination:
 
 ```text
-(identity, credit_account, operator, policy_hash, config_version)
+(identity_registry_chain_id, identity_registry, agent_id,
+ credit_account, operator, facility_id,
+ policy_epoch, policy_hash, config_version, config_hash)
 ```
 
-ERC-8004 supports transferable identities and mutable metadata, and its specification acknowledges Sybil exposure. It supplies **attribution**; Credence supplies **continuity policy**.
+Policy epoch and configuration version identify pinned records; their hashes commit to record contents. Validate both pairs as specified in [05 · Contracts](05-contracts.md). ERC-8004 supplies **attribution**; Credence supplies **continuity policy**, including handling identity transfer and mutable metadata.
 
 On transfer or configuration mismatch: **freeze new credit, require reassessment.** Existing debt, recovery rights, and the original equity recipient remain explicit in the loan record. **Registry transfer never moves or erases a loan.**
 
@@ -17,10 +19,15 @@ On transfer or configuration mismatch: **freeze new credit, require reassessment
 Ten instant micro-loans must not approach the weight of real capital held for real duration.
 
 ```text
-weight_i = (principal_i / reference_size) × min(term_days_i / 30, 1.0)
+eligible_end_i     = min(repaid_at_i, maturity_at_i)
+eligible_seconds_i = max(eligible_end_i - originated_at_i, 0)
+weight_i = (principal_i / reference_size)
+           * min(eligible_seconds_i, 30 * 86_400) / (30 * 86_400)
 ```
 
-Per-loan and per-period caps. Same-block borrow/repay contributes negligible duration. Distinguish scenario time from chain time. Track overlapping borrowing and known shared operators, but **do not claim complete entity resolution or elimination of Sybil attacks.**
+Apply this successful-repayment weight only to fully repaid loans that did not enter recovery; defaults, recoveries, and breaches remain separate outcome signals. Use actual eligible elapsed time, never the requested contractual duration. Same-block borrow/repay with equal timestamps earns zero weight. A 30-day loan repaid after one day earns one day's exposure, not 30 days'. Per-loan and per-period caps are versioned policy. Evaluate the rational expression in checked fixed-point arithmetic and round credited weight down.
+
+Use chain timestamps for onchain history and explicitly labeled virtual timestamps for synthetic history; virtual age cannot count in an observed-evidence facility. Track overlapping borrowing and known shared operators, but **do not claim complete entity resolution or elimination of Sybil attacks.**
 
 PnL adjusted for external cash flows. **A repayment proves an obligation was settled; it does not prove the strategy generated the repayment.** External top-ups stay visible in the outcome record.
 
@@ -40,13 +47,15 @@ Attributable events with loan IDs, amounts, durations, outcome classes, evidence
 
 Demonstrate A and B with a standalone script printing an agent's obligation history using no Credence endpoint.
 
+**A and B are release requirements against the selected network's ERC-8004-compatible registry**, with its address and compatibility evidence in the deployment manifest. A local adapter may unblock development, but does not satisfy these acceptance rows or justify an ERC-8004 integration claim. Resolve registry compatibility by the 15 September gate and complete publication and independent reading by 25 September.
+
 **Be precise about what it verifies:** registry provenance — that feedback was published by Credence's declared `clientAddress` — plus any application-level signature over the payload. The standard attributes feedback to a client address and requires consumers to *filter which sources they trust*. It does not make arbitrary registry feedback trustworthy.
 
 The reader demonstrates **attributable, filterable provenance**, not that the content is true. Claim "independently verifiable", never "adopted".
 
 ## Forecast commitments
 
-One or two precisely defined events:
+One precisely defined scored event:
 
 ```text
 Event:       cash-flow-adjusted marked account NAV falls more than 5%
@@ -58,7 +67,7 @@ Resolution:  occurred / did not occur / not observable.
 
 Twenty minutes is a **demo horizon**, not a claim about fourteen-day forecasting.
 
-NAV is marked assets minus principal and accrued interest, normalized for equity deposits and withdrawals via a unitized series — **borrowing adds an asset and an equal liability and creates no profit.** Require positive starting equity; define insolvency as a breach. Sampling cadence is part of the event definition: a sampled maximum drawdown does not claim to observe every intermediate price.
+NAV is marked assets minus outstanding principal and unpaid accrued interest, normalized for equity deposits and withdrawals via a unitized series — **borrowing adds an asset and an equal liability and creates no profit.** Require positive starting equity; define insolvency as a breach. Sampling cadence is part of the event definition: a sampled maximum drawdown does not claim to observe every intermediate price.
 
 Commit before disbursement, storing retrievable payload **and** hash. Score every eligible commitment including early exits; after strategy closure preserve final unitized equity as settlement cash through the remaining horizon. **Disclose the early-exit rule before forecasting.**
 
@@ -80,7 +89,7 @@ The sequential-loan requirement supplies a **lifecycle demonstration, not a fore
 
 ### Weighting
 
-**Low in the engine** — a bounded penalty that cannot relax the hard stress floor. **High in the demo** — the agent caught by its own committed forecast is the most memorable beat available.
+**Low in the engine** — the bounded principal cap in [03 · Underwriting](03-underwriting.md), which cannot relax the hard stress floor and does not change APR. The policy maps comparable mean Brier loss to `forecast_penalty_bps`; insufficient eligible resolved observations use its maximum penalty. **High in the demo** — repeated forecast errors visibly constrain subsequent capacity.
 
 Good forecast metrics cannot authorize a loan, prove repayment intent, or remove collateral constraints. Insufficient or unobservable outcomes receive no favorable treatment.
 

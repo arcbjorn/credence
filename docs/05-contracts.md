@@ -8,7 +8,7 @@
 | `LoanManager` | Origination, aggregate exposure, interest, maturity, repayment, recovery, final resolution |
 | `CreditAccount` | Custody, bound operator, supported assets, restricted actions, residual equity return |
 | `StrategyAdapter` | One verified route, fixed receiver, bounded approvals, slippage and output checks |
-| `RiskOracle` | Accepted assessment state, sequence, policy binding, evidence class, authorization adapters |
+| `RiskOracle` | Origination quotes and monitoring permission, shared sequence, policy binding, evidence class, facility-specific authorization route |
 | `PriceSource` | Fresh valuation required for risk-increasing operations and bounded closeout |
 | `IdentityAdapter` | Registry references, configuration continuity; authoritative debt stays in `LoanManager` |
 
@@ -48,15 +48,17 @@ Terminal states leave the loss record permanently attributable to the original b
 
 1. Agent commits intent and forecast definition **before** funding
 2. Go snapshots account, facility, policy, evidence at a specified state
-3. Rust returns assessment and proposed terms
-4. Authorization adapter validates and records
-5. Borrower requests a draw matching the signed request and action envelope
+3. Rust returns an `Origination` assessment; only approval contains a grant and proposed terms
+4. The facility's required authorization adapter validates and records the assessment
+5. Borrower accepts terms and requests the exact approved draw matching its committed request and action envelope
 6. `LoanManager` checks binding, account state, sequence, expiry, evidence class, equity, debt, aggregate limits, cash, prices, epoch state
 7. **Transaction consumes the quote and creates the debt before any untrusted external interaction**
 8. Vault transfers principal only to the bound `CreditAccount`
 9. Account executes only the permitted initial action, or holds settlement tokens
 
 Where an initial trade is part of the approval, **fund and trade atomically**; revert everything if post-action checks fail. A quote for a conservative allocation cannot fund a different allocation.
+
+`approved_principal` must equal the positive `requested_principal`; a smaller or larger draw cannot consume that quote. A request above current capacity is denied with no proposed terms. Changing the amount or intended allocation requires a new commitment and assessment. The borrower may decline an approved quote without consuming it.
 
 ## Custody rules
 
@@ -67,31 +69,47 @@ Where an initial trade is part of the approval, **fund and trade atomically**; r
 - **Slippage checked against a permitted valuation source, not only caller-supplied `minOut`**
 - **A whitelisted venue is not sufficient** — a bad-price trade transfers value to a cooperating counterparty. Test this explicitly
 - Execution increments account state version, invalidating stale action assumptions
+- After origination, risk-increasing actions require current allowed monitoring permission for that state version, plus independent price, action, and health checks
 - Configuration changes require no outstanding debt (v0 rule)
 
-## Authorization envelope
+## Authorization envelopes
+
+The development signer uses EIP-712 typed messages. The CRE receiver verifies its expected forwarder and workflow identity, then normalizes its report into the same typed fields. The facility pins **one required adapter route** for the epoch: `Development` or `CRE`. Signer allowlists are scoped within that route; a development key is never a substitute in a CRE facility. Changing an existing facility's route requires a new epoch after its obligations resolve; a separate deployment uses a distinct authorization domain.
+
+Common fields for both assessment kinds:
 
 ```text
-chain_id, verifying_contract, deployment_id, evidence_policy_id
-identity_registry, agent_id, operator, credit_account, facility_id
-account_state_version, config_hash, policy_epoch
-request_id, intent_hash, settlement_asset, principal, term, apr
-permitted_action_hash, model_hash, input_hash, evidence_root
+chain_id, verifying_contract, deployment_id, evidence_policy_id, authorization_route
+identity_registry_chain_id, identity_registry, agent_id, operator, credit_account, facility_id
+account_state_version, config_version, config_hash, policy_epoch, policy_hash
+assessment_kind, assessment_id, assessment_hash, decision, risk_permission
+model_hash, input_hash, evidence_root
 authorization_class, sequence, valid_after, valid_until
 ```
 
-EIP-712 typed envelope. Strictly increasing sequence per binding. A quote is consumed at most once; newer assessments supersede unused quotes. Replayed, expired, cross-chain, cross-deployment, wrong-policy, and wrong-account attestations fail.
+Kind-specific fields:
+
+| Kind | Additional fields | Permitted effect |
+|---|---|---|
+| `Origination` | `request_id`, `intent_hash`, `settlement_asset`, `requested_principal`; on approval only: `approved_principal`, `apr_bps`, `term_seconds`, `max_ltv`, `required_equity`, `permitted_action_hash` | An approved, eligible quote may be consumed once for the exact requested draw |
+| `Monitoring` | `loan_id`, `settlement_asset`; no request, grant, proposed terms, or action authorization | Updates risk permission for the existing loan; can never disburse |
+
+`policy_epoch` identifies the immutable facility policy record, and `policy_hash` must equal that record's hash. `config_version` identifies the binding's configuration record, and `config_hash` must equal its canonical content hash. Both identifiers and hashes are signed and checked; neither pair is an alias for the other. Bind the original identity registry namespace and equity recipient in the loan record as described in [06 · Identity & Forecasts](06-identity-forecasts.md).
+
+Use a **single strictly increasing sequence per binding across both kinds**. Every accepted newer assessment, including `Denied`, `Unavailable`, or monitoring, supersedes unused older quotes. Reject grant fields on a non-approved result and reject them on every monitoring result. Replayed, expired, cross-chain, cross-deployment, wrong-route, wrong-policy, and wrong-account attestations fail. Shadow assessments cannot update an executable facility.
+
+Monitoring results with valid bindings may record `Blocked` permission even when required market evidence is stale or missing. Results with invalid bindings are audit records only. Expired, absent, blocked, or state-version-mismatched monitoring permission prevents risk-increasing actions; repayment and permitted recovery remain open. The initial atomic action is covered by the consumed origination quote. A monitoring approval does not replace a new origination quote after repayment.
 
 **Current contract state is still checked at draw time.** A correctly signed assessment is not permission to ignore a vault cap or an open loan.
 
 ## Invariants — must hold
 
-1. **Aggregate, not per-loan.** `outstanding_debt + new_draw ≤ credit_limit`
+1. **Aggregate, not per-loan.** At origination, outstanding obligations plus the new principal and reserved full-term interest fit the pinned `facility_limit` and global debt budgets; principal also fits the account cap. Lower subsequent risk capacity blocks new risk without altering existing debt
 2. **Replay protection.** Nonce consumed once
 3. **Expiry.** `valid_until` enforced onchain
-4. **Configuration binding.** Reverts on `policy_hash` or `config_version` mismatch
-5. **Supersession.** A new assessment invalidates prior unconsumed ones
-6. **Signer plurality.** Any authorized signer — protocol key from day one, CRE added without rework
+4. **Configuration binding.** Reverts if either policy epoch/hash or configuration version/hash fails to match its pinned record
+5. **Supersession.** A new assessment of either kind invalidates prior unconsumed quotes; monitoring cannot originate a loan
+6. **Authorization route.** Only the facility's pinned route may publish executable assessments; a CRE facility rejects development attestations
 7. **Pause.** Halts new originations; never blocks repayment or liquidation
 
 ## Trust assumptions
