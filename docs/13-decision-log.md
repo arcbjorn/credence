@@ -29,7 +29,7 @@ What changed from the original vision, and why. Each entry names the reasoning, 
 
 | # | Decision | Reason |
 |---|---|---|
-| D14 | **Basis trade deferred to adapter #2** | Not architecturally impossible — Perpl is fully onchain and API keys cannot withdraw. **Six critical-path unknowns versus one for spot, with 11 days to the baseline.** Revisit after a 2-day spike. |
+| D14 | **Basis trade excluded from v0 — final, no revisit** | The 12 Sep spike closed unknown 3: `isValidSignature` is absent from the Perpl implementation, so a contract cannot sign enrollment. Recovery would therefore run through an offchain Ed25519 keeper, making recovery timing **trust-dependent rather than contract-enforced**. That weakens the invariant every other claim rests on (02, 12). Even fully cleared, it trades the release's strongest claim for a more interesting strategy — a bad trade at any point in the calendar. Perpl's $5,000 bounty is reachable instead via the vault hedge (08), which leaves custody untouched. |
 | D15 | **Market feedback loop stays informational** | A controlled two-participant market has no independent validation. A depth gate is a *candidate* policy; the naive cost-versus-benefit argument does not establish an attacker's economic loss. |
 | D16 | **Portability shipped in two of three parts** | Publishing and independent verification are buildable. Third-party *adoption* requires another team and cannot be claimed. |
 | D17 | **Forecast surface narrowed to one scored event** | Drawdown probability resolves precisely. Return and duration comparison are retained roadmap items. |
@@ -57,13 +57,14 @@ What changed from the original vision, and why. Each entry names the reasoning, 
 | D29 | **Exact requested principal or denial in v0** | Capacity is not a grant. Partial or larger draws change the committed financing and action assumptions; a different amount requires a new request. |
 | D30 | **Monitoring is a separate assessment kind** | Continuous underwriting has no new borrower request. Monitoring can refresh or block risk permission and supersede unused quotes, but never originate a loan. |
 | D31 | **Forecast penalty sets a bounded principal cap** | The cap participates in borrower capacity; APR remains separately priced. Insufficient comparable outcomes use the maximum penalty so missing data cannot earn favorable treatment. |
+| D33 | **Perpl bounty pursued via vault hedging, not the basis trade** | The custody constraint binds `CreditAccount`, not the offchain services that already hold keys. A vault-level hedge needs no onchain position marking and touches none of unknowns 4–6. It also answers an open question: what protects the lender when recovery unwinds into a falling market. |
 | D32 | **Registry fallback is development-only** | Local adapters keep the baseline moving, but release publication and independent reading must use the accepted selected-network registry. |
 
 ## Revisit triggers
 
 | Decision | Revisit when |
 |---|---|
-| D14 basis trade | The 2-day spike resolves contract-callable trading and forced unwind |
+| ~~D14 basis trade~~ | **Settled — does not reopen.** A future release may revisit only if a venue offers contract-callable trading *and* a contract-callable forced unwind. |
 | D15 market feedback | A market with independent participants and adversarially evaluated depth policy exists |
 | D9 assumed PD | Independent repayment and recovery evidence supports validation |
 | D2 equity requirement | A loss-bearing mechanism beyond the account exists — stake, insurance, tranching, first-loss |

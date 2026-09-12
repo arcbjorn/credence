@@ -153,11 +153,40 @@ Both are additive. Neither touches `risk-core`, the contracts, or the schedule b
 | Kuru | $5,000 | **New assets and markets** — a new tradable class *plus the infrastructure to make it viable* | `NoteSeries` tokenized agent debt is literally a new asset class. Behind the 25 Sep and 2 Oct gates above. |
 | Nansen | $5,000 | A product experience **beyond exposing raw data** | Provenance-tagged enrichment that demonstrably changes an underwriting decision |
 
-### Do not chase
+### Pursue last — vault hedging automation
 
-| Sponsor | Prize | Why not |
+**Perpl API ($5,000)** — *"production-ready trading bot or automation system on Perpl."*
+
+The custody constraint that removes the basis trade (D14) binds `CreditAccount`, which cannot sign Ed25519. It does **not** bind the offchain services, which already hold keys by design. And the plan already carries an unanswered risk:
+
+```text
+CreditVault lends against agents holding the risky asset
+        ↓
+agent defaults → recovery unwinds into a falling market
+        ↓
+lenders absorb the shortfall (02: realized LGD spans 0%–88%)
+        ↓
+an offchain service shorts perps on Perpl to hedge the vault's
+   aggregate risky-asset exposure
+```
+
+Why this qualifies where the basis trade does not:
+
+| | Basis trade | Vault hedge |
 |---|---|---|
-| Perpl | $5,000 | Wants a **trading bot or automation system on Perpl**. Contracts cannot sign Ed25519, so `CreditAccount` cannot trade there; the agent trades spot through our own adapter. Needs the deferred basis trade (D14). |
+| Who trades | `CreditAccount` — cannot sign | Offchain service — already holds keys |
+| Custody domain | Broken | Untouched |
+| Recovery path | Becomes keeper-dependent | Unchanged, contract-enforced |
+| Position marked onchain for coverage | Required | **Not needed** — vault-level, not account-level |
+| Unknowns 4–6 above | All apply | **None apply** |
+
+The six unknowns exist because the perp leg must sit *inside* a credit account and be marked for coverage math. A vault-level hedge sits entirely outside that boundary.
+
+**Constraints.** Genuinely additional scope: a service holding its own keys and managing its own margin. Starts only after the 22 September baseline is pinned, and its failure must leave the demo unchanged. **For v0 it runs in scenario mode against the synthetic population**, demonstrating the mechanism — not managing real capital. A hedging bot that loses money is a new loss source, so it carries its own risk framing and its own labeled evidence.
+
+**Rank it last** — after Envio, CRE, the Perpl panel, the MetaMask plugin, and Kuru. Take it only if time remains.
+
+### Do not chase
 
 Everything else — Agora (mobile apps), Cleanverse, Aurora, Privy, Dynamic, Alchemy, Hunyuan, KIMI, Qwen, Mera — requires a product shape this release does not have.
 
@@ -165,12 +194,13 @@ Everything else — Agora (mobile apps), Cleanverse, Aurora, Privy, Dynamic, Alc
 
 ### Expectation
 
-| Outcome | Range |
+| Outcome | Cumulative |
 |---|---|
 | Spine only — Envio + CRE | $1k–$4k |
 | Plus the Perpl panel and MetaMask plugin | $6.5k–$9.5k |
 | Kuru clears its gates | $11.5k–$14.5k |
-| Everything including Nansen | ~$19.5k |
+| Plus Nansen | ~$19.5k |
+| Plus the vault hedge | ~$24.5k |
 
 **Sequencing rule:** none of these may start before the 22 September baseline is pinned. Each is a leaf — a view, an adapter, or a gated extension — and a failure in any one must leave the demo unchanged.
 
