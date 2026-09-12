@@ -9,10 +9,12 @@
 //! is why this crate can be developed and verified offline while contracts
 //! are still in flux.
 
+pub mod assessment;
 pub mod canonical;
 pub mod capacity;
 pub mod evidence;
 pub mod input;
+pub mod pricing;
 pub mod snapshot;
 pub mod stress;
 pub mod interest;
