@@ -52,6 +52,16 @@ So a workable shape exists: `CreditAccount` owns the Perpl account; an offchain 
 5. How is a perp position marked onchain for coverage math?
 6. How does isolated margin compose with account coverage?
 
+**Partial spike, 12 September — unknowns 1–3 probed against testnet.** Exchange proxy `0x1964…80cc` resolves to implementation `0xbcbd…adbb` (128 KB).
+
+| # | Question | Result | Evidence |
+|---|---|---|---|
+| 1 | `createAccount` callable from a contract? | **Likely yes, unproven** | Selector `cab13915` present. A contract caller and an EOA caller returned the *identical* revert `0xcfe73bb0(caller, amount)` — a balance/allowance error, not caller-type rejection. No EOA-only guard surfaced. Proof needs a funded contract transaction. |
+| 2 | May `target_profile` be a contract address? | **Unresolved** | Docs define it only as "the delegated account address". No onchain operator functions (`isOperator`, `setOperator`) exist in the implementation; delegation is validated server-side by an undocumented mechanism. Needs a live enrollment attempt. |
+| 3 | Enrollment accepts EIP-1271? | **No — treat as closed** | `isValidSignature(bytes32,bytes)` absent from the implementation. Enrollment requires a secp256k1 EIP-712 wallet signature; EIP-1271 and ERC-6492 are unmentioned. A contract cannot sign enrollment. |
+
+Unknown 2 is now load-bearing and is **not resolvable from public documentation or chain state.** Unknowns 4–6 are build questions this spike did not touch.
+
 Spot-only carries **one** unknown: which venue. Eleven days to the baseline, one builder, custody plus recovery is the entire foundation. **Six critical-path unknowns do not fit; one does.**
 
 **Retained as strategy adapter #2** with a bounded 2-day spike after the baseline is pinned, resolving unknowns 1–3. The venue capability to check is **contract-callable trading and a contract-callable forced unwind** — not "is it onchain", which Perpl already is. An exchange's own liquidation mechanism does not supply Credence's required recovery *timing*.
