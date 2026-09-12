@@ -55,6 +55,7 @@ fn input() -> RiskInput {
                 max_accepted_apr: Bps(1_500),
                 action_envelope_hash: "act".into(),
                 intent_hash: "intent".into(),
+                intended_action: risk_core::stress::IntendedAction::Hold,
             },
         },
         account: evidence(
