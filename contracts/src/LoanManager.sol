@@ -5,6 +5,8 @@ import {IERC20} from "./IERC20.sol";
 import {SafeTransfer} from "./SafeTransfer.sol";
 import {CreditAccount} from "./CreditAccount.sol";
 import {CreditVault} from "./CreditVault.sol";
+import {RiskOracle} from "./RiskOracle.sol";
+import {Binding, Terms} from "./Assessment.sol";
 
 /// @title LoanManager
 /// @notice Origination, interest, repayment, recovery, and loss allocation.
@@ -50,6 +52,7 @@ contract LoanManager {
 
     IERC20 public immutable asset;
     CreditVault public immutable vault;
+    RiskOracle public immutable oracle;
     address public immutable operator;
 
     uint256 public nextLoanId = 1;
@@ -68,6 +71,8 @@ contract LoanManager {
     error NotYetDefaultable();
     error Paused();
     error ZeroAmount();
+    error StaleAccountState(uint64 presented, uint64 actual);
+    error InsufficientEquity(uint256 required, uint256 held);
 
     event Originated(uint256 indexed loanId, address indexed account, uint256 principal);
     event Repaid(uint256 indexed loanId, uint256 principal, uint256 interest);
@@ -81,10 +86,21 @@ contract LoanManager {
         _;
     }
 
-    constructor(IERC20 asset_, CreditVault vault_, address operator_) {
+    constructor(IERC20 asset_, CreditVault vault_, RiskOracle oracle_, address operator_) {
         asset = asset_;
         vault = vault_;
+        oracle = oracle_;
         operator = operator_;
+    }
+
+    /// @notice Register an execution route on an account.
+    /// @dev The account only accepts adapter changes from its loan manager,
+    /// so this is the operator's path to whitelisting a strategy route.
+    function setAccountAdapter(CreditAccount account, address adapter, bool allowed)
+        external
+        onlyOperator
+    {
+        account.setAdapter(adapter, allowed);
     }
 
     /// @notice Halt new originations.
@@ -96,18 +112,43 @@ contract LoanManager {
 
     // --- Origination ---
 
-    function originate(
-        CreditAccount account,
-        uint256 principal,
-        uint32 aprBps,
-        uint64 termSeconds
-    ) external onlyOperator returns (uint256 loanId) {
+    /// @notice Originate against a standing, unconsumed quote.
+    /// @dev Step 6-8 of `docs/05`'s origination sequence. The quote is
+    /// consumed and the debt created BEFORE any untrusted external
+    /// interaction, so a reentrant adapter cannot observe a funded account
+    /// with no recorded obligation.
+    ///
+    /// The oracle enforces authorization (route, sequence, expiry, class,
+    /// exact amount). This function enforces live contract state, because a
+    /// correctly signed assessment is not permission to ignore a vault cap
+    /// or an open loan.
+    function originate(Binding calldata binding, uint256 principal)
+        external
+        returns (uint256 loanId)
+    {
         require(!paused, Paused());
         require(principal > 0, ZeroAmount());
 
-        address acct = address(account);
+        address acct = binding.creditAccount;
+        CreditAccount account = CreditAccount(acct);
+
         require(activeLoan[acct] == 0, AccountHasActiveLoan());
         require(!defaulted[acct], AccountInDefault());
+        // The binding must describe the account as it stands now. A stale
+        // state version means the assessed portfolio no longer exists.
+        require(
+            binding.accountStateVersion == account.stateVersion(),
+            StaleAccountState(binding.accountStateVersion, account.stateVersion())
+        );
+
+        // Consumes once, and only for this exact amount.
+        Terms memory terms = oracle.consumeQuote(binding, principal);
+
+        // `docs/02`: an agent with no equity receives no credit in v0.
+        require(
+            account.balanceOf(address(asset)) >= terms.requiredEquity,
+            InsufficientEquity(terms.requiredEquity, account.balanceOf(address(asset)))
+        );
 
         loanId = nextLoanId++;
         loans[loanId] = Loan({
@@ -115,17 +156,15 @@ contract LoanManager {
             principal: principal,
             principalOutstanding: principal,
             interestCollected: 0,
-            aprBps: aprBps,
+            aprBps: terms.aprBps,
             originatedAt: uint64(block.timestamp),
-            termSeconds: termSeconds,
+            termSeconds: terms.termSeconds,
             recoveryStartedAt: 0,
             interestSnapshot: 0,
             status: Status.Active
         });
         activeLoan[acct] = loanId;
 
-        // Debt is created before any external transfer. `docs/05`: consume the
-        // quote and create the obligation before untrusted interaction.
         account.openDebt();
         vault.lend(acct, principal);
 
