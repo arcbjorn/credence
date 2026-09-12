@@ -10,6 +10,7 @@
 //! are still in flux.
 
 pub mod canonical;
+pub mod evidence;
 pub mod interest;
 pub mod units;
 
