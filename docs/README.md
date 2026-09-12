@@ -31,7 +31,8 @@ The product claim:
 Diagrams: [`diagrams/`](diagrams/) — architecture, loan lifecycle, underwriting order.
 
 Source documents (unchanged, for provenance): the original vision, the build plan,
-the execution plan, and the merged master plan in the repository root.
+the execution plan, and the merged master plan in the repository root. The documents
+in this directory define the current plan; older source documents are historical references.
 
 ---
 
@@ -40,7 +41,7 @@ the execution plan, and the merged master plan in the repository root.
 Everything else follows from these.
 
 1. **Enforceable capital control comes first.** History improves terms *within* limits that custody and stress establish — never instead of them.
-2. **The engine is pure.** No I/O, no clock, no entropy. Same input plus same pinned model yields the same canonical output, byte for byte.
-3. **Evidence quality gates authorization.** Missing or stale evidence yields `Unavailable` with no executable terms — never an apparently approved zero-risk loan.
+2. **The engine is pure.** No I/O, no clock, no entropy. Same input plus the same pinned model and policy yields the same canonical output, byte for byte.
+3. **Evidence quality gates authorization.** Invalid or unavailable required evidence yields `Unavailable` with blocked risk permission and no executable terms. Missing optional enrichment is omitted without favorable credit; it is never replaced by synthetic evidence in an observed facility.
 4. **Claim only what is demonstrated.** Assumptions are labeled assumptions. Synthetic data is labeled synthetic. A hash commits to data; it does not make the data true.
 5. **Scope reductions preserve three outcomes:** accountable decisions, enforced capital rules, visible recovery and losses. Cut integrations before weakening these.

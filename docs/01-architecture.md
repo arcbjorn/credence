@@ -10,7 +10,9 @@ One boundary carries the load:
 RiskInput ──► [ pure fn, no I/O, pinned model ] ──► RiskAssessment
 ```
 
-Every integration either **produces a field in `RiskInput`** or **consumes a field in `RiskAssessment`**. None sits on the critical path. An integration that fails degrades a field's provenance from `Live` to `Simulated`; it does not stop the system.
+Evidence integrations produce fields in `RiskInput`; authorization and execution integrations consume assessments and generate lending events. **Optional enrichment can be omitted; required evidence and enforcement dependencies cannot.** Required evidence failure produces `Unavailable` and blocks risk-increasing authorization. Optional evidence is omitted with its absence recorded and no clean-history benefit.
+
+An acquisition failure never changes evidence origin from observed to synthetic. The scenario baseline uses separately bound test deployments and retained fixtures; switching to it is an explicit environment change. The release still requires the selected chain and the registry acceptance described in [08 · Integrations](08-integrations.md).
 
 ## Dependency order
 
@@ -39,7 +41,7 @@ Provider APIs enrich evidence. CRE can validate and deliver an assessment. Kuru 
 | Component | Owns | Does not own |
 |---|---|---|
 | Rust `risk-core` | Validation, valuation, eligibility, limits, pricing, stress, explanations | Network, signing, persistence, wall-clock |
-| Rust `risk-service` | HTTP boundary, schema validation, resource limits | Database state, provider orchestration |
+| Rust `risk-service` | Service boundary, schema validation, resource limits; HTTP baseline, gated gRPC transport | Database state, provider orchestration |
 | Go `gateway` | Evidence acquisition, canonical snapshots, SQLite, contract events, product API, replay, **reassessment scheduling** | Discretionary changes to engine output |
 | Go `simulator` | Virtual clock, ordered events, independent outcome generation | Pretending virtual age is onchain age |
 | Agent runner | Observe, propose, commit forecast, request or decline, execute, repay | Risk approvals, arbitrary custody access |
@@ -56,14 +58,14 @@ Provider APIs enrich evidence. CRE can validate and deliver an assessment. Kuru 
 | Contracts | Solidity + Foundry, OpenZeppelin (pin after first green build) |
 | Risk engine | Rust, `rust_decimal` or integer base units |
 | Data plane | Go, SQLite/WAL |
-| Internal transport | HTTP/JSON until the 5 Oct freeze, then protobuf/gRPC with Tonic |
+| Internal transport | HTTP/JSON baseline; isolated protobuf/gRPC gate on 6 Oct after the 5 Oct freeze |
 | Indexer | Envio |
 | Frontend | TypeScript + Next.js, viem/wagmi |
 | Deployment | Docker Compose onto a small persistent VM |
 
-**On transport:** the boundary is architectural and permanent; only its wire format changes. JSON while `RiskInput` churns avoids schema-churn tax; protobuf after the freeze buys type safety and speed. Both must pass identical reference vectors. If gRPC is not green by 6 October, ship JSON — the diagram is unchanged either way.
+**On transport:** the boundary is architectural and permanent; only its wire format changes. Freeze contracts, schemas, model, fixtures, and a working JSON release candidate on 5 October. On 6 October, accept the isolated gRPC transport change only if it passes identical canonicalization vectors and the applicable acceptance matrix without changing those frozen artifacts. Otherwise ship JSON. The architecture diagram is unchanged either way.
 
-## Repository layout
+## Planned implementation layout
 
 ```text
 contracts/                  Solidity, Foundry tests, deploy scripts
@@ -83,4 +85,4 @@ docs/                       This documentation
 
 Signing credentials stay in a restricted backend. Scenario identities and funding keys stay separate from any personal wallet. Record dependency versions, artifacts, addresses, and model, policy, and fixture hashes for the release.
 
-**This directory is not yet a Git repository — initialize during implementation.** Conventional commits, one granular commit per goal, 50-character subject limit.
+The repository currently contains the documentation and historical plans; implementation directories above are planned. Use conventional commits, one granular commit per goal, with a 50-character subject limit.

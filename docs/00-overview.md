@@ -61,9 +61,9 @@ The release target is **a prototype with test capital.** Mainnet with real lende
 | Deterministic underwriting and replay | Essential |
 | Explainable decisions with provenance | Essential |
 | Fixed-epoch vault accounting | Essential |
-| ERC-8004 identity and repayment evidence | Keep; registry checked early |
+| ERC-8004 identity and repayment evidence | Required for release; compatibility checked 15 Sep, publication and independent reader complete 25 Sep |
 | Forecast commitment and Brier scoring | Keep, narrowly defined |
-| Envio indexing and market data | Keep |
+| Indexing and market data | Required capabilities; Envio and enrichment providers gated, with direct logs and a labeled scenario price source as baseline |
 | CRE workflow | Access 13 Sep; level fixed 25 Sep |
 | Nansen enrichment | Only if it changes a demonstrated decision |
 | Kuru note market | Gated — [08](08-integrations.md) |
