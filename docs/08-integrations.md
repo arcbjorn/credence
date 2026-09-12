@@ -127,6 +127,15 @@ Pursue only where the integration already serves the demo. Fits below are assess
 | Envio | $1,000 | HyperIndex/HyperSync/HyperRPC powering a **core feature** | Lifecycle reconstruction from indexed events is a core feature, not a bolt-on |
 | Chainlink | $3,000 | CRE workflow as an orchestration layer — **"build, simulate, or deploy"** | Simulation qualifies, so the attestation path can enter even if deployment access never lands |
 
+### Pursue — a view or adapter over committed work
+
+| Sponsor | Prize | Requirement | What it costs |
+|---|---|---|---|
+| Perpl | $3,000 | Real-time analytics, risk-monitoring, or portfolio intelligence **focused on Perpl** | A **Perpl market-risk panel**: feed public orderbook depth, funding rates, and realized volatility into the same three named stress scenarios, displayed as a Perpl-focused view. The engine already consumes exactly these inputs. Perpl's market-data endpoints are public — orderbook and funding over WebSocket, funding and candles over REST, no authentication. |
+| MetaMask | $2,500 | A **plugin** giving the Agent Wallet a new trading superpower via its plugin architecture | A thin TypeScript plugin over the existing `/v1` product API, exposing the runner's tools as `mm` commands — assess, borrow, health, repay. Plugins are small packages (`@metamask/agent-sdk`; see the `ens` and `sample` examples). **The superpower is credit**: a MetaMask agent that can borrow, which no other plugin offers. 1–2 days, after the baseline. |
+
+Both are additive. Neither touches `risk-core`, the contracts, or the schedule before 22 September.
+
 ### Conditional — genuine fit, gated
 
 | Sponsor | Prize | Requirement | Condition |
@@ -134,13 +143,11 @@ Pursue only where the integration already serves the demo. Fits below are assess
 | Kuru | $5,000 | **New assets and markets** — a new tradable class *plus the infrastructure to make it viable* | `NoteSeries` tokenized agent debt is literally a new asset class. Behind the 25 Sep and 2 Oct gates above. |
 | Nansen | $5,000 | A product experience **beyond exposing raw data** | Provenance-tagged enrichment that demonstrably changes an underwriting decision |
 
-### Do not chase — would require building something else
+### Do not chase
 
-| Sponsor | Prize | Requirement | Why it does not fit |
-|---|---|---|---|
-| Perpl | $3,000 | Analytics/risk dashboard **focused on Perpl** | The stress engine underwrites Credence accounts, not Perpl positions |
-| Perpl | $5,000 | **Production-ready trading bot** on Perpl | The agent trades spot through our own adapter; the basis trade is deferred to adapter #2 |
-| MetaMask | $2,500 | A **plugin** extending the Agent Wallet's plugin architecture | A separate deliverable, not a byproduct of the account policy layer |
+| Sponsor | Prize | Why not |
+|---|---|---|
+| Perpl | $5,000 | Wants a **trading bot or automation system on Perpl**. Contracts cannot sign Ed25519, so `CreditAccount` cannot trade there; the agent trades spot through our own adapter. Needs the deferred basis trade (D14). |
 
 Everything else — Agora (mobile apps), Cleanverse, Aurora, Privy, Dynamic, Alchemy, Hunyuan, KIMI, Qwen, Mera — requires a product shape this release does not have.
 
@@ -150,8 +157,11 @@ Everything else — Agora (mobile apps), Cleanverse, Aurora, Privy, Dynamic, Alc
 
 | Outcome | Range |
 |---|---|
-| Likely — Envio + CRE | $1k–$4k |
-| Kuru clears its gates | $6k–$9k |
-| Everything lands | ~$14k |
+| Spine only — Envio + CRE | $1k–$4k |
+| Plus the Perpl panel and MetaMask plugin | $6.5k–$9.5k |
+| Kuru clears its gates | $11.5k–$14.5k |
+| Everything including Nansen | ~$19.5k |
+
+**Sequencing rule:** none of these may start before the 22 September baseline is pinned. Each is a leaf — a view, an adapter, or a gated extension — and a failure in any one must leave the demo unchanged.
 
 **Bounties reward eligible submissions at judges' discretion. They are not expected revenue or a guaranteed return on integration work.** An integration that would not otherwise earn a place in the demo is not worth its bounty.
