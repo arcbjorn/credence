@@ -12,6 +12,7 @@
 pub mod assessment;
 pub mod canonical;
 pub mod capacity;
+pub mod engine;
 pub mod evidence;
 pub mod input;
 pub mod pricing;
