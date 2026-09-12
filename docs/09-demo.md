@@ -22,12 +22,12 @@ Lead with amounts, terms, actions, reasons. Hashes, model versions, and service 
 | Beat | Action | Evidence shown |
 |---|---|---|
 | 1 | Introduce three accounts and the financing problem | Different histories and exposures, clear scenario labels |
-| 2 | Performer proposes an allocation, accepts or declines terms | Actual agent trace, or explicitly labeled replay |
-| 3 | Commit forecast, assess, fund | Commitment reference, binding reason, transaction, funds in the restricted account |
+| 2 | Performer proposes an allocation, requested amount, and financing ceiling | Actual agent trace, or explicitly labeled replay; expected benefit after costs on the loan horizon |
+| 3 | Commit forecast and request, assess, accept or decline terms, fund if accepted | Commitment reference, exact requested grant, binding reason, transaction, funds in the restricted account |
 | 4 | Close strategy and repay | Principal, realized flows, costs, accrued interest, updated history |
 | 4b | **Repeat twice more** | Three sequential loans, same policy and model hash; limit rises, APR falls, **binding constraint switches from history to stress capacity** |
 | 5 | Assess the concentrated account | Good history, denial caused by **current portfolio limits** |
-| 5b | **Unprompted reassessment** | Market moves while a loan is open, no agent request; updated risk state reaches chain within the declared interval |
+| 5b | **Unprompted reassessment** | Market moves while a loan is open, no agent request; a monitoring update with no origination terms reaches chain within the declared interval |
 | 6 | **Attempt a prohibited withdrawal** | Reverting transaction — lender protection demonstrated, not claimed |
 | 7 | Overconfident scenario and recovery | Repeated forecasts and outcomes, keeper action, actual collection, lender loss |
 | 8 | Replay a retained assessment | Exact model and input identifiers, verified match |
@@ -36,6 +36,8 @@ Lead with amounts, terms, actions, reasons. Hashes, model versions, and service 
 **Beat 6 is the single most convincing moment** — the difference between claiming lender protection and demonstrating it, in one reverted transaction.
 
 **Beats 4b and 5b carry the thesis.** Without 4b, credit never visibly compounds. Without 5b, "continuous underwriting" is asserted rather than shown.
+
+In beat 4b, the rising limit is `agent_capacity`; show `facility_limit`, debt headroom (`available_credit`), `drawable_capacity`, and requested/granted principal separately. Beat 5b and the withdrawal attempt require an active loan: open the overconfident account's loan before those beats, then continue its outcomes and recovery in beat 7. Do not rely on the performer's already repaid loan to demonstrate an active-debt restriction.
 
 ## Rules
 
