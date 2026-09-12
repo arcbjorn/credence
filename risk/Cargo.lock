@@ -115,6 +115,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "risk-cli"
+version = "0.1.0"
+dependencies = [
+ "risk-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "risk-core"
 version = "0.1.0"
 dependencies = [
