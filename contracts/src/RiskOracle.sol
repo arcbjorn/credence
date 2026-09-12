@@ -44,6 +44,9 @@ contract RiskOracle {
     uint256 public immutable deploymentId;
     bytes32 public immutable domainSeparator;
 
+    /// @dev The only contract permitted to consume quotes.
+    address public loanManager;
+
     /// @dev Facility route, pinned per epoch.
     mapping(uint256 facilityId => Route) public facilityRoute;
     /// @dev Signer allowlists are scoped WITHIN a route, so a development key
@@ -101,6 +104,10 @@ contract RiskOracle {
                 address(this)
             )
         );
+    }
+
+    function setLoanManager(address loanManager_) external onlyOperator {
+        loanManager = loanManager_;
     }
 
     function pinRoute(uint256 facilityId, Route route) external onlyOperator {
@@ -195,13 +202,16 @@ contract RiskOracle {
 
     /// @notice Consume the standing quote for an exact draw.
     /// @dev `docs/03`: v0 grants the exact requested amount or denies. A
-    /// smaller or larger draw cannot consume the quote. Callable only by the
-    /// loan manager, which separately rechecks live contract state.
-    function consumeQuote(Binding calldata b, uint256 drawAmount, address consumer)
+    /// smaller or larger draw cannot consume the quote.
+    ///
+    /// Restricted to the registered loan manager. Anyone else could
+    /// otherwise burn a live quote by calling this directly — griefing that
+    /// costs nothing and forces a fresh assessment.
+    function consumeQuote(Binding calldata b, uint256 drawAmount)
         external
         returns (Terms memory)
     {
-        require(msg.sender == consumer, NotConsumer());
+        require(msg.sender == loanManager, NotConsumer());
         bytes32 key = bindingKey(b);
         Stored storage q = quote[key];
         require(q.assessmentId != bytes32(0), NoQuote());
