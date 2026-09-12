@@ -103,3 +103,53 @@ func TestLargeIntegerSurvives(t *testing.T) {
 		t.Fatalf("large integer corrupted: %s", enc)
 	}
 }
+
+// A struct must hash identically to the map it decodes into. Without this,
+// a caller could hash a value one way at write time and another at read
+// time, and the snapshot would not reproduce its own decision.
+func TestStructHashesSameAsEquivalentMap(t *testing.T) {
+	type inner struct {
+		Z string `json:"z"`
+		A string `json:"a"`
+	}
+	type outer struct {
+		Name  string `json:"name"`
+		Inner inner  `json:"inner"`
+		Count int    `json:"count"`
+	}
+
+	fromStruct, err := canonical.HashHex(outer{
+		Name: "x", Inner: inner{Z: "2", A: "1"}, Count: 7,
+	})
+	if err != nil {
+		t.Fatalf("hash struct: %v", err)
+	}
+	fromMap, err := canonical.HashHex(map[string]any{
+		"name":  "x",
+		"inner": map[string]any{"a": "1", "z": "2"},
+		"count": 7,
+	})
+	if err != nil {
+		t.Fatalf("hash map: %v", err)
+	}
+	if fromStruct != fromMap {
+		t.Fatalf("struct and map must hash alike\n  struct: %s\n  map:    %s", fromStruct, fromMap)
+	}
+}
+
+// Floats stay rejected through the struct path too.
+func TestStructWithFloatIsRejected(t *testing.T) {
+	type withFloat struct {
+		Amount float64 `json:"amount"`
+	}
+	if _, err := canonical.Encode(withFloat{Amount: 1.5}); err == nil {
+		t.Fatal("a float inside a struct must still be rejected")
+	}
+}
+
+// An unencodable value fails loudly rather than hashing to something.
+func TestUnencodableValueFails(t *testing.T) {
+	if _, err := canonical.Encode(make(chan int)); err == nil {
+		t.Fatal("an unencodable value must produce an error")
+	}
+}

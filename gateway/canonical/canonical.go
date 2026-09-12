@@ -111,9 +111,39 @@ func encodeValue(buf *bytes.Buffer, v any) error {
 		}
 		buf.WriteByte(']')
 	default:
-		return fmt.Errorf("canonical: unsupported type %T", v)
+		// Structs and named types reach here. Normalizing through JSON gives
+		// one encoding path for every input, so a caller cannot accidentally
+		// hash a struct differently from the map it decodes into. The strict
+		// decode keeps integer precision and still rejects floats.
+		normalized, err := normalize(v)
+		if err != nil {
+			return err
+		}
+		return encodeValue(buf, normalized)
 	}
 	return nil
+}
+
+// normalize converts an arbitrary Go value into the canonical value types,
+// via JSON. Returns an error rather than a partial encoding so an
+// unencodable value fails loudly at the boundary.
+func normalize(v any) (any, error) {
+	raw, err := json.Marshal(v)
+	if err != nil {
+		return nil, fmt.Errorf("canonical: cannot encode %T: %w", v, err)
+	}
+	decoded, err := DecodeStrict(raw)
+	if err != nil {
+		return nil, fmt.Errorf("canonical: cannot normalize %T: %w", v, err)
+	}
+	// Guard against infinite recursion: a type whose JSON round-trip lands
+	// back on an unsupported kind must fail, not loop.
+	switch decoded.(type) {
+	case nil, bool, string, json.Number, map[string]any, []any:
+		return decoded, nil
+	default:
+		return nil, fmt.Errorf("canonical: unsupported type %T", v)
+	}
 }
 
 func encodeObject(buf *bytes.Buffer, m map[string]any) error {
