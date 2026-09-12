@@ -57,7 +57,7 @@ pub enum Class {
 }
 
 /// One observation with its lineage.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Evidence<T> {
     pub value: Option<T>,
     pub state: State,

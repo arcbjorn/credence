@@ -11,6 +11,8 @@
 
 pub mod canonical;
 pub mod evidence;
+pub mod input;
+pub mod snapshot;
 pub mod interest;
 pub mod units;
 
