@@ -1,0 +1,22 @@
+[package]
+name = "risk-service"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "HTTP boundary for the risk engine. Owns no state."
+
+[[bin]]
+name = "credence-risk-service"
+path = "src/main.rs"
+
+[lib]
+name = "risk_service"
+path = "src/lib.rs"
+
+[lints]
+workspace = true
+
+[dependencies]
+risk-core = { path = "../risk-core" }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order", "arbitrary_precision"] }

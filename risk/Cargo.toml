@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/risk-core", "crates/risk-cli"]
+members = ["crates/risk-core", "crates/risk-cli", "crates/risk-service"]
 
 [workspace.package]
 version = "0.1.0"
