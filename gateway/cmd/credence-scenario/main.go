@@ -408,6 +408,11 @@ func enrollLoan(
 		ConfigHash:    hashHex(binding.ConfigHash),
 		PolicyEpoch:   binding.PolicyEpoch,
 		PolicyHash:    hashHex(binding.PolicyHash),
+		// The scenario creates the account in this same run, so indexing
+		// genuinely covers its whole history. A real deployment must
+		// record where its indexer actually started, and leave this zero
+		// when it cannot prove coverage.
+		IndexedFrom: 1,
 	}); err != nil {
 		return fmt.Errorf("register binding: %w", err)
 	}
