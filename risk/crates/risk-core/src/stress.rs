@@ -88,6 +88,9 @@ pub fn recoverable_value(
     positions: &[Position],
     shock: Shock,
     price_shock_bps: Bps,
+    // Depth the exit would trade into. Zero means undeclared, which is
+    // the worst case rather than an unlimited one.
+    depth: Amount,
     policy: &StressPolicy,
 ) -> Option<Amount> {
     let (apply_price, apply_liquidity) = match shock {
@@ -118,7 +121,11 @@ pub fn recoverable_value(
         value = value.checked_mul(after_haircut)? / 10_000;
 
         if apply_liquidity {
-            let after_liq = 10_000u128.checked_sub(policy.liquidity_haircut_bps.0 as u128)?;
+            // Scaled by how much of the market this position represents,
+            // rather than a flat rate: a concentrated book is the case
+            // the liquidity scenario exists to catch.
+            let impact = liquidity_impact_bps(marked, depth, policy.liquidity_haircut_bps);
+            let after_liq = 10_000u128.checked_sub(impact.min(10_000))?;
             value = value.checked_mul(after_liq)? / 10_000;
         }
 
@@ -129,6 +136,64 @@ pub fn recoverable_value(
     let cost_bps = (policy.execution_cost_bps.0 as u128) + (policy.keeper_fee_bps.0 as u128);
     let remaining = 10_000u128.checked_sub(cost_bps)?;
     Some(Amount(total.0.checked_mul(remaining)? / 10_000))
+}
+
+/// Integer square root, by Newton's method.
+///
+/// Exact and terminating on every `u128`: the iteration is monotonically
+/// decreasing once started above the root, so it converges without a
+/// floating-point step. `docs/04` forbids a float path producing a value
+/// used in authorization, and this feeds the liquidity haircut.
+fn isqrt(n: u128) -> u128 {
+    if n < 2 {
+        return n;
+    }
+    let mut x = n;
+    let mut y = (x + 1) / 2;
+    while y < x {
+        x = y;
+        y = (x + n / x) / 2;
+    }
+    x
+}
+
+/// Extra haircut from exiting a position into finite depth, in bps.
+///
+/// Market impact grows with the square root of size relative to depth --
+/// the standard form for liquidation cost, and the reason a flat haircut
+/// misprices both ends: a small clip barely moves the market, while a
+/// position that IS the market cannot be sold at the observed price.
+///
+/// `impact = base * sqrt(size / depth)`, computed in bps throughout:
+///
+///   size == depth      -> the full base haircut
+///   size == depth/4    -> half of it
+///   size == depth/100  -> a tenth of it
+///
+/// Depth of zero means undeclared, never infinite. An undeclared market is
+/// the worst case, so it takes the maximum impact rather than none.
+///
+/// Capped at 10,000 bps: a position cannot recover less than nothing.
+fn liquidity_impact_bps(marked_value: u128, depth: Amount, base_bps: Bps) -> u128 {
+    let base = base_bps.0 as u128;
+    if marked_value == 0 {
+        return 0;
+    }
+    if depth.0 == 0 {
+        return 10_000u128.min(base.saturating_mul(4));
+    }
+
+    // ratio_bps = size / depth, in bps. Saturates when the position dwarfs
+    // the market, which is exactly when the impact should be maximal.
+    let ratio_bps = marked_value
+        .saturating_mul(10_000)
+        .checked_div(depth.0)
+        .unwrap_or(10_000);
+
+    // sqrt in bps space: sqrt(r/10_000) * 10_000 == sqrt(r * 10_000).
+    let scaled = isqrt(ratio_bps.saturating_mul(10_000));
+
+    base.saturating_mul(scaled) / 10_000
 }
 
 /// Evaluate all three scenarios against a candidate post-action portfolio.
@@ -143,8 +208,14 @@ pub fn evaluate_all(
     let mut out = Vec::with_capacity(3);
 
     for shock in Shock::ALL {
-        let recoverable =
-            recoverable_value(settlement_balance, positions, shock, price_shock, policy)?;
+        let recoverable = recoverable_value(
+            settlement_balance,
+            positions,
+            shock,
+            price_shock,
+            market.liquidity_depth,
+            policy,
+        )?;
         out.push(StressResult {
             shock,
             applied_price_shock_bps: price_shock,

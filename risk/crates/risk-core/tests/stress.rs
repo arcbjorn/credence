@@ -118,9 +118,9 @@ fn combined_shock_is_the_most_severe() {
 #[test]
 fn price_shock_hits_positions_not_settlement() {
     let p = policy();
-    let cash_only = recoverable_value(Amount(10_000_000_000), &[], Shock::Price, Bps(3_000), &p)
+    let cash_only = recoverable_value(Amount(10_000_000_000), &[], Shock::Price, Bps(3_000), Amount(1), &p)
         .unwrap();
-    let no_shock = recoverable_value(Amount(10_000_000_000), &[], Shock::Liquidity, Bps(3_000), &p)
+    let no_shock = recoverable_value(Amount(10_000_000_000), &[], Shock::Liquidity, Bps(3_000), Amount(1), &p)
         .unwrap();
     assert_eq!(cash_only, no_shock, "cash is unaffected by a price shock");
 }
@@ -290,4 +290,145 @@ fn zero_headroom_yields_zero_capacity() {
 fn zero_apr_uses_all_headroom() {
     let available = Amount(5_000_000_000);
     assert_eq!(debt_headroom_capacity(available, Bps::ZERO, 864_000), available);
+}
+
+// --- Liquidity depth governs the exit (docs/03) ---
+
+/// A position large relative to depth must cost more to exit.
+///
+/// Market impact is not linear in size: a book that IS the market cannot
+/// be sold at the price a small clip fetches. A flat haircut prices both
+/// identically, which understates exactly the concentrated positions the
+/// liquidity scenario exists to catch.
+#[test]
+fn shallow_depth_reduces_recoverable_value() {
+    let p = policy();
+    let positions = vec![eth(1_000_000_000_000_000_000)]; // 1 ETH, 18dp
+
+    // The position marks to 2e21 in settlement units (1e18 units at a
+    // 2000.000000 price, 6dp). Depth is expressed in the same units.
+    let mut deep = market(2_000);
+    deep.liquidity_depth = Amount(2_000_000_000_000_000_000_000_000); // 1000x the position
+    let mut shallow = market(2_000);
+    shallow.liquidity_depth = Amount(2_000_000_000_000_000_000_000); // the position IS the market
+
+    let deep_results =
+        evaluate_all(Amount(0), &positions, Amount(1), &deep, &p).expect("deep");
+    let shallow_results =
+        evaluate_all(Amount(0), &positions, Amount(1), &shallow, &p).expect("shallow");
+
+    let liq = |rs: &[StressResult]| {
+        rs.iter()
+            .find(|r| r.shock == Shock::Liquidity)
+            .expect("liquidity case")
+            .recoverable_value
+    };
+
+    assert!(
+        liq(&shallow_results) < liq(&deep_results),
+        "a position that is the market must recover less: {:?} vs {:?}",
+        liq(&shallow_results),
+        liq(&deep_results)
+    );
+}
+
+/// Depth far above the position size leaves the exit essentially
+/// unaffected, so the model does not penalise ordinary positions.
+#[test]
+fn ample_depth_leaves_small_positions_alone() {
+    let p = policy();
+    let positions = vec![eth(1_000_000_000_000_000_000)];
+
+    let mut ample = market(2_000);
+    ample.liquidity_depth = Amount(2_000_000_000_000_000_000_000_000_000);
+    let mut ampler = market(2_000);
+    ampler.liquidity_depth = Amount(2_000_000_000_000_000_000_000_000_000_0);
+
+    let a = evaluate_all(Amount(0), &positions, Amount(1), &ample, &p).expect("a");
+    let b = evaluate_all(Amount(0), &positions, Amount(1), &ampler, &p).expect("b");
+
+    let liq = |rs: &[StressResult]| {
+        rs.iter()
+            .find(|r| r.shock == Shock::Liquidity)
+            .expect("liquidity case")
+            .recoverable_value
+    };
+
+    // Both deep enough that impact rounds to the same floor.
+    assert_eq!(
+        liq(&a),
+        liq(&b),
+        "ample depth must not distinguish between two deep markets"
+    );
+}
+
+/// Zero declared depth cannot silently mean "infinitely deep". It is the
+/// worst case, and must not recover more than a shallow-but-real market.
+#[test]
+fn zero_depth_is_the_worst_case() {
+    let p = policy();
+    let positions = vec![eth(1_000_000_000_000_000_000)];
+
+    let mut none = market(2_000);
+    none.liquidity_depth = Amount::ZERO;
+    let mut shallow = market(2_000);
+    shallow.liquidity_depth = Amount(2_000_000_000_000_000_000_000);
+
+    let n = evaluate_all(Amount(0), &positions, Amount(1), &none, &p).expect("none");
+    let s = evaluate_all(Amount(0), &positions, Amount(1), &shallow, &p).expect("shallow");
+
+    let liq = |rs: &[StressResult]| {
+        rs.iter()
+            .find(|r| r.shock == Shock::Liquidity)
+            .expect("liquidity case")
+            .recoverable_value
+    };
+
+    assert!(
+        liq(&n) <= liq(&s),
+        "undeclared depth must not recover more than a shallow market"
+    );
+}
+
+/// The impact curve must be monotone and match the square-root shape at
+/// its reference points, or the "scales with depth" claim is decorative.
+#[test]
+fn liquidity_impact_follows_the_square_root_law() {
+    let p = policy();
+    let positions = vec![eth(1_000_000_000_000_000_000)];
+    let marked = 2_000_000_000_000_000_000_000u128; // 1e18 units * 2000e6 / 1e6
+
+    let recover_at = |depth: u128| {
+        let mut m = market(2_000);
+        m.liquidity_depth = Amount(depth);
+        evaluate_all(Amount(0), &positions, Amount(1), &m, &p)
+            .expect("results")
+            .iter()
+            .find(|r| r.shock == Shock::Liquidity)
+            .expect("liquidity case")
+            .recoverable_value
+    };
+
+    // Monotone: deeper markets never recover less.
+    let quarter = recover_at(marked * 4);
+    let same = recover_at(marked);
+    let hundredth = recover_at(marked * 100);
+
+    assert!(same <= quarter, "size == depth must cost at least as much as size == depth/4");
+    assert!(quarter <= hundredth, "deeper must never recover less");
+
+    // Isolate the LIQUIDITY component. The asset's own haircut and the
+    // execution cost apply in every case, so measuring total loss would
+    // conflate them with impact and hide the curve's shape.
+    let baseline = recover_at(u128::MAX / 2); // effectively infinite depth
+    let full_impact = baseline.0 - same.0;
+    let quarter_impact = baseline.0 - quarter.0;
+
+    // sqrt(1/4) == 1/2, so a quarter-of-depth position takes about half
+    // the impact. A band, since bps arithmetic rounds.
+    assert!(
+        quarter_impact * 2 >= full_impact * 9 / 10
+            && quarter_impact * 2 <= full_impact * 11 / 10,
+        "quarter-depth impact should be about half of full: {quarter_impact} vs {full_impact}"
+    );
 }

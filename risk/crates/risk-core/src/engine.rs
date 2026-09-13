@@ -192,6 +192,7 @@ pub fn evaluate(input: &RiskInput, policy: &Policy) -> RiskAssessment {
                 &account.positions,
                 stress::Shock::Liquidity,
                 Bps::ZERO,
+                market.liquidity_depth,
                 &policy.stress,
             )
             .unwrap_or(Amount::ZERO);
