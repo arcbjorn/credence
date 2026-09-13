@@ -92,7 +92,7 @@ assumed; a green suite is not evidence for a behavioural claim.
 | Default handling | evidence | `scripts/demo-default.sh` |
 | Replay | evidence | `scripts/demo-monitor.sh` (beat 8, with its tampering control) |
 | Missing / stale data | evidence | `forge test --match-test ExecuteRequiresStandingPermission`; engine blocks on stale required evidence |
-| **Independent reputation reader** | **pending** | ERC-8004 publication not built |
+| **Independent reputation reader** | **partial** | `tools/reader/read_feedback.py` reads published feedback from chain with no Credence code; against a **local adapter**, not the selected network's ERC-8004 registry, so the release row stays open |
 | Integration honesty | evidence | scenario facility and test assets labelled; `TestRiskyAsset` is named *NOT ETH* |
 | Reproducibility | evidence | the three scripts run from a clean chain |
 
@@ -124,10 +124,34 @@ forecast:4  p= 75000ppm  unresolved   -
 Three observations permit an average, **not a reliability claim**
 (`docs/06`). No calibration statement is made from this sample.
 
-> One row is pending: the **independent reputation reader**, which needs
-> publication to the selected network's ERC-8004-compatible registry. Its
-> compatibility gate is 15 September; a local adapter would unblock
-> development but does not satisfy the row.
+### Independent reader — what is and is not demonstrated
+
+`tools/reader/read_feedback.py` prints an agent's obligation history from
+a JSON-RPC endpoint alone. It imports only the Python standard library and
+nothing from this repository: sharing an encoder with the gateway would
+make the check circular, since the reader would agree with the publisher
+for being the same code. Verified by running it from a directory outside
+the repo.
+
+```
+agent 184: 3 published obligation(s)
+  loan 1  Repaid      principal=4000000000  interest=6575343  loss=0
+  loan 2  Repaid      principal=4000000000  interest=6575343  loss=0
+  loan 3  Defaulted   principal=4000000000  interest=0        loss=3100000000
+  repaid=2  recovered=0  defaulted=1
+```
+
+Signals stay separate (`docs/06`): repayments, defaults, interest, and
+loss are reported independently and never collapsed into a score.
+
+> **This runs against a local adapter, and that does not satisfy the
+> release row.** `docs/08` permits one for development while the identity
+> gate stays open; the row requires publication to the selected network's
+> ERC-8004-compatible registry, with its address and compatibility
+> evidence in the deployment manifest. The registry compatibility gate is
+> **15 September**. The reader is written against an ABI layout the real
+> registry shares, so it should port rather than be rewritten — but that
+> claim is untested until a registry exists to test it against.
 
 ## Operational measurement
 
