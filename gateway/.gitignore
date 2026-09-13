@@ -1,3 +1,6 @@
 credence.db
 credence.db-*
 /credence-gateway
+/credence-recover
+/credence-scenario
+/credence-verify
