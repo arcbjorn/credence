@@ -129,7 +129,8 @@ func build(ctx context.Context, cfg *config.Config) (*deps, error) {
 		PriceScale: cfg.RiskyAsset.PriceScale,
 		Decimals:   cfg.RiskyAsset.Decimals,
 		HaircutBps: cfg.RiskyAsset.HaircutBps,
-	}).WithRiskySource(cfg.Addresses.PriceSource)
+	}).WithRiskySource(cfg.Addresses.PriceSource).
+		WithReceiptWait(cfg.ReceiptWait)
 
 	// The operator key spends gas; the attestation key only signs. Keeping
 	// them separate means a compromised attestor cannot move funds.

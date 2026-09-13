@@ -63,10 +63,15 @@ type Config struct {
 	EnginePolicy json.RawMessage `json:"engine_policy"`
 
 	// Timeouts
+	ReceiptWait time.Duration `json:"-"`
 	RiskTimeout time.Duration `json:"-"`
 	RPCTimeout  time.Duration `json:"-"`
 	TickPeriod  time.Duration `json:"-"`
 
+	// ReceiptWaitMS bounds how long a publish waits for its receipt before
+	// reporting Pending. Long enough to observe a confirmation, short
+	// enough that a stuck transaction does not stall the loop.
+	ReceiptWaitMS uint64 `json:"receipt_wait_ms"`
 	RiskTimeoutMS uint64 `json:"risk_timeout_ms"`
 	RPCTimeoutMS  uint64 `json:"rpc_timeout_ms"`
 	TickPeriodMS  uint64 `json:"tick_period_ms"`
@@ -162,6 +167,9 @@ func (c *Config) applyDefaults() {
 	if c.TickPeriodMS == 0 {
 		c.TickPeriodMS = 15_000
 	}
+	if c.ReceiptWaitMS == 0 {
+		c.ReceiptWaitMS = 3_000
+	}
 	if c.SchemaVersion == "" {
 		c.SchemaVersion = "v1"
 	}
@@ -180,6 +188,7 @@ func (c *Config) applyDefaults() {
 	c.RiskTimeout = time.Duration(c.RiskTimeoutMS) * time.Millisecond
 	c.RPCTimeout = time.Duration(c.RPCTimeoutMS) * time.Millisecond
 	c.TickPeriod = time.Duration(c.TickPeriodMS) * time.Millisecond
+	c.ReceiptWait = time.Duration(c.ReceiptWaitMS) * time.Millisecond
 }
 
 // Validate checks everything before any component is built.

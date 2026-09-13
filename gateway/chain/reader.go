@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"time"
 
 	"github.com/arcbjorn/credence/gateway/evidence"
 	"github.com/arcbjorn/credence/gateway/publisher"
@@ -51,6 +52,23 @@ type Reader struct {
 	// riskySource is an on-chain IPriceSource. When set, it supersedes
 	// the declared price for marking positions.
 	riskySource string
+	// receiptWait bounds how long ReceiptStatus waits for a transaction to
+	// be mined before reporting Pending.
+	receiptWait time.Duration
+}
+
+// WithReceiptWait bounds how long a receipt is awaited before the status is
+// reported as Pending.
+//
+// Zero keeps the single immediate read. A short wait is not an assumption
+// that the transaction succeeded: Pending remains the answer when the wait
+// expires, so the fail-closed path is unchanged. It only stops the caller
+// reporting "outcome unknown" for a transaction that is about to be mined
+// a few hundred milliseconds later, which otherwise shows up as a
+// resubmission on every tick.
+func (r *Reader) WithReceiptWait(d time.Duration) *Reader {
+	r.receiptWait = d
+	return r
 }
 
 func NewReader(rpc *RPC, addr Addresses) *Reader {
@@ -407,18 +425,35 @@ func (r *Reader) acceptedSequenceAt(
 // An unmined transaction is Pending, never Failed. Reporting it as failed
 // is what would cause a resubmission of something already in flight.
 func (r *Reader) ReceiptStatus(ctx context.Context, txHash string) (publisher.Status, error) {
-	receipt, err := r.rpc.TransactionReceipt(ctx, txHash)
-	if err != nil {
-		return "", err
+	deadline := time.Now().Add(r.receiptWait)
+	for {
+		receipt, err := r.rpc.TransactionReceipt(ctx, txHash)
+		if err != nil {
+			return "", err
+		}
+		if receipt.Found {
+			if receipt.Status == 1 {
+				return publisher.StatusConfirmed, nil
+			}
+			return publisher.StatusFailed, nil
+		}
+
+		// Not mined yet. Pending is still the answer once the wait is
+		// spent -- the caller must never read "not yet" as "succeeded".
+		if !time.Now().Before(deadline) {
+			return publisher.StatusPending, nil
+		}
+		select {
+		case <-ctx.Done():
+			return publisher.StatusPending, nil
+		case <-time.After(receiptPollInterval):
+		}
 	}
-	if !receipt.Found {
-		return publisher.StatusPending, nil
-	}
-	if receipt.Status == 1 {
-		return publisher.StatusConfirmed, nil
-	}
-	return publisher.StatusFailed, nil
 }
+
+// receiptPollInterval is short relative to any realistic block time, so a
+// confirmation is observed promptly without busy-looping the node.
+const receiptPollInterval = 100 * time.Millisecond
 
 // TokenBalance reads an ERC-20 balance at a pinned block.
 //
