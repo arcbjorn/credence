@@ -87,7 +87,7 @@ assumed; a green suite is not evidence for a behavioural claim.
 | **Continuous underwriting** | evidence | `scripts/demo-monitor.sh` |
 | Concentration override | evidence | `cargo test -p risk-core --test ablation concentration` — perfect history, zero capacity, bound by `StressCapacity` |
 | **Three stress cases** | evidence | reported in every assessment; `cargo test -p risk-core --test stress` |
-| Forecast evaluation | **pending** | commit-before-funding not yet demonstrated |
+| Forecast evaluation | evidence | `LOANS=4 scripts/demo-repay.sh` commits before funding and scores on resolution; `go test ./store/ -run Brier` pins the arithmetic |
 | Custody protection | evidence | `forge test --match-test ownerHasNoBypass` |
 | Default handling | evidence | `scripts/demo-default.sh` |
 | Replay | evidence | `scripts/demo-monitor.sh` (beat 8, with its tampering control) |
@@ -111,9 +111,23 @@ forecast cap takes over — which is why the binding constraint is reported
 beside the number rather than the number alone. APR keeps falling after
 capacity stops, because pricing still responds to demonstrated history.
 
-> The matrix above describes the **baseline**. Two rows are pending:
-> forecast evaluation needs commit-before-funding demonstrated, and the
-> independent reputation reader has no implementation at all.
+Forecast commitments retained by that run, every commitment timestamped
+before its resolution:
+
+```
+forecast:1  p=300000ppm  DidNotOccur  brier= 90000   (0.30-0)^2
+forecast:2  p=150000ppm  DidNotOccur  brier= 22500   (0.15-0)^2
+forecast:3  p=100000ppm  DidNotOccur  brier= 10000   (0.10-0)^2
+forecast:4  p= 75000ppm  unresolved   -
+```
+
+Three observations permit an average, **not a reliability claim**
+(`docs/06`). No calibration statement is made from this sample.
+
+> One row is pending: the **independent reputation reader**, which needs
+> publication to the selected network's ERC-8004-compatible registry. Its
+> compatibility gate is 15 September; a local adapter would unblock
+> development but does not satisfy the row.
 
 ## Operational measurement
 
