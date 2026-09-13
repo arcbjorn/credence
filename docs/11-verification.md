@@ -83,9 +83,9 @@ assumed; a green suite is not evidence for a behavioural claim.
 |---|---|---|
 | Performer lifecycle | evidence | `scripts/demo-repay.sh` |
 | **Three sequential loans** | evidence | `LOANS=4 scripts/demo-repay.sh` |
-| Behavioral ablation | **pending** | controlled runs not yet scripted |
+| Behavioral ablation | evidence | `cargo test -p risk-core --test ablation` (A→B, A→C, A→D, each naming its binding constraint) |
 | **Continuous underwriting** | evidence | `scripts/demo-monitor.sh` |
-| Concentration override | **pending** | needs the concentrated account |
+| Concentration override | evidence | `cargo test -p risk-core --test ablation concentration` — perfect history, zero capacity, bound by `StressCapacity` |
 | **Three stress cases** | evidence | reported in every assessment; `cargo test -p risk-core --test stress` |
 | Forecast evaluation | **pending** | commit-before-funding not yet demonstrated |
 | Custody protection | evidence | `forge test --match-test ownerHasNoBypass` |
@@ -111,9 +111,9 @@ forecast cap takes over — which is why the binding constraint is reported
 beside the number rather than the number alone. APR keeps falling after
 capacity stops, because pricing still responds to demonstrated history.
 
-> The matrix above describes the **baseline**. Four rows are pending, and
-> the independent reputation reader is the one with no partial
-> implementation at all.
+> The matrix above describes the **baseline**. Two rows are pending:
+> forecast evaluation needs commit-before-funding demonstrated, and the
+> independent reputation reader has no implementation at all.
 
 ## Operational measurement
 

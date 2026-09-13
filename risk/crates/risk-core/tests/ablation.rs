@@ -440,9 +440,14 @@ fn score_moves_with_behaviour() {
     assert!(after > before, "score must rise with history: {before} -> {after}");
 }
 
+/// `docs/11` release row: a favourable history plus a current-risk denial.
+///
+/// The concentrated account has a PERFECT repayment record — 1,000,000 ppm
+/// — and still gets nothing, because its existing book cannot survive the
+/// stress scenarios. Behaviour opens a facility; it does not override
+/// portfolio risk, and the binding constraint must say so by name.
 #[test]
-#[ignore]
-fn report_concentrated_capacity() {
+fn concentration_overrides_perfect_history() {
     let p = policy();
     let mut input = baseline();
     if let Some(h) = input.history.value.as_mut() {
@@ -468,5 +473,27 @@ fn report_concentrated_capacity() {
         };
     }
     let o = observe(&input, &p);
-    println!("concentrated capacity: {} bound_by={:?}", o.capacity, o.binding);
+
+    assert_eq!(
+        o.capacity, 0,
+        "a book that cannot survive stress earns no capacity"
+    );
+    assert_eq!(
+        o.binding,
+        BindingConstraint::StressCapacity,
+        "the denial must name current portfolio risk, not history"
+    );
+
+    // The control: the SAME history on an unconcentrated account is
+    // approved. Without it this test would pass for any account at all,
+    // and would not show concentration doing the work.
+    let mut clean = baseline();
+    if let Some(h) = clean.history.value.as_mut() {
+        h.weighted_repayments_ppm = 1_000_000;
+    }
+    let c = observe(&clean, &p);
+    assert!(
+        c.capacity > 0,
+        "the same history without concentration must still earn capacity"
+    );
 }
