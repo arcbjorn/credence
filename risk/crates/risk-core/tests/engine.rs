@@ -808,3 +808,55 @@ fn recovery_blocks_monitoring_permission() {
     );
     assert_eq!(a.permission(), Permission::Blocked);
 }
+
+/// `docs/11` release row: three sequential loans under one policy and
+/// model must show credit compounding — the limit rises, the APR falls,
+/// and the binding constraint moves off history.
+///
+/// This is the behavioural claim the whole system exists to make. If the
+/// same inputs plus more history produce identical terms, "credit that
+/// compounds" is decoration.
+#[test]
+fn sequential_loans_compound_credit() {
+    let p = policy();
+
+    // Same account, same market, same policy. Only demonstrated history
+    // differs, which is the controlled-ablation discipline of `docs/03`.
+    let run = |weighted_ppm: u64| {
+        let mut i = input(2_000_000_000, 5_000_000_000);
+        if let Some(h) = i.history.value.as_mut() {
+            h.weighted_repayments_ppm = weighted_ppm;
+            h.coverage_complete = true;
+        }
+        evaluate(&i, &p)
+    };
+
+    let first = run(0);
+    let second = run(200_000);
+    let third = run(600_000);
+
+    let terms = |a: &risk_core::assessment::RiskAssessment| match &a.outcome {
+        Outcome::ApprovedOrigination { terms, capacity, .. } => {
+            Some((terms.apr_bps, capacity.agent_capacity, capacity.agent_binding))
+        }
+        other => panic!("expected approval, got {other:?}"),
+    };
+
+    let (apr1, cap1, bind1) = terms(&first).unwrap();
+    let (apr2, cap2, _) = terms(&second).unwrap();
+    let (apr3, cap3, bind3) = terms(&third).unwrap();
+
+    // Capacity rises while history is what limits it, then PLATEAUS when
+    // another cap takes over. The plateau is the point, not a defect: it
+    // is why the binding constraint must be reported beside the number.
+    assert!(cap2 > cap1, "capacity must rise while history binds: {cap1:?} -> {cap2:?}");
+    assert!(cap3 >= cap2, "capacity must never fall as history accumulates");
+
+    // APR falls throughout: pricing keeps responding to demonstrated
+    // history after capacity has stopped.
+    assert!(apr2 < apr1 && apr3 < apr2, "APR must fall: {apr1:?} {apr2:?} {apr3:?}");
+
+    // The switch `docs/09` beat 4b exists to show.
+    assert_eq!(bind1, BindingConstraint::HistoryGrowthCap, "history binds first");
+    assert_eq!(bind3, BindingConstraint::ForecastCap, "another cap takes over");
+}
