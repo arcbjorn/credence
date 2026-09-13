@@ -59,6 +59,11 @@ contract LoanManager {
     mapping(uint256 loanId => Loan) public loans;
     /// @dev One active loan per account (`docs/05`).
     mapping(address account => uint256 loanId) public activeLoan;
+    /// @dev Assets that must be sold before a default may be declared.
+    /// @dev Interest reserved against the cap for each live loan.
+    mapping(uint256 loanId => uint256) public reservation;
+    mapping(address token => bool) public collateralAsset;
+    address[] public collateralAssets;
     /// @dev Unresolved default flag; blocks new credit for that binding.
     mapping(address account => bool) public defaulted;
 
@@ -69,6 +74,7 @@ contract LoanManager {
     error AccountInDefault();
     error WrongStatus(Status expected, Status actual);
     error NotYetDefaultable();
+    error CollateralUnresolved(address token);
     error Paused();
     error ZeroAmount();
     error NotKeeper();
@@ -80,6 +86,7 @@ contract LoanManager {
     event RecoveryOpened(uint256 indexed loanId, uint64 at);
     event Collected(uint256 indexed loanId, uint256 principal, uint256 interest);
     event Recovered(uint256 indexed loanId);
+    event CollateralAssetSet(address indexed token, bool isCollateral);
     event Defaulted(uint256 indexed loanId, uint256 principalLoss, uint256 unpaidInterest);
 
     modifier onlyOperator() {
@@ -94,6 +101,22 @@ contract LoanManager {
         operator = operator_;
     }
 
+    /// @notice Register a collateral asset recovery must resolve.
+    /// @dev `docs/05`: a loan holding unsold illiquid positions stays
+    /// RecoveryPending. Without a list of what counts as collateral, an
+    /// empty settlement balance reads as "assets exhausted" while the
+    /// account still holds the very positions recovery exists to sell.
+    function setCollateralAsset(address token, bool isCollateral) external onlyOperator {
+        collateralAsset[token] = isCollateral;
+        if (isCollateral) {
+            for (uint256 i = 0; i < collateralAssets.length; i++) {
+                if (collateralAssets[i] == token) return;
+            }
+            collateralAssets.push(token);
+        }
+        emit CollateralAssetSet(token, isCollateral);
+    }
+
     /// @notice Register an execution route on an account.
     /// @dev The account only accepts adapter changes from its loan manager,
     /// so this is the operator's path to whitelisting a strategy route.
@@ -102,6 +125,19 @@ contract LoanManager {
         onlyOperator
     {
         account.setAdapter(adapter, allowed);
+    }
+
+    /// @notice Declare an adapter entry point as risk-reducing.
+    /// @dev Operator-gated for the same reason the adapter allowlist is:
+    /// mislabelling a risk-INCREASING call as de-risking would exempt it
+    /// from permission entirely.
+    function setAccountDeRiskingAction(
+        CreditAccount account,
+        address adapter,
+        bytes4 selector,
+        bool isDeRisking
+    ) external onlyOperator {
+        account.setDeRiskingAction(adapter, selector, isDeRisking);
     }
 
     /// @notice Halt new originations.
@@ -166,8 +202,21 @@ contract LoanManager {
         });
         activeLoan[acct] = loanId;
 
-        account.openDebt();
-        vault.lend(acct, principal);
+        // Pin what this loan authorizes. The account cannot derive these
+        // itself -- it holds no binding and trusts no caller-supplied one
+        // -- so authorization for every later action flows from here.
+        // Reserve the full-term interest against the cap alongside the
+        // principal, so the budget bounds what the loan will owe rather
+        // than only what it takes today.
+        uint256 reserved = _fullTermInterest(principal, terms.aprBps, terms.termSeconds);
+
+        account.openDebt(
+            oracle.bindingKey(binding),
+            oracle.bindingHash(binding),
+            terms.permittedActionHash
+        );
+        vault.lend(acct, principal, reserved);
+        reservation[loanId] = reserved;
 
         emit Originated(loanId, acct, principal);
     }
@@ -184,6 +233,18 @@ contract LoanManager {
             return loan.interestSnapshot;
         }
         return _accruedAt(loan, uint64(block.timestamp));
+    }
+
+    /// @dev Interest a loan owes over its whole term. Mirrors
+    /// `risk-core::interest::full_term`: 365-day year, rounds up.
+    function _fullTermInterest(uint256 principal, uint32 aprBps, uint64 termSeconds)
+        private
+        pure
+        returns (uint256)
+    {
+        uint256 numer = principal * aprBps * termSeconds;
+        uint256 denom = BPS_DENOM * SECONDS_PER_YEAR;
+        return numer == 0 ? 0 : (numer - 1) / denom + 1;
     }
 
     function _accruedAt(Loan storage loan, uint64 at) private view returns (uint256) {
@@ -235,6 +296,7 @@ contract LoanManager {
         loan.interestCollected += interestDue;
         loan.status = Status.Repaid;
         activeLoan[loan.account] = 0;
+        _releaseReservation(loanId);
 
         vault.recordPrincipalRepaid(loan.account, principal);
         vault.recordInterestCollected(loan.account, interestDue);
@@ -256,7 +318,13 @@ contract LoanManager {
         loan.recoveryStartedAt = uint64(block.timestamp);
         loan.status = Status.RecoveryPending;
 
-        vault.markReceivableUnresolved(loan.principalOutstanding);
+        // The whole obligation is unresolved, not just principal. Marking
+        // principal alone lets the epoch settle once principal is
+        // collected while interest is still being recovered -- and that
+        // interest can never be fairly included in a frozen
+        // settlementCash (`docs/05`).
+        uint256 unpaidInterest = loan.interestSnapshot - loan.interestCollected;
+        vault.markReceivableUnresolved(loan.principalOutstanding + unpaidInterest);
         CreditAccount(loan.account).openRecovery(keeper);
 
         emit RecoveryOpened(loanId, loan.recoveryStartedAt);
@@ -305,6 +373,7 @@ contract LoanManager {
         if (toInterest > 0) {
             loan.interestCollected += toInterest;
             vault.recordInterestCollected(loan.account, toInterest);
+            vault.clearReceivable(toInterest);
         }
 
         emit Collected(loanId, toPrincipal, toInterest);
@@ -312,6 +381,7 @@ contract LoanManager {
         if (loan.principalOutstanding == 0 && loan.interestCollected >= loan.interestSnapshot) {
             loan.status = Status.Recovered;
             activeLoan[loan.account] = 0;
+            _releaseReservation(loanId);
             CreditAccount(loan.account).closeDebt();
             emit Recovered(loanId);
         }
@@ -327,7 +397,19 @@ contract LoanManager {
             loan.status == Status.RecoveryPending,
             WrongStatus(Status.RecoveryPending, loan.status)
         );
+        // Every asset must actually be exhausted, not merely the
+        // settlement token. Declaring default while collateral remains
+        // writes off lender principal and then unlocks those positions for
+        // the owner to withdraw (`docs/05`).
         require(CreditAccount(loan.account).balanceOf(address(asset)) == 0, NotYetDefaultable());
+        for (uint256 i = 0; i < collateralAssets.length; i++) {
+            address token = collateralAssets[i];
+            if (!collateralAsset[token]) continue;
+            require(
+                CreditAccount(loan.account).balanceOf(token) == 0,
+                CollateralUnresolved(token)
+            );
+        }
 
         uint256 principalLoss = loan.principalOutstanding;
         uint256 unpaidInterest = loan.interestSnapshot - loan.interestCollected;
@@ -335,6 +417,7 @@ contract LoanManager {
         loan.principalOutstanding = 0;
         loan.status = Status.Defaulted;
         activeLoan[loan.account] = 0;
+        _releaseReservation(loanId);
         // The loss stays attributable to this binding.
         defaulted[loan.account] = true;
 
@@ -342,9 +425,24 @@ contract LoanManager {
             vault.recordLoss(loan.account, principalLoss);
             vault.clearReceivable(principalLoss);
         }
+        // Unpaid interest is written off with the principal. It will never
+        // arrive, so leaving it marked unresolved would block the epoch
+        // from ever settling.
+        if (unpaidInterest > 0) {
+            vault.clearReceivable(unpaidInterest);
+        }
         CreditAccount(loan.account).closeDebt();
 
         emit Defaulted(loanId, principalLoss, unpaidInterest);
+    }
+
+    /// @dev Releases once: a second call on a resolved loan would free
+    /// budget that was never reserved.
+    function _releaseReservation(uint256 loanId) private {
+        uint256 amount = reservation[loanId];
+        if (amount == 0) return;
+        reservation[loanId] = 0;
+        vault.releaseReservation(amount);
     }
 
     function status(uint256 loanId) external view returns (Status) {

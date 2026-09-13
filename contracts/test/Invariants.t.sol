@@ -127,7 +127,7 @@ contract InvariantsTest is Test {
         oracle.pinRoute(1, Route.Development);
         oracle.setSigner(Route.Development, vm.addr(0xD30), true);
         vm.stopPrank();
-        account = new CreditAccount(address(manager), address(0xB2), address(0xC3));
+        account = new CreditAccount(address(manager), address(0xB2), address(0xC3), address(oracle));
 
         address lender = address(0xE5);
         token.mint(lender, 50_000e6);
@@ -214,7 +214,7 @@ contract HandlerReachabilityTest is Test {
         oracle.pinRoute(1, Route.Development);
         oracle.setSigner(Route.Development, vm.addr(0xD30), true);
         vm.stopPrank();
-        account = new CreditAccount(address(manager), address(0xB2), address(0xC3));
+        account = new CreditAccount(address(manager), address(0xB2), address(0xC3), address(oracle));
 
         address lender = address(0xE5);
         token.mint(lender, 50_000e6);

@@ -48,6 +48,16 @@ contract CreditVault {
     /// @dev Unresolved receivables. While non-zero the epoch cannot settle,
     /// because a material receivable is still outstanding (`docs/05`).
     uint256 public unresolvedReceivables;
+    /// @dev Interest reserved against the cap for live loans, released as
+    /// each loan resolves.
+    uint256 public reservedObligation;
+
+    /// @notice Release an interest reservation when a loan resolves.
+    /// @dev Saturating: a reservation is an estimate of the full term, and
+    /// a loan repaid early releases more than it ever accrued.
+    function releaseReservation(uint256 amount) external onlyLoanManager {
+        reservedObligation = amount > reservedObligation ? 0 : reservedObligation - amount;
+    }
 
     mapping(address lender => uint256 shares) public shares;
     uint256 public totalShares;
@@ -133,17 +143,27 @@ contract CreditVault {
 
     // --- Lending, driven by the loan manager ---
 
-    function lend(address account, uint256 principal)
+    /// @param reservedInterest Interest this loan will owe over its full
+    /// term. Counted against the cap at origination so the budget bounds
+    /// the OBLIGATION rather than the disbursement: a loan that fills the
+    /// cap with principal alone owes more than the cap the moment interest
+    /// begins to accrue (`docs/05`).
+    function lend(address account, uint256 principal, uint256 reservedInterest)
         external
         onlyLoanManager
         inPhase(Phase.Active)
     {
         require(principal > 0, ZeroAmount());
         require(principal <= idleCash, InsufficientIdleCash());
-        require(outstandingPrincipal + principal <= globalCap, ExceedsGlobalCap());
+        require(
+            outstandingPrincipal + reservedObligation + principal + reservedInterest
+                <= globalCap,
+            ExceedsGlobalCap()
+        );
 
         idleCash -= principal;
         outstandingPrincipal += principal;
+        reservedObligation += reservedInterest;
         asset.safeTransfer(account, principal);
         emit Lent(account, principal);
     }

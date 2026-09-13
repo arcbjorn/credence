@@ -51,7 +51,7 @@ contract LifecycleTest is Test {
         oracle.setSigner(Route.Development, vm.addr(SIGNER_KEY), true);
         vm.stopPrank();
 
-        account = new CreditAccount(address(manager), OWNER, AGENT);
+        account = new CreditAccount(address(manager), OWNER, AGENT, address(oracle));
         noop = new NoopAdapter();
 
         _fund(LENDER_A, 60_000e6);
@@ -198,13 +198,16 @@ contract LifecycleTest is Test {
         uint256 loanId = _originate(account, 5_000e6, 1_200, 10 days);
         vm.warp(block.timestamp + 10 days);
 
+        // The whole obligation is unresolved, principal and frozen
+        // interest alike: the epoch cannot settle while either is owed.
+        uint256 owed = manager.debtDue(loanId);
         vm.prank(OPERATOR);
         manager.openRecovery(loanId, KEEPER);
-        assertEq(vault.unresolvedReceivables(), 5_000e6);
+        assertEq(vault.unresolvedReceivables(), owed);
 
         vm.prank(KEEPER);
         manager.collect(loanId, 2_000e6);
-        assertEq(vault.unresolvedReceivables(), 3_000e6);
+        assertEq(vault.unresolvedReceivables(), owed - 2_000e6);
         assertEq(uint8(manager.status(loanId)), uint8(LoanManager.Status.RecoveryPending));
 
         uint256 rest = manager.debtDue(loanId);
@@ -341,7 +344,8 @@ contract LifecycleTest is Test {
         vm.prank(OPERATOR);
         capped.activate();
 
-        CreditAccount acct = new CreditAccount(address(cappedManager), OWNER, AGENT);
+        CreditAccount acct =
+            new CreditAccount(address(cappedManager), OWNER, AGENT, address(cappedOracle));
         Binding memory b = _publish(cappedOracle, acct, 10_001e6, 1_200, 10 days);
         vm.expectRevert(CreditVault.ExceedsGlobalCap.selector);
         cappedManager.originate(b, 10_001e6);
@@ -397,7 +401,7 @@ contract LifecycleTest is Test {
 
     /// `docs/02`: an agent with no equity receives no credit in v0.
     function test_insufficientEquityRejected() public {
-        CreditAccount poor = new CreditAccount(address(manager), OWNER, AGENT);
+        CreditAccount poor = new CreditAccount(address(manager), OWNER, AGENT, address(oracle));
         Binding memory b =
             OracleHarness.binding(address(poor), poor.stateVersion(), FACILITY);
         Assessment memory a = OracleHarness.approvedQuote(
@@ -483,5 +487,175 @@ contract LifecycleTest is Test {
 
         vm.warp(block.timestamp + 2 days);
         assertEq(manager.debtDue(loanId), 0, "a repaid loan must not accrue phantom debt");
+    }
+
+    // --- Binding integrity (docs/05) ---
+
+    /// A quote must fund only the binding it was signed for.
+    ///
+    /// The standing-quote key covers registry, agent, account and facility
+    /// -- a deliberately stable identity. But the rest of the binding is
+    /// signed too, and it is supplied by the caller at consumption. Without
+    /// a commitment to the whole signed binding, an account can execute to
+    /// bump its state version, then present the new version alongside
+    /// altered configuration and policy fields and still draw on the old
+    /// quote. The stale-state check passes because it compares the
+    /// caller's own number with the account.
+    function test_QuoteCannotFundARewrittenBinding() public {
+        Binding memory signed = _publish(oracle, account, 5_000e6, 1_200, 10 days);
+
+        // The account acts, so the assessed portfolio no longer exists.
+        vm.prank(OPERATOR);
+        manager.setAccountAdapter(account, address(noop), true);
+        vm.prank(AGENT);
+        account.execute(address(noop), abi.encodeCall(NoopAdapter.act, ()));
+
+        // Present the new state version with rewritten config and policy.
+        Binding memory rewritten = signed;
+        rewritten.accountStateVersion = account.stateVersion();
+        rewritten.configVersion = signed.configVersion + 1;
+        rewritten.configHash = keccak256("rewritten-config");
+        rewritten.policyEpoch = signed.policyEpoch + 1;
+        rewritten.policyHash = keccak256("rewritten-policy");
+
+        vm.expectRevert(RiskOracle.BindingMismatch.selector);
+        manager.originate(rewritten, 5_000e6);
+    }
+
+    /// The unaltered binding still funds, so the commitment bounds what
+    /// may change rather than blocking origination outright.
+    function test_UnalteredBindingStillFunds() public {
+        Binding memory b = _publish(oracle, account, 5_000e6, 1_200, 10 days);
+        uint256 loanId = manager.originate(b, 5_000e6);
+        assertEq(uint8(manager.status(loanId)), uint8(LoanManager.Status.Active));
+    }
+
+    // --- Recovery resolution (docs/05) ---
+
+    /// A default must not be declared while collateral remains unsold.
+    ///
+    /// An empty settlement balance is not exhaustion. Declaring default
+    /// here writes off lender principal and then unlocks the very
+    /// positions recovery existed to sell -- the owner withdraws them.
+    function test_DefaultRequiresCollateralResolved() public {
+        MockERC20 risky = new MockERC20();
+        vm.prank(OPERATOR);
+        manager.setCollateralAsset(address(risky), true);
+
+        uint256 loanId = _originate(account, 5_000e6, 1_200, 10 days);
+        vm.warp(block.timestamp + 10 days);
+
+        vm.prank(OPERATOR);
+        manager.openRecovery(loanId, KEEPER);
+
+        // Settlement is exhausted, but the account still holds collateral.
+        uint256 bal = token.balanceOf(address(account));
+        vm.prank(address(manager));
+        account.sweepTo(address(token), address(0xDEAD), bal);
+        risky.mint(address(account), 1e18);
+
+        vm.prank(OPERATOR);
+        vm.expectRevert(
+            abi.encodeWithSelector(LoanManager.CollateralUnresolved.selector, address(risky))
+        );
+        manager.declareDefault(loanId);
+    }
+
+    /// Once the collateral really is gone, the default proceeds.
+    function test_DefaultProceedsOnceCollateralIsSold() public {
+        MockERC20 risky = new MockERC20();
+        vm.prank(OPERATOR);
+        manager.setCollateralAsset(address(risky), true);
+
+        uint256 loanId = _originate(account, 5_000e6, 1_200, 10 days);
+        vm.warp(block.timestamp + 10 days);
+
+        vm.prank(OPERATOR);
+        manager.openRecovery(loanId, KEEPER);
+
+        uint256 bal = token.balanceOf(address(account));
+        vm.prank(address(manager));
+        account.sweepTo(address(token), address(0xDEAD), bal);
+
+        vm.prank(OPERATOR);
+        manager.declareDefault(loanId);
+        assertEq(uint8(manager.status(loanId)), uint8(LoanManager.Status.Defaulted));
+    }
+
+    /// The epoch must not settle while interest is still being recovered.
+    ///
+    /// Marking only principal unresolved lets settlement freeze
+    /// settlementCash the moment principal is collected -- and interest
+    /// collected afterwards can never be fairly included in it.
+    function test_VaultCannotSettleWhileInterestRecovers() public {
+        uint256 loanId = _originate(account, 5_000e6, 1_200, 10 days);
+        vm.warp(block.timestamp + 10 days);
+
+        vm.prank(OPERATOR);
+        manager.openRecovery(loanId, KEEPER);
+
+        // Collect exactly the principal, leaving interest outstanding.
+        vm.prank(KEEPER);
+        manager.collect(loanId, 5_000e6);
+        assertEq(uint8(manager.status(loanId)), uint8(LoanManager.Status.RecoveryPending));
+
+        vm.startPrank(OPERATOR);
+        vault.beginResolving();
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                CreditVault.ReceivablesUnresolved.selector, vault.unresolvedReceivables()
+            )
+        );
+        vault.settle();
+        vm.stopPrank();
+    }
+
+    // --- The cap bounds the obligation, not the disbursement (docs/05) ---
+
+    /// A loan must not fill the whole cap with principal alone.
+    ///
+    /// Reserving nothing for interest means the epoch owes more than its
+    /// declared budget the moment accrual begins -- the cap stops being a
+    /// bound on exposure and becomes a bound on disbursement only.
+    function test_GlobalCapReservesFullTermInterest() public {
+        CreditVault capped = new CreditVault(IERC20(address(token)), OPERATOR, 10_000e6);
+        RiskOracle cappedOracle = new RiskOracle(OPERATOR, DEPLOYMENT);
+        LoanManager cappedManager =
+            new LoanManager(IERC20(address(token)), capped, cappedOracle, OPERATOR);
+        vm.startPrank(OPERATOR);
+        capped.setLoanManager(address(cappedManager));
+        cappedOracle.setLoanManager(address(cappedManager));
+        cappedOracle.pinRoute(FACILITY, Route.Development);
+        cappedOracle.setSigner(Route.Development, vm.addr(SIGNER_KEY), true);
+        vm.stopPrank();
+
+        token.mint(LENDER_A, 50_000e6);
+        vm.startPrank(LENDER_A);
+        token.approve(address(capped), 50_000e6);
+        capped.deposit(50_000e6);
+        vm.stopPrank();
+        vm.prank(OPERATOR);
+        capped.activate();
+
+        CreditAccount acct =
+            new CreditAccount(address(cappedManager), OWNER, AGENT, address(cappedOracle));
+        token.mint(address(acct), 20_000e6);
+
+        // Exactly the cap in principal. The interest it will owe pushes
+        // the obligation past the budget, so this must be refused.
+        Binding memory b = _publish(cappedOracle, acct, 10_000e6, 1_200, 10 days);
+        vm.expectRevert(CreditVault.ExceedsGlobalCap.selector);
+        cappedManager.originate(b, 10_000e6);
+    }
+
+    /// A loan that leaves room for its own interest still funds, and the
+    /// reservation is released when it resolves.
+    function test_ReservationIsReleasedOnRepayment() public {
+        uint256 loanId = _originate(account, 5_000e6, 1_200, 10 days);
+        assertGt(vault.reservedObligation(), 0, "interest must be reserved while live");
+
+        vm.warp(block.timestamp + 1 days);
+        manager.repay(loanId);
+        assertEq(vault.reservedObligation(), 0, "a resolved loan reserves nothing");
     }
 }
