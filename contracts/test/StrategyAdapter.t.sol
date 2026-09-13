@@ -112,6 +112,20 @@ contract StrategyAdapterTest is Test {
 
         // Nothing moved: the account keeps its settlement.
         assertEq(settlement.balanceOf(address(account)), 10_000e6);
+
+        // And it failed for the RIGHT reason. `execute` wraps every
+        // adapter revert as AdapterCallFailed, so that selector alone
+        // would also pass if the trade broke for an unrelated cause.
+        // Called directly, the adapter names the slippage guard.
+        settlement.mint(address(this), 4_000e6);
+        settlement.approve(address(adapter), 4_000e6);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                StrategyAdapter.SlippageExceeded.selector,
+                uint256(2e18), uint256(1e18), uint32(200)
+            )
+        );
+        adapter.acquire(4_000e6);
     }
 
     /// A favourable fill is not an error. Refusing it would block a better
