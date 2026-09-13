@@ -155,8 +155,12 @@ func (w *Wallet) sign(
 		rlpUint(big.NewInt(0)),
 		rlpString(data),
 		rlpUint(v),
-		rlpString(sig[1:33]),
-		rlpString(sig[33:65]),
+		// r and s are RLP integers, not fixed-width byte strings: a
+		// leading zero must be stripped or the node rejects the whole
+		// transaction as undecodable. Roughly one signature in 256 has
+		// one, which is why encoding them raw fails intermittently.
+		rlpUint(new(big.Int).SetBytes(sig[1:33])),
+		rlpUint(new(big.Int).SetBytes(sig[33:65])),
 	), nil
 }
 
