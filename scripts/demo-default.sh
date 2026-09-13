@@ -57,7 +57,7 @@ go build -o credence-scenario ./cmd/credence-scenario
 go build -o credence-recover ./cmd/credence-recover
 ./credence-scenario -rpc "$RPC" -oracle "$ORACLE" -manager "$MANAGER" \
   -account "$ACCOUNT" -settlement "$SETTLEMENT" \
-  -principal "$PRINCIPAL" -adapter "$ADAPTER" -deploy-bps 10000
+  -principal "$PRINCIPAL" -adapter "$ADAPTER" -risky "$RISKY" -deploy-bps 10000
 
 # The crash. Venue and independent price move together: this is a market
 # move, so the adapter's slippage guard correctly does not block the exit.
