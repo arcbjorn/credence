@@ -590,11 +590,16 @@ func bindingLookup(db *store.Store) func(string) (evidence.BindingInfo, bool) {
 			return evidence.BindingInfo{}, false
 		}
 
+		// The policy the engine evaluates under must be the one the
+		// binding is signed against. A placeholder here means the
+		// assessment reports one policy identity while the envelope
+		// commits to another -- two policies for one decision, and
+		// neither verifiable against the other (`docs/04`).
 		modelPolicy, err := json.Marshal(map[string]any{
 			"model_id":    "m1",
 			"model_hash":  "model-hash",
-			"policy_id":   "p1",
-			"policy_hash": "policy-hash",
+			"policy_id":   fmt.Sprintf("epoch-%d", binding.PolicyEpoch),
+			"policy_hash": binding.PolicyHash,
 		})
 		if err != nil {
 			return evidence.BindingInfo{}, false
