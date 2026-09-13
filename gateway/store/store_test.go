@@ -61,23 +61,40 @@ func TestSequenceUniquePerBinding(t *testing.T) {
 	ctx := context.Background()
 	seedBinding(t, s)
 
-	insert := func(id string, seq int) error {
+	// `accepted_at` distinguishes an assessment the chain took from one
+	// that was merely evaluated. Uniqueness applies to the former: an
+	// attempt that never published must not reserve its sequence, or a
+	// re-evaluation at the same sequence could never be retained.
+	insert := func(id string, seq int, accepted bool) error {
+		acceptedAt := "NULL"
+		if accepted {
+			acceptedAt = "1"
+		}
 		_, err := s.DB().ExecContext(ctx,
 			`INSERT INTO assessments (assessment_id, binding_key, input_hash, model_hash,
 			 policy_hash, assessment_kind, decision, risk_permission, sequence,
-			 assessment_hash, created_at, payload)
-			 VALUES (?, 'b1', 'snap1', 'm', 'p', 'Origination', 'Approved', 'Allowed', ?, 'h', 1, x'00')`,
+			 assessment_hash, created_at, payload, accepted_at)
+			 VALUES (?, 'b1', 'snap1', 'm', 'p', 'Origination', 'Approved', 'Allowed', ?, 'h', 1, x'00', `+acceptedAt+`)`,
 			id, seq)
 		return err
 	}
-	if err := insert("a1", 1); err != nil {
-		t.Fatalf("first insert: %v", err)
+	if err := insert("a1", 1, true); err != nil {
+		t.Fatalf("first accepted insert: %v", err)
 	}
-	if err := insert("a2", 1); err == nil {
-		t.Fatal("duplicate sequence for a binding must be rejected")
+	if err := insert("a2", 1, true); err == nil {
+		t.Fatal("duplicate ACCEPTED sequence for a binding must be rejected")
 	}
-	if err := insert("a3", 2); err != nil {
+	if err := insert("a3", 2, true); err != nil {
 		t.Fatalf("increasing sequence must be accepted: %v", err)
+	}
+
+	// Two unpublished attempts at one sequence are both retained: neither
+	// was accepted, so neither reserves it.
+	if err := insert("a4", 9, false); err != nil {
+		t.Fatalf("first attempt: %v", err)
+	}
+	if err := insert("a5", 9, false); err != nil {
+		t.Fatalf("a re-evaluation must also be retained: %v", err)
 	}
 }
 

@@ -111,6 +111,22 @@ func (r *Registry) Retain(
 	return tx.Commit()
 }
 
+// MarkAccepted records that the chain took this assessment.
+//
+// Separate from Retain because retention happens first: an evaluation is
+// retained whether or not it publishes (`docs/04`), and only an accepted
+// one reserves its sequence for the binding (`docs/05`).
+func (r *Registry) MarkAccepted(ctx context.Context, assessmentID string) error {
+	_, err := r.store.db.ExecContext(ctx,
+		`UPDATE assessments SET accepted_at = ?
+		 WHERE assessment_id = ? AND accepted_at IS NULL`,
+		time.Now().Unix(), assessmentID)
+	if err != nil {
+		return fmt.Errorf("mark accepted: %w", err)
+	}
+	return nil
+}
+
 // classify maps an outcome tag to the decision and permission the schema
 // records.
 //

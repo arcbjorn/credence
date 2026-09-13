@@ -83,9 +83,18 @@ CREATE TABLE IF NOT EXISTS assessments (
     assessment_hash TEXT    NOT NULL,
     created_at      INTEGER NOT NULL,
     payload         BLOB    NOT NULL,
-    -- One sequence per binding across both kinds (docs/05).
-    UNIQUE (binding_key, sequence)
+    -- Set when the chain accepted this assessment. Retention happens
+    -- BEFORE publication, so an evaluation that never landed must not
+    -- reserve its proposed sequence: the next attempt would collide and
+    -- retries could never advance (docs/04 retains every decision,
+    -- docs/05 admits one accepted sequence per binding).
+    accepted_at     INTEGER
 );
+
+-- One ACCEPTED sequence per binding across both kinds (docs/05).
+-- Partial, so unpublished attempts are retained without reserving it.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_assessments_accepted_sequence
+    ON assessments(binding_key, sequence) WHERE accepted_at IS NOT NULL;
 
 -- Pinned artifacts. Model and policy are hashed independently.
 CREATE TABLE IF NOT EXISTS models (

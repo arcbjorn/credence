@@ -3,6 +3,7 @@ package store_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"testing"
 
 	"github.com/arcbjorn/credence/gateway/store"
@@ -162,5 +163,68 @@ func TestRecommitDoesNotOverwrite(t *testing.T) {
 	if fc.MeanBrierPPM != 810_000 {
 		t.Fatalf("must score the original commitment: got %d, want 810000",
 			fc.MeanBrierPPM)
+	}
+}
+
+// One forecast is one prediction, however many outcome rows exist.
+//
+// Deduplicating by outcome ID lets five distinct rows for one forecast
+// count as five resolved predictions, inflating the sample the penalty is
+// computed from — and letting a caller manufacture a clean record by
+// resolving one good forecast repeatedly.
+func TestOneForecastResolvesOnce(t *testing.T) {
+	d, r, _ := derived(t)
+	seedBindingFor(t, r, "b1")
+	ctx := context.Background()
+
+	if err := r.CommitForecast(ctx, forecastFixture("f1", 100_000)); err != nil {
+		t.Fatal(err)
+	}
+	// The fixture commits at 1000 with a 1200s horizon.
+	if err := r.ResolveForecast(ctx, "o1", "f1", store.DidNotOccur, 2_200, nil); err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range []string{"o2", "o3", "o4", "o5"} {
+		err := r.ResolveForecast(ctx, id, "f1", store.DidNotOccur, 2_200, nil)
+		if !errors.Is(err, store.ErrAlreadyResolved) {
+			t.Fatalf("%s: expected ErrAlreadyResolved, got %v", id, err)
+		}
+	}
+
+	fc := forecastsOf(t, d, "b1")
+	if fc.ComparableResolved != 1 {
+		t.Fatalf("one forecast is one prediction, got %d", fc.ComparableResolved)
+	}
+}
+
+// A result cannot precede its prediction, nor land before the horizon it
+// was made over has elapsed. `docs/06` commits before disbursement so the
+// order is checkable; an outcome timestamped earlier is not foresight.
+func TestResolutionCannotPrecedeCommitmentOrHorizon(t *testing.T) {
+	d, r, _ := derived(t)
+	seedBindingFor(t, r, "b1")
+	ctx := context.Background()
+
+	if err := r.CommitForecast(ctx, forecastFixture("f1", 100_000)); err != nil {
+		t.Fatal(err)
+	}
+
+	// Before the commitment at 1000.
+	if err := r.ResolveForecast(ctx, "o1", "f1", store.Occurred, 500, nil); err == nil {
+		t.Fatal("a resolution before commitment must be refused")
+	}
+	// After commitment but inside the 1200s horizon.
+	if err := r.ResolveForecast(ctx, "o2", "f1", store.Occurred, 1_500, nil); err == nil {
+		t.Fatal("a resolution before the horizon ends must be refused")
+	}
+
+	fc := forecastsOf(t, d, "b1")
+	if fc.ComparableResolved != 0 {
+		t.Fatalf("nothing may have been counted, got %d", fc.ComparableResolved)
+	}
+
+	// At the horizon it is accepted.
+	if err := r.ResolveForecast(ctx, "o3", "f1", store.Occurred, 2_200, nil); err != nil {
+		t.Fatalf("a resolution at the horizon must be accepted: %v", err)
 	}
 }

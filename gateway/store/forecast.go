@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 )
 
@@ -23,6 +24,10 @@ type Forecast struct {
 	CommittedAt    int64
 	Payload        []byte
 }
+
+// ErrAlreadyResolved reports a second resolution for one forecast. A
+// prediction resolves once.
+var ErrAlreadyResolved = errors.New("forecast already resolved")
 
 // Resolution of a committed forecast.
 type Resolution string
@@ -87,11 +92,47 @@ func (r *Registry) ResolveForecast(
 	}
 
 	var probabilityPPM uint64
+	var committedAt, horizonSeconds int64
 	err := r.store.db.QueryRowContext(ctx,
-		`SELECT probability_ppm FROM forecasts WHERE forecast_id = ?`,
-		forecastID).Scan(&probabilityPPM)
+		`SELECT probability_ppm, committed_at, horizon_seconds
+		 FROM forecasts WHERE forecast_id = ?`,
+		forecastID).Scan(&probabilityPPM, &committedAt, &horizonSeconds)
 	if err != nil {
 		return fmt.Errorf("resolve forecast: unknown forecast %q: %w", forecastID, err)
+	}
+
+	// One eligible resolution per FORECAST, not per outcome row. A
+	// prediction resolves once; counting several rows as several
+	// predictions inflates the sample the penalty is computed from, and a
+	// caller could manufacture a clean record by resolving one good
+	// forecast repeatedly.
+	var existing int
+	if err := r.store.db.QueryRowContext(ctx,
+		`SELECT count(*) FROM outcomes WHERE forecast_id = ?`, forecastID,
+	).Scan(&existing); err != nil {
+		return fmt.Errorf("resolve forecast: check existing: %w", err)
+	}
+	if existing > 0 {
+		return fmt.Errorf(
+			"%w: forecast %q already resolved", ErrAlreadyResolved, forecastID)
+	}
+
+	// A result cannot precede its prediction. `docs/06` commits before
+	// disbursement precisely so the order is checkable, and an outcome
+	// timestamped earlier is not evidence of foresight.
+	if resolvedAt < committedAt {
+		return fmt.Errorf(
+			"resolve forecast: resolution at %d precedes commitment at %d",
+			resolvedAt, committedAt)
+	}
+
+	// Nor can it land before the horizon it was made over has elapsed.
+	// The event is defined across that window; resolving early scores a
+	// question that was never asked.
+	if deadline := committedAt + horizonSeconds; resolvedAt < deadline {
+		return fmt.Errorf(
+			"resolve forecast: resolution at %d precedes horizon end %d",
+			resolvedAt, deadline)
 	}
 
 	var brier any

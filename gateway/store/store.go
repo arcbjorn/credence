@@ -10,6 +10,7 @@ import (
 	"context"
 	"database/sql"
 	_ "embed"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -62,6 +63,69 @@ func migrate(ctx context.Context, db *sql.DB) error {
 		`ALTER TABLE bindings ADD COLUMN indexed_from INTEGER NOT NULL DEFAULT 0`,
 	); err != nil && !strings.Contains(err.Error(), "duplicate column") {
 		return fmt.Errorf("migrate bindings.indexed_from: %w", err)
+	}
+	// The assessments table once carried UNIQUE(binding_key, sequence),
+	// which reserved a sequence for an evaluation that may never have
+	// been published. Rebuild it so the constraint covers only ACCEPTED
+	// assessments; SQLite cannot drop a table constraint in place.
+	if err := migrateAssessmentSequence(ctx, db); err != nil {
+		return err
+	}
+	return nil
+}
+
+// migrateAssessmentSequence rebuilds `assessments` when it still carries
+// the old table-level uniqueness.
+func migrateAssessmentSequence(ctx context.Context, db *sql.DB) error {
+	var ddl string
+	err := db.QueryRowContext(ctx,
+		`SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'assessments'`,
+	).Scan(&ddl)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("inspect assessments: %w", err)
+	}
+	if !strings.Contains(ddl, "UNIQUE (binding_key, sequence)") {
+		return nil
+	}
+
+	// Copy through a new table. Existing rows were all published under
+	// the old rule, so they are marked accepted.
+	stmts := []string{
+		`ALTER TABLE assessments RENAME TO assessments_old`,
+		`CREATE TABLE assessments (
+			assessment_id   TEXT PRIMARY KEY,
+			binding_key     TEXT    NOT NULL REFERENCES bindings(binding_key),
+			input_hash      TEXT    NOT NULL REFERENCES snapshots(input_hash),
+			model_hash      TEXT    NOT NULL,
+			policy_hash     TEXT    NOT NULL,
+			assessment_kind TEXT    NOT NULL CHECK (assessment_kind IN ('Origination','Monitoring')),
+			decision        TEXT    NOT NULL CHECK (decision IN ('Approved','Denied','Unavailable')),
+			risk_permission TEXT    NOT NULL CHECK (risk_permission IN ('Allowed','Blocked')),
+			sequence        INTEGER NOT NULL,
+			assessment_hash TEXT    NOT NULL,
+			created_at      INTEGER NOT NULL,
+			payload         BLOB    NOT NULL,
+			accepted_at     INTEGER
+		)`,
+		`INSERT INTO assessments
+		   (assessment_id, binding_key, input_hash, model_hash, policy_hash,
+		    assessment_kind, decision, risk_permission, sequence,
+		    assessment_hash, created_at, payload, accepted_at)
+		 SELECT assessment_id, binding_key, input_hash, model_hash, policy_hash,
+		        assessment_kind, decision, risk_permission, sequence,
+		        assessment_hash, created_at, payload, created_at
+		 FROM assessments_old`,
+		`DROP TABLE assessments_old`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_assessments_accepted_sequence
+		    ON assessments(binding_key, sequence) WHERE accepted_at IS NOT NULL`,
+	}
+	for _, q := range stmts {
+		if _, err := db.ExecContext(ctx, q); err != nil {
+			return fmt.Errorf("migrate assessments: %w", err)
+		}
 	}
 	return nil
 }
