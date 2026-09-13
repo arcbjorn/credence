@@ -80,11 +80,15 @@ contract LifecycleHandler is Test {
         loanId = 0;
     }
 
+    /// The keeper appointed when recovery opens. Named so collection
+    /// pranks the same address rather than drifting from it.
+    address constant KEEPER = address(0xD4);
+
     function openRecovery() external {
         if (loanId == 0) return;
         if (manager.status(loanId) != LoanManager.Status.Active) return;
         vm.prank(operator);
-        manager.openRecovery(loanId, address(0xD4));
+        manager.openRecovery(loanId, KEEPER);
     }
 
     function collect(uint256 amount) external {
@@ -95,6 +99,7 @@ contract LifecycleHandler is Test {
         amount = bound(amount, 1, available);
 
         uint256 principalBefore = vault.outstandingPrincipal();
+        vm.prank(KEEPER);
         manager.collect(loanId, amount);
         ghostPrincipalReturned += principalBefore - vault.outstandingPrincipal();
         if (manager.status(loanId) == LoanManager.Status.Recovered) loanId = 0;

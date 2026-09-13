@@ -202,11 +202,13 @@ contract LifecycleTest is Test {
         manager.openRecovery(loanId, KEEPER);
         assertEq(vault.unresolvedReceivables(), 5_000e6);
 
+        vm.prank(KEEPER);
         manager.collect(loanId, 2_000e6);
         assertEq(vault.unresolvedReceivables(), 3_000e6);
         assertEq(uint8(manager.status(loanId)), uint8(LoanManager.Status.RecoveryPending));
 
         uint256 rest = manager.debtDue(loanId);
+        vm.prank(KEEPER);
         manager.collect(loanId, rest);
         assertEq(uint8(manager.status(loanId)), uint8(LoanManager.Status.Recovered));
         assertEq(vault.unresolvedReceivables(), 0);
@@ -226,6 +228,7 @@ contract LifecycleTest is Test {
         vm.prank(address(manager));
         account.sweepTo(address(token), address(0xDEAD), accountBalance - 3_940e6);
 
+        vm.prank(KEEPER);
         manager.collect(loanId, 3_940e6);
         assertEq(uint8(manager.status(loanId)), uint8(LoanManager.Status.RecoveryPending));
 
@@ -418,9 +421,67 @@ contract LifecycleTest is Test {
         uint256 bal = token.balanceOf(address(account));
         vm.prank(address(manager));
         account.sweepTo(address(token), address(0xDEAD), bal - 3_940e6);
+        vm.prank(KEEPER);
         manager.collect(loanId, 3_940e6);
 
         vm.prank(OPERATOR);
         manager.declareDefault(loanId);
+    }
+
+    // --- Recovery collection bounds ---
+
+    /// Recovery may only take what the loan is owed.
+    ///
+    /// `docs/02` close-out ordering: the agent's residual equity is the
+    /// borrower's property. Sweeping the whole account and booking the
+    /// surplus as interest confiscates it, and leaves interestCollected
+    /// above what ever accrued -- which makes debtDue underflow.
+    function test_CollectCannotTakeResidualEquity() public {
+        uint256 loanId = _originate(account, 5_000e6, 1_200, 10 days);
+        vm.warp(block.timestamp + 1 days);
+
+        vm.prank(OPERATOR);
+        manager.openRecovery(loanId, OPERATOR);
+
+        uint256 owed = manager.debtDue(loanId);
+        uint256 held = token.balanceOf(address(account));
+        assertGt(held, owed, "the account must hold more than it owes for this test to mean anything");
+
+        // Ask for everything; only the obligation may move.
+        vm.prank(OPERATOR);
+        manager.collect(loanId, held);
+
+        assertEq(
+            token.balanceOf(address(account)), held - owed,
+            "residual equity must stay with the borrower"
+        );
+        assertEq(manager.debtDue(loanId), 0, "a settled loan owes nothing");
+    }
+
+    /// An open recovery must not let an arbitrary caller move the
+    /// account's balance. Collection belongs to the appointed keeper.
+    function test_CollectIsRestrictedToTheKeeper() public {
+        uint256 loanId = _originate(account, 5_000e6, 1_200, 10 days);
+        vm.warp(block.timestamp + 1 days);
+
+        vm.prank(OPERATOR);
+        manager.openRecovery(loanId, OPERATOR);
+
+        vm.prank(address(0xBAD));
+        vm.expectRevert(LoanManager.NotKeeper.selector);
+        manager.collect(loanId, 1);
+    }
+
+    /// A fully repaid loan must not keep accruing in views. Interest is
+    /// charged for time the principal was actually outstanding.
+    function test_RepaidLoanStopsAccruing() public {
+        uint256 loanId = _originate(account, 5_000e6, 1_200, 10 days);
+        vm.warp(block.timestamp + 1 days);
+        manager.repay(loanId);
+
+        assertEq(manager.debtDue(loanId), 0, "a repaid loan owes nothing");
+
+        vm.warp(block.timestamp + 2 days);
+        assertEq(manager.debtDue(loanId), 0, "a repaid loan must not accrue phantom debt");
     }
 }

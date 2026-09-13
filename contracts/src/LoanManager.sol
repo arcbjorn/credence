@@ -71,6 +71,7 @@ contract LoanManager {
     error NotYetDefaultable();
     error Paused();
     error ZeroAmount();
+    error NotKeeper();
     error StaleAccountState(uint64 presented, uint64 actual);
     error InsufficientEquity(uint256 required, uint256 held);
 
@@ -198,7 +199,22 @@ contract LoanManager {
 
     function debtDue(uint256 loanId) public view returns (uint256) {
         Loan storage loan = loans[loanId];
-        return loan.principalOutstanding + (accruedInterest(loanId) - loan.interestCollected);
+        // A resolved loan owes nothing. Without this a repaid loan keeps
+        // accruing in views, reporting debt that can never be paid because
+        // repay() refuses a terminal status.
+        if (
+            loan.status == Status.Repaid || loan.status == Status.Recovered
+                || loan.status == Status.Defaulted
+        ) {
+            return 0;
+        }
+        uint256 accrued = accruedInterest(loanId);
+        // Saturating rather than checked: collection may legitimately
+        // record interest up to the frozen snapshot, and an underflow here
+        // would make every later read revert.
+        uint256 interestDue =
+            accrued > loan.interestCollected ? accrued - loan.interestCollected : 0;
+        return loan.principalOutstanding + interestDue;
     }
 
     // --- Repayment ---
@@ -256,6 +272,22 @@ contract LoanManager {
             loan.status == Status.RecoveryPending,
             WrongStatus(Status.RecoveryPending, loan.status)
         );
+        require(amount > 0, ZeroAmount());
+        // Only the appointed keeper collects. An open recovery would
+        // otherwise let any caller move the account's balance.
+        require(
+            msg.sender == CreditAccount(loan.account).recoveryKeeper()
+                || msg.sender == operator,
+            NotKeeper()
+        );
+
+        // Never take more than the loan is owed. The surplus is the
+        // borrower's residual equity (`docs/02`), and sweeping it would
+        // confiscate it -- and push interestCollected above what accrued.
+        uint256 owed = debtDue(loanId);
+        if (amount > owed) {
+            amount = owed;
+        }
         require(amount > 0, ZeroAmount());
 
         CreditAccount(loan.account).sweepTo(address(asset), address(vault), amount);
