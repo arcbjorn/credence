@@ -14,6 +14,7 @@ package main
 import (
 	"context"
 	"encoding/hex"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
@@ -26,6 +27,7 @@ import (
 	"github.com/arcbjorn/credence/gateway/chain"
 	"github.com/arcbjorn/credence/gateway/evidence"
 	"github.com/arcbjorn/credence/gateway/publisher"
+	"github.com/arcbjorn/credence/gateway/riskclient"
 	"github.com/arcbjorn/credence/gateway/store"
 	"github.com/arcbjorn/credence/gateway/wallet"
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
@@ -46,6 +48,12 @@ func main() {
 		"gateway database to enrol the open loan into, so it is monitored")
 	priceSource := flag.String("price-source", "",
 		"price source to refresh after advancing chain time")
+	vault := flag.String("vault", "",
+		"credit vault address; needed to read the facility limit")
+	riskURL := flag.String("risk", "",
+		"risk service url; terms come from the engine when set")
+	policyPath := flag.String("policy", "",
+		"engine policy file; required with -risk")
 	deployBps := flag.Uint64("deploy-bps", 0,
 		"basis points of principal to deploy into the risky asset")
 	loans := flag.Int("loans", 1, "number of sequential loans to originate and repay")
@@ -55,7 +63,8 @@ func main() {
 
 	if err := run(*rpcURL, *oracle, *manager, *account, *settlement,
 		*chainID, *deploymentID, *principal, *loans, *hold,
-		*adapter, *risky, *priceSource, *enroll, *deployBps); err != nil {
+		*adapter, *risky, *priceSource, *enroll, *vault, *riskURL, *policyPath,
+		*deployBps); err != nil {
 		log.Fatalf("scenario: %v", err)
 	}
 }
@@ -65,7 +74,7 @@ func run(
 	chainID, deploymentID, principal uint64,
 	loans int,
 	holdSeconds uint64,
-	adapter, riskyAsset, priceSource, enrollDB string,
+	adapter, riskyAsset, priceSource, enrollDB, vault, riskURL, policyPath string,
 	deployBps uint64,
 ) error {
 	ctx := context.Background()
@@ -76,6 +85,24 @@ func run(
 	if adapter != "" && deployBps > 0 && riskyAsset == "" {
 		return fmt.Errorf("-risky is required when deploying through -adapter")
 	}
+
+	// The engine, when one is configured. Without it the scenario signs
+	// fixed terms, which is honest for a smoke test but cannot demonstrate
+	// credit compounding (`docs/11`).
+	var risk *riskclient.Client
+	var enginePolicy json.RawMessage
+	if riskURL != "" {
+		if policyPath == "" {
+			return fmt.Errorf("-policy is required with -risk")
+		}
+		raw, err := os.ReadFile(policyPath)
+		if err != nil {
+			return fmt.Errorf("read policy: %w", err)
+		}
+		enginePolicy = raw
+		risk = riskclient.New(riskURL, 10*time.Second)
+	}
+	repaidSoFar := 0
 
 	attestKey, err := keyFromEnv("CREDENCE_SIGNER_KEY")
 	if err != nil {
@@ -161,7 +188,18 @@ func run(
 	if err != nil {
 		return fmt.Errorf("latest block: %w", err)
 	}
-	reader := chain.NewReader(rpc, chain.Addresses{Oracle: oracle})
+	// The full address set: AccountAt reads settlement, debt, and
+	// positions, so a reader with only the oracle cannot describe an
+	// account to the engine.
+	reader := chain.NewReader(rpc, chain.Addresses{
+		Oracle:      oracle,
+		LoanManager: manager,
+		Settlement:  settlement,
+		Vault:       vault,
+		Risky:       riskyAsset,
+	}).WithRiskyAsset(chain.RiskyAssetPolicy{
+		Price: 2_000_000_000, PriceScale: 6, Decimals: 18, HaircutBps: 2_000,
+	}).WithRiskySource(priceSource)
 	domain := attest.DomainSeparator(new(big.Int).SetUint64(chainID), oracleAddr)
 
 	// Each loan is originated against its own accepted quote and repaid
@@ -197,6 +235,40 @@ func run(
 		}
 		assessment.Binding.AccountStateVersion = stateVersion
 		bindingForDraw := assessment.Binding
+
+		// Ask the engine what this request is worth, rather than signing
+		// fixed terms. `docs/11` requires three sequential loans to show a
+		// rising limit and a falling APR under one policy and model hash,
+		// and identical terms every time would make that unprovable.
+		if risk != nil {
+			bindingJSON, err := bindingSnapshotJSON(assessment.Binding, accepted)
+			if err != nil {
+				return fmt.Errorf("loan %d: binding snapshot: %w", i, err)
+			}
+			terms, raw, err := originationTerms(
+				ctx, risk, reader, rpc, account, settlement, bindingJSON,
+				assessment.Sequence, principal, 10*86_400,
+				historyEvidence(block.Timestamp, repaidSoFar), enginePolicy,
+			)
+			if err != nil {
+				return fmt.Errorf("loan %d: assess: %w", i, err)
+			}
+			if terms == nil {
+				log.Printf("loan %d: engine declined; nothing to originate", i)
+				_ = raw
+				break
+			}
+
+			assessment.RequestedPrincipal = terms.ApprovedPrincipal
+			assessment.Terms.ApprovedPrincipal = terms.ApprovedPrincipal
+			assessment.Terms.AprBps = terms.AprBps
+			assessment.Terms.TermSeconds = terms.TermSeconds
+			assessment.Terms.RequiredEquity = terms.RequiredEquity
+			principal = terms.ApprovedPrincipal.Uint64()
+
+			log.Printf("loan %d: engine terms apr=%dbps capacity=%s binding=%s",
+				i, terms.AprBps, terms.AgentCapacity, terms.AgentBinding)
+		}
 
 		// Commit to the exact action this loan will take. The account
 		// compares every execution against this hash, so it must be the
@@ -316,6 +388,7 @@ func run(
 				return fmt.Errorf("loan %d: repay: %w", i, err)
 			}
 			log.Printf("loan %d: repaid", i)
+			repaidSoFar++
 		} else if enrollDB != "" {
 			// Only the loan left open is enrolled. Continuous
 			// underwriting governs live debt, so enrolling a repaid loan
