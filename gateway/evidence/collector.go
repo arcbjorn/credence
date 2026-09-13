@@ -154,10 +154,13 @@ func New(
 // binding, or a chain that cannot be reached to pin a block. Every other
 // failure becomes Missing or Stale evidence inside the snapshot, so the
 // engine still records a decision and the reason it was blocked.
+// The gateway's wall clock is deliberately not a parameter: every time in
+// the snapshot comes from the pinned block or from a provider's own
+// observation, so no local clock can influence what gets authorized.
 func (c *Collector) Collect(
 	ctx context.Context,
 	task scheduler.Task,
-	now int64,
+	_ int64,
 ) (snapshot.Input, error) {
 	info, ok := c.binding(task.BindingKey)
 	if !ok {
@@ -171,7 +174,17 @@ func (c *Collector) Collect(
 		return snapshot.Input{}, fmt.Errorf("pin block reference: %w", err)
 	}
 
-	ts := uint64(now)
+	// Assessment time is the chain's, not the gateway's. The oracle judges
+	// validity against block.timestamp, so a wall-clock window is wrong by
+	// whatever the two differ by -- and a scenario that advances chain time
+	// would sign assessments that are already expired on arrival.
+	//
+	// This is also the retrieval stamp for every item below. That is the
+	// honest reading: all of them are pinned to this block, so the height
+	// they were read at is what "when was this retrieved" means here. The
+	// market provider is the exception and carries its own observation
+	// time, measured against a declared skew bound.
+	ts := block.Timestamp
 	in := snapshot.Input{
 		SchemaVersion:  c.cfg.SchemaVersion,
 		FacilityPolicy: c.cfg.FacilityPolicy,
