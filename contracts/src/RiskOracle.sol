@@ -42,6 +42,12 @@ contract RiskOracle {
         // once while consumption happens later: without it the evidence
         // behind an accepted quote ages out and nothing on chain notices.
         uint64 validUntil;
+        // Commitment to the COMPLETE signed binding. The standing-quote
+        // key covers only the stable identity (registry, agent, account,
+        // facility), so without this the caller could present the same key
+        // with rewritten operator, configuration, or policy fields -- or a
+        // bumped state version -- and still draw on this quote.
+        bytes32 bindingCommitment;
     }
 
     address public immutable operator;
@@ -68,6 +74,10 @@ contract RiskOracle {
     /// @dev Account state version the permission was issued against.
     mapping(bytes32 bindingKey => uint64) public permissionStateVersion;
     mapping(bytes32 bindingKey => uint64) public permissionValidUntil;
+    /// @dev Commitment to the complete binding a monitoring permission was
+    /// issued for, so a permission cannot be read against a binding that
+    /// merely shares the standing key.
+    mapping(bytes32 bindingKey => bytes32) public permissionBinding;
 
     error NotOperator();
     error RouteNotPinned(uint256 facilityId);
@@ -83,6 +93,8 @@ contract RiskOracle {
     error NoQuote();
     error QuoteConsumed();
     error QuoteExpired();
+    error BindingMismatch();
+    error ContradictoryPermission();
     error GrantMismatch(uint256 requested, uint256 approved);
     error AmountMismatch(uint256 approved, uint256 requested);
     error WrongKind();
@@ -124,6 +136,13 @@ contract RiskOracle {
     function setSigner(Route route, address signer, bool allowed) external onlyOperator {
         routeSigner[route][signer] = allowed;
         emit SignerSet(route, signer, allowed);
+    }
+
+    /// @notice The EIP-712 hash of a complete binding.
+    /// @dev Public so the loan manager can pin exactly what was signed
+    /// onto the credit account at origination.
+    function bindingHash(Binding calldata b) external pure returns (bytes32) {
+        return _bindingHash(b);
     }
 
     function bindingKey(Binding calldata b) public pure returns (bytes32) {
@@ -171,19 +190,50 @@ contract RiskOracle {
         delete quoteTerms[key];
 
         if (a.kind == Kind.Origination) {
+            // A newer origination result supersedes any standing
+            // monitoring permission. A denial is new information about
+            // this binding, so leaving an older Allowed in place would let
+            // the account keep acting on a superseded view.
+            if (a.decision != Decision.Approved || a.class_ != Class.PrototypeEligible) {
+                delete riskPermission[key];
+                delete permissionStateVersion[key];
+                delete permissionValidUntil[key];
+                delete permissionBinding[key];
+            }
             if (a.decision == Decision.Approved && a.class_ == Class.PrototypeEligible) {
                 quote[key] = Stored({
                     assessmentId: a.assessmentId,
                     sequence: a.sequence,
                     consumed: false,
-                    validUntil: a.validUntil
+                    validUntil: a.validUntil,
+                    bindingCommitment: _bindingHash(a.binding)
                 });
                 quoteTerms[key] = a.terms;
             }
         } else {
-            riskPermission[key] = a.permission;
-            permissionStateVersion[key] = a.binding.accountStateVersion;
-            permissionValidUntil[key] = a.validUntil;
+            // One transition rule across both kinds. Permission only ever
+            // stands on an EXECUTABLE monitoring approval; everything else
+            // -- a shadow class, a denial, an unavailable -- clears it.
+            //
+            // Clearing rather than ignoring matters: a newer assessment
+            // that cannot grant permission must still revoke whatever
+            // stood before, or a stale Allowed survives the very update
+            // that was meant to withdraw it.
+            bool grants = a.decision == Decision.Approved
+                && a.permission == Permission.Allowed
+                && a.class_ == Class.PrototypeEligible;
+
+            if (grants) {
+                riskPermission[key] = Permission.Allowed;
+                permissionStateVersion[key] = a.binding.accountStateVersion;
+                permissionValidUntil[key] = a.validUntil;
+                permissionBinding[key] = _bindingHash(a.binding);
+            } else {
+                delete riskPermission[key];
+                delete permissionStateVersion[key];
+                delete permissionValidUntil[key];
+                delete permissionBinding[key];
+            }
         }
 
         emit Accepted(key, a.assessmentId, a.kind, a.sequence);
@@ -201,8 +251,16 @@ contract RiskOracle {
             require(!hasGrant, GrantOnMonitoring());
             require(a.requestedPrincipal == 0, GrantOnMonitoring());
             require(a.requestId == bytes32(0), GrantOnMonitoring());
+            // Decision and permission are separate fields but not
+            // independent ones: a Denied result that claims Allowed is a
+            // contradiction, not a permissive edge case (`docs/04`).
+            require(
+                a.decision == Decision.Approved || a.permission == Permission.Blocked,
+                ContradictoryPermission()
+            );
         } else if (a.decision != Decision.Approved) {
             require(!hasGrant, GrantOnNonApproval());
+            require(a.permission == Permission.Blocked, ContradictoryPermission());
         } else {
             // `docs/03`: v0 grants the exact requested amount or denies.
             // An approval for more than was asked is malformed, and
@@ -236,6 +294,9 @@ contract RiskOracle {
         // Validity binds here, not only at accept: the draw is the moment
         // credit is actually extended (`docs/05`).
         require(block.timestamp < q.validUntil, QuoteExpired());
+        // The binding presented here must be the one that was signed, in
+        // full -- not merely one that shares the standing-quote key.
+        require(_bindingHash(b) == q.bindingCommitment, BindingMismatch());
 
         Terms memory t = quoteTerms[key];
         require(t.approvedPrincipal == drawAmount, AmountMismatch(t.approvedPrincipal, drawAmount));
@@ -243,6 +304,25 @@ contract RiskOracle {
         q.consumed = true;
         emit QuoteConsumedEvent(key, q.assessmentId);
         return t;
+    }
+
+    /// @notice May the binding a credit account is bound to act now?
+    ///
+    /// Keyed by the standing-quote key with an explicit commitment to the
+    /// complete binding, so a caller cannot present a different binding
+    /// that happens to share the key. Exists because a credit account
+    /// holds a hash, not the struct: making it reconstruct one would mean
+    /// trusting fields the caller chose.
+    function riskAllowedFor(bytes32 key, bytes32 bindingCommitment, uint64 stateVersion)
+        external
+        view
+        returns (bool)
+    {
+        if (permissionBinding[key] != bindingCommitment) return false;
+        if (riskPermission[key] != Permission.Allowed) return false;
+        if (block.timestamp >= permissionValidUntil[key]) return false;
+        if (permissionStateVersion[key] != stateVersion) return false;
+        return true;
     }
 
     /// @notice May this binding take a risk-increasing action now?

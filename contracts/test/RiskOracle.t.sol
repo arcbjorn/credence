@@ -452,4 +452,57 @@ contract RiskOracleTest is Test {
         vm.expectRevert(RiskOracle.GrantOnMonitoring.selector);
         oracle.accept(a, sig);
     }
+
+    // --- Permission transition rule (docs/04) ---
+
+    /// Only an executable class may enable permission.
+    ///
+    /// `docs/04`: an observed/shadow result is non-executable by its own
+    /// declaration. Copying its permission through would let shadow
+    /// evidence authorize real capital movement.
+    function test_ShadowMonitoringGrantsNoPermission() public {
+        Assessment memory a = _monitoring(1, Permission.Allowed);
+        a.class_ = Class.ObservedShadow;
+        oracle.accept(a, _sign(a, devKey));
+
+        assertFalse(oracle.riskAllowed(_binding()), "shadow evidence must not authorize");
+    }
+
+    /// A denial that claims Allowed is a contradiction, not a permission.
+    function test_DeniedMonitoringCannotClaimAllowed() public {
+        Assessment memory a = _monitoring(1, Permission.Allowed);
+        a.decision = Decision.Denied;
+
+        bytes memory sig = _sign(a, devKey);
+        vm.expectRevert(RiskOracle.ContradictoryPermission.selector);
+        oracle.accept(a, sig);
+    }
+
+    /// A newer result that cannot grant permission must revoke whatever
+    /// stood before. Otherwise the update meant to withdraw permission
+    /// leaves the old Allowed in place.
+    function test_NewerDenialRevokesStandingPermission() public {
+        Assessment memory allow = _monitoring(1, Permission.Allowed);
+        oracle.accept(allow, _sign(allow, devKey));
+        assertTrue(oracle.riskAllowed(_binding()), "permission should stand first");
+
+        Assessment memory deny = _origination(2, Decision.Denied);
+        oracle.accept(deny, _sign(deny, devKey));
+
+        assertFalse(
+            oracle.riskAllowed(_binding()),
+            "a newer denial must revoke the standing permission"
+        );
+    }
+
+    /// The same revocation applies to a monitoring block.
+    function test_MonitoringBlockRevokesPermission() public {
+        Assessment memory allow = _monitoring(1, Permission.Allowed);
+        oracle.accept(allow, _sign(allow, devKey));
+        assertTrue(oracle.riskAllowed(_binding()));
+
+        Assessment memory block_ = _monitoring(2, Permission.Blocked);
+        oracle.accept(block_, _sign(block_, devKey));
+        assertFalse(oracle.riskAllowed(_binding()), "a block must withdraw permission");
+    }
 }
