@@ -24,6 +24,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/arcbjorn/credence/gateway/canonical"
 	"github.com/arcbjorn/credence/gateway/scheduler"
 	"github.com/arcbjorn/credence/gateway/snapshot"
 )
@@ -266,8 +267,11 @@ func (c *Collector) collectRaw(
 	if err != nil {
 		return snapshot.Missing(id, "derived", snapshot.OriginObserved, snapshot.Required, ts)
 	}
-	var value any
-	if err := json.Unmarshal(raw, &value); err != nil {
+	// Decode strictly: a plain json.Unmarshal into `any` turns every number
+	// into a float64, and the canonical encoder rejects floats — so the
+	// value would hash-fail and degrade to Missing with no sign of why.
+	value, err := canonical.DecodeStrict(raw)
+	if err != nil {
 		return snapshot.Missing(id, "derived", snapshot.OriginObserved, snapshot.Required, ts)
 	}
 	ev, err := snapshot.Present(id, "derived", snapshot.OriginObserved, snapshot.Required,
@@ -287,8 +291,8 @@ func (c *Collector) collectForecasts(
 	if err != nil {
 		return snapshot.Missing("forecasts", "derived", snapshot.OriginObserved, snapshot.Required, ts)
 	}
-	var value any
-	if err := json.Unmarshal(raw, &value); err != nil {
+	value, err := canonical.DecodeStrict(raw)
+	if err != nil {
 		return snapshot.Missing("forecasts", "derived", snapshot.OriginObserved, snapshot.Required, ts)
 	}
 	ev, err := snapshot.Present("forecasts", "derived", snapshot.OriginObserved,
@@ -308,8 +312,8 @@ func (c *Collector) collectPortfolio(
 	if err != nil {
 		return snapshot.Missing("portfolio", "derived", snapshot.OriginObserved, snapshot.Required, ts)
 	}
-	var value any
-	if err := json.Unmarshal(raw, &value); err != nil {
+	value, err := canonical.DecodeStrict(raw)
+	if err != nil {
 		return snapshot.Missing("portfolio", "derived", snapshot.OriginObserved, snapshot.Required, ts)
 	}
 	ev, err := snapshot.Present("portfolio", "derived", snapshot.OriginObserved,

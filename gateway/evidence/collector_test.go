@@ -332,3 +332,35 @@ func TestEvidenceIDsAreUnique(t *testing.T) {
 		seen[id] = true
 	}
 }
+
+// Derived evidence arrives as JSON with integer amounts. Decoding it into
+// `any` with json.Unmarshal turns every number into a float64, which the
+// canonical encoder rejects — so the value would fail to hash and degrade
+// to Missing with no indication of why. This pins the strict decode.
+func TestIntegerDerivedEvidenceIsPresent(t *testing.T) {
+	chain := &fakeChain{block: evidence.BlockRef{Number: 500, Timestamp: 10_000}}
+	c := evidence.New(chain, fakeMarket{state: evidence.MarketState{ObservedAt: 10_000}},
+		fakeHistory{}, binding, config())
+
+	in := collect(t, c)
+
+	for name, ev := range map[string]snapshot.Evidence{
+		"history":   in.History,
+		"forecasts": in.Forecasts,
+		"portfolio": in.Portfolio,
+	} {
+		if ev.State != snapshot.StatePresent {
+			t.Errorf("%s state = %s, want Present — integer JSON must survive decoding",
+				name, ev.State)
+		}
+		if ev.ContentHash == "" {
+			t.Errorf("%s must hash successfully", name)
+		}
+	}
+
+	// And the whole snapshot must still hash, which is what the engine
+	// compares against.
+	if _, err := in.InputHash(); err != nil {
+		t.Fatalf("snapshot must hash: %v", err)
+	}
+}
