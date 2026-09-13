@@ -7,6 +7,7 @@ import {console2} from "forge-std/console2.sol";
 import {CreditAccount} from "../src/CreditAccount.sol";
 import {CreditVault} from "../src/CreditVault.sol";
 import {LoanManager} from "../src/LoanManager.sol";
+import {StrategyAdapter} from "../src/StrategyAdapter.sol";
 import {TestRiskyAsset} from "../src/TestRiskyAsset.sol";
 import {TestSettlementToken} from "../src/TestSettlementToken.sol";
 
@@ -36,6 +37,7 @@ contract Scenario is Script {
         // honest way to produce one given the withdrawal guard.
         uint256 riskyEquity = vm.envOr("AGENT_RISKY_EQUITY", uint256(0));
         address riskyAsset = vm.envOr("RISKY_ASSET", address(0));
+        address adapter = vm.envOr("STRATEGY_ADAPTER", address(0));
 
         TestSettlementToken token = TestSettlementToken(tokenAddr);
         CreditVault vault = CreditVault(vaultAddr);
@@ -55,6 +57,13 @@ contract Scenario is Script {
         token.mint(address(account), agentEquity);
         if (riskyEquity > 0 && riskyAsset != address(0)) {
             TestRiskyAsset(riskyAsset).mint(address(account), riskyEquity);
+        }
+
+        // Register the one supported execution route. Without this the
+        // account can hold principal but never deploy it, which is the
+        // difference between a loan and a deposit.
+        if (adapter != address(0)) {
+            LoanManager(managerAddr).setAccountAdapter(account, adapter, true);
         }
 
         vm.stopBroadcast();
