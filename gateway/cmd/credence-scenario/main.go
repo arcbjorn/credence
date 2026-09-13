@@ -38,13 +38,17 @@ func main() {
 	chainID := flag.Uint64("chain-id", 31337, "chain id")
 	deploymentID := flag.Uint64("deployment-id", 7, "deployment id")
 	principal := flag.Uint64("principal", 2_000_000_000, "principal in base units")
+	adapter := flag.String("adapter", "", "strategy adapter; deploys principal when set")
+	deployBps := flag.Uint64("deploy-bps", 0,
+		"basis points of principal to deploy into the risky asset")
 	loans := flag.Int("loans", 1, "number of sequential loans to originate and repay")
 	hold := flag.Uint64("hold-seconds", 5*86_400,
 		"seconds to hold each loan before repayment, so interest accrues")
 	flag.Parse()
 
 	if err := run(*rpcURL, *oracle, *manager, *account, *settlement,
-		*chainID, *deploymentID, *principal, *loans, *hold); err != nil {
+		*chainID, *deploymentID, *principal, *loans, *hold,
+		*adapter, *deployBps); err != nil {
 		log.Fatalf("scenario: %v", err)
 	}
 }
@@ -54,6 +58,8 @@ func run(
 	chainID, deploymentID, principal uint64,
 	loans int,
 	holdSeconds uint64,
+	adapter string,
+	deployBps uint64,
 ) error {
 	ctx := context.Background()
 	rpc := chain.NewRPC(rpcURL, 15*time.Second)
@@ -207,6 +213,18 @@ func run(
 		}
 		log.Printf("loan %d: originated as loan %d", i, loanID)
 
+		// Deploy the principal. An account that only holds settlement can
+		// always repay from what it borrowed, so nothing about the credit
+		// decision is being tested until the principal is actually at risk.
+		if adapter != "" && deployBps > 0 {
+			amount := principal * deployBps / 10_000
+			if err := deployPrincipal(ctx, w, reader, account, settlement,
+				adapter, amount); err != nil {
+				return fmt.Errorf("loan %d: deploy principal: %w", i, err)
+			}
+			log.Printf("loan %d: deployed %d into the risky asset", i, amount)
+		}
+
 		// Let time pass so interest actually accrues. Without this the
 		// demo shows a repayment of exactly the principal, which would
 		// misrepresent the economics the whole system exists to price.
@@ -238,6 +256,68 @@ func run(
 	}
 
 	fmt.Printf("chain_key=%s\n", chainKey)
+	return nil
+}
+
+// deployPrincipal converts settlement into the risky asset through the
+// registered adapter.
+//
+// Two calls, both through the account: a bounded approval, then the trade.
+// The adapter pulls what it was approved for and returns the output to the
+// account, so nothing is left sitting with the adapter.
+func deployPrincipal(
+	ctx context.Context,
+	w *wallet.Wallet,
+	reader *chain.Reader,
+	account, settlement, adapter string,
+	amount uint64,
+) error {
+	settlementAddr, err := toAddress(settlement)
+	if err != nil {
+		return err
+	}
+	adapterAddr, err := toAddress(adapter)
+	if err != nil {
+		return err
+	}
+	value := new(big.Int).SetUint64(amount)
+
+	approve := append(attest.Selector("approveAdapter(address,address,uint256)"),
+		attest.AddressWord(settlementAddr)...)
+	approve = append(approve, attest.AddressWord(adapterAddr)...)
+	approve = append(approve, attest.Word(value)...)
+	if err := sendAndWait(ctx, w, reader, account, approve, "approveAdapter"); err != nil {
+		return err
+	}
+
+	acquire := append(attest.Selector("acquire(uint256)"), attest.Word(value)...)
+	execute := append(attest.Selector("execute(address,bytes)"),
+		attest.AddressWord(adapterAddr)...)
+	// Dynamic bytes: offset, length, then the padded payload.
+	execute = append(execute, attest.Word(big.NewInt(64))...)
+	execute = append(execute, attest.Word(big.NewInt(int64(len(acquire))))...)
+	execute = append(execute, acquire...)
+	if pad := len(acquire) % 32; pad != 0 {
+		execute = append(execute, make([]byte, 32-pad)...)
+	}
+	return sendAndWait(ctx, w, reader, account, execute, "execute acquire")
+}
+
+func sendAndWait(
+	ctx context.Context,
+	w *wallet.Wallet,
+	reader *chain.Reader,
+	to string,
+	data []byte,
+	label string,
+) error {
+	txHash, err := w.Send(ctx, to, data)
+	if err != nil {
+		return fmt.Errorf("%s: %w", label, err)
+	}
+	if err := waitMined(ctx, reader, txHash); err != nil {
+		return fmt.Errorf("%s: %w", label, err)
+	}
 	return nil
 }
 
