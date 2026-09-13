@@ -217,7 +217,23 @@ func run(
 		// always repay from what it borrowed, so nothing about the credit
 		// decision is being tested until the principal is actually at risk.
 		if adapter != "" && deployBps > 0 {
-			amount := principal * deployBps / 10_000
+			// Measured against the account's whole settlement balance,
+			// not the principal alone. Agent equity is the first loss
+			// layer, so leaving it in settlement while only the borrowed
+			// funds trade would let equity absorb any crash from the
+			// sidelines -- lenders could never be shown taking a loss,
+			// however far the asset fell.
+			at, err := reader.LatestBlock(ctx)
+			if err != nil {
+				return fmt.Errorf("loan %d: pin block: %w", i, err)
+			}
+			balance, err := reader.TokenBalance(ctx, settlement, account, at)
+			if err != nil {
+				return fmt.Errorf("loan %d: read account balance: %w", i, err)
+			}
+			amount := new(big.Int).Div(
+				new(big.Int).Mul(balance, new(big.Int).SetUint64(deployBps)),
+				big.NewInt(10_000)).Uint64()
 			if err := deployPrincipal(ctx, w, reader, account, settlement,
 				adapter, amount); err != nil {
 				return fmt.Errorf("loan %d: deploy principal: %w", i, err)
