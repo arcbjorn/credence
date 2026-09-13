@@ -73,6 +73,48 @@ The final release requires evidence in every row below. A tagged development bas
 | Integration honesty | Claimed capabilities backed by artifacts; modes labeled |
 | Reproducibility | Clean setup completes the documented scenario without private data |
 
+## Evidence status — 13 September
+
+Where each row stands against the **baseline**, and the command that
+reproduces it. Rows without evidence are named as pending rather than
+assumed; a green suite is not evidence for a behavioural claim.
+
+| Row | Status | Reproduce |
+|---|---|---|
+| Performer lifecycle | evidence | `scripts/demo-repay.sh` |
+| **Three sequential loans** | evidence | `LOANS=4 scripts/demo-repay.sh` |
+| Behavioral ablation | **pending** | controlled runs not yet scripted |
+| **Continuous underwriting** | evidence | `scripts/demo-monitor.sh` |
+| Concentration override | **pending** | needs the concentrated account |
+| **Three stress cases** | evidence | reported in every assessment; `cargo test -p risk-core --test stress` |
+| Forecast evaluation | **pending** | commit-before-funding not yet demonstrated |
+| Custody protection | evidence | `forge test --match-test ownerHasNoBypass` |
+| Default handling | evidence | `scripts/demo-default.sh` |
+| Replay | evidence | `scripts/demo-monitor.sh` (beat 8, with its tampering control) |
+| Missing / stale data | evidence | `forge test --match-test ExecuteRequiresStandingPermission`; engine blocks on stale required evidence |
+| **Independent reputation reader** | **pending** | ERC-8004 publication not built |
+| Integration honesty | evidence | scenario facility and test assets labelled; `TestRiskyAsset` is named *NOT ETH* |
+| Reproducibility | evidence | the three scripts run from a clean chain |
+
+Observed on 13 September for the sequential-loans row, one policy and
+model hash throughout, only demonstrated history varying:
+
+```
+loan 1: apr=1200bps capacity=10000000000 binding=HistoryGrowthCap
+loan 2: apr=1120bps capacity=11040000000 binding=ForecastCap
+loan 3: apr=1040bps capacity=11040000000 binding=ForecastCap
+loan 4: apr= 960bps capacity=11040000000 binding=ForecastCap
+```
+
+Capacity rises while history is what limits it, then **plateaus** once the
+forecast cap takes over — which is why the binding constraint is reported
+beside the number rather than the number alone. APR keeps falling after
+capacity stops, because pricing still responds to demonstrated history.
+
+> The matrix above describes the **baseline**. Four rows are pending, and
+> the independent reputation reader is the one with no partial
+> implementation at all.
+
 ## Operational measurement
 
 Engine runtime, input size, provider lag, event reconciliation lag, transaction status. One scripted command runs the offline scenario suite; another starts the demo environment. Document required credentials and optional integrations explicitly.
