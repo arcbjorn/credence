@@ -21,8 +21,14 @@ import (
 	"time"
 )
 
-// SignerKeyEnv is the only place a private key is read from.
-const SignerKeyEnv = "CREDENCE_SIGNER_KEY"
+// Private keys are only ever read from the environment.
+const (
+	// SignerKeyEnv attests assessments. It signs, it never spends.
+	SignerKeyEnv = "CREDENCE_SIGNER_KEY"
+	// OperatorKeyEnv pays gas. Separate from the attestor so a compromised
+	// gateway signer cannot also drain the operator balance.
+	OperatorKeyEnv = "CREDENCE_OPERATOR_KEY"
+)
 
 type Config struct {
 	// Chain
@@ -46,6 +52,7 @@ type Config struct {
 	Scheduler SchedulerPolicy `json:"scheduler"`
 	Evidence  EvidencePolicy  `json:"evidence"`
 	Market    MarketPolicy    `json:"market"`
+	Wallet    WalletPolicy    `json:"wallet"`
 
 	// StrategyID names the single supported strategy in v0.
 	StrategyID string `json:"strategy_id"`
@@ -90,6 +97,12 @@ type MarketPolicy struct {
 	LiquidityDepth string `json:"liquidity_depth"`
 	// StaticCloses serves scenario facilities only.
 	StaticCloses []uint64 `json:"static_closes,omitempty"`
+}
+
+// WalletPolicy bounds what a single transaction may cost.
+type WalletPolicy struct {
+	GasLimitCap    uint64 `json:"gas_limit_cap"`
+	GasPriceCapWei uint64 `json:"gas_price_cap_wei"`
 }
 
 type EvidencePolicy struct {
@@ -222,6 +235,15 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("config: scheduler.heartbeat_seconds must be positive")
 	}
 
+	// Both caps must be set: an unbounded gas limit or price turns a
+	// routine monitoring update into an unbounded cost.
+	if c.Wallet.GasLimitCap == 0 {
+		return fmt.Errorf("config: wallet.gas_limit_cap must be positive")
+	}
+	if c.Wallet.GasPriceCapWei == 0 {
+		return fmt.Errorf("config: wallet.gas_price_cap_wei must be positive")
+	}
+
 	if c.Market.WindowSeconds == 0 {
 		return fmt.Errorf("config: market.window_seconds must be positive")
 	}
@@ -265,18 +287,27 @@ func (c *Config) Validate() error {
 // a key, and a misconfigured deployment must fail loudly rather than sign
 // with something unintended.
 func SignerKey() ([]byte, error) {
-	raw := os.Getenv(SignerKeyEnv)
+	return readKey(SignerKeyEnv)
+}
+
+func readKey(env string) ([]byte, error) {
+	raw := os.Getenv(env)
 	if raw == "" {
-		return nil, fmt.Errorf("%s is not set", SignerKeyEnv)
+		return nil, fmt.Errorf("%s is not set", env)
 	}
 	key, err := hex.DecodeString(strings.TrimPrefix(raw, "0x"))
 	if err != nil {
-		return nil, fmt.Errorf("%s is not hex: %w", SignerKeyEnv, err)
+		return nil, fmt.Errorf("%s is not hex: %w", env, err)
 	}
 	if len(key) != 32 {
-		return nil, fmt.Errorf("%s must be 32 bytes, got %d", SignerKeyEnv, len(key))
+		return nil, fmt.Errorf("%s must be 32 bytes, got %d", env, len(key))
 	}
 	return key, nil
+}
+
+// OperatorKey reads the gas-paying key from the environment.
+func OperatorKey() ([]byte, error) {
+	return readKey(OperatorKeyEnv)
 }
 
 func validateAddress(addr string) error {

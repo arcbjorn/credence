@@ -31,6 +31,7 @@ import (
 	"github.com/arcbjorn/credence/gateway/scheduler"
 	"github.com/arcbjorn/credence/gateway/sources"
 	"github.com/arcbjorn/credence/gateway/store"
+	"github.com/arcbjorn/credence/gateway/wallet"
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
 )
 
@@ -66,7 +67,8 @@ func run(configPath string, checkOnly bool) error {
 		return err
 	}
 
-	log.Printf("signer address 0x%s", hex.EncodeToString(deps.signerAddress[:]))
+	log.Printf("attestor address 0x%s", hex.EncodeToString(deps.signerAddress[:]))
+	log.Printf("operator address %s", deps.operatorAddress)
 	log.Printf("facility policy %s, class %s", cfg.FacilityPolicy, cfg.RequestedClass)
 
 	// Reload watches before anything ticks. A restart that skips this
@@ -87,12 +89,13 @@ func run(configPath string, checkOnly bool) error {
 }
 
 type deps struct {
-	store         *store.Store
-	registry      *store.Registry
-	monitor       *monitor.Monitor
-	scheduler     *scheduler.Scheduler
-	risk          *riskclient.Client
-	signerAddress attest.Address
+	store           *store.Store
+	registry        *store.Registry
+	monitor         *monitor.Monitor
+	scheduler       *scheduler.Scheduler
+	risk            *riskclient.Client
+	signerAddress   attest.Address
+	operatorAddress string
 }
 
 func build(ctx context.Context, cfg *config.Config) (*deps, error) {
@@ -115,11 +118,25 @@ func build(ctx context.Context, cfg *config.Config) (*deps, error) {
 		Vault:       cfg.Addresses.Vault,
 	})
 
-	// Submission is deliberately absent for now: signing and nonce
-	// management belong to a wallet this deployment does not yet have.
-	// A nil submitter fails loudly at the point of sending rather than
-	// silently reporting success.
-	pubView := reader.ForPublisher(nil)
+	// The operator key spends gas; the attestation key only signs. Keeping
+	// them separate means a compromised attestor cannot move funds.
+	operatorKeyBytes, err := config.OperatorKey()
+	if err != nil {
+		return nil, err
+	}
+	operatorWallet := wallet.New(secp256k1.PrivKeyFromBytes(operatorKeyBytes), rpc, wallet.Config{
+		ChainID:     new(big.Int).SetUint64(cfg.ChainID),
+		GasLimitCap: cfg.Wallet.GasLimitCap,
+		GasPriceCap: new(big.Int).SetUint64(cfg.Wallet.GasPriceCapWei),
+	})
+
+	oracleAddress := cfg.Addresses.Oracle
+	pubView := reader.ForPublisher(
+		func(ctx context.Context, payload, _ []byte) (string, error) {
+			// The payload is already encoded calldata; the signature is
+			// inside it, so it is not passed again.
+			return operatorWallet.Send(ctx, oracleAddress, payload)
+		})
 	pub := publisher.New(pubView, store.NewJournal(db))
 
 	evidencePolicyID, err := parseHash(cfg.EvidencePolicyID)
@@ -182,7 +199,8 @@ func build(ctx context.Context, cfg *config.Config) (*deps, error) {
 			publisherFunc{adapter: adapter, store: db}, recorder{db}, monitor.Config{
 				Policy: cfg.EnginePolicy,
 			}),
-		signerAddress: attest.SignerAddress(signer),
+		signerAddress:   attest.SignerAddress(signer),
+		operatorAddress: operatorWallet.Address(),
 	}, nil
 }
 

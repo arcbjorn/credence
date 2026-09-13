@@ -108,8 +108,12 @@ func (a *Adapter) Publish(
 		return "", fmt.Errorf("sign envelope: %w", err)
 	}
 
+	// Encode the contract call here: the publisher reconciles and delivers
+	// bytes, and should not need to know the oracle's ABI.
+	calldata := attest.EncodeAccept(envelope, signature)
+
 	// The publisher reconciles before sending, so this is delivery only.
-	return a.pub.Publish(ctx, bindingKey, doc.Sequence, assessment, signature)
+	return a.pub.Publish(ctx, bindingKey, doc.Sequence, calldata, signature)
 }
 
 func (a *Adapter) envelope(doc assessmentDoc, binding Binding) (attest.Assessment, error) {

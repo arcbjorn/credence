@@ -40,6 +40,7 @@ const valid = `{
     "heartbeat_seconds": 600
   },
   "evidence": { "max_skew_seconds": 60, "validity_seconds": 300 },
+  "wallet": { "gas_limit_cap": 5000000, "gas_price_cap_wei": 500000000000 },
   "market": {
     "provider_url": "http://127.0.0.1:9000/candles",
     "window_seconds": 3600,
@@ -213,5 +214,37 @@ func TestLiquidityDepthIsRequired(t *testing.T) {
 		`"liquidity_depth": ""`, 1)
 	if _, err := config.Load(write(t, body)); err == nil {
 		t.Fatal("liquidity depth must be declared")
+	}
+}
+
+// An unbounded gas limit or price turns a routine monitoring update into an
+// unbounded cost, so both caps are required rather than defaulted.
+func TestWalletCapsAreRequired(t *testing.T) {
+	for _, field := range []string{`"gas_limit_cap": 5000000`, `"gas_price_cap_wei": 500000000000`} {
+		body := strings.Replace(valid, field,
+			strings.Split(field, ":")[0]+": 0", 1)
+		if _, err := config.Load(write(t, body)); err == nil {
+			t.Fatalf("a zero cap must be rejected: %s", field)
+		}
+	}
+}
+
+// The attestor signs and the operator spends. Reading them from separate
+// variables means a leaked attestation key cannot also move funds.
+func TestOperatorKeyIsSeparateFromSigner(t *testing.T) {
+	t.Setenv(config.SignerKeyEnv, strings.Repeat("11", 32))
+	t.Setenv(config.OperatorKeyEnv, "")
+	if _, err := config.OperatorKey(); err == nil {
+		t.Fatal("an unset operator key must be an error even when the signer is set")
+	}
+
+	t.Setenv(config.OperatorKeyEnv, strings.Repeat("22", 32))
+	operator, err := config.OperatorKey()
+	if err != nil {
+		t.Fatalf("operator key: %v", err)
+	}
+	signer, _ := config.SignerKey()
+	if string(operator) == string(signer) {
+		t.Fatal("the two keys must be read from different variables")
 	}
 }
