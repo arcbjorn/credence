@@ -84,6 +84,7 @@ contract LoanManager {
     error NotYetDefaultable();
     error CollateralUnresolved(address token);
     error LoanNotRecoverable(uint256 loanId);
+    error BindingNotForLoan(uint256 loanId);
     error Paused();
     error ZeroAmount();
     error NotKeeper();
@@ -197,7 +198,8 @@ contract LoanManager {
         );
 
         // Consumes once, and only for this exact amount.
-        Terms memory terms = oracle.consumeQuote(binding, principal);
+        (Terms memory terms, uint64 quoteValidUntil) =
+            oracle.consumeQuote(binding, principal);
 
         // `docs/02`: an agent with no equity receives no credit in v0.
         require(
@@ -231,8 +233,12 @@ contract LoanManager {
 
         account.openDebt(
             oracle.bindingKey(binding),
-            oracle.bindingHash(binding),
-            terms.permittedActionHash
+            // The binding's immutable identity, not its full hash: the
+            // state version changes with every execution and is checked
+            // separately against the account's live value.
+            oracle.bindingConfigHash(binding),
+            terms.permittedActionHash,
+            quoteValidUntil
         );
         vault.lend(acct, principal, reserved);
         reservation[loanId] = reserved;
@@ -352,6 +358,20 @@ contract LoanManager {
     {
         Loan storage loan = loans[loanId];
         require(loan.status == Status.Active, WrongStatus(Status.Active, loan.status));
+
+        // The binding must be THIS loan's. Without that, an operator can
+        // present an unrelated agent -- one with no standing permission --
+        // and liquidate an otherwise healthy, unmatured position, which
+        // defeats the very restriction this check exists to impose.
+        //
+        // Compared against what the account pinned at origination, so the
+        // caller cannot choose it.
+        CreditAccount acct = CreditAccount(loan.account);
+        require(
+            oracle.bindingKey(binding) == acct.boundBindingKey()
+                && oracle.bindingConfigHash(binding) == acct.boundBindingHash(),
+            BindingNotForLoan(loanId)
+        );
 
         bool matured = block.timestamp >= loan.originatedAt + loan.termSeconds;
         bool unpermitted = !oracle.riskAllowed(binding);

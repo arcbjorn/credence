@@ -174,6 +174,31 @@ contract RiskOracle {
         return _bindingHash(b);
     }
 
+    /// @notice The binding's IMMUTABLE identity: everything a monitoring
+    /// permission must match, excluding the account state version.
+    ///
+    /// The state version changes on every execution and is checked
+    /// separately, against the account's live value. Folding it into the
+    /// commitment too would mean a correctly signed monitoring result
+    /// could never match after the first action -- the account would be
+    /// permanently unable to act (`docs/05`).
+    function bindingConfigHash(Binding calldata b) public pure returns (bytes32) {
+        return keccak256(
+            abi.encode(
+                b.identityRegistryChainId,
+                b.identityRegistry,
+                b.agentId,
+                b.operator,
+                b.creditAccount,
+                b.facilityId,
+                b.configVersion,
+                b.configHash,
+                b.policyEpoch,
+                b.policyHash
+            )
+        );
+    }
+
     function bindingKey(Binding calldata b) public pure returns (bytes32) {
         return keccak256(
             abi.encode(
@@ -256,7 +281,7 @@ contract RiskOracle {
                 riskPermission[key] = Permission.Allowed;
                 permissionStateVersion[key] = a.binding.accountStateVersion;
                 permissionValidUntil[key] = a.validUntil;
-                permissionBinding[key] = _bindingHash(a.binding);
+                    permissionBinding[key] = bindingConfigHash(a.binding);
             } else {
                 delete riskPermission[key];
                 delete permissionStateVersion[key];
@@ -311,9 +336,14 @@ contract RiskOracle {
     /// Restricted to the registered loan manager. Anyone else could
     /// otherwise burn a live quote by calling this directly — griefing that
     /// costs nothing and forces a fresh assessment.
+    /// @return t The signed terms.
+    /// @return validUntil When the authorizing quote expires. Returned so
+    /// the loan manager can bound the action it authorized: `docs/05`
+    /// covers the initial atomic action by the consumed quote, and a quote
+    /// that has expired covers nothing.
     function consumeQuote(Binding calldata b, uint256 drawAmount)
         external
-        returns (Terms memory)
+        returns (Terms memory t, uint64 validUntil)
     {
         require(msg.sender == loanManager, NotConsumer());
         bytes32 key = bindingKey(b);
@@ -327,12 +357,12 @@ contract RiskOracle {
         // full -- not merely one that shares the standing-quote key.
         require(_bindingHash(b) == q.bindingCommitment, BindingMismatch());
 
-        Terms memory t = quoteTerms[key];
+        t = quoteTerms[key];
         require(t.approvedPrincipal == drawAmount, AmountMismatch(t.approvedPrincipal, drawAmount));
+        validUntil = q.validUntil;
 
         q.consumed = true;
         emit QuoteConsumedEvent(key, q.assessmentId);
-        return t;
     }
 
     /// @notice May the binding a credit account is bound to act now?

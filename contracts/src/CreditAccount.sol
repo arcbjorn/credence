@@ -69,6 +69,11 @@ contract CreditAccount {
     bytes32 public boundBindingHash;
     bytes32 public boundBindingKey;
     bytes32 public permittedActionHash;
+    /// @dev When the origination quote that authorized the first action
+    /// expires. The initial atomic action is covered by the consumed quote
+    /// (`docs/05`) -- and an expired quote covers nothing, so a deferred
+    /// first action needs a current monitoring result like any other.
+    uint64 public permittedActionValidUntil;
     /// @dev True once the origination-authorized action has been taken.
     /// Any further action needs live monitoring permission.
     bool public actionConsumed;
@@ -121,14 +126,17 @@ contract CreditAccount {
     /// assessment the manager consumed. Pinning them here is what lets
     /// `execute` verify authorization against something the caller cannot
     /// choose.
-    function openDebt(bytes32 bindingKey_, bytes32 bindingHash, bytes32 actionHash)
-        external
-        onlyLoanManager
-    {
+    function openDebt(
+        bytes32 bindingKey_,
+        bytes32 bindingHash,
+        bytes32 actionHash,
+        uint64 actionValidUntil
+    ) external onlyLoanManager {
         debtOutstanding = true;
         boundBindingKey = bindingKey_;
         boundBindingHash = bindingHash;
         permittedActionHash = actionHash;
+        permittedActionValidUntil = actionValidUntil;
         actionConsumed = false;
         emit DebtOpened();
     }
@@ -139,6 +147,7 @@ contract CreditAccount {
         boundBindingKey = bytes32(0);
         boundBindingHash = bytes32(0);
         permittedActionHash = bytes32(0);
+        permittedActionValidUntil = 0;
         actionConsumed = false;
         emit DebtClosed();
     }
@@ -205,10 +214,17 @@ contract CreditAccount {
             // The origination assessment authorized this exact action, so
             // performing it once needs no separate monitoring result --
             // requiring one would mean no loan could ever deploy the
-            // principal it was just granted. Consuming the commitment is
-            // what keeps it single-use: a repeat is a NEW risk decision,
-            // and there is no permitted action left to match against.
-            if (actionConsumed) {
+            // principal it was just granted.
+            //
+            // But only WHILE THAT QUOTE IS LIVE. Origination and execution
+            // are separate transactions, so without the deadline a
+            // borrower could wait out the quote, receive an explicit
+            // Blocked, and still execute the committed action on authority
+            // that had already lapsed.
+            bool coveredByQuote =
+                !actionConsumed && block.timestamp < permittedActionValidUntil;
+
+            if (!coveredByQuote) {
                 require(
                     IRiskOracle(riskOracle).riskAllowedFor(
                         boundBindingKey, boundBindingHash, stateVersion

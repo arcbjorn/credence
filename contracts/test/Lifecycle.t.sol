@@ -774,4 +774,86 @@ contract LifecycleTest is Test {
         manager.openRecovery(loanId, KEEPER, rb);
         assertEq(uint8(manager.status(loanId)), uint8(LoanManager.Status.RecoveryPending));
     }
+
+    /// A fresh monitoring result must authorize the NEXT action, against
+    /// the real oracle.
+    ///
+    /// `docs/05`: the binding's identity is immutable, its account state
+    /// version is not. Committing to both together means a correctly
+    /// signed monitoring assessment -- which necessarily carries the NEW
+    /// version after an execution -- can never match what was pinned at
+    /// origination, and the account is bricked after one action.
+    function test_MonitoringAuthorizesTheActionAfterExecution() public {
+        vm.prank(OPERATOR);
+        manager.setAccountAdapter(account, address(noop), true);
+
+        uint256 principal = 5_000e6;
+        Binding memory b = _publish(oracle, account, principal, 1_200, 10 days);
+        manager.originate(b, principal);
+
+        // The permitted action, taken once on the origination quote.
+        bytes memory call_ = abi.encodeCall(NoopAdapter.act, ());
+        vm.prank(AGENT);
+        vm.expectRevert();
+        account.execute(address(noop), call_);
+
+        // A monitoring result for the account as it NOW stands.
+        uint64 version = account.stateVersion();
+        Binding memory fresh = _bindingFor(account, version);
+        OracleHarness.publishMonitoring(
+            oracle, fresh, ++seq, SIGNER_KEY, true, DEPLOYMENT,
+            uint64(block.timestamp)
+        );
+
+        assertTrue(
+            oracle.riskAllowed(fresh),
+            "the oracle itself must consider this permitted"
+        );
+        assertTrue(
+            oracle.riskAllowedFor(
+                oracle.bindingKey(fresh),
+                oracle.bindingConfigHash(fresh),
+                version
+            ),
+            "and the account's hash-keyed view must agree"
+        );
+    }
+
+    /// Recovery eligibility must come from THIS loan's binding.
+    ///
+    /// An unrelated agent has no standing permission, so presenting one
+    /// makes any healthy, unmatured loan look recoverable -- defeating the
+    /// restriction on operator authority rather than respecting it.
+    function test_UnrelatedBindingCannotOpenRecovery() public {
+        uint256 loanId = _originate(account, 5_000e6, 1_200, 10 days);
+
+        // Grant real permission, so the loan is genuinely healthy.
+        Binding memory own = _bindingFor(account, account.stateVersion());
+        OracleHarness.publishMonitoring(
+            oracle, own, ++seq, SIGNER_KEY, true, DEPLOYMENT, uint64(block.timestamp)
+        );
+
+        // A different agent, never assessed and therefore never permitted.
+        Binding memory stranger = own;
+        stranger.agentId = 999;
+
+        vm.warp(block.timestamp + 10 minutes);
+        vm.prank(OPERATOR);
+        vm.expectRevert(
+            abi.encodeWithSelector(LoanManager.BindingNotForLoan.selector, loanId)
+        );
+        manager.openRecovery(loanId, KEEPER, stranger);
+    }
+
+    /// The loan's own binding still works, so the check bounds which
+    /// binding may be used rather than blocking recovery.
+    function test_OwnBindingStillOpensRecovery() public {
+        uint256 loanId = _originate(account, 5_000e6, 1_200, 10 days);
+        vm.warp(block.timestamp + 10 days);
+
+        Binding memory own = _bindingFor(account, account.stateVersion());
+        vm.prank(OPERATOR);
+        manager.openRecovery(loanId, KEEPER, own);
+        assertEq(uint8(manager.status(loanId)), uint8(LoanManager.Status.RecoveryPending));
+    }
 }
