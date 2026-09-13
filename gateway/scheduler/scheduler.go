@@ -60,8 +60,10 @@ type Watch struct {
 	ReferencePrice *big.Int
 	// PermissionIssuedAt is when the standing monitoring result was accepted.
 	PermissionIssuedAt int64
-	// EvidenceObservedAt is the observation time of the freshest required
-	// evidence backing that permission.
+	// EvidenceObservedAt is the observation time of the OLDEST required
+	// evidence backing that permission. Permission rests on every required
+	// item at once, so the first to age past its bound is what makes the
+	// standing result stale.
 	EvidenceObservedAt int64
 	// AccountStateVersion the permission was bound to.
 	AccountStateVersion uint64
@@ -106,6 +108,42 @@ func (s *Scheduler) Track(w Watch) {
 // continuous underwriting governs permission, and a closed loan has none.
 func (s *Scheduler) Untrack(bindingKey string) {
 	delete(s.watches, bindingKey)
+}
+
+// Observed records the state a successful reassessment was computed
+// against, so the next cycle measures movement from here.
+//
+// Only called when a cycle actually reached chain. A failed publish leaves
+// the standing permission bound to the old price, so advancing the
+// reference then would hide the very move that still needs reassessing --
+// the trigger would go quiet while permission rested on stale ground.
+func (s *Scheduler) Observed(
+	bindingKey string,
+	price *big.Int,
+	permissionIssuedAt, evidenceObservedAt int64,
+) {
+	w, ok := s.watches[bindingKey]
+	if !ok {
+		return
+	}
+	if price != nil {
+		w.ReferencePrice = new(big.Int).Set(price)
+	}
+	w.PermissionIssuedAt = permissionIssuedAt
+	w.EvidenceObservedAt = evidenceObservedAt
+}
+
+// Keys returns the watched binding keys, sorted.
+//
+// Sorted because the caller uses it to build a price map, and an unstable
+// order would make a scenario's logs differ run to run for no reason.
+func (s *Scheduler) Keys() []string {
+	keys := make([]string, 0, len(s.watches))
+	for k := range s.watches {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 func (s *Scheduler) Watching(bindingKey string) bool {

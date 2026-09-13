@@ -207,3 +207,60 @@ func TestZeroReferencePriceIsSafe(t *testing.T) {
 	clk.advance(30)
 	_ = s.Due(prices(2_000_000000)) // must not panic
 }
+
+// After a reassessment lands, movement is measured from the new price.
+// Without this the same move would retrigger forever, and the demo's
+// "one move, one reassessment" claim would be false.
+func TestObservedRebasesTheReference(t *testing.T) {
+	s, clk := setup(t)
+	clk.advance(30)
+
+	moved := prices(1_880_000000)
+	if tasks := s.Due(moved); len(tasks) != 1 {
+		t.Fatalf("expected the move to trigger, got %+v", tasks)
+	}
+
+	// The cycle reached chain at the moved price.
+	s.Observed("b1", big.NewInt(1_880_000000), clk.t, clk.t)
+
+	clk.advance(30)
+	if tasks := s.Due(moved); len(tasks) != 0 {
+		t.Fatalf("same price must not retrigger, got %+v", tasks)
+	}
+
+	// A further move from the NEW reference triggers again. 1880 -> 1760
+	// is 638 bps, past the threshold; measured from the original 2000 it
+	// would be 1200 bps, so this also proves the reference actually moved.
+	clk.advance(30)
+	if tasks := s.Due(prices(1_760_000000)); len(tasks) != 1 {
+		t.Fatalf("expected a move from the new reference, got %+v", tasks)
+	}
+}
+
+// A failed publish must not advance the reference: permission still rests
+// on the old price, so the move has to keep retriggering until it lands.
+func TestUnpublishedCycleKeepsRetriggering(t *testing.T) {
+	s, clk := setup(t)
+	clk.advance(30)
+
+	moved := prices(1_880_000000)
+	if tasks := s.Due(moved); len(tasks) != 1 {
+		t.Fatalf("expected the move to trigger, got %+v", tasks)
+	}
+
+	// No Observed call: the cycle failed before reaching chain.
+	clk.advance(30)
+	if tasks := s.Due(moved); len(tasks) != 1 {
+		t.Fatalf("unpublished move must retrigger, got %+v", tasks)
+	}
+}
+
+// Observed on an untracked binding is a no-op, not a panic or a
+// resurrection: a loan that closed mid-cycle must stay untracked.
+func TestObservedOnUntrackedBindingIsIgnored(t *testing.T) {
+	s, _ := setup(t)
+	s.Observed("gone", big.NewInt(1), 1, 1)
+	if s.Watching("gone") {
+		t.Fatal("Observed must not create a watch")
+	}
+}
