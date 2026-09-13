@@ -19,9 +19,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"sort"
 	"strings"
 
 	"github.com/arcbjorn/credence/gateway/attest"
+	"github.com/arcbjorn/credence/gateway/canonical"
 	"github.com/arcbjorn/credence/gateway/publisher"
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
 )
@@ -66,6 +68,13 @@ type assessmentDoc struct {
 	AssessmentID string `json:"assessment_id"`
 	InputHash    string `json:"input_hash"`
 	ModelHash    string `json:"model_hash"`
+	// The policy the ENGINE says it evaluated under. Checked against the
+	// binding rather than ignored: signing the caller's policy hash over
+	// the engine's would attest to a policy that was never used.
+	PolicyHash string `json:"policy_hash"`
+	// Evidence the decision rested on, named so the envelope can commit
+	// to it rather than publishing a zero root.
+	OmittedEvidence []string `json:"omitted_evidence"`
 	Sequence     uint64 `json:"sequence"`
 	ValidAfter   uint64 `json:"valid_after"`
 	ValidUntil   uint64 `json:"valid_until"`
@@ -100,7 +109,25 @@ func (a *Adapter) Publish(
 		return "", fmt.Errorf("decode assessment: %w", err)
 	}
 
-	envelope, err := a.envelope(doc, binding)
+	// Commit to the assessment's CONTENT, not its identifier. `docs/04`
+	// claims a retained assessment can be verified against what reached
+	// chain; hashing only the ID means two assessments that differ in
+	// their reasons, stress results, or terms produce byte-identical
+	// calldata, and the signature attests to nothing about the decision.
+	//
+	// DecodeStrict, not a loose unmarshal: a float would reach the
+	// canonical encoder and be rejected, and decoding loosely here would
+	// silently produce a different hash than the retained record's.
+	decoded, err := canonical.DecodeStrict(assessment)
+	if err != nil {
+		return "", fmt.Errorf("canonicalize assessment: %w", err)
+	}
+	contentHash, err := canonical.HashHex(decoded)
+	if err != nil {
+		return "", fmt.Errorf("hash assessment: %w", err)
+	}
+
+	envelope, err := a.envelope(doc, binding, contentHash)
 	if err != nil {
 		return "", err
 	}
@@ -121,7 +148,24 @@ func (a *Adapter) Publish(
 	return a.pub.Publish(ctx, attest.ChainKeyHex(binding), doc.Sequence, calldata, signature)
 }
 
-func (a *Adapter) envelope(doc assessmentDoc, binding Binding) (attest.Assessment, error) {
+func (a *Adapter) envelope(
+	doc assessmentDoc,
+	binding Binding,
+	contentHash string,
+) (attest.Assessment, error) {
+	// The engine's policy must be the one this binding is signed under.
+	// A divergence means the gateway is about to attest that a decision
+	// was produced under a policy the engine never saw.
+	//
+	// The engine echoes whatever the snapshot declared, which may be a
+	// 32-byte hash or an opaque label, so compare both readings rather
+	// than assuming one encoding.
+	if doc.PolicyHash != "" && !policyMatches(doc.PolicyHash, binding.PolicyHash) {
+		return attest.Assessment{}, fmt.Errorf(
+			"policy hash divergence: engine %s, binding does not match",
+			doc.PolicyHash)
+	}
+
 	decision, permission, err := mapDecision(doc.Outcome.Decision)
 	if err != nil {
 		return attest.Assessment{}, err
@@ -145,6 +189,11 @@ func (a *Adapter) envelope(doc assessmentDoc, binding Binding) (attest.Assessmen
 		return attest.Assessment{}, err
 	}
 
+	parsedContentHash, err := parseHash(contentHash)
+	if err != nil {
+		return attest.Assessment{}, fmt.Errorf("assessment content hash: %w", err)
+	}
+
 	// Monitoring only. An origination envelope carries a grant, which this
 	// adapter deliberately cannot construct — the oracle rejects grant
 	// fields on a monitoring kind, and building them here would mean the
@@ -156,12 +205,12 @@ func (a *Adapter) envelope(doc assessmentDoc, binding Binding) (attest.Assessmen
 		Binding:            binding,
 		Kind:               attest.KindMonitoring,
 		AssessmentID:       assessmentID,
-		AssessmentHash:     hashText(doc.AssessmentID),
+		AssessmentHash:     parsedContentHash,
 		Decision:           decision,
 		Permission:         permission,
 		ModelHash:          hashText(doc.ModelHash),
 		InputHash:          inputHash,
-		EvidenceRoot:       attest.Hash{},
+		EvidenceRoot:       evidenceRoot(doc),
 		Class:              class,
 		Sequence:           doc.Sequence,
 		ValidAfter:         doc.ValidAfter,
@@ -176,6 +225,35 @@ func (a *Adapter) envelope(doc assessmentDoc, binding Binding) (attest.Assessmen
 		},
 		LoanID: loanID,
 	}, nil
+}
+
+// policyMatches compares the engine's reported policy against the
+// binding's, accepting either a literal 32-byte hash or a label that
+// hashes to it.
+func policyMatches(reported string, bound attest.Hash) bool {
+	if parsed, err := parseHash(reported); err == nil {
+		return parsed == bound
+	}
+	return hashText(reported) == bound
+}
+
+// evidenceRoot commits to the evidence set behind a decision.
+//
+// A zero root asserts "no evidence" for every assessment, which is both
+// false and unverifiable. The input hash already commits to the evidence
+// VALUES; this additionally names which optional items were omitted, so a
+// reader can tell a complete decision from one made without them.
+func evidenceRoot(doc assessmentDoc) attest.Hash {
+	if len(doc.OmittedEvidence) == 0 {
+		// Nothing omitted: the root is the input hash itself, which is
+		// exactly the evidence the decision rested on.
+		return hashText(doc.InputHash)
+	}
+	// Sorted, so the same omission set always produces the same root
+	// regardless of the order the engine happened to report it in.
+	omitted := append([]string(nil), doc.OmittedEvidence...)
+	sort.Strings(omitted)
+	return attest.KeccakText(doc.InputHash + "|" + strings.Join(omitted, ","))
 }
 
 // mapDecision refuses anything it does not recognise. Defaulting an unknown
