@@ -34,13 +34,27 @@ ACCOUNT=$(forge script script/Scenario.s.sol --rpc-url "$RPC" --broadcast 2>&1 \
   | grep -o 'credit account 0x[0-9a-fA-F]\{40\}' | awk '{print $3}')
 echo "credit account $ACCOUNT"
 
+# The engine prices every loan. Without it the scenario signs fixed terms
+# and the sequential-loans row cannot be demonstrated (`docs/11`).
+cd "$ROOT/risk"
+cargo build --quiet 2>/dev/null || true
+RISK_SERVICE_ADDR=127.0.0.1:18111 ./target/debug/credence-risk-service \
+  >"${WORK:-/tmp}/risk-repay.log" 2>&1 &
+RISK_PID=$!
+trap 'kill $RISK_PID 2>/dev/null || true' EXIT
+for _ in $(seq 40); do
+  curl -sf http://127.0.0.1:18111/health >/dev/null 2>&1 && break
+  sleep 0.25
+done
+
 cd "$ROOT/gateway"
 export CREDENCE_OPERATOR_KEY=$DEPLOYER CREDENCE_SIGNER_KEY=$SIGNER
 go build -o credence-scenario ./cmd/credence-scenario
 ./credence-scenario -rpc "$RPC" -oracle "$ORACLE" -manager "$MANAGER" \
   -account "$ACCOUNT" -settlement "$SETTLEMENT" -principal "$PRINCIPAL" \
   -adapter "$ADAPTER" -risky "$RISKY" -price-source "$PRICE_SOURCE" \
-  -deploy-bps 10000 -loans "$LOANS"
+  -deploy-bps 10000 -loans "$LOANS" \
+  -vault "$VAULT" -risk http://127.0.0.1:18111 -policy "$ROOT/config/engine-policy.json"
 
 echo "=== vault after repayment ==="
 for f in outstandingPrincipal collectedInterest realizedLoss idleCash; do

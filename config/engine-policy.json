@@ -1,0 +1,40 @@
+{
+  "stress": {
+    "min_price_shock_bps": 3000,
+    "volatility_multiple_bps": 15000,
+    "max_price_shock_bps": 9000,
+    "liquidity_haircut_bps": 2000,
+    "execution_cost_bps": 50,
+    "keeper_fee_bps": 50,
+    "min_origination_coverage": {
+      "num": 6,
+      "den": 5
+    }
+  },
+  "pricing": {
+    "base_rate_bps": 1200,
+    "max_history_discount_bps": 400,
+    "max_portfolio_surcharge_bps": 800,
+    "min_apr_bps": 500,
+    "max_apr_bps": 4000
+  },
+  "forecast": {
+    "min_outcomes": 5,
+    "max_penalty_bps": 2000,
+    "worst_brier_ppm": 250000
+  },
+  "account_hard_cap": "12000000000",
+  "base_history_cap": "10000000000",
+  "history_growth_per_ppm": 10000,
+  "max_evidence_age_seconds": 3600,
+  "funding_rate_bps": 450,
+  "operating_rate_bps": 100,
+  "min_maintenance_coverage": {
+    "num": 23,
+    "den": 20
+  },
+  "loss_assumption": {
+    "pd_over_term_ppm": 17000,
+    "lgd_ppm": 250000
+  }
+}
