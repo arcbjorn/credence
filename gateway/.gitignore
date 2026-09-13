@@ -4,3 +4,4 @@ credence.db-*
 /credence-recover
 /credence-scenario
 /credence-verify
+/credence-publish
