@@ -9,6 +9,10 @@ import {CreditVault} from "../src/CreditVault.sol";
 import {IERC20} from "../src/IERC20.sol";
 import {LoanManager} from "../src/LoanManager.sol";
 import {RiskOracle} from "../src/RiskOracle.sol";
+import {FixedPriceSource} from "../src/FixedPriceSource.sol";
+import {IPriceSource} from "../src/IPriceSource.sol";
+import {SpotVenue} from "../src/SpotVenue.sol";
+import {StrategyAdapter} from "../src/StrategyAdapter.sol";
 import {TestRiskyAsset} from "../src/TestRiskyAsset.sol";
 import {TestSettlementToken} from "../src/TestSettlementToken.sol";
 import {Route} from "../src/Assessment.sol";
@@ -29,6 +33,19 @@ contract Deploy is Script {
     uint256 constant GLOBAL_CAP = 100_000e6;
     /// @dev Facility the oracle pins a route for.
     uint256 constant FACILITY_ID = 1;
+
+    /// @dev Declared valuation for the risky asset. A prototype has no
+    /// oracle for a test asset, so the price is stated rather than
+    /// presented as an observation.
+    uint256 constant RISKY_PRICE = 2_000e6;
+    uint32 constant PRICE_SCALE = 6;
+    uint32 constant RISKY_DECIMALS = 18;
+    /// @dev Tolerance against the independent price before a trade is
+    /// refused as a bad fill.
+    uint32 constant MAX_SLIPPAGE_BPS = 200;
+    uint64 constant MAX_PRICE_AGE_SECONDS = 3_600;
+    uint256 constant VENUE_LIQUIDITY = 1_000_000e6;
+    uint256 constant VENUE_RISKY_LIQUIDITY = 1_000e18;
 
     function run() external {
         uint256 deployerKey = vm.envUint("DEPLOYER_KEY");
@@ -63,6 +80,24 @@ contract Deploy is Script {
         vault.setLoanManager(address(manager));
         oracle.setLoanManager(address(manager));
 
+        // The one supported execution route. `docs/00`: one strategy
+        // adapter. Without it a credit account cannot deploy principal,
+        // which makes a loan indistinguishable from a deposit.
+        SpotVenue venue = new SpotVenue(
+            IERC20(settlement), IERC20(risky),
+            RISKY_PRICE, PRICE_SCALE, RISKY_DECIMALS, operator);
+        FixedPriceSource priceSource =
+            new FixedPriceSource(RISKY_PRICE, PRICE_SCALE, operator);
+        StrategyAdapter adapter = new StrategyAdapter(
+            IERC20(settlement), IERC20(risky), venue,
+            IPriceSource(address(priceSource)),
+            MAX_SLIPPAGE_BPS, MAX_PRICE_AGE_SECONDS, RISKY_DECIMALS);
+
+        // Seed the venue so trades can settle. A venue with no inventory
+        // would fail for a reason unrelated to the protocol.
+        TestSettlementToken(settlement).mint(address(venue), VENUE_LIQUIDITY);
+        TestRiskyAsset(risky).mint(address(venue), VENUE_RISKY_LIQUIDITY);
+
         // A facility must pin exactly one route. Development attestation is
         // the baseline; a CRE facility would be a separate deployment with
         // its own domain (`docs/05`).
@@ -71,32 +106,59 @@ contract Deploy is Script {
 
         vm.stopBroadcast();
 
-        _writeManifest(address(oracle), address(vault), address(manager),
-            settlement, risky, attestor, deploymentId);
+        _writeManifest(
+            Deployed({
+                oracle: address(oracle),
+                vault: address(vault),
+                manager: address(manager),
+                settlement: settlement,
+                risky: risky,
+                venue: address(venue),
+                priceSource: address(priceSource),
+                adapter: address(adapter)
+            }),
+            attestor,
+            deploymentId
+        );
+    }
+
+    struct Deployed {
+        address oracle;
+        address vault;
+        address manager;
+        address settlement;
+        address risky;
+        address venue;
+        address priceSource;
+        address adapter;
     }
 
     function _writeManifest(
-        address oracle,
-        address vault,
-        address manager,
-        address settlement,
-        address risky,
+        Deployed memory d,
         address attestor,
         uint256 deploymentId
     ) private {
+        string memory addresses = string.concat(
+            '  "addresses": {\n',
+            '    "oracle": "', vm.toString(d.oracle), '",\n',
+            '    "vault": "', vm.toString(d.vault), '",\n',
+            '    "loan_manager": "', vm.toString(d.manager), '",\n',
+            '    "settlement": "', vm.toString(d.settlement), '",\n',
+            '    "risky": "', vm.toString(d.risky), '",\n',
+            '    "venue": "', vm.toString(d.venue), '",\n',
+            '    "price_source": "', vm.toString(d.priceSource), '",\n',
+            '    "adapter": "', vm.toString(d.adapter), '"\n',
+            "  },\n"
+        );
+
         string memory manifest = string.concat(
             "{\n",
             '  "chain_id": ', vm.toString(block.chainid), ",\n",
             '  "deployment_id": ', vm.toString(deploymentId), ",\n",
             '  "facility_id": ', vm.toString(FACILITY_ID), ",\n",
             '  "global_cap": "', vm.toString(GLOBAL_CAP), '",\n',
-            '  "addresses": {\n',
-            '    "oracle": "', vm.toString(oracle), '",\n',
-            '    "vault": "', vm.toString(vault), '",\n',
-            '    "loan_manager": "', vm.toString(manager), '",\n',
-            '    "settlement": "', vm.toString(settlement), '",\n',
-            '    "risky": "', vm.toString(risky), '"\n',
-            "  },\n",
+            '  "risky_price": "', vm.toString(RISKY_PRICE), '",\n',
+            addresses,
             '  "attestor": "', vm.toString(attestor), '"\n',
             "}\n"
         );
@@ -106,9 +168,10 @@ contract Deploy is Script {
         );
         vm.writeFile(path, manifest);
 
-        console2.log("oracle      ", oracle);
-        console2.log("vault       ", vault);
-        console2.log("loan manager", manager);
+        console2.log("oracle      ", d.oracle);
+        console2.log("vault       ", d.vault);
+        console2.log("loan manager", d.manager);
+        console2.log("adapter     ", d.adapter);
         console2.log("manifest    ", path);
     }
 }
