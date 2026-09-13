@@ -44,6 +44,11 @@ contract LoanManager {
         uint64 termSeconds;
         uint64 recoveryStartedAt;
         uint256 interestSnapshot;
+        /// @dev When the loan reached a terminal status. Recorded because
+        /// duration is a published fact (`docs/06`), and a publisher that
+        /// stamped its own clock would report the time it got around to
+        /// publishing rather than when the obligation actually ended.
+        uint64 resolvedAt;
         Status status;
     }
 
@@ -211,6 +216,7 @@ contract LoanManager {
             termSeconds: terms.termSeconds,
             recoveryStartedAt: 0,
             interestSnapshot: 0,
+            resolvedAt: 0,
             status: Status.Active
         });
         activeLoan[acct] = loanId;
@@ -310,6 +316,7 @@ contract LoanManager {
         loan.principalOutstanding = 0;
         loan.interestCollected += interestDue;
         loan.status = Status.Repaid;
+        loan.resolvedAt = uint64(block.timestamp);
         activeLoan[loan.account] = 0;
         _releaseReservation(loanId);
 
@@ -416,6 +423,7 @@ contract LoanManager {
 
         if (loan.principalOutstanding == 0 && loan.interestCollected >= loan.interestSnapshot) {
             loan.status = Status.Recovered;
+            loan.resolvedAt = uint64(block.timestamp);
             activeLoan[loan.account] = 0;
             _releaseReservation(loanId);
             CreditAccount(loan.account).closeDebt();
@@ -452,6 +460,7 @@ contract LoanManager {
 
         loan.principalOutstanding = 0;
         loan.status = Status.Defaulted;
+        loan.resolvedAt = uint64(block.timestamp);
         activeLoan[loan.account] = 0;
         _releaseReservation(loanId);
         // The loss stays attributable to this binding.
