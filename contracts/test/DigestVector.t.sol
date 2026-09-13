@@ -35,6 +35,10 @@ contract DigestVectorTest is Test {
         console2.logBytes32(oracle.domainSeparator());
         console2.log("struct_hash");
         console2.logBytes32(OracleHarness.structHash(a));
+        // The oracle keys its state on this, which is NOT the gateway's own
+        // binding identifier. Emitting it pins the Go derivation.
+        console2.log("chain_key");
+        console2.logBytes32(oracle.bindingKey(b));
     }
 }
 

@@ -162,3 +162,5 @@ func TestSignerAddressIsTwentyBytes(t *testing.T) {
 		t.Fatal("signer address must not be zero")
 	}
 }
+
+func bigOf(v int64) *big.Int { return big.NewInt(v) }
