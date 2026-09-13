@@ -57,7 +57,7 @@ pub fn forecast_cap(account_hard_cap: Amount, penalty_bps: Bps) -> Amount {
 
 /// Which constraint bound the result. Always reported beside the number:
 /// a capacity without its binding constraint hides *why* it is what it is.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum BindingConstraint {
     StressCapacity,
     HistoryGrowthCap,

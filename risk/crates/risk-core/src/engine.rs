@@ -194,7 +194,12 @@ pub fn evaluate(input: &RiskInput, policy: &Policy) -> RiskAssessment {
                 request.term_seconds,
                 market,
                 &policy.stress,
-                policy.account_hard_cap,
+                // Search above the hard cap so a clamp is distinguishable
+                // from a genuine stress limit. Searching only to the cap
+                // makes every well-collateralised account report
+                // StressCapacity when the cap is what actually binds —
+                // naming the wrong constraint in the explanation.
+                stress_search_ceiling(policy.account_hard_cap),
             );
 
             // Step 6 — history, caps.
@@ -331,6 +336,15 @@ pub fn evaluate(input: &RiskInput, policy: &Policy) -> RiskAssessment {
             )
         }
     }
+}
+
+/// Ceiling for the stress search.
+///
+/// Deliberately above the hard cap: the search must be able to report a
+/// capacity the cap then clamps, or `compose` cannot tell which of the two
+/// bound the result.
+fn stress_search_ceiling(hard_cap: Amount) -> Amount {
+    Amount(hard_cap.0.saturating_mul(4))
 }
 
 /// Portfolio risk as the share of marked value held in risky positions.
