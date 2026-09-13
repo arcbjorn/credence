@@ -38,6 +38,10 @@ contract RiskOracle {
         bytes32 assessmentId;
         uint64 sequence;
         bool consumed;
+        // The window the quote may fund in. Retained because accept() runs
+        // once while consumption happens later: without it the evidence
+        // behind an accepted quote ages out and nothing on chain notices.
+        uint64 validUntil;
     }
 
     address public immutable operator;
@@ -78,6 +82,8 @@ contract RiskOracle {
     error NotExecutableClass(Class presented);
     error NoQuote();
     error QuoteConsumed();
+    error QuoteExpired();
+    error GrantMismatch(uint256 requested, uint256 approved);
     error AmountMismatch(uint256 approved, uint256 requested);
     error WrongKind();
     error NotConsumer();
@@ -169,7 +175,8 @@ contract RiskOracle {
                 quote[key] = Stored({
                     assessmentId: a.assessmentId,
                     sequence: a.sequence,
-                    consumed: false
+                    consumed: false,
+                    validUntil: a.validUntil
                 });
                 quoteTerms[key] = a.terms;
             }
@@ -187,7 +194,8 @@ contract RiskOracle {
     /// terms at all is a malformed message rather than a harmless extra.
     function _checkFieldShape(Assessment calldata a) private pure {
         bool hasGrant = a.terms.approvedPrincipal != 0 || a.terms.aprBps != 0
-            || a.terms.termSeconds != 0 || a.terms.permittedActionHash != bytes32(0);
+            || a.terms.termSeconds != 0 || a.terms.requiredEquity != 0
+            || a.terms.permittedActionHash != bytes32(0);
 
         if (a.kind == Kind.Monitoring) {
             require(!hasGrant, GrantOnMonitoring());
@@ -195,6 +203,15 @@ contract RiskOracle {
             require(a.requestId == bytes32(0), GrantOnMonitoring());
         } else if (a.decision != Decision.Approved) {
             require(!hasGrant, GrantOnNonApproval());
+        } else {
+            // `docs/03`: v0 grants the exact requested amount or denies.
+            // An approval for more than was asked is malformed, and
+            // trusting the attestor's arithmetic here would let a signed
+            // output fund beyond what the agent ever requested.
+            require(
+                a.terms.approvedPrincipal == a.requestedPrincipal,
+                GrantMismatch(a.requestedPrincipal, a.terms.approvedPrincipal)
+            );
         }
     }
 
@@ -216,6 +233,9 @@ contract RiskOracle {
         Stored storage q = quote[key];
         require(q.assessmentId != bytes32(0), NoQuote());
         require(!q.consumed, QuoteConsumed());
+        // Validity binds here, not only at accept: the draw is the moment
+        // credit is actually extended (`docs/05`).
+        require(block.timestamp < q.validUntil, QuoteExpired());
 
         Terms memory t = quoteTerms[key];
         require(t.approvedPrincipal == drawAmount, AmountMismatch(t.approvedPrincipal, drawAmount));

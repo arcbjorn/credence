@@ -391,4 +391,65 @@ contract RiskOracleTest is Test {
         vm.warp(block.timestamp + 2 hours);
         assertFalse(oracle.riskAllowed(_binding()), "expired permission blocks risk");
     }
+
+    // --- Quote validity at consumption ---
+
+    /// An accepted quote must not fund after its window closes.
+    ///
+    /// `docs/05`: an assessment authorizes a draw for as long as its
+    /// evidence is credible. Checking validity only in accept() leaves the
+    /// quote funding indefinitely while the evidence behind it ages out.
+    function test_ExpiredQuoteCannotBeConsumed() public {
+        Assessment memory a = _origination(1, Decision.Approved);
+        oracle.accept(a, _sign(a, devKey));
+
+        // Two hours later, the one-hour window is long closed.
+        vm.warp(block.timestamp + 2 hours);
+
+        vm.prank(CONSUMER);
+        vm.expectRevert(RiskOracle.QuoteExpired.selector);
+        oracle.consumeQuote(_binding(), 5_000e6);
+    }
+
+    /// The same quote inside its window still funds, so the guard bounds
+    /// the window rather than blocking consumption outright.
+    function test_LiveQuoteStillFunds() public {
+        Assessment memory a = _origination(1, Decision.Approved);
+        oracle.accept(a, _sign(a, devKey));
+
+        vm.warp(block.timestamp + 30 minutes);
+
+        vm.prank(CONSUMER);
+        Terms memory t = oracle.consumeQuote(_binding(), 5_000e6);
+        assertEq(t.approvedPrincipal, 5_000e6, "a live quote must still fund");
+    }
+
+    /// A quote may only fund the principal that was actually requested and
+    /// signed. Approving more than was asked for is a malformed
+    /// assessment, not a generous one (`docs/03`: grant the exact
+    /// requested amount or deny).
+    function test_GrantCannotExceedSignedRequest() public {
+        Assessment memory a = _origination(1, Decision.Approved);
+        a.requestedPrincipal = 1_000e6;
+        a.terms.approvedPrincipal = 5_000e6;
+
+        // Signed before the expectation: _sign makes a view call of its
+        // own, which would otherwise consume it.
+        bytes memory sig = _sign(a, devKey);
+        vm.expectRevert(
+            abi.encodeWithSelector(RiskOracle.GrantMismatch.selector, 1_000e6, 5_000e6)
+        );
+        oracle.accept(a, sig);
+    }
+
+    /// requiredEquity is a grant field: carrying one on a monitoring
+    /// result or a denial is malformed, exactly as the other terms are.
+    function test_RequiredEquityCountsAsAGrant() public {
+        Assessment memory a = _monitoring(1, Permission.Allowed);
+        a.terms.requiredEquity = 1;
+
+        bytes memory sig = _sign(a, devKey);
+        vm.expectRevert(RiskOracle.GrantOnMonitoring.selector);
+        oracle.accept(a, sig);
+    }
 }
