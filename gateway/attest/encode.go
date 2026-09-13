@@ -82,3 +82,12 @@ func EncodeAccept(a Assessment, signature []byte) []byte {
 	}
 	return out
 }
+
+// Word, AddressWord, and Uint64Word expose ABI word encoding so callers can
+// build calldata for other contracts without duplicating the padding rules
+// — a second copy is a second place for a padding bug to hide.
+func Word(v *big.Int) []byte { return uintWord(v) }
+
+func AddressWord(a Address) []byte { return addrWord(a) }
+
+func Uint64Word(v uint64) []byte { return u64Word(v) }
