@@ -37,9 +37,11 @@ func main() {
 	settlement := flag.String("settlement", "", "settlement token address")
 	owner := flag.String("owner", "", "credit account owner address")
 	vault := flag.String("vault", "", "credit vault address")
+	risky := flag.String("risky", "",
+		"risky asset; checked when the account's settlement balance is zero")
 	flag.Parse()
 
-	checks, err := run(*rpcURL, *manager, *account, *settlement, *owner, *vault)
+	checks, err := run(*rpcURL, *manager, *account, *settlement, *owner, *vault, *risky)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "verify: %v\n", err)
 		os.Exit(1)
@@ -61,7 +63,7 @@ func main() {
 	fmt.Printf("\nall %d checks passed against the deployment\n", len(checks))
 }
 
-func run(rpcURL, manager, account, settlement, owner, vault string) ([]check, error) {
+func run(rpcURL, manager, account, settlement, owner, vault, risky string) ([]check, error) {
 	ctx := context.Background()
 	rpc := chain.NewRPC(rpcURL, 15*time.Second)
 
@@ -95,20 +97,37 @@ func run(rpcURL, manager, account, settlement, owner, vault string) ([]check, er
 
 	// The account must actually hold value, or a blocked withdrawal proves
 	// nothing: refusing to move zero tokens is not a protection.
+	//
+	// Whichever asset it holds. A funded account that deployed its whole
+	// settlement balance into a strategy holds the RISKY token, and
+	// checking settlement alone would report "nothing to withdraw" while
+	// the owner is in fact being refused real collateral -- the stronger
+	// demonstration, reported as a failure.
 	balance, err := callUintOn(ctx, rpc, account, "balanceOf(address)", block.Number, settlement)
 	if err != nil {
 		return nil, fmt.Errorf("read account balance: %w", err)
 	}
+	heldAsset, held := settlement, balance
+	if balance.Sign() == 0 && risky != "" {
+		riskyBalance, err := callUintOn(
+			ctx, rpc, account, "balanceOf(address)", block.Number, risky)
+		if err != nil {
+			return nil, fmt.Errorf("read risky balance: %w", err)
+		}
+		if riskyBalance.Sign() > 0 {
+			heldAsset, held = risky, riskyBalance
+		}
+	}
 	checks = append(checks, check{
 		beat: "6", name: "account holds withdrawable value",
-		passed: balance.Sign() > 0,
-		detail: fmt.Sprintf("%s base units", balance),
+		passed: held.Sign() > 0,
+		detail: fmt.Sprintf("%s base units of %s", held, heldAsset),
 	})
 
 	// Beat 6: the owner — not merely a stranger — is refused while debt is
 	// outstanding. `docs/02` is explicit that ownership grants no bypass,
 	// and a check against an unrelated caller would prove far less.
-	withdrawErr := simulateWithdraw(ctx, rpc, account, settlement, owner, balance)
+	withdrawErr := simulateWithdraw(ctx, rpc, account, heldAsset, owner, held)
 	blocked := withdrawErr != nil && strings.Contains(withdrawErr.Error(), "reverted")
 	detail := "withdrawal succeeded"
 	if withdrawErr != nil {
@@ -123,8 +142,8 @@ func run(rpcURL, manager, account, settlement, owner, vault string) ([]check, er
 	// reason. If both reverted identically, the owner check would be
 	// passing on access control alone and the debt guard — the actual
 	// lender protection — would be untested.
-	strangerErr := simulateWithdraw(ctx, rpc, account, settlement,
-		"0x000000000000000000000000000000000000dEaD", balance)
+	strangerErr := simulateWithdraw(ctx, rpc, account, heldAsset,
+		"0x000000000000000000000000000000000000dEaD", held)
 	checks = append(checks, check{
 		beat: "6", name: "stranger withdrawal reverts",
 		passed: strangerErr != nil,

@@ -61,6 +61,14 @@ go build -o credence-scenario ./cmd/credence-scenario
   -deploy-bps 10000 -loans "$LOANS" \
   -enroll "$WORK/scenario.db" -vault "$VAULT" -risk http://127.0.0.1:18111 -policy "$ROOT/config/engine-policy.json"
 
+# `docs/11`: a passing unit test and a correctly wired deployment are
+# different claims. This asserts the second against real balances.
+echo "=== deployment verification ==="
+go build -o credence-verify ./cmd/credence-verify
+./credence-verify -rpc "$RPC" -manager "$MANAGER" -account "$ACCOUNT" \
+  -settlement "$SETTLEMENT" -owner 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 \
+  -vault "$VAULT" -risky "$RISKY"
+
 echo "=== vault after repayment ==="
 for f in outstandingPrincipal collectedInterest realizedLoss idleCash; do
   printf '%-22s %s\n' "$f" "$(cast call "$VAULT" "$f()(uint256)" --rpc-url "$RPC")"
