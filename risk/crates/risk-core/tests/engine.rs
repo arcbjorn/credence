@@ -606,3 +606,22 @@ fn optional_stale_history_does_not_improve_terms() {
         );
     }
 }
+
+/// A snapshot declaring an unknown schema must be refused, not evaluated.
+///
+/// A future schema may reuse field names with different meanings, so
+/// evaluating it produces a confident answer to a question that was never
+/// asked. Refusing is the only honest response.
+#[test]
+fn unknown_schema_version_is_refused() {
+    let mut i = input(5_000_000_000, 5_000_000_000);
+    i.schema_version = "v999".into();
+
+    assert!(
+        matches!(
+            i.validate(),
+            Err(risk_core::input::InputError::UnsupportedSchemaVersion(_))
+        ),
+        "an unknown schema major must not validate"
+    );
+}

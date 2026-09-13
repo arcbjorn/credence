@@ -206,7 +206,16 @@ pub enum InputError {
     AccountStateVersionMismatch { binding: u64, account: u64 },
     /// A scenario identity is required when scenario evidence is in play.
     ScenarioIdMissing,
+    /// The snapshot declares a schema this engine does not implement.
+    UnsupportedSchemaVersion(String),
 }
+
+/// Schema majors this engine understands.
+///
+/// Checked rather than trusted: a snapshot written against a future schema
+/// may carry fields with different meanings, and evaluating it anyway
+/// would produce a confident answer to a question that was never asked.
+pub const SUPPORTED_SCHEMA_VERSIONS: &[&str] = &["v1"];
 
 impl RiskInput {
     /// Structural validation, before any risk logic runs.
@@ -215,6 +224,12 @@ impl RiskInput {
     /// evaluated at all. Keeping them separate means a malformed snapshot
     /// never reaches the scoring path and cannot be confused with a denial.
     pub fn validate(&self) -> Result<(), InputError> {
+        if !SUPPORTED_SCHEMA_VERSIONS.contains(&self.schema_version.as_str()) {
+            return Err(InputError::UnsupportedSchemaVersion(
+                self.schema_version.clone(),
+            ));
+        }
+
         let mut ids = Vec::new();
         for id in [
             &self.account.evidence_id,
