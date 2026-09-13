@@ -110,12 +110,17 @@ func (m *Monitor) Tick(ctx context.Context, prices map[string]*big.Int, now int6
 	tasks := m.sched.Due(prices)
 	cycles := make([]Cycle, 0, len(tasks))
 	for _, task := range tasks {
-		cycles = append(cycles, m.runTask(ctx, task, now))
+		cycles = append(cycles, m.runTask(ctx, task, prices[task.BindingKey], now))
 	}
 	return cycles
 }
 
-func (m *Monitor) runTask(ctx context.Context, task scheduler.Task, now int64) Cycle {
+func (m *Monitor) runTask(
+	ctx context.Context,
+	task scheduler.Task,
+	price *big.Int,
+	now int64,
+) Cycle {
 	// Blocked is the default, so every early return below fails closed.
 	cycle := Cycle{
 		BindingKey: task.BindingKey,
@@ -197,6 +202,16 @@ func (m *Monitor) runTask(ctx context.Context, task scheduler.Task, now int64) C
 		return m.finish(ctx, cycle, fmt.Errorf("publish: %w", err))
 	}
 	cycle.TxHash = txHash
+
+	// The reassessment landed, so the standing permission is now bound to
+	// this price and this evidence. Advancing the reference here -- and
+	// only here -- means a move that failed to publish keeps retriggering
+	// instead of going quiet while permission rests on stale ground.
+	observedAt := uint64(now)
+	if at, ok := input.OldestRequiredObservation(); ok {
+		observedAt = at
+	}
+	m.sched.Observed(task.BindingKey, price, now, int64(observedAt))
 
 	return m.finish(ctx, cycle, nil)
 }
