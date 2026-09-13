@@ -7,6 +7,7 @@ import (
 	"math/big"
 
 	"github.com/arcbjorn/credence/gateway/attest"
+	"github.com/arcbjorn/credence/gateway/canonical"
 	"github.com/arcbjorn/credence/gateway/chain"
 	"github.com/arcbjorn/credence/gateway/evidence"
 	"github.com/arcbjorn/credence/gateway/riskclient"
@@ -35,7 +36,9 @@ func originationTerms(
 	principal uint64,
 	termSeconds uint64,
 	history snapshot.Evidence,
+	forecasts snapshot.Evidence,
 	policy json.RawMessage,
+	intendedAcquire *AcquireAction,
 ) (*assessedTerms, json.RawMessage, error) {
 	block, err := rpc.LatestBlock(ctx)
 	if err != nil {
@@ -65,13 +68,26 @@ func originationTerms(
 		},
 	}
 
+	// The action the loan will ACTUALLY take. Assessing a cash hold while
+	// funding an acquisition sizes the loan against a portfolio that will
+	// not exist a block later -- the engine would be answering a different
+	// question than the one the draw poses (`docs/03` sizes on the
+	// post-action portfolio).
+	action := `"Hold"`
+	if intendedAcquire != nil {
+		action = fmt.Sprintf(
+			`{"Acquire":{"asset":"%s","price":"%d","price_scale":%d,"haircut_bps":%d}}`,
+			intendedAcquire.Asset, intendedAcquire.Price,
+			intendedAcquire.PriceScale, intendedAcquire.HaircutBps)
+	}
+
 	in.Context = json.RawMessage(fmt.Sprintf(
 		`{"kind":"Origination","request":{"request_id":"req-%d",`+
 			`"settlement_asset":"%s","requested_principal":"%d",`+
 			`"term_seconds":%d,"max_accepted_apr":4000,`+
 			`"action_envelope_hash":"act","intent_hash":"intent",`+
-			`"intended_action":"Hold"}}`,
-		sequence, settlement, principal, termSeconds))
+			`"intended_action":%s}}`,
+		sequence, settlement, principal, termSeconds, action))
 
 	if in.Account, err = snapshot.Present(
 		"acct", "chain", snapshot.OriginObserved, snapshot.Required,
@@ -91,16 +107,10 @@ func originationTerms(
 
 	in.History = history
 
-	if in.Forecasts, err = snapshot.Present(
-		"fc", "derived", snapshot.OriginObserved, snapshot.Required,
-		block.Timestamp, block.Timestamp,
-		map[string]any{
-			"comparable_resolved": 10, "mean_brier_ppm": 100_000,
-			"unresolved": 0, "unobservable": 0,
-		},
-	); err != nil {
-		return nil, nil, err
-	}
+	// From the database this run actually writes, not a fixed pair. A
+	// constant sample makes the forecast penalty independent of the
+	// forecasts, which is precisely what `docs/06` scores.
+	in.Forecasts = forecasts
 
 	if in.Portfolio, err = snapshot.Present(
 		"pf", "derived", snapshot.OriginObserved, snapshot.Required,
@@ -172,6 +182,15 @@ func originationTerms(
 	}, raw, nil
 }
 
+// AcquireAction describes a draw that buys a risky asset rather than
+// holding cash.
+type AcquireAction struct {
+	Asset      string
+	Price      uint64
+	PriceScale uint32
+	HaircutBps uint32
+}
+
 type assessedTerms struct {
 	ApprovedPrincipal *big.Int
 	AprBps            uint32
@@ -210,9 +229,24 @@ func scenarioMarket(observedAt uint64) map[string]any {
 // completed loan's worth per repayment — enough for the sequential-loans
 // row to show history accumulating without inventing a richer record than
 // the scenario actually produced.
-func historyEvidence(observedAt uint64, repaid int) snapshot.Evidence {
-	const perRepayment = 200_000 // ppm
-	weighted := uint64(repaid) * perRepayment
+func historyEvidence(observedAt uint64, repayments []repayment) snapshot.Evidence {
+	// `docs/06`: weight = (principal / reference) * min(eligible, 30d)/30d,
+	// summed. A flat per-repayment credit would let ten instant micro-loans
+	// approach the weight of real capital held for real duration, which is
+	// exactly the anti-farming property the formula exists to provide.
+	const referenceSize = 5_000_000_000 // one reference loan
+	const maxEligible = 30 * 86_400
+
+	var weighted uint64
+	for _, r := range repayments {
+		eligible := r.EligibleSeconds
+		if eligible > maxEligible {
+			eligible = maxEligible
+		}
+		// Integer throughout: ppm of reference, scaled by duration share.
+		sizeShare := r.Principal * 1_000_000 / referenceSize
+		weighted += sizeShare * eligible / maxEligible
+	}
 	if weighted > 1_000_000 {
 		weighted = 1_000_000
 	}
@@ -233,6 +267,12 @@ func historyEvidence(observedAt uint64, repaid int) snapshot.Evidence {
 			snapshot.OriginObserved, snapshot.Required, observedAt)
 	}
 	return ev
+}
+
+// repayment is one settled loan, as observed rather than assumed.
+type repayment struct {
+	Principal       uint64
+	EligibleSeconds uint64
 }
 
 // bindingSnapshotJSON renders the binding in the shape the engine reads.
@@ -343,4 +383,51 @@ func resolveForecast(
 	forecastID := fmt.Sprintf("%s:forecast:%d", chainKey, loanIndex)
 	return store.NewRegistry(db).ResolveForecast(
 		ctx, forecastID+":outcome", forecastID, resolution, int64(resolvedAt), nil)
+}
+
+// forecastEvidence summarises the forecasts this run actually committed.
+//
+// Read from the store rather than declared, so the forecast penalty
+// responds to the predictions that were made. A fixed sample makes the
+// penalty independent of the forecasts, which is what `docs/06` scores.
+//
+// An unreadable store yields Missing rather than a clean-looking default:
+// absence of evidence is not evidence of accuracy.
+func forecastEvidence(
+	ctx context.Context,
+	dbPath, bindingKey string,
+	observedAt uint64,
+) snapshot.Evidence {
+	missing := snapshot.Missing(
+		"fc", "derived", snapshot.OriginObserved, snapshot.Required, observedAt)
+	if dbPath == "" {
+		return missing
+	}
+
+	db, err := store.Open(ctx, dbPath)
+	if err != nil {
+		return missing
+	}
+	defer db.Close()
+
+	raw, err := store.NewDerived(db).Forecasts(ctx, bindingKey)
+	if err != nil {
+		return missing
+	}
+	// DecodeStrict, not json.Unmarshal: the latter produces float64 for
+	// every number, which the canonical encoder rejects -- and the
+	// rejection would surface as Missing evidence rather than as the
+	// decoding bug it is.
+	summary, err := canonical.DecodeStrict(raw)
+	if err != nil {
+		return missing
+	}
+
+	ev, err := snapshot.Present(
+		"fc", "derived", snapshot.OriginObserved, snapshot.Required,
+		observedAt, observedAt, summary)
+	if err != nil {
+		return missing
+	}
+	return ev
 }

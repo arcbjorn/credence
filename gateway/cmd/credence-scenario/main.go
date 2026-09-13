@@ -21,6 +21,7 @@ import (
 	"math/big"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/arcbjorn/credence/gateway/attest"
@@ -104,7 +105,7 @@ func run(
 		enginePolicy = raw
 		risk = riskclient.New(riskURL, 10*time.Second)
 	}
-	repaidSoFar := 0
+	var repayments []repayment
 
 	// Probe once, before anything is signed. A development chain exposes
 	// evm_increaseTime; a public one does not, and finding that out
@@ -251,6 +252,19 @@ func run(
 		// fixed terms. `docs/11` requires three sequential loans to show a
 		// rising limit and a falling APR under one policy and model hash,
 		// and identical terms every time would make that unprovable.
+		// Commit the forecast BEFORE anything else. `docs/06` requires
+		// commitment before disbursement -- and the engine prices the
+		// forecast record, so a commitment made after assessment could
+		// not have informed the decision it is supposed to inform.
+		if enrollDB != "" {
+			if err := commitForecast(
+				ctx, enrollDB, binding, chainKey, i, block.Timestamp,
+			); err != nil {
+				return fmt.Errorf("loan %d: commit forecast: %w", i, err)
+			}
+			log.Printf("loan %d: forecast committed before funding", i)
+		}
+
 		if risk != nil {
 			bindingJSON, err := bindingSnapshotJSON(assessment.Binding, accepted)
 			if err != nil {
@@ -259,14 +273,21 @@ func run(
 			terms, raw, err := originationTerms(
 				ctx, risk, reader, rpc, account, settlement, bindingJSON,
 				assessment.Sequence, principal, termSeconds,
-				historyEvidence(block.Timestamp, repaidSoFar), enginePolicy,
+				historyEvidence(block.Timestamp, repayments),
+				forecastEvidence(ctx, enrollDB, chainKey, block.Timestamp),
+				enginePolicy,
+				// The loan deploys into the risky asset when an adapter is
+				// configured, so that is what must be assessed.
+				intendedAcquire(adapter, deployBps, riskyAsset),
 			)
 			if err != nil {
 				return fmt.Errorf("loan %d: assess: %w", i, err)
 			}
 			if terms == nil {
-				log.Printf("loan %d: engine declined; nothing to originate", i)
-				_ = raw
+				// Report WHY. A decline with no reason is
+				// indistinguishable from a broken snapshot, and the
+				// engine already names its binding constraint.
+				log.Printf("loan %d: engine declined: %s", i, declineReason(raw))
 				break
 			}
 
@@ -316,19 +337,6 @@ func run(
 			return fmt.Errorf("loan %d: sign: %w", i, err)
 		}
 
-		// Commit the forecast BEFORE the quote is accepted, let alone
-		// funded. `docs/06`: a forecast recorded after the outcome is
-		// known is not a forecast, so commitment order is what makes the
-		// Brier score mean anything.
-		if enrollDB != "" {
-			if err := commitForecast(
-				ctx, enrollDB, binding, chainKey, i, block.Timestamp,
-			); err != nil {
-				return fmt.Errorf("loan %d: commit forecast: %w", i, err)
-			}
-			log.Printf("loan %d: forecast committed before funding", i)
-		}
-
 		log.Printf("loan %d: accepting quote at sequence %d", i, assessment.Sequence)
 		acceptTx, err := w.Send(ctx, oracle, attest.EncodeAccept(assessment, signature))
 		if err != nil {
@@ -351,6 +359,14 @@ func run(
 			return fmt.Errorf("loan %d: read active loan: %w", i, err)
 		}
 		log.Printf("loan %d: originated as loan %d", i, loanID)
+
+		// Chain time at origination, so the eligible duration below is
+		// measured rather than assumed.
+		originBlock, err := rpc.LatestBlock(ctx)
+		if err != nil {
+			return fmt.Errorf("loan %d: pin block: %w", i, err)
+		}
+		originatedAt := originBlock.Timestamp
 
 		// Deploy the principal. An account that only holds settlement can
 		// always repay from what it borrowed, so nothing about the credit
@@ -426,7 +442,16 @@ func run(
 				return fmt.Errorf("loan %d: repay: %w", i, err)
 			}
 			log.Printf("loan %d: repaid", i)
-			repaidSoFar++
+			// Observed, not assumed: the actual principal and the actual
+			// seconds it was outstanding, which is what `docs/06` weights.
+			after, err := rpc.LatestBlock(ctx)
+			if err != nil {
+				return fmt.Errorf("loan %d: pin block: %w", i, err)
+			}
+			repayments = append(repayments, repayment{
+				Principal:       principal,
+				EligibleSeconds: after.Timestamp - originatedAt,
+			})
 
 			// The horizon has passed, so the forecast resolves. A loan
 			// that repaid without the strategy being closed at a loss did
@@ -536,6 +561,40 @@ func actionHash(adapter attest.Address, data []byte) attest.Hash {
 		out = append(out, make([]byte, 32-pad)...)
 	}
 	return attest.KeccakBytes(out)
+}
+
+// declineReason extracts the engine's own explanation.
+func declineReason(raw json.RawMessage) string {
+	var doc struct {
+		Outcome struct {
+			Decision string `json:"decision"`
+		} `json:"outcome"`
+		Reasons []json.RawMessage `json:"reasons"`
+	}
+	if err := json.Unmarshal(raw, &doc); err != nil {
+		return "unreadable assessment"
+	}
+	parts := make([]string, 0, len(doc.Reasons))
+	for _, r := range doc.Reasons {
+		parts = append(parts, string(r))
+	}
+	return doc.Outcome.Decision + " " + strings.Join(parts, ", ")
+}
+
+// intendedAcquire describes the action this run will take, or nil when the
+// principal simply stays as settlement.
+func intendedAcquire(adapter string, deployBps uint64, riskyAsset string) *AcquireAction {
+	if adapter == "" || deployBps == 0 || riskyAsset == "" {
+		return nil
+	}
+	// The declared valuation for the test asset, matching what the chain
+	// reader marks positions at.
+	return &AcquireAction{
+		Asset:      riskyAsset,
+		Price:      2_000_000_000,
+		PriceScale: 6,
+		HaircutBps: 2_000,
+	}
 }
 
 // registerBindingFor records the agent and binding a run operates under.
