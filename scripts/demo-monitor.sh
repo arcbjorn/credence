@@ -113,3 +113,44 @@ sleep 1
 echo "=== price_move cycles ==="
 grep "trigger=price_move" "$WORK/gateway.log" || echo "NONE — beat 5b not demonstrated"
 echo "=== full log at $WORK/gateway.log ==="
+
+# docs/09 beat 8: replay the decision that just reached chain.
+#
+# Replay is only meaningful if it can fail, so the retained pair is
+# replayed as-is and then with one field altered. A MATCH that cannot
+# become a DIFFERENCE proves nothing.
+echo "=== beat 8: replay from retained evidence ==="
+python3 - "$WORK" <<'PY'
+import json, sqlite3, sys
+work = sys.argv[1]
+c = sqlite3.connect(work + "/credence.db")
+row = c.execute(
+    "SELECT a.payload, s.payload FROM assessments a"
+    " JOIN snapshots s ON s.input_hash = a.input_hash"
+    " ORDER BY a.sequence DESC LIMIT 1").fetchone()
+if row is None:
+    raise SystemExit("nothing retained to replay")
+open(work + "/assessment.json", "wb").write(row[0])
+open(work + "/input.json", "wb").write(row[1])
+json.dump(json.load(open(work + "/gateway.json"))["engine_policy"],
+          open(work + "/policy.json", "w"))
+
+# One digit of the position's mark, changed. Everything else identical.
+d = json.loads(row[1])
+d["account"]["value"]["positions"][0]["price"] = "1900000000"
+json.dump(d, open(work + "/tampered.json", "w"))
+PY
+
+cd "$ROOT/risk"
+./target/debug/credence-risk replay \
+  --assessment "$WORK/assessment.json" --input "$WORK/input.json" \
+  --policy "$WORK/policy.json"
+
+echo "--- control: one altered field must break the match ---"
+if ./target/debug/credence-risk replay \
+     --assessment "$WORK/assessment.json" --input "$WORK/tampered.json" \
+     --policy "$WORK/policy.json" >/dev/null 2>&1; then
+  echo "REPLAY IS VACUOUS: tampered evidence still matched"
+  exit 1
+fi
+echo "tampered evidence correctly rejected"
