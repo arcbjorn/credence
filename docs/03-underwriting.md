@@ -196,6 +196,38 @@ The ablation proves history *would* change terms. It does not show credit **comp
 
 The constraint switching by loan 3 is the `min()` story told honestly: history opens the facility until portfolio risk becomes the limit. Cheap in virtual time. **Sequential, not concurrent** — one active loan per account is unchanged.
 
+#### How the fixtures are calibrated
+
+The switch is a property of the numbers, not of the narrative, so the
+scenario's constants are chosen to produce it:
+
+| Quantity | Value | Why |
+|---|---|---|
+| Agent equity | 5,000 | Sets stress capacity: an acquisition puts the whole principal into the risky asset, and stress capacity lands near **1.29× equity** under this policy |
+| `base_history_cap` | 5,000 | Below stress capacity at loan 1, so **history binds first** |
+| `history_growth_per_ppm` | 10,000 | Each repayment adds ~1.33e9 of cap, so two repayments carry the history cap past stress |
+| Forecast cap | 9,600 at maximum penalty | Stays **above** stress, so it never masks the switch |
+
+Observed:
+
+```
+loan 1: apr=1200bps capacity=5000000000 binding=HistoryGrowthCap
+loan 2: apr=1147bps capacity=6333330000 binding=HistoryGrowthCap
+loan 3: apr=1094bps capacity=7419342778 binding=StressCapacity
+```
+
+Two traps worth naming, because both silently defeat the demonstration:
+
+- **A new account carries the maximum forecast penalty.** One forecast per
+  loan never reaches `min_outcomes`, so the forecast cap stays at 9,600
+  throughout. That is the intended behaviour — this document already says
+  history may bind below a conservative forecast cap — but it means the
+  forecast cap must sit *above* stress capacity, or it binds instead and
+  no switch is visible.
+- **Raising equity does not help.** Stress capacity scales with equity, so
+  more equity moves the target rather than reaching it. The lever is
+  `base_history_cap` relative to stress, not equity in absolute terms.
+
 ## Continuous underwriting
 
 The original's climax is a shock changing risk **while a loan is open and the agent requested nothing**. Origination checks, recovery thresholds, and post-repayment reassessment do not require that behavior — a system could pass the whole demo script without it.
