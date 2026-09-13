@@ -498,12 +498,52 @@ func bindingLookup(db *store.Store) func(string) (evidence.BindingInfo, bool) {
 			return evidence.BindingInfo{}, false
 		}
 
+		// Derive the oracle's key from the same identity fields the
+		// contract uses. A local identifier would read an unrelated slot.
+		chainBinding, err := chainBindingFrom(
+			registryChainID, registryAddr, agentID, binding)
+		if err != nil {
+			return evidence.BindingInfo{}, false
+		}
+
 		return evidence.BindingInfo{
 			Raw:         raw,
 			ModelPolicy: modelPolicy,
 			Account:     binding.CreditAccount,
+			ChainKey:    attest.ChainKeyHex(chainBinding),
 		}, true
 	}
+}
+
+// chainBindingFrom assembles the fields the oracle keys on.
+func chainBindingFrom(
+	registryChainID uint64,
+	registryAddr, agentID string,
+	binding store.Binding,
+) (attest.Binding, error) {
+	registry, err := parseAddress(registryAddr)
+	if err != nil {
+		return attest.Binding{}, err
+	}
+	account, err := parseAddress(binding.CreditAccount)
+	if err != nil {
+		return attest.Binding{}, err
+	}
+	agent, ok := new(big.Int).SetString(agentID, 10)
+	if !ok {
+		return attest.Binding{}, fmt.Errorf("agent id %q is not numeric", agentID)
+	}
+	facility, ok := new(big.Int).SetString(binding.FacilityID, 10)
+	if !ok {
+		return attest.Binding{}, fmt.Errorf("facility id %q is not numeric", binding.FacilityID)
+	}
+	return attest.Binding{
+		IdentityRegistryChainID: new(big.Int).SetUint64(registryChainID),
+		IdentityRegistry:        registry,
+		AgentID:                 agent,
+		CreditAccount:           account,
+		FacilityID:              facility,
+	}, nil
 }
 
 func parseHash(s string) (attest.Hash, error) {

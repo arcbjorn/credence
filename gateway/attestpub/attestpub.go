@@ -86,12 +86,15 @@ type Binding = attest.Binding
 // Returns the transaction hash on confirmation. Every refusal is an error
 // carrying its reason, because a caller that cannot tell "superseded" from
 // "malformed" will retry the wrong one.
+// The `bindingKey` argument is the gateway's local identifier, used only
+// for logging; the chain key is derived from `binding` below.
 func (a *Adapter) Publish(
 	ctx context.Context,
 	bindingKey string,
 	binding Binding,
 	assessment json.RawMessage,
 ) (string, error) {
+	_ = bindingKey
 	var doc assessmentDoc
 	if err := json.Unmarshal(assessment, &doc); err != nil {
 		return "", fmt.Errorf("decode assessment: %w", err)
@@ -112,8 +115,10 @@ func (a *Adapter) Publish(
 	// bytes, and should not need to know the oracle's ABI.
 	calldata := attest.EncodeAccept(envelope, signature)
 
-	// The publisher reconciles before sending, so this is delivery only.
-	return a.pub.Publish(ctx, bindingKey, doc.Sequence, calldata, signature)
+	// Reconciliation must query the slot the oracle actually writes, which
+	// is derived from the binding's identity fields — not the gateway's own
+	// identifier for the same binding.
+	return a.pub.Publish(ctx, attest.ChainKeyHex(binding), doc.Sequence, calldata, signature)
 }
 
 func (a *Adapter) envelope(doc assessmentDoc, binding Binding) (attest.Assessment, error) {

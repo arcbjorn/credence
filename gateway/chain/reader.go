@@ -191,14 +191,21 @@ func (r *Reader) LoanAt(
 	return loan, nil
 }
 
-// AcceptedSequence reads the highest sequence the oracle accepted for a
-// binding, at a pinned block.
+// AcceptedSequence reads the highest sequence the oracle accepted, at a
+// pinned block.
+//
+// `chainKey` must be the oracle's own derived key — `attest.ChainKeyHex` —
+// not the gateway's local binding identifier. Passing the wrong one reads
+// an unrelated slot that is always zero, so a published assessment looks
+// unpublished and the publisher retries a sequence the chain has already
+// accepted. The validation below refuses a key that is not 32 bytes, which
+// catches the string form immediately.
 func (r *Reader) AcceptedSequence(
 	ctx context.Context,
-	bindingKey string,
+	chainKey string,
 	at evidence.BlockRef,
 ) (uint64, error) {
-	return r.acceptedSequenceAt(ctx, bindingKey, at.Number)
+	return r.acceptedSequenceAt(ctx, chainKey, at.Number)
 }
 
 // --- publisher.Chain ---
@@ -226,12 +233,15 @@ func (r *Reader) ForPublisher(
 }
 
 // AcceptedSequence reads the newest state, deliberately unpinned.
-func (v *PublisherView) AcceptedSequence(ctx context.Context, bindingKey string) (uint64, error) {
+//
+// Takes the oracle's derived chain key, for the reason given on
+// `Reader.AcceptedSequence`.
+func (v *PublisherView) AcceptedSequence(ctx context.Context, chainKey string) (uint64, error) {
 	block, err := v.reader.rpc.LatestBlock(ctx)
 	if err != nil {
 		return 0, err
 	}
-	return v.reader.acceptedSequenceAt(ctx, bindingKey, block.Number)
+	return v.reader.acceptedSequenceAt(ctx, chainKey, block.Number)
 }
 
 func (v *PublisherView) SubmitAccept(
@@ -253,12 +263,14 @@ func (v *PublisherView) ReceiptStatus(
 
 func (r *Reader) acceptedSequenceAt(
 	ctx context.Context,
-	bindingKey string,
+	chainKey string,
 	blockNumber uint64,
 ) (uint64, error) {
-	key, err := encodeBytes32(bindingKey)
+	key, err := encodeBytes32(chainKey)
 	if err != nil {
-		return 0, fmt.Errorf("binding key: %w", err)
+		return 0, fmt.Errorf(
+			"chain key must be the oracle's derived key (attest.ChainKeyHex), not a "+
+				"local binding identifier: %w", err)
 	}
 	data := append(selector("lastSequence(bytes32)"), key...)
 	out, err := r.rpc.CallContract(ctx, r.addr.Oracle, data, blockNumber)

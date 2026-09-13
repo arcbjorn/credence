@@ -83,7 +83,9 @@ type ChainReader interface {
 	LatestBlock(ctx context.Context) (BlockRef, error)
 	AccountAt(ctx context.Context, account string, at BlockRef) (AccountState, error)
 	LoanAt(ctx context.Context, loanID string, at BlockRef) (ActiveLoan, error)
-	AcceptedSequence(ctx context.Context, bindingKey string, at BlockRef) (uint64, error)
+	// AcceptedSequence takes the oracle's derived chain key, not a local
+	// binding identifier.
+	AcceptedSequence(ctx context.Context, chainKey string, at BlockRef) (uint64, error)
 }
 
 // MarketReader supplies market observations. These come from providers that
@@ -104,7 +106,10 @@ type BindingInfo struct {
 	Raw         json.RawMessage
 	ModelPolicy json.RawMessage
 	Account     string
-	FacilityKey string
+	// ChainKey is the oracle's own derived key, distinct from the
+	// gateway's local binding identifier. Supplied by the lookup so the
+	// collector never has to guess which of the two a caller meant.
+	ChainKey string
 }
 
 // Config declares the policy the collector applies.
@@ -176,7 +181,7 @@ func (c *Collector) Collect(
 		ModelPolicy:    info.ModelPolicy,
 	}
 
-	sequence, err := c.chain.AcceptedSequence(ctx, task.BindingKey, block)
+	sequence, err := c.chain.AcceptedSequence(ctx, info.ChainKey, block)
 	if err != nil {
 		return snapshot.Input{}, fmt.Errorf("read accepted sequence: %w", err)
 	}
