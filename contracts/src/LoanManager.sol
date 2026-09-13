@@ -62,6 +62,9 @@ contract LoanManager {
     /// @dev Assets that must be sold before a default may be declared.
     /// @dev Interest reserved against the cap for each live loan.
     mapping(uint256 loanId => uint256) public reservation;
+    /// @dev Facility each loan was written under, so its obligation can be
+    /// released against the same counter it opened.
+    mapping(uint256 loanId => uint256) public loanFacility;
     mapping(address token => bool) public collateralAsset;
     address[] public collateralAssets;
     /// @dev Unresolved default flag; blocks new credit for that binding.
@@ -75,6 +78,7 @@ contract LoanManager {
     error WrongStatus(Status expected, Status actual);
     error NotYetDefaultable();
     error CollateralUnresolved(address token);
+    error LoanNotRecoverable(uint256 loanId);
     error Paused();
     error ZeroAmount();
     error NotKeeper();
@@ -120,10 +124,19 @@ contract LoanManager {
     /// @notice Register an execution route on an account.
     /// @dev The account only accepts adapter changes from its loan manager,
     /// so this is the operator's path to whitelisting a strategy route.
+    /// @notice Register an execution route on an account.
+    /// @dev Refused while the account owes: the set of routes an agent may
+    /// trade through is part of the terms it borrowed under. Revocation is
+    /// always permitted, because withdrawing a route only ever reduces
+    /// what the account can do.
     function setAccountAdapter(CreditAccount account, address adapter, bool allowed)
         external
         onlyOperator
     {
+        require(
+            !allowed || activeLoan[address(account)] == 0,
+            AccountHasActiveLoan()
+        );
         account.setAdapter(adapter, allowed);
     }
 
@@ -217,6 +230,8 @@ contract LoanManager {
         );
         vault.lend(acct, principal, reserved);
         reservation[loanId] = reserved;
+        loanFacility[loanId] = binding.facilityId;
+        oracle.openObligation(binding.facilityId);
 
         emit Originated(loanId, acct, principal);
     }
@@ -310,9 +325,30 @@ contract LoanManager {
     /// @notice Open recovery on a health breach or at maturity.
     /// @dev Snapshots accrued interest so later partial collections need no
     /// new interest schedule (`docs/03`).
-    function openRecovery(uint256 loanId, address keeper) external onlyOperator {
+    /// @param binding The binding this loan was written under, so the
+    /// oracle's standing permission can be consulted.
+    ///
+    /// @dev Recovery needs a reason, not merely an operator. Two qualify,
+    /// and both are verifiable on chain rather than discretionary:
+    ///
+    ///   * **Maturity has passed.** The obligation is due and unpaid.
+    ///   * **Permission is withdrawn.** The engine assessed the position
+    ///     and blocked it, which is the covenant breach this protocol
+    ///     actually has.
+    ///
+    /// Seizing a healthy, unmatured position would make every loan
+    /// callable at will, which is not the instrument the borrower agreed
+    /// to (`docs/05`).
+    function openRecovery(uint256 loanId, address keeper, Binding calldata binding)
+        external
+        onlyOperator
+    {
         Loan storage loan = loans[loanId];
         require(loan.status == Status.Active, WrongStatus(Status.Active, loan.status));
+
+        bool matured = block.timestamp >= loan.originatedAt + loan.termSeconds;
+        bool unpermitted = !oracle.riskAllowed(binding);
+        require(matured || unpermitted, LoanNotRecoverable(loanId));
 
         loan.interestSnapshot = _accruedAt(loan, uint64(block.timestamp));
         loan.recoveryStartedAt = uint64(block.timestamp);
@@ -439,6 +475,10 @@ contract LoanManager {
     /// @dev Releases once: a second call on a resolved loan would free
     /// budget that was never reserved.
     function _releaseReservation(uint256 loanId) private {
+        // Released together: both are per-loan state that a terminal
+        // status must clear exactly once.
+        oracle.closeObligation(loanFacility[loanId]);
+
         uint256 amount = reservation[loanId];
         if (amount == 0) return;
         reservation[loanId] = 0;

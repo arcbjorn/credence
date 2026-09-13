@@ -115,6 +115,16 @@ contract LifecycleTest is Test {
         return mgr.originate(b, principal);
     }
 
+    /// The binding a loan was written under, rebuilt for calls that must
+    /// consult the oracle. Matches what `_originate` signed.
+    function _bindingFor(CreditAccount acct, uint64 stateVersion)
+        internal
+        pure
+        returns (Binding memory)
+    {
+        return OracleHarness.binding(address(acct), stateVersion, FACILITY);
+    }
+
     function _fund(address lender, uint256 amount) private {
         token.mint(lender, amount);
         vm.startPrank(lender);
@@ -201,8 +211,9 @@ contract LifecycleTest is Test {
         // The whole obligation is unresolved, principal and frozen
         // interest alike: the epoch cannot settle while either is owed.
         uint256 owed = manager.debtDue(loanId);
+        Binding memory rb = _bindingFor(account, account.stateVersion());
         vm.prank(OPERATOR);
-        manager.openRecovery(loanId, KEEPER);
+        manager.openRecovery(loanId, KEEPER, rb);
         assertEq(vault.unresolvedReceivables(), owed);
 
         vm.prank(KEEPER);
@@ -223,8 +234,9 @@ contract LifecycleTest is Test {
         uint256 loanId = _originate(account, 5_000e6, 1_200, 10 days);
         vm.warp(block.timestamp + 10 days);
 
+        Binding memory rb = _bindingFor(account, account.stateVersion());
         vm.prank(OPERATOR);
-        manager.openRecovery(loanId, KEEPER);
+        manager.openRecovery(loanId, KEEPER, rb);
 
         // Shock: only 3,940 recoverable against 5,016.44 of debt.
         uint256 accountBalance = token.balanceOf(address(account));
@@ -260,7 +272,7 @@ contract LifecycleTest is Test {
         vm.warp(block.timestamp + 10 days);
 
         vm.startPrank(OPERATOR);
-        manager.openRecovery(loanId, KEEPER);
+        manager.openRecovery(loanId, KEEPER, _bindingFor(account, account.stateVersion()));
         vm.expectRevert(LoanManager.NotYetDefaultable.selector);
         manager.declareDefault(loanId);
         vm.stopPrank();
@@ -419,8 +431,9 @@ contract LifecycleTest is Test {
     function _driveToDefault() private {
         uint256 loanId = _originate(account, 5_000e6, 1_200, 10 days);
         vm.warp(block.timestamp + 10 days);
+        Binding memory rb = _bindingFor(account, account.stateVersion());
         vm.prank(OPERATOR);
-        manager.openRecovery(loanId, KEEPER);
+        manager.openRecovery(loanId, KEEPER, rb);
 
         uint256 bal = token.balanceOf(address(account));
         vm.prank(address(manager));
@@ -444,8 +457,9 @@ contract LifecycleTest is Test {
         uint256 loanId = _originate(account, 5_000e6, 1_200, 10 days);
         vm.warp(block.timestamp + 1 days);
 
+        Binding memory rb = _bindingFor(account, account.stateVersion());
         vm.prank(OPERATOR);
-        manager.openRecovery(loanId, OPERATOR);
+        manager.openRecovery(loanId, OPERATOR, rb);
 
         uint256 owed = manager.debtDue(loanId);
         uint256 held = token.balanceOf(address(account));
@@ -468,8 +482,9 @@ contract LifecycleTest is Test {
         uint256 loanId = _originate(account, 5_000e6, 1_200, 10 days);
         vm.warp(block.timestamp + 1 days);
 
+        Binding memory rb = _bindingFor(account, account.stateVersion());
         vm.prank(OPERATOR);
-        manager.openRecovery(loanId, OPERATOR);
+        manager.openRecovery(loanId, OPERATOR, rb);
 
         vm.prank(address(0xBAD));
         vm.expectRevert(LoanManager.NotKeeper.selector);
@@ -545,8 +560,9 @@ contract LifecycleTest is Test {
         uint256 loanId = _originate(account, 5_000e6, 1_200, 10 days);
         vm.warp(block.timestamp + 10 days);
 
+        Binding memory rb = _bindingFor(account, account.stateVersion());
         vm.prank(OPERATOR);
-        manager.openRecovery(loanId, KEEPER);
+        manager.openRecovery(loanId, KEEPER, rb);
 
         // Settlement is exhausted, but the account still holds collateral.
         uint256 bal = token.balanceOf(address(account));
@@ -570,8 +586,9 @@ contract LifecycleTest is Test {
         uint256 loanId = _originate(account, 5_000e6, 1_200, 10 days);
         vm.warp(block.timestamp + 10 days);
 
+        Binding memory rb = _bindingFor(account, account.stateVersion());
         vm.prank(OPERATOR);
-        manager.openRecovery(loanId, KEEPER);
+        manager.openRecovery(loanId, KEEPER, rb);
 
         uint256 bal = token.balanceOf(address(account));
         vm.prank(address(manager));
@@ -591,8 +608,9 @@ contract LifecycleTest is Test {
         uint256 loanId = _originate(account, 5_000e6, 1_200, 10 days);
         vm.warp(block.timestamp + 10 days);
 
+        Binding memory rb = _bindingFor(account, account.stateVersion());
         vm.prank(OPERATOR);
-        manager.openRecovery(loanId, KEEPER);
+        manager.openRecovery(loanId, KEEPER, rb);
 
         // Collect exactly the principal, leaving interest outstanding.
         vm.prank(KEEPER);
@@ -657,5 +675,103 @@ contract LifecycleTest is Test {
         vm.warp(block.timestamp + 1 days);
         manager.repay(loanId);
         assertEq(vault.reservedObligation(), 0, "a resolved loan reserves nothing");
+    }
+
+    // --- Configuration is immutable for an obligation's life (docs/05) ---
+
+    /// A facility's route cannot change while it owes.
+    ///
+    /// The borrower struck terms under one authorization domain. Re-pinning
+    /// mid-loan would move it to another, which is a different instrument
+    /// than the one it agreed to.
+    function test_RouteCannotChangeUnderALiveLoan() public {
+        _originate(account, 5_000e6, 1_200, 10 days);
+
+        vm.prank(OPERATOR);
+        vm.expectRevert(
+            abi.encodeWithSelector(RiskOracle.FacilityHasLiveObligations.selector, FACILITY)
+        );
+        oracle.pinRoute(FACILITY, Route.CRE);
+    }
+
+    /// Once the obligation resolves, the epoch may be re-pinned.
+    function test_RouteCanChangeOnceResolved() public {
+        uint256 loanId = _originate(account, 5_000e6, 1_200, 10 days);
+        vm.warp(block.timestamp + 1 days);
+        manager.repay(loanId);
+
+        vm.prank(OPERATOR);
+        oracle.pinRoute(FACILITY, Route.CRE);
+        assertEq(uint8(oracle.facilityRoute(FACILITY)), uint8(Route.CRE));
+    }
+
+    /// Adding an execution route mid-loan changes what the agent may do
+    /// with funds it already borrowed.
+    function test_AdapterCannotBeAddedUnderALiveLoan() public {
+        _originate(account, 5_000e6, 1_200, 10 days);
+
+        vm.prank(OPERATOR);
+        vm.expectRevert(LoanManager.AccountHasActiveLoan.selector);
+        manager.setAccountAdapter(account, address(noop), true);
+    }
+
+    /// Revocation is always permitted: withdrawing a route only ever
+    /// reduces what the account can do.
+    function test_AdapterCanAlwaysBeRevoked() public {
+        vm.prank(OPERATOR);
+        manager.setAccountAdapter(account, address(noop), true);
+        _originate(account, 5_000e6, 1_200, 10 days);
+
+        vm.prank(OPERATOR);
+        manager.setAccountAdapter(account, address(noop), false);
+        assertFalse(account.adapterAllowed(address(noop)));
+    }
+
+    // --- Recovery needs a reason (docs/05) ---
+
+    /// A healthy, unmatured loan with standing permission cannot be
+    /// seized. Otherwise every loan is callable at will.
+    function test_RecoveryRefusedOnAHealthyUnmaturedLoan() public {
+        uint256 loanId = _originate(account, 5_000e6, 1_200, 10 days);
+
+        // Grant standing permission, so neither trigger is present.
+        Binding memory b = _bindingFor(account, account.stateVersion());
+        OracleHarness.publishMonitoring(
+            oracle, b, ++seq, SIGNER_KEY, true, DEPLOYMENT, uint64(block.timestamp)
+        );
+
+        // Inside the permission window and well short of maturity, so
+        // neither trigger is present.
+        vm.warp(block.timestamp + 10 minutes);
+        Binding memory rb = _bindingFor(account, account.stateVersion());
+        vm.prank(OPERATOR);
+        vm.expectRevert(
+            abi.encodeWithSelector(LoanManager.LoanNotRecoverable.selector, loanId)
+        );
+        manager.openRecovery(loanId, KEEPER, rb);
+    }
+
+    /// Maturity is a trigger: the obligation is due and unpaid.
+    function test_RecoveryAllowedAtMaturity() public {
+        uint256 loanId = _originate(account, 5_000e6, 1_200, 10 days);
+        vm.warp(block.timestamp + 10 days);
+
+        Binding memory rb = _bindingFor(account, account.stateVersion());
+        vm.prank(OPERATOR);
+        manager.openRecovery(loanId, KEEPER, rb);
+        assertEq(uint8(manager.status(loanId)), uint8(LoanManager.Status.RecoveryPending));
+    }
+
+    /// Withdrawn permission is the other trigger: the engine assessed the
+    /// position and blocked it, which is this protocol's covenant breach.
+    function test_RecoveryAllowedWhenPermissionWithdrawn() public {
+        uint256 loanId = _originate(account, 5_000e6, 1_200, 10 days);
+        vm.warp(block.timestamp + 1 days);
+
+        // No standing permission at all, which reads as withdrawn.
+        Binding memory rb = _bindingFor(account, account.stateVersion());
+        vm.prank(OPERATOR);
+        manager.openRecovery(loanId, KEEPER, rb);
+        assertEq(uint8(manager.status(loanId)), uint8(LoanManager.Status.RecoveryPending));
     }
 }

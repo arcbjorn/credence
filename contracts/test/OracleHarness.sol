@@ -87,6 +87,47 @@ library OracleHarness {
         });
     }
 
+    /// A signed monitoring result, accepted onto the oracle.
+    ///
+    /// Exists so a test can establish standing permission without
+    /// assembling the whole envelope, which is what makes "recovery needs
+    /// a reason" testable at all.
+    function publishMonitoring(
+        RiskOracle oracle,
+        Binding memory b,
+        uint64 sequence,
+        uint256 key,
+        bool allowed,
+        uint256 deploymentId,
+        uint64 nowTs
+    ) internal {
+        Assessment memory a = Assessment({
+            deploymentId: deploymentId,
+            evidencePolicyId: keccak256("evidence-v1"),
+            route: Route.Development,
+            binding: b,
+            kind: Kind.Monitoring,
+            assessmentId: keccak256(abi.encode("monitoring", sequence, b.creditAccount)),
+            assessmentHash: keccak256("output"),
+            decision: allowed ? Decision.Approved : Decision.Denied,
+            permission: allowed ? Permission.Allowed : Permission.Blocked,
+            modelHash: keccak256("model-v1"),
+            inputHash: keccak256("input"),
+            evidenceRoot: keccak256("evidence"),
+            class_: Class.PrototypeEligible,
+            sequence: sequence,
+            validAfter: nowTs,
+            validUntil: nowTs + 1 hours,
+            requestId: bytes32(0),
+            intentHash: keccak256("intent"),
+            settlementAsset: address(0),
+            requestedPrincipal: 0,
+            terms: Terms(0, 0, 0, 0, bytes32(0)),
+            loanId: 1
+        });
+        oracle.accept(a, sign(oracle, a, key));
+    }
+
     function sign(RiskOracle oracle, Assessment memory a, uint256 key)
         internal
         view

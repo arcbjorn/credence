@@ -78,6 +78,9 @@ contract RiskOracle {
     /// issued for, so a permission cannot be read against a binding that
     /// merely shares the standing key.
     mapping(bytes32 bindingKey => bytes32) public permissionBinding;
+    /// @dev Live obligations per facility. Configuration is immutable
+    /// while this is non-zero (`docs/05`).
+    mapping(uint256 facilityId => uint256) public liveLoans;
 
     error NotOperator();
     error RouteNotPinned(uint256 facilityId);
@@ -95,6 +98,7 @@ contract RiskOracle {
     error QuoteExpired();
     error BindingMismatch();
     error ContradictoryPermission();
+    error FacilityHasLiveObligations(uint256 facilityId);
     error GrantMismatch(uint256 requested, uint256 approved);
     error AmountMismatch(uint256 approved, uint256 requested);
     error WrongKind();
@@ -128,9 +132,34 @@ contract RiskOracle {
         loanManager = loanManager_;
     }
 
+    /// @notice Pin a facility's authorization route for its epoch.
+    /// @dev `docs/05`: changing an existing facility's route requires a new
+    /// epoch after its obligations resolve. Re-pinning under a live loan
+    /// would change the rules governing an obligation already struck --
+    /// the borrower agreed to terms under one authorization domain and
+    /// would find itself under another.
     function pinRoute(uint256 facilityId, Route route) external onlyOperator {
+        require(liveLoans[facilityId] == 0, FacilityHasLiveObligations(facilityId));
         facilityRoute[facilityId] = route;
         emit RoutePinned(facilityId, route);
+    }
+
+    /// @notice Record that a facility has one more live obligation.
+    /// @dev Loan-manager only. The oracle needs this to enforce epoch
+    /// immutability without reaching into the manager on every read.
+    function openObligation(uint256 facilityId) external {
+        require(msg.sender == loanManager, NotConsumer());
+        liveLoans[facilityId] += 1;
+    }
+
+    /// @notice Record that an obligation resolved.
+    /// @dev Saturating rather than checked: a double-close must not brick
+    /// the facility, and the count only ever gates configuration changes.
+    function closeObligation(uint256 facilityId) external {
+        require(msg.sender == loanManager, NotConsumer());
+        if (liveLoans[facilityId] > 0) {
+            liveLoans[facilityId] -= 1;
+        }
     }
 
     function setSigner(Route route, address signer, bool allowed) external onlyOperator {

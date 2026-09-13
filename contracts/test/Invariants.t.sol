@@ -87,8 +87,10 @@ contract LifecycleHandler is Test {
     function openRecovery() external {
         if (loanId == 0) return;
         if (manager.status(loanId) != LoanManager.Status.Active) return;
+        Binding memory rb =
+            OracleHarness.binding(address(account), account.stateVersion(), FACILITY);
         vm.prank(operator);
-        manager.openRecovery(loanId, KEEPER);
+        manager.openRecovery(loanId, KEEPER, rb);
     }
 
     function collect(uint256 amount) external {
