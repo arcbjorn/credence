@@ -306,6 +306,11 @@ pub fn evaluate(input: &RiskInput, policy: &Policy) -> RiskAssessment {
             let score = capacity::score(composed.agent_capacity, policy.account_hard_cap);
             let view = CapacityView::from_result(&composed, score);
 
+            // Evidence for a DENIAL: the portfolio as it stands, which is
+            // what a reader needs to see when no draw will happen. An
+            // approval replaces this below with the post-draw projection,
+            // because that is the portfolio the decision actually
+            // authorizes (`docs/04`).
             let results = stress::evaluate_all(
                 account.settlement_balance,
                 &account.positions,
@@ -370,6 +375,20 @@ pub fn evaluate(input: &RiskInput, policy: &Policy) -> RiskAssessment {
                     policy.max_evidence_age_seconds,
                 );
             }
+
+            // Report the portfolio this grant produces, at the rate it
+            // was actually priced at. The same projection the safety
+            // recheck just ran, so the displayed cases and the decision
+            // describe one portfolio rather than two.
+            let results = match stress::project(
+                account, &action, granted, breakdown.apr_bps, request.term_seconds,
+            ) {
+                Some(p) => stress::evaluate_all(
+                    p.settlement, &p.positions, p.debt, market, &policy.stress,
+                )
+                .unwrap_or(results),
+                None => results,
+            };
 
             let econ = pricing::economics(
                 granted, breakdown.apr_bps, request.term_seconds,

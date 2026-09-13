@@ -179,32 +179,37 @@ pub enum IntendedAction {
 /// Builds the **post-action** portfolio: the draw adds cash, the intended
 /// action converts it, and the debt grows by principal plus reserved
 /// full-term interest.
-pub fn principal_is_safe(
+/// The portfolio a draw would produce: settlement, positions, and debt as
+/// they stand AFTER the principal lands and the declared action runs.
+///
+/// Extracted so the capacity search and the reported stress cases describe
+/// the same portfolio. Reporting the pre-draw book alongside a positive
+/// grant shows a debt-free account being stressed against no debt, which
+/// is evidence for a loan that will never exist (`docs/04`).
+pub struct ProjectedPortfolio {
+    pub settlement: Amount,
+    pub positions: Vec<Position>,
+    pub debt: Amount,
+}
+
+/// None when the projection cannot be computed — an overflow, or a price
+/// of zero. The caller must treat that as unsafe, never as unchanged.
+pub fn project(
     account: &AccountState,
     action: &IntendedAction,
     principal: Amount,
     apr: Bps,
     term_seconds: u64,
-    market: &MarketState,
-    policy: &StressPolicy,
-) -> bool {
-    let Some(reserved) = interest::full_term(principal, apr, term_seconds) else {
-        return false;
-    };
-    let Some(new_debt) = account
+) -> Option<ProjectedPortfolio> {
+    let reserved = interest::full_term(principal, apr, term_seconds)?;
+    let debt = account
         .outstanding_debt
         .checked_add(principal)
-        .and_then(|d| d.checked_add(reserved))
-    else {
-        return false;
-    };
+        .and_then(|d| d.checked_add(reserved))?;
 
     let mut positions = account.positions.clone();
     let settlement = match action {
-        IntendedAction::Hold => match account.settlement_balance.checked_add(principal) {
-            Some(v) => v,
-            None => return false,
-        },
+        IntendedAction::Hold => account.settlement_balance.checked_add(principal)?,
         IntendedAction::Acquire {
             asset,
             price,
@@ -212,14 +217,10 @@ pub fn principal_is_safe(
             haircut_bps,
         } => {
             if price.0 == 0 {
-                return false;
+                return None;
             }
-            let Some(scale) = 10u128.checked_pow(*price_scale) else {
-                return false;
-            };
-            let Some(units) = principal.0.checked_mul(scale).map(|v| v / price.0) else {
-                return false;
-            };
+            let scale = 10u128.checked_pow(*price_scale)?;
+            let units = principal.0.checked_mul(scale).map(|v| v / price.0)?;
             positions.push(Position {
                 asset: asset.clone(),
                 amount: Amount(units),
@@ -231,7 +232,22 @@ pub fn principal_is_safe(
         }
     };
 
-    match evaluate_all(settlement, &positions, new_debt, market, policy) {
+    Some(ProjectedPortfolio { settlement, positions, debt })
+}
+
+pub fn principal_is_safe(
+    account: &AccountState,
+    action: &IntendedAction,
+    principal: Amount,
+    apr: Bps,
+    term_seconds: u64,
+    market: &MarketState,
+    policy: &StressPolicy,
+) -> bool {
+    let Some(p) = project(account, action, principal, apr, term_seconds) else {
+        return false;
+    };
+    match evaluate_all(p.settlement, &p.positions, p.debt, market, policy) {
         Some(results) => results.iter().all(|r| r.passes),
         None => false,
     }

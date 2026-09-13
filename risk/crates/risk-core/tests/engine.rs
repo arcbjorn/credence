@@ -757,3 +757,31 @@ fn resolved_defaults_reduce_capacity() {
         other => panic!("expected capacity on both results, got {other:?}"),
     }
 }
+
+/// Reported stress must describe the portfolio the draw produces.
+///
+/// `docs/04`: every displayed number comes from what was actually
+/// assessed. Reporting the pre-draw book beside a positive grant shows a
+/// debt-free account stressed against zero debt — evidence for a loan that
+/// will never exist.
+#[test]
+fn reported_stress_describes_the_post_draw_portfolio() {
+    let i = input(5_000_000_000, 5_000_000_000);
+    let out = evaluate(&i, &policy());
+
+    let granted = match &out.outcome {
+        Outcome::ApprovedOrigination { approved_principal, .. } => *approved_principal,
+        other => panic!("expected an approval, got {other:?}"),
+    };
+    assert!(granted.0 > 0, "this test needs a positive grant");
+
+    assert!(!out.stress_results.is_empty(), "stress cases must be reported");
+    for r in &out.stress_results {
+        assert!(
+            r.debt_with_reserved_interest.0 >= granted.0,
+            "reported debt {:?} must include the granted principal {:?}",
+            r.debt_with_reserved_interest,
+            granted
+        );
+    }
+}
