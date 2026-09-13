@@ -9,6 +9,7 @@ import {CreditVault} from "../src/CreditVault.sol";
 import {IERC20} from "../src/IERC20.sol";
 import {LoanManager} from "../src/LoanManager.sol";
 import {RiskOracle} from "../src/RiskOracle.sol";
+import {TestRiskyAsset} from "../src/TestRiskyAsset.sol";
 import {TestSettlementToken} from "../src/TestSettlementToken.sol";
 import {Route} from "../src/Assessment.sol";
 
@@ -47,6 +48,12 @@ contract Deploy is Script {
         if (settlement == address(0)) {
             settlement = address(new TestSettlementToken());
         }
+        // The one supported risky asset. Without it no account can hold a
+        // concentrated book, so the denial beat could not be demonstrated.
+        address risky = vm.envOr("RISKY_ASSET", address(0));
+        if (risky == address(0)) {
+            risky = address(new TestRiskyAsset());
+        }
 
         RiskOracle oracle = new RiskOracle(operator, deploymentId);
         CreditVault vault = new CreditVault(IERC20(settlement), operator, GLOBAL_CAP);
@@ -65,7 +72,7 @@ contract Deploy is Script {
         vm.stopBroadcast();
 
         _writeManifest(address(oracle), address(vault), address(manager),
-            settlement, attestor, deploymentId);
+            settlement, risky, attestor, deploymentId);
     }
 
     function _writeManifest(
@@ -73,6 +80,7 @@ contract Deploy is Script {
         address vault,
         address manager,
         address settlement,
+        address risky,
         address attestor,
         uint256 deploymentId
     ) private {
@@ -86,7 +94,8 @@ contract Deploy is Script {
             '    "oracle": "', vm.toString(oracle), '",\n',
             '    "vault": "', vm.toString(vault), '",\n',
             '    "loan_manager": "', vm.toString(manager), '",\n',
-            '    "settlement": "', vm.toString(settlement), '"\n',
+            '    "settlement": "', vm.toString(settlement), '",\n',
+            '    "risky": "', vm.toString(risky), '"\n',
             "  },\n",
             '  "attestor": "', vm.toString(attestor), '"\n',
             "}\n"
