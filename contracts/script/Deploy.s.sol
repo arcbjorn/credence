@@ -101,6 +101,11 @@ contract Deploy is Script {
         // A facility must pin exactly one route. Development attestation is
         // the baseline; a CRE facility would be a separate deployment with
         // its own domain (`docs/05`).
+        // Recovery must sell this before a default may be declared,
+        // otherwise an empty settlement balance reads as exhaustion while
+        // the position is still there.
+        manager.setCollateralAsset(risky, true);
+
         oracle.pinRoute(FACILITY_ID, Route.Development);
         oracle.setSigner(Route.Development, attestor, true);
 

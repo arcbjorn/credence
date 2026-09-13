@@ -53,7 +53,13 @@ contract Scenario is Script {
 
         // The agent's credit account, holding its own equity. `docs/02`:
         // an agent with no equity receives no credit in v0.
-        CreditAccount account = new CreditAccount(managerAddr, operator, agent);
+        CreditAccount account =
+        // The oracle comes from the manager rather than a second env var,
+        // so the account can never be bound to a different one than the
+        // manager consults.
+            new CreditAccount(
+                managerAddr, operator, agent, address(LoanManager(managerAddr).oracle())
+            );
         token.mint(address(account), agentEquity);
         if (riskyEquity > 0 && riskyAsset != address(0)) {
             TestRiskyAsset(riskyAsset).mint(address(account), riskyEquity);
@@ -64,6 +70,11 @@ contract Scenario is Script {
         // difference between a loan and a deposit.
         if (adapter != address(0)) {
             LoanManager(managerAddr).setAccountAdapter(account, adapter, true);
+            // Closing a position reduces risk, so it needs no standing
+            // permission: an account must always be able to exit.
+            LoanManager(managerAddr).setAccountDeRiskingAction(
+                account, adapter, bytes4(keccak256("unwind(uint256)")), true
+            );
         }
 
         vm.stopBroadcast();
