@@ -39,6 +39,36 @@ Lead with amounts, terms, actions, reasons. Hashes, model versions, and service 
 
 In beat 4b, the rising limit is `agent_capacity`; show `facility_limit`, debt headroom (`available_credit`), `drawable_capacity`, and requested/granted principal separately. Beat 5b and the withdrawal attempt require an active loan: open the overconfident account's loan before those beats, then continue its outcomes and recovery in beat 7. Do not rely on the performer's already repaid loan to demonstrate an active-debt restriction.
 
+## Driving beats 4 and 7
+
+Both run end to end from a clean chain, so neither is reassembled by hand
+on demo day:
+
+```
+scripts/demo-repay.sh     # beat 4: deploy, hold, close, repay
+scripts/demo-default.sh   # beat 7: deploy, crash, unwind, default
+```
+
+`demo-repay.sh` leaves a second loan open and deployed, which is the live
+position beats 5b and 6 need.
+
+**Agent equity is the first loss layer, and the demo must respect it.**
+Lenders only lose once a fall exceeds the agent's own capital, so the
+severity is not cosmetic:
+
+| Asset falls to | Book (9,000) unwinds to | Who bears it | `realized_loss` |
+|---|---|---|---|
+| 50% (`CRASH_BPS=5000`) | 4,500 | Agent equity absorbs all of it | 0 — lenders recover principal **plus** interest |
+| 10% (`CRASH_BPS=1000`) | 900 | Equity wiped, then lenders | 3,100,000,000 |
+
+The mild case is the control: if a 50% crash also produced a lender loss,
+the demo would be manufacturing one rather than deriving it. Both figures
+come from the same script with one input changed.
+
+The whole book must be deployed, not the borrowed portion alone. Equity
+left sitting in settlement absorbs a crash from the sidelines, and no
+fall — however severe — would ever reach lenders.
+
 ## Rules
 
 > **Every displayed number comes from a retained fixture or an actual transaction-derived record.**
