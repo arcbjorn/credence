@@ -625,3 +625,44 @@ fn unknown_schema_version_is_refused() {
         "an unknown schema major must not validate"
     );
 }
+
+/// Permission must not outlive the evidence it rests on.
+///
+/// `docs/04`: authorization is only as good as the observations behind it.
+/// A request may ask for a long window, but required evidence that goes
+/// stale before then ends the permission first -- otherwise the chain
+/// keeps honouring a grant whose basis has expired.
+#[test]
+fn validity_is_bounded_by_required_evidence_freshness() {
+    let mut i = input(5_000_000_000, 5_000_000_000);
+    // The request asks to stay valid far beyond the freshness bound.
+    i.proposal.valid_until = 5_000;
+    // Market data was observed just before the assessment.
+    i.market.observed_at = Some(941);
+
+    let mut p = policy();
+    p.max_evidence_age_seconds = 60;
+
+    let out = evaluate(&i, &p);
+
+    // 941 + 60 = 1001, far short of the requested 5000.
+    assert_eq!(
+        out.valid_until, 1_001,
+        "permission must expire with its oldest required evidence"
+    );
+}
+
+/// The requested window still governs when it is the tighter of the two:
+/// the bound is a ceiling, not a replacement.
+#[test]
+fn validity_still_honours_a_shorter_request() {
+    let mut i = input(5_000_000_000, 5_000_000_000);
+    i.proposal.valid_until = 1_010;
+    i.market.observed_at = Some(1_000);
+
+    let mut p = policy();
+    p.max_evidence_age_seconds = 3_600;
+
+    let out = evaluate(&i, &p);
+    assert_eq!(out.valid_until, 1_010, "a shorter request must not be extended");
+}

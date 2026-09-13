@@ -15,7 +15,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::evidence::{Class, Evidence, FacilityPolicy};
+use crate::evidence::{Class, Evidence, FacilityPolicy, Requirement};
 use crate::units::{Amount, Bps};
 
 /// Identifies an agent. Never a bare integer (`docs/06`).
@@ -218,6 +218,36 @@ pub enum InputError {
 pub const SUPPORTED_SCHEMA_VERSIONS: &[&str] = &["v1"];
 
 impl RiskInput {
+    /// The time the oldest REQUIRED evidence ages past `max_age`.
+    ///
+    /// Permission may not outlive the evidence it rests on (`docs/04`).
+    /// The oldest required item governs, because permission rests on all
+    /// of them at once and the first to expire invalidates the whole
+    /// basis. Optional evidence is excluded: its absence is already
+    /// tolerated, so its age cannot shorten the window.
+    ///
+    /// None when no required evidence carries an observation time, which
+    /// the caller must treat as "cannot vouch for freshness".
+    pub fn required_evidence_deadline(&self, max_age: u64) -> Option<u64> {
+        let mut oldest: Option<u64> = None;
+        let items: [(Requirement, Option<u64>); 5] = [
+            (self.account.requirement, self.account.observed_at),
+            (self.market.requirement, self.market.observed_at),
+            (self.history.requirement, self.history.observed_at),
+            (self.forecasts.requirement, self.forecasts.observed_at),
+            (self.portfolio.requirement, self.portfolio.observed_at),
+        ];
+        for (req, at) in items {
+            if req != Requirement::Required {
+                continue;
+            }
+            if let Some(t) = at {
+                oldest = Some(oldest.map_or(t, |o: u64| o.min(t)));
+            }
+        }
+        oldest.map(|t| t.saturating_add(max_age))
+    }
+
     /// Structural validation, before any risk logic runs.
     ///
     /// These are not risk judgments — they are reasons the input cannot be

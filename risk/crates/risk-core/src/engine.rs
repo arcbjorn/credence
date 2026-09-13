@@ -68,6 +68,7 @@ pub fn evaluate(input: &RiskInput, policy: &Policy) -> RiskAssessment {
             vec![],
             Class::ScenarioOnly,
             false,
+            policy.max_evidence_age_seconds,
         );
     }
 
@@ -100,6 +101,7 @@ pub fn evaluate(input: &RiskInput, policy: &Policy) -> RiskAssessment {
             verdict.omitted.clone(),
             class,
             verdict.synthetic_used,
+            policy.max_evidence_age_seconds,
         );
     }
 
@@ -124,6 +126,7 @@ pub fn evaluate(input: &RiskInput, policy: &Policy) -> RiskAssessment {
                 verdict.omitted.clone(),
                 class,
                 verdict.synthetic_used,
+                policy.max_evidence_age_seconds,
             );
         }
     };
@@ -211,7 +214,10 @@ pub fn evaluate(input: &RiskInput, policy: &Policy) -> RiskAssessment {
                 )
             };
 
-            assemble(input, &identity, outcome, results, reasons, verdict.omitted, class, verdict.synthetic_used)
+            assemble(
+                input, &identity, outcome, results, reasons, verdict.omitted,
+                class, verdict.synthetic_used, policy.max_evidence_age_seconds,
+            )
         }
 
         Context::Origination { request } => {
@@ -219,13 +225,15 @@ pub fn evaluate(input: &RiskInput, policy: &Policy) -> RiskAssessment {
             if account.restricted {
                 return denied(
                     input, &identity, Some(request.requested_principal), None,
-                    vec![Reason::AccountRestricted], verdict.omitted, class, verdict.synthetic_used,
+                    vec![Reason::AccountRestricted], verdict.omitted, class,
+                    verdict.synthetic_used, policy.max_evidence_age_seconds,
                 );
             }
             if request.requested_principal.0 == 0 {
                 return denied(
                     input, &identity, Some(Amount::ZERO), None,
-                    vec![Reason::ZeroRequest], verdict.omitted, class, verdict.synthetic_used,
+                    vec![Reason::ZeroRequest], verdict.omitted, class,
+                    verdict.synthetic_used, policy.max_evidence_age_seconds,
                 );
             }
 
@@ -308,12 +316,14 @@ pub fn evaluate(input: &RiskInput, policy: &Policy) -> RiskAssessment {
                         input, &identity, Some(request.requested_principal), Some(view),
                         vec![Reason::CapacityExceeded { limiting, capacity }],
                         verdict.omitted, class, verdict.synthetic_used,
+                        policy.max_evidence_age_seconds,
                     );
                 }
                 GrantDecision::DenyZeroRequest => {
                     return denied(
                         input, &identity, Some(Amount::ZERO), Some(view),
                         vec![Reason::ZeroRequest], verdict.omitted, class, verdict.synthetic_used,
+                        policy.max_evidence_age_seconds,
                     );
                 }
             };
@@ -331,6 +341,7 @@ pub fn evaluate(input: &RiskInput, policy: &Policy) -> RiskAssessment {
                     input, &identity, Some(request.requested_principal), Some(view),
                     vec![Reason::PriceExceedsBorrowerMaximum { offered_bps, maximum_bps }],
                     verdict.omitted, class, verdict.synthetic_used,
+                    policy.max_evidence_age_seconds,
                 );
             }
 
@@ -349,6 +360,7 @@ pub fn evaluate(input: &RiskInput, policy: &Policy) -> RiskAssessment {
                         capacity: composed.agent_capacity,
                     }],
                     verdict.omitted, class, verdict.synthetic_used,
+                    policy.max_evidence_age_seconds,
                 );
             }
 
@@ -361,6 +373,7 @@ pub fn evaluate(input: &RiskInput, policy: &Policy) -> RiskAssessment {
                     input, &identity,
                     vec![Reason::StructurallyInvalid("economics overflow".into())],
                     verdict.omitted, class, verdict.synthetic_used,
+                    policy.max_evidence_age_seconds,
                 );
             };
 
@@ -382,6 +395,7 @@ pub fn evaluate(input: &RiskInput, policy: &Policy) -> RiskAssessment {
             assemble(
                 input, &identity, outcome, results, vec![Reason::Eligible],
                 verdict.omitted, class, verdict.synthetic_used,
+                policy.max_evidence_age_seconds,
             )
         }
     }
@@ -435,8 +449,21 @@ fn assemble(
     omitted: Vec<String>,
     class: Class,
     synthetic_used: bool,
+    max_evidence_age_seconds: u64,
 ) -> RiskAssessment {
     let (assessment_id, input_hash) = ids(identity);
+
+    // Permission may not outlive the evidence behind it (`docs/04`). The
+    // requested window is a ceiling, not a grant: whichever comes first,
+    // the request's own expiry or the moment the oldest required
+    // observation goes stale, ends the authorization.
+    let valid_until = match input.required_evidence_deadline(max_evidence_age_seconds) {
+        Some(deadline) => input.proposal.valid_until.min(deadline),
+        // No required observation time to reason from. Nothing can vouch
+        // for freshness, so the window closes at the assessment itself
+        // rather than standing open on an unknown basis.
+        None => input.proposal.valid_until.min(input.assessment_time),
+    };
     RiskAssessment {
         schema_version: input.schema_version.clone(),
         assessment_id,
@@ -446,7 +473,7 @@ fn assemble(
         assessment_time: input.assessment_time,
         sequence: input.proposal.sequence,
         valid_after: input.proposal.valid_after,
-        valid_until: input.proposal.valid_until,
+        valid_until,
         authorization_class: class,
         outcome,
         stress_results,
@@ -466,11 +493,12 @@ fn denied(
     omitted: Vec<String>,
     class: Class,
     synthetic_used: bool,
+    max_evidence_age_seconds: u64,
 ) -> RiskAssessment {
     assemble(
         input, identity,
         Outcome::Denied { requested_principal: requested, capacity },
-        vec![], reasons, omitted, class, synthetic_used,
+        vec![], reasons, omitted, class, synthetic_used, max_evidence_age_seconds,
     )
 }
 
@@ -481,6 +509,10 @@ fn unavailable(
     omitted: Vec<String>,
     class: Class,
     synthetic_used: bool,
+    max_evidence_age_seconds: u64,
 ) -> RiskAssessment {
-    assemble(input, identity, Outcome::Unavailable, vec![], reasons, omitted, class, synthetic_used)
+    assemble(
+        input, identity, Outcome::Unavailable, vec![], reasons, omitted, class,
+        synthetic_used, max_evidence_age_seconds,
+    )
 }
