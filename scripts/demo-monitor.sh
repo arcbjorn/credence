@@ -14,8 +14,12 @@ ROOT=$(cd "$(dirname "$0")/.." && pwd)
 WORK=${WORK:-/tmp/credence-monitor}
 DEPLOYER=ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
 SIGNER=${CREDENCE_SIGNER_KEY:-5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a}
-# Well past the 500 bps threshold, so the move is unambiguous on screen.
-MOVE_BPS=${MOVE_BPS:-2000}
+# Well past the 500 bps trigger threshold, and deep enough that the
+# COVERAGE verdict flips decisively rather than by a hair. A 20% fall
+# trips the trigger but leaves coverage at 1.41 against a 1.15 floor, so
+# the reassessment would correctly still read Allowed -- true, but it
+# demonstrates nothing about permission being withdrawn.
+MOVE_BPS=${MOVE_BPS:-4000}
 
 rm -rf "$WORK" && mkdir -p "$WORK"
 
@@ -61,11 +65,11 @@ done
 
 # Same engine policy the scenario priced against, so the monitoring result
 # is comparable to the origination it follows.
-python3 - "$MANIFEST" "$WORK" <<'PY'
+python3 - "$MANIFEST" "$WORK" "$ROOT" <<'PY'
 import json, sys
-manifest, work = sys.argv[1], sys.argv[2]
+manifest, work, root = sys.argv[1], sys.argv[2], sys.argv[3]
 a = json.load(open(manifest))["addresses"]
-base = json.load(open("/tmp/gwtest/gateway.json"))
+base = json.load(open(root + "/config/gateway.example.json"))
 base["addresses"] = {
     "oracle": a["oracle"], "vault": a["vault"],
     "loan_manager": a["loan_manager"], "settlement": a["settlement"],
