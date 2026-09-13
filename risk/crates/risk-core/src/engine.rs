@@ -197,13 +197,21 @@ pub fn evaluate(input: &RiskInput, policy: &Policy) -> RiskAssessment {
             .unwrap_or(Amount::ZERO);
 
             let healthy = coverage_meets(marked, debt, policy.min_maintenance_coverage);
-            let (outcome, reasons) = if healthy && !account.restricted {
+
+            // Recovery overrides coverage. It is the keeper's process
+            // (`docs/02`, `docs/05`), and an account that could keep
+            // acting would be racing the liquidation it is being
+            // recovered from. Coverage holding at this instant says
+            // nothing about whether recovery should be interrupted.
+            let (outcome, reasons) = if healthy && !account.restricted && !loan.in_recovery {
                 (
                     Outcome::MonitoringAllowed { loan_id: loan.loan_id.clone() },
                     vec![Reason::Eligible],
                 )
             } else {
-                let reason = if account.restricted {
+                let reason = if loan.in_recovery {
+                    Reason::LoanInRecovery
+                } else if account.restricted {
                     Reason::AccountRestricted
                 } else {
                     Reason::MonitoringCoverageBreach { shock: "marked".into() }

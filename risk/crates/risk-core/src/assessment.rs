@@ -50,6 +50,9 @@ pub enum Reason {
     ZeroRequest,
     PriceExceedsBorrowerMaximum { offered_bps: Bps, maximum_bps: Bps },
     AccountRestricted,
+    /// Recovery is in progress. The keeper owns the position until it
+    /// resolves; permission to act would race the liquidation.
+    LoanInRecovery,
     ActiveLoanPresent,
     UnresolvedDefault,
     /// Monitoring: the existing account no longer meets monitoring policy.

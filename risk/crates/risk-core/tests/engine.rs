@@ -785,3 +785,26 @@ fn reported_stress_describes_the_post_draw_portfolio() {
         );
     }
 }
+
+/// A loan in recovery must not be granted permission to act.
+///
+/// Recovery is the keeper's process (`docs/02`, `docs/05`). An account
+/// that could keep taking risk-increasing actions would be racing the
+/// liquidation it is being recovered from — and coverage holding at this
+/// instant says nothing about whether recovery should be interrupted.
+#[test]
+fn recovery_blocks_monitoring_permission() {
+    // Healthy by coverage: without the recovery rule this is Allowed.
+    let mut i = monitoring(1_000_000_000, 5_000_000_000);
+    if let Context::Monitoring { loan } = &mut i.context {
+        loan.in_recovery = true;
+    }
+
+    let a = evaluate(&i, &policy());
+    assert!(
+        matches!(a.outcome, Outcome::MonitoringBlocked { .. }),
+        "a loan in recovery must be blocked, got {:?}",
+        a.outcome
+    );
+    assert_eq!(a.permission(), Permission::Blocked);
+}
