@@ -358,6 +358,8 @@ contract LifecycleTest is Test {
 
         CreditAccount acct =
             new CreditAccount(address(cappedManager), OWNER, AGENT, address(cappedOracle));
+        // Funded, so the cap is what binds rather than the equity rule.
+        token.mint(address(acct), 5_000e6);
         Binding memory b = _publish(cappedOracle, acct, 10_001e6, 1_200, 10 days);
         vm.expectRevert(CreditVault.ExceedsGlobalCap.selector);
         cappedManager.originate(b, 10_001e6);
@@ -414,6 +416,9 @@ contract LifecycleTest is Test {
     /// `docs/02`: an agent with no equity receives no credit in v0.
     function test_insufficientEquityRejected() public {
         CreditAccount poor = new CreditAccount(address(manager), OWNER, AGENT, address(oracle));
+        // Some equity, but less than the quote requires: this test is
+        // about the SHORTFALL, not about the empty-account rule.
+        token.mint(address(poor), 1_000e6);
         Binding memory b =
             OracleHarness.binding(address(poor), poor.stateVersion(), FACILITY);
         Assessment memory a = OracleHarness.approvedQuote(
@@ -423,7 +428,7 @@ contract LifecycleTest is Test {
         oracle.accept(a, OracleHarness.sign(oracle, a, SIGNER_KEY));
 
         vm.expectRevert(
-            abi.encodeWithSelector(LoanManager.InsufficientEquity.selector, 5_000e6, 0)
+            abi.encodeWithSelector(LoanManager.InsufficientEquity.selector, 5_000e6, 1_000e6)
         );
         manager.originate(b, 1_000e6);
     }
@@ -855,5 +860,22 @@ contract LifecycleTest is Test {
         vm.prank(OPERATOR);
         manager.openRecovery(loanId, KEEPER, own);
         assertEq(uint8(manager.status(loanId)), uint8(LoanManager.Status.RecoveryPending));
+    }
+
+    /// An empty account receives no credit, whatever the quote says.
+    ///
+    /// `docs/02` states the rule as a property of v0, not of a particular
+    /// attestor's output. A signed requiredEquity of zero would otherwise
+    /// fund an account with no first loss layer at all.
+    function test_EmptyAccountIsNotFunded() public {
+        CreditAccount empty =
+            new CreditAccount(address(manager), OWNER, AGENT, address(oracle));
+        assertEq(token.balanceOf(address(empty)), 0, "the account must be empty");
+
+        Binding memory b = _publish(oracle, empty, 5_000e6, 1_200, 10 days);
+        vm.expectRevert(
+            abi.encodeWithSelector(LoanManager.InsufficientEquity.selector, 1, 0)
+        );
+        manager.originate(b, 5_000e6);
     }
 }

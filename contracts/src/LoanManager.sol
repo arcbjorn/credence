@@ -202,9 +202,17 @@ contract LoanManager {
             oracle.consumeQuote(binding, principal);
 
         // `docs/02`: an agent with no equity receives no credit in v0.
+        //
+        // Enforced independently of the attestor's number. A signed
+        // requiredEquity of zero would otherwise fund an empty account,
+        // which makes the invariant a matter of who signed rather than a
+        // property of the contract. Equity is the first loss layer; there
+        // is no first loss layer without it.
+        uint256 held = account.balanceOf(address(asset));
+        require(held > 0, InsufficientEquity(1, 0));
         require(
-            account.balanceOf(address(asset)) >= terms.requiredEquity,
-            InsufficientEquity(terms.requiredEquity, account.balanceOf(address(asset)))
+            held >= terms.requiredEquity,
+            InsufficientEquity(terms.requiredEquity, held)
         );
 
         loanId = nextLoanId++;
