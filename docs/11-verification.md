@@ -92,7 +92,7 @@ assumed; a green suite is not evidence for a behavioural claim.
 | Default handling | evidence | `scripts/demo-default.sh` |
 | Replay | evidence | `scripts/demo-monitor.sh` (beat 8, with its tampering control) |
 | Missing / stale data | evidence | `forge test --match-test ExecuteRequiresStandingPermission`; engine blocks on stale required evidence |
-| **Independent reputation reader** | **partial** | `tools/reader/read_feedback.py` reads published feedback from chain with no Credence code; against a **local adapter**, not the selected network's ERC-8004 registry, so the release row stays open |
+| **Independent reputation reader** | **partial** | `scripts/demo-feedback.sh` publishes and reads back with no Credence code; against a **local adapter**, not the selected network's ERC-8004 registry, so the release row stays open |
 | Integration honesty | evidence | scenario facility and test assets labelled; `TestRiskyAsset` is named *NOT ETH* |
 | Reproducibility | evidence | the three scripts run from a clean chain |
 
@@ -135,11 +135,16 @@ the repo.
 
 ```
 agent 184: 3 published obligation(s)
-  loan 1  Repaid      principal=4000000000  interest=6575343  loss=0
-  loan 2  Repaid      principal=4000000000  interest=6575343  loss=0
-  loan 3  Defaulted   principal=4000000000  interest=0        loss=3100000000
-  repaid=2  recovered=0  defaulted=1
+  loan 1  Repaid  principal=4000000000  interest=6575358  loss=0  held=432001s
+  loan 2  Repaid  principal=4000000000  interest=6137001  loss=0  held=432001s
+  loan 3  Repaid  principal=4000000000  interest=5698644  loss=0  held=432001s
+  repaid=3  recovered=0  defaulted=0
 ```
+
+Interest declines across the three because the engine repriced each loan
+as history accumulated — the same run the sequential-loans row reports.
+Publication is idempotent: a second run reports `already published` and
+adds nothing, so a retried queue cannot double-count an outcome.
 
 Signals stay separate (`docs/06`): repayments, defaults, interest, and
 loss are reported independently and never collapsed into a score.
