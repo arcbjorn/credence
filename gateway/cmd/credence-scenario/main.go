@@ -310,14 +310,14 @@ func run(
 			if err != nil {
 				return fmt.Errorf("loan %d: pin block: %w", i, err)
 			}
-			live, err := reader.AccountAt(ctx, account, evidence.BlockRef{
-				Number: at.Number, Hash: at.Hash, Timestamp: at.Timestamp,
-			})
+			out, err := rpc.CallContract(ctx, account,
+				attest.Selector("stateVersion()"), at.Number)
 			if err != nil {
-				return fmt.Errorf("loan %d: read account: %w", i, err)
+				return fmt.Errorf("loan %d: read state version: %w", i, err)
 			}
+			stateVersion := new(big.Int).SetBytes(out).Uint64()
 			if err := enrollLoan(ctx, enrollDB, binding, chainKey,
-				loanID, accountAddr, w.Address(), live.StateVersion); err != nil {
+				loanID, accountAddr, w.Address(), stateVersion); err != nil {
 				return fmt.Errorf("loan %d: enrol: %w", i, err)
 			}
 			log.Printf("loan %d: enrolled for monitoring", i)
