@@ -30,6 +30,38 @@ Status: `Unverified` · `Proven in spike` · `Integrated` · `Accepted` · `Defe
 
 **By 14 September**, specify in one paragraph: the activity, why it needs financing, how the agent decides financing is worthwhile at the offered APR, and how it exits. Without this, demo beat 2 — where the agent accepts or declines terms — has no content.
 
+**Answered 13 September** in [07 · Simulation](07-simulation.md#what-the-strategy-does-and-why-it-is-financed):
+spot acquisition of one risky asset at a whitelisted venue, financed
+because the agent's edge is timing and selection rather than capital, and
+lendable because the position is custodied where the keeper can reach it.
+Every claim there is enforced by code — bounded adapter approvals, exact
+amount or deny, de-risking exempt from fresh permission, recovery only on
+maturity or withdrawn permission.
+
+### Assets, venue, and valuation — settled 13 September
+
+Due 14 September. Working default taken: named test assets and an isolated
+scenario venue.
+
+| Decision | Choice | Why |
+|---|---|---|
+| Settlement | `TestSettlementToken`, **6 decimals**, named *Credence Test Settlement (NOT USDC)* | The name carries the disclaimer, so a block explorer cannot make it look like the real thing |
+| Risky asset | `TestRiskyAsset`, **18 decimals**, named *Credence Test Risky Asset (NOT ETH)* | A decimal mismatch against settlement is deliberate: it exercises the rescaling that a same-decimals pair would hide |
+| Venue | `SpotVenue`, seeded with **1,000 risky units** | Isolated and operator-priced, so a bad fill can be produced on demand and the slippage guard is testable rather than asserted |
+| Mark | `FixedPriceSource` at **2000.000000** (6dp), read on chain | An *observed* price, not a policy constant. Positions mark to it, so a market move changes a decision rather than only a trigger |
+| Declared depth | **2,000,000,000,000** settlement units | The venue's real liquidity. Declaring more would make every exit look costless — the same failure as omitting the haircut |
+
+The price source is separate from the venue on purpose. A whitelisted
+venue is not evidence of a fair price, so the adapter checks its fill
+against an independent source and reverts when they disagree beyond
+tolerance. Moving both together is a market move; moving one is a bad
+fill, and the two must be distinguishable.
+
+> **Everything here is a test asset on a scenario venue**, labelled as
+> such in its own token name. No claim is made about production liquidity,
+> and the declared depth is the venue's actual holding rather than an
+> aspiration.
+
 ### Why the basis trade is out of v0
 
 Two common arguments against it are **wrong**, and the record matters because it changes what to check at the venue gate.

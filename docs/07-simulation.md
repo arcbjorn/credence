@@ -44,6 +44,51 @@ Use prerecorded decisions or a deterministic policy agent for regression runs, a
 
 **The agent must be able to decline** when expected benefit, on the correct horizon after costs, does not justify the offered terms. **The demo must not force an approval to advance the script.**
 
+## What the strategy does, and why it is financed
+
+**The activity.** The agent acquires a single risky asset at a whitelisted
+spot venue, holds it for the loan's term, and sells it back. One asset,
+one venue, no leverage beyond the loan itself. `StrategyAdapter` is the
+only route: it pulls a bounded approval, trades, and returns the proceeds
+to the credit account, so the account is always the counterparty and the
+output cannot be redirected.
+
+**Why it needs credit.** The agent's edge is in *timing and selection*,
+not capital. Its own equity bounds position size, so a correct call on a
+small book earns proportionally little. Borrowing lets it take the
+position its analysis actually supports — which is the ordinary reason any
+trading desk uses financing, and the reason lenders can be paid for it.
+
+**Why a lender would fund it.** The position is custodied where the lender
+can reach it. The agent never touches the principal: borrowed funds land
+in a `CreditAccount` that refuses withdrawal while debt is open, binding
+the owner as strictly as the agent. If the position deteriorates, the
+keeper can exit it without the agent's cooperation. The lender is exposed
+to the asset's price, not to the agent's honesty.
+
+**Accept / decline logic.** The engine sizes the loan against the
+*post-draw* portfolio under three stress scenarios, and grants the
+requested amount or denies — never a partial fill. It declines when
+stressed coverage fails, when the account is already concentrated, when
+required evidence is missing or stale, or when the price the schedule
+produces exceeds the borrower's stated maximum. Good history lowers the
+rate and raises the limit; it never overrides a current-risk denial.
+
+**Exit.** Three ways, in decreasing order of agency:
+
+1. The agent closes the position and repays from the proceeds.
+2. Monitoring withdraws permission, and the agent must unwind — a
+   risk-*reducing* action, so it needs no fresh quote.
+3. Maturity passes or permission is withdrawn, and the keeper opens
+   recovery, sells the collateral, and collects up to the obligation. What
+   the market fails to return is a realized lender loss.
+
+> **This is a prototype strategy on a scenario venue.** It is chosen
+> because it is simple enough to verify end to end — one asset, one venue,
+> a price source that can be moved — not because spot directional trading
+> is the intended production use. The financing machinery is the claim;
+> the strategy is the smallest thing that exercises it honestly.
+
 ## Three scenarios
 
 | Scenario | Initial condition | Required behavior |
