@@ -860,3 +860,163 @@ fn sequential_loans_compound_credit() {
     assert_eq!(bind1, BindingConstraint::HistoryGrowthCap, "history binds first");
     assert_eq!(bind3, BindingConstraint::ForecastCap, "another cap takes over");
 }
+
+/// A revocation must be deliverable.
+///
+/// Bounding a blocked result by its evidence deadline can produce a window
+/// that closed before the assessment was even made. The oracle rejects
+/// that outright, so the revocation never reaches chain — and permission
+/// it was meant to withdraw keeps standing. Fail-closed inverted.
+#[test]
+fn a_revocation_is_never_born_expired() {
+    let mut i = input(5_000_000_000, 5_000_000_000);
+    i.assessment_time = 1_000;
+    i.proposal.valid_after = 900;
+    i.proposal.valid_until = 4_600;
+    // Required evidence observed long ago: this is what makes the result
+    // Unavailable in the first place.
+    i.market.observed_at = Some(1);
+
+    let mut p = policy();
+    p.max_evidence_age_seconds = 60;
+
+    let out = evaluate(&i, &p);
+
+    assert!(
+        matches!(out.outcome, Outcome::Unavailable),
+        "stale required evidence must block, got {:?}",
+        out.outcome
+    );
+    assert!(
+        out.valid_until > out.valid_after,
+        "a revocation must have a live window: {} .. {}",
+        out.valid_after,
+        out.valid_until
+    );
+    assert!(
+        out.valid_until > i.assessment_time,
+        "and must not have expired before it was made"
+    );
+}
+
+/// An executable grant is still bounded by its evidence, so the fix
+/// narrows the rule rather than removing it.
+#[test]
+fn a_grant_is_still_bounded_by_its_evidence() {
+    let mut i = input(5_000_000_000, 5_000_000_000);
+    i.proposal.valid_until = 5_000;
+    i.market.observed_at = Some(941);
+
+    let mut p = policy();
+    p.max_evidence_age_seconds = 60;
+
+    let out = evaluate(&i, &p);
+    assert!(
+        matches!(out.outcome, Outcome::ApprovedOrigination { .. }),
+        "this fixture must approve for the test to mean anything"
+    );
+    assert_eq!(out.valid_until, 1_001, "a grant expires with its evidence");
+}
+
+/// Stale optional evidence must earn nothing.
+///
+/// Stale readings usually retain their last value. Using it while listing
+/// the item as omitted makes the explanation and the arithmetic disagree
+/// — the agent gets a discount from a reading the engine disowned.
+///
+/// Compared against the OMITTED baseline (no value at all), not against
+/// fresh evidence: a stale item must price like an absent one, and
+/// comparing stale-to-fresh would pass even if the value were still used.
+#[test]
+fn stale_optional_history_prices_like_an_absent_one() {
+    let p = policy();
+
+    // Optional and Missing: no value to use under any reading.
+    let mut absent = input(5_000_000_000, 5_000_000_000);
+    absent.history.requirement = Requirement::Optional;
+    absent.history.state = State::Missing;
+    absent.history.value = None;
+    let baseline = evaluate(&absent, &p);
+
+    // Optional and Stale, with a STRONG retained value. If that value is
+    // used, this prices better than the absent case.
+    let mut stale = input(5_000_000_000, 5_000_000_000);
+    stale.history.requirement = Requirement::Optional;
+    stale.history.state = State::Stale;
+    if let Some(h) = stale.history.value.as_mut() {
+        h.weighted_repayments_ppm = 1_000_000;
+        h.coverage_complete = true;
+    }
+    let out = evaluate(&stale, &p);
+
+    let apr = |a: &risk_core::assessment::RiskAssessment| match &a.outcome {
+        Outcome::ApprovedOrigination { terms, .. } => Some(terms.apr_bps),
+        _ => None,
+    };
+
+    match (apr(&baseline), apr(&out)) {
+        (Some(absent_apr), Some(stale_apr)) => assert_eq!(
+            stale_apr, absent_apr,
+            "stale evidence must price exactly like absent evidence"
+        ),
+        other => panic!("expected approvals on both, got {other:?}"),
+    }
+
+    assert!(
+        out.omitted_evidence.iter().any(|e| e == "hist"),
+        "and must be reported omitted, got {:?}",
+        out.omitted_evidence
+    );
+}
+
+/// A policy label that claims to be a content hash must match the policy
+/// actually used.
+///
+/// Otherwise changing the pricing schedule changes the offered rate while
+/// `policy_hash` and `assessment_id` stay identical — and a replay would
+/// "match" two assessments produced under different rules, which is the
+/// opposite of what `docs/04` claims replay proves.
+#[test]
+fn policy_content_must_match_its_declared_hash() {
+    let p = policy();
+
+    // Declare the true content hash, so evaluation proceeds.
+    let value = serde_json::to_value(p).expect("serialize policy");
+    let true_hash = risk_core::canonical::hash_hex(&value).expect("hash policy");
+
+    let mut i = input(5_000_000_000, 5_000_000_000);
+    i.model_policy.policy_hash = true_hash.clone();
+    let honest = evaluate(&i, &p);
+    assert!(
+        matches!(honest.outcome, Outcome::ApprovedOrigination { .. }),
+        "a matching policy must evaluate normally, got {:?}",
+        honest.outcome
+    );
+
+    // Now change the policy content while keeping the declared hash.
+    let mut altered = p;
+    altered.pricing.base_rate_bps = risk_core::units::Bps(2_400);
+    let out = evaluate(&i, &altered);
+
+    assert!(
+        matches!(out.outcome, Outcome::Unavailable),
+        "a policy that does not match its declared hash must be refused, got {:?}",
+        out.outcome
+    );
+}
+
+/// A label that is not a content hash is left unverified rather than
+/// refused: a deployment may pin policy by some other identifier.
+#[test]
+fn a_non_hash_policy_label_is_not_refused() {
+    let p = policy();
+    let mut i = input(5_000_000_000, 5_000_000_000);
+    i.model_policy.policy_hash = "policy-epoch-1".into();
+
+    let out = evaluate(&i, &p);
+    assert!(
+        matches!(out.outcome, Outcome::ApprovedOrigination { .. }),
+        "an opaque label must not block evaluation, got {:?}",
+        out.outcome
+    );
+}

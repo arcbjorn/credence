@@ -59,6 +59,34 @@ pub struct Policy {
 pub fn evaluate(input: &RiskInput, policy: &Policy) -> RiskAssessment {
     let identity = snapshot::identify(input);
 
+    // Step 0 — the policy must BE the policy the snapshot names.
+    //
+    // Identity is computed from the snapshot's labels, so an unverified
+    // policy means changing the pricing schedule changes the offered rate
+    // while `policy_hash` and `assessment_id` stay identical. Replay would
+    // then "match" two assessments produced under different rules, which
+    // is precisely the guarantee `docs/04` claims.
+    //
+    // A declared label that is not a content hash is left alone: some
+    // deployments pin policy by identifier elsewhere. What is refused is a
+    // label that claims to be a hash and disagrees with the content.
+    if let Some(actual) = policy_content_hash(policy) {
+        let declared = &input.model_policy.policy_hash;
+        if looks_like_hash(declared) && declared != &actual {
+            return unavailable(
+                input,
+                &identity,
+                vec![Reason::StructurallyInvalid(format!(
+                    "policy content does not match declared hash {declared}"
+                ))],
+                vec![],
+                Class::ScenarioOnly,
+                false,
+                policy.max_evidence_age_seconds,
+            );
+        }
+    }
+
     // Step 1 — structure. A malformed snapshot cannot be evaluated at all.
     if let Err(e) = input.validate() {
         return unavailable(
@@ -142,7 +170,11 @@ pub fn evaluate(input: &RiskInput, policy: &Policy) -> RiskAssessment {
         policy_breaches: 0,
         coverage_complete: false,
     };
-    let history = input.history.value.as_ref().unwrap_or(&omitted_history);
+    // USABLE, not merely present. Stale evidence often retains its last
+    // value; using it while reporting it as omitted would make the
+    // explanation and the arithmetic disagree, and would let an agent earn
+    // a discount from a reading the engine has already disowned.
+    let history = usable_or(&input.history, &omitted_history);
 
     let omitted_forecasts = ForecastSummary {
         comparable_resolved: 0,
@@ -150,7 +182,7 @@ pub fn evaluate(input: &RiskInput, policy: &Policy) -> RiskAssessment {
         unresolved: 0,
         unobservable: 0,
     };
-    let forecasts = input.forecasts.value.as_ref().unwrap_or(&omitted_forecasts);
+    let forecasts = usable_or(&input.forecasts, &omitted_forecasts);
 
     let omitted_portfolio = PortfolioContext {
         strategy_id: String::new(),
@@ -158,7 +190,7 @@ pub fn evaluate(input: &RiskInput, policy: &Policy) -> RiskAssessment {
         remaining_vault_budget: Amount::ZERO,
         available_cash: Amount::ZERO,
     };
-    let portfolio = input.portfolio.value.as_ref().unwrap_or(&omitted_portfolio);
+    let portfolio = usable_or(&input.portfolio, &omitted_portfolio);
 
     match &input.context {
         Context::Monitoring { loan } => {
@@ -436,6 +468,39 @@ pub fn evaluate(input: &RiskInput, policy: &Policy) -> RiskAssessment {
     }
 }
 
+/// Canonical hash of the policy's CONTENT.
+///
+/// None when the policy cannot be encoded, which the caller treats as
+/// "cannot verify" rather than "verified".
+fn policy_content_hash(policy: &Policy) -> Option<String> {
+    let value = serde_json::to_value(policy).ok()?;
+    crate::canonical::hash_hex(&value).ok()
+}
+
+/// Whether a declared policy label is shaped like a content hash.
+///
+/// 64 lowercase hex characters, with or without a `0x` prefix. A
+/// deployment that pins policy by some other identifier is not forced to
+/// adopt this convention; it simply goes unverified here, and says so.
+fn looks_like_hash(s: &str) -> bool {
+    let body = s.strip_prefix("0x").unwrap_or(s);
+    body.len() == 64 && body.bytes().all(|b| b.is_ascii_hexdigit())
+}
+
+/// The evidence's value when it is usable, and the conservative stand-in
+/// otherwise.
+///
+/// `docs/04`: omitted evidence earns no benefit for its absence. Evidence
+/// that is Stale or incompletely covered is omitted even when it still
+/// carries a value, so the check is usability rather than presence.
+fn usable_or<'a, T>(ev: &'a crate::evidence::Evidence<T>, fallback: &'a T) -> &'a T {
+    if ev.is_usable() {
+        ev.value.as_ref().unwrap_or(fallback)
+    } else {
+        fallback
+    }
+}
+
 /// Ceiling for the stress search.
 ///
 /// Deliberately above the hard cap: the search must be able to report a
@@ -492,12 +557,25 @@ fn assemble(
     // requested window is a ceiling, not a grant: whichever comes first,
     // the request's own expiry or the moment the oldest required
     // observation goes stale, ends the authorization.
-    let valid_until = match input.required_evidence_deadline(max_evidence_age_seconds) {
-        Some(deadline) => input.proposal.valid_until.min(deadline),
-        // No required observation time to reason from. Nothing can vouch
-        // for freshness, so the window closes at the assessment itself
-        // rather than standing open on an unknown basis.
-        None => input.proposal.valid_until.min(input.assessment_time),
+    // Only an EXECUTABLE result is bounded by its evidence. A revocation
+    // authorizes nothing, so shortening its window cannot make anything
+    // safer -- it only risks producing a blocked result that expired
+    // before it could be delivered, which the oracle rejects outright and
+    // which therefore never revokes anything.
+    let grants = matches!(
+        outcome,
+        Outcome::ApprovedOrigination { .. } | Outcome::MonitoringAllowed { .. }
+    );
+    let valid_until = if grants {
+        match input.required_evidence_deadline(max_evidence_age_seconds) {
+            Some(deadline) => input.proposal.valid_until.min(deadline),
+            // No required observation time to reason from. Nothing can
+            // vouch for freshness, so the window closes at the assessment
+            // itself rather than standing open on an unknown basis.
+            None => input.proposal.valid_until.min(input.assessment_time),
+        }
+    } else {
+        input.proposal.valid_until
     };
     RiskAssessment {
         schema_version: input.schema_version.clone(),

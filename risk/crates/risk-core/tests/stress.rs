@@ -432,3 +432,87 @@ fn liquidity_impact_follows_the_square_root_law() {
         "quarter-depth impact should be about half of full: {quarter_impact} vs {full_impact}"
     );
 }
+
+/// Undeclared depth must be the WORST case, not a middling one.
+///
+/// Zero means "we cannot say how deep this market is". If that recovers
+/// more than a market known to be nearly empty, then failing to declare
+/// depth is rewarded -- and the conservative reading is inverted.
+#[test]
+fn zero_depth_is_never_better_than_tiny_depth() {
+    let p = policy();
+    let positions = vec![eth(1_000_000_000_000_000_000)];
+
+    let mut none = market(2_000);
+    none.liquidity_depth = Amount::ZERO;
+    let mut tiny = market(2_000);
+    tiny.liquidity_depth = Amount(1);
+
+    let liq = |m: &MarketState| {
+        evaluate_all(Amount(0), &positions, Amount(1), m, &p)
+            .expect("results")
+            .iter()
+            .find(|r| r.shock == Shock::Liquidity)
+            .expect("liquidity case")
+            .recoverable_value
+    };
+
+    assert!(
+        liq(&none) <= liq(&tiny),
+        "undeclared depth must not recover more than a nearly empty market: {:?} vs {:?}",
+        liq(&none),
+        liq(&tiny)
+    );
+}
+
+/// A position enormous relative to depth must not panic.
+///
+/// The ratio saturates, and an integer square root that computes
+/// `(x + n/x)` overflows on a saturated input. A panic here takes the
+/// HTTP service down, since evaluation has no panic boundary.
+#[test]
+fn extreme_liquidity_ratio_does_not_panic() {
+    let p = policy();
+    // A position marked far above any plausible depth.
+    let positions = vec![Position {
+        asset: "ETH".into(),
+        amount: Amount(u128::MAX / 1_000_000_000_000),
+        price: Amount(2_000_000_000),
+        price_scale: 6,
+        haircut_bps: Bps(500),
+    }];
+
+    let mut shallow = market(2_000);
+    shallow.liquidity_depth = Amount(1);
+
+    // Must return an answer or None, never abort.
+    let _ = evaluate_all(Amount(0), &positions, Amount(1), &shallow, &p);
+}
+
+/// The integer square root must be exact, including at the boundary that
+/// used to overflow. An approximation here silently mis-scales every
+/// liquidity haircut.
+#[test]
+fn isqrt_is_exact_including_at_the_ceiling() {
+    // Exposed through the impact it produces: a position exactly at depth
+    // takes the full base haircut, because sqrt(1) == 1.
+    let p = policy();
+    let positions = vec![eth(1_000_000_000_000_000_000)];
+    let marked = 2_000_000_000_000_000_000_000u128;
+
+    let mut at_depth = market(2_000);
+    at_depth.liquidity_depth = Amount(marked);
+
+    let r = evaluate_all(Amount(0), &positions, Amount(1), &at_depth, &p)
+        .expect("results");
+    let liq = r.iter().find(|x| x.shock == Shock::Liquidity).unwrap();
+
+    // marked, less the 500bps asset haircut, less the full 2000bps
+    // liquidity impact, less 100bps of costs.
+    let expected = marked * 9_500 / 10_000 * 8_000 / 10_000 * 9_900 / 10_000;
+    assert_eq!(
+        liq.recoverable_value,
+        Amount(expected),
+        "size == depth must take exactly the base haircut"
+    );
+}

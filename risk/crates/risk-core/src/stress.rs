@@ -148,13 +148,19 @@ fn isqrt(n: u128) -> u128 {
     if n < 2 {
         return n;
     }
-    let mut x = n;
-    let mut y = (x + 1) / 2;
-    while y < x {
+    // Seed from the bit length rather than from n itself: the obvious
+    // `(n + 1) / 2` overflows on u128::MAX, which is reachable whenever a
+    // saturating multiply above hits the ceiling. A panic here would take
+    // the HTTP service down, since evaluation has no panic boundary.
+    let mut x = 1u128 << ((128 - n.leading_zeros()).div_ceil(2));
+    loop {
+        // Both halves are <= x, so the sum cannot overflow.
+        let y = (x / 2) + (n / x / 2);
+        if y >= x {
+            return x;
+        }
         x = y;
-        y = (x + n / x) / 2;
     }
-    x
 }
 
 /// Extra haircut from exiting a position into finite depth, in bps.
@@ -180,7 +186,11 @@ fn liquidity_impact_bps(marked_value: u128, depth: Amount, base_bps: Bps) -> u12
         return 0;
     }
     if depth.0 == 0 {
-        return 10_000u128.min(base.saturating_mul(4));
+        // Undeclared depth is the WORST case, not a middling one. Anything
+        // less than the maximum would mean failing to declare depth
+        // recovers more than declaring a nearly empty market -- rewarding
+        // the omission and inverting the conservative reading.
+        return 10_000;
     }
 
     // ratio_bps = size / depth, in bps. Saturates when the position dwarfs
