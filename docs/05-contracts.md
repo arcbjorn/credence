@@ -102,6 +102,38 @@ Monitoring results with valid bindings may record `Blocked` permission even when
 
 **Current contract state is still checked at draw time.** A correctly signed assessment is not permission to ignore a vault cap or an open loan.
 
+### What the account enforces per action
+
+The adapter allowlist says a route is *known*. It says nothing about whether
+acting now is safe, which is the engine's judgment. While debt is
+outstanding, `execute` additionally requires:
+
+| Check | Why |
+|---|---|
+| Not in recovery | An owner or agent who could keep trading would race the liquidation they are being recovered from |
+| Action matches `permitted_action_hash` | Authorization is for *that* call, not for any call through the same adapter |
+| Standing permission, after the first action | The origination assessment authorizes one atomic action; the commitment is consumed, so a repeat is a new risk decision |
+
+Two deliberate exemptions:
+
+- **An account with no debt is unrestricted.** There is no lender exposure
+  to protect, and requiring a quote to move one's own equity would make the
+  account unusable before its first loan.
+- **Risk-*reducing* entry points need no permission.** Invariant 3
+  constrains actions that increase risk. A gate that blocked de-risking
+  would trap an account in the position a reassessment is telling it to
+  close. These are registered by selector, by the operator — never by the
+  agent, since mislabelling a risk-increasing call would exempt it
+  entirely.
+
+The binding the account checks against is pinned by the loan manager at
+origination, from the assessment it consumed. The account never trusts a
+caller-supplied binding: the standing-quote key covers only the stable
+identity (registry, agent, account, facility), so a quote additionally
+commits to the hash of the **complete** signed binding. Without that,
+rewriting the unsigned fields — operator, configuration, policy, or a
+bumped state version — would let a stale quote fund.
+
 ## Invariants — must hold
 
 1. **Aggregate, not per-loan.** At origination, outstanding obligations plus the new principal and reserved full-term interest fit the pinned `facility_limit` and global debt budgets; principal also fits the account cap. Lower subsequent risk capacity blocks new risk without altering existing debt
@@ -111,6 +143,9 @@ Monitoring results with valid bindings may record `Blocked` permission even when
 5. **Supersession.** A new assessment of either kind invalidates prior unconsumed quotes; monitoring cannot originate a loan
 6. **Authorization route.** Only the facility's pinned route may publish executable assessments; a CRE facility rejects development attestations
 7. **Pause.** Halts new originations; never blocks repayment or liquidation
+8. **Collection is bounded.** Recovery takes only what the loan is owed, and only the appointed keeper takes it. The surplus is the borrower's residual equity
+9. **Resolution before write-off.** A default requires every registered collateral asset exhausted, not merely the settlement token. Unsold positions leave the loan `RecoveryPending`
+10. **The receivable is the obligation.** Recovery marks principal *and* frozen interest unresolved, so the epoch cannot settle while either is still being collected
 
 ## Trust assumptions
 
