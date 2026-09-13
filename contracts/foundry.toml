@@ -8,6 +8,11 @@ optimizer = true
 optimizer_runs = 200
 via_ir = true
 
+# The deploy script writes a manifest so the gateway config is derived from
+# what was deployed rather than transcribed by hand. Write access is scoped
+# to that one directory.
+fs_permissions = [{ access = "read-write", path = "./deployments" }]
+
 [fmt]
 line_length = 100
 tab_width = 4
