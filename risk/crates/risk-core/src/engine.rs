@@ -18,8 +18,10 @@ use crate::assessment::{
 use crate::capacity::{
     self, AgentInputs, ForecastPolicy, GrantDecision, LenderInputs,
 };
-use crate::evidence::{Class, EvidenceCheck};
-use crate::input::{Context, RiskInput};
+use crate::evidence::{Blocker, Class, EvidenceCheck};
+use crate::input::{
+    Context, ForecastSummary, HistorySummary, PortfolioContext, RiskInput,
+};
 use crate::interest;
 use crate::pricing::{self, LossAssumption, PricingPolicy};
 use crate::snapshot;
@@ -101,12 +103,59 @@ pub fn evaluate(input: &RiskInput, policy: &Policy) -> RiskAssessment {
         );
     }
 
-    // Evidence is usable, so these are present.
-    let account = input.account.value.as_ref().expect("checked usable");
-    let market = input.market.value.as_ref().expect("checked usable");
-    let history = input.history.value.as_ref().expect("checked usable");
-    let forecasts = input.forecasts.value.as_ref().expect("checked usable");
-    let portfolio = input.portfolio.value.as_ref().expect("checked usable");
+    // Account and market are Required: a usable verdict guarantees them,
+    // and their absence is a blocker rather than something to default.
+    // Treat a missing value as unavailable anyway rather than panicking --
+    // the service has no panic boundary around evaluation.
+    let (account, market) = match (input.account.value.as_ref(), input.market.value.as_ref()) {
+        (Some(a), Some(m)) => (a, m),
+        _ => {
+            return unavailable(
+                input,
+                &identity,
+                vec![Reason::EvidenceBlocked(Blocker::MissingRequired {
+                    evidence_id: if input.account.value.is_none() {
+                        input.account.evidence_id.clone()
+                    } else {
+                        input.market.evidence_id.clone()
+                    },
+                    source: "engine".into(),
+                })],
+                verdict.omitted.clone(),
+                class,
+                verdict.synthetic_used,
+            );
+        }
+    };
+
+    // The rest may legitimately be omitted (`docs/04`), so evaluation
+    // proceeds from a conservative stand-in rather than unwrapping. Each
+    // default awards nothing for the absence: no history earns no earned
+    // capacity, no forecasts take the full penalty, and no portfolio
+    // context leaves no headroom.
+    let omitted_history = HistorySummary {
+        weighted_repayments_ppm: 0,
+        resolved_defaults: 0,
+        policy_breaches: 0,
+        coverage_complete: false,
+    };
+    let history = input.history.value.as_ref().unwrap_or(&omitted_history);
+
+    let omitted_forecasts = ForecastSummary {
+        comparable_resolved: 0,
+        mean_brier_ppm: u64::MAX,
+        unresolved: 0,
+        unobservable: 0,
+    };
+    let forecasts = input.forecasts.value.as_ref().unwrap_or(&omitted_forecasts);
+
+    let omitted_portfolio = PortfolioContext {
+        strategy_id: String::new(),
+        remaining_strategy_budget: Amount::ZERO,
+        remaining_vault_budget: Amount::ZERO,
+        available_cash: Amount::ZERO,
+    };
+    let portfolio = input.portfolio.value.as_ref().unwrap_or(&omitted_portfolio);
 
     match &input.context {
         Context::Monitoring { loan } => {

@@ -547,3 +547,62 @@ fn emit_fixture_pack() {
         fs::write(root.join(name), serde_json::to_string_pretty(&value).unwrap() + "\n").unwrap();
     }
 }
+
+/// Optional evidence that is Missing must be omitted, never unwrapped.
+///
+/// `docs/04`: an optional feature's absence is recorded and no benefit is
+/// awarded for it. The evidence check returns a usable verdict in that
+/// case, so evaluation must not assume every value is present -- and a
+/// panic here takes the HTTP service down with it, since the server has no
+/// panic boundary around evaluation.
+#[test]
+fn optional_missing_evidence_is_omitted_not_unwrapped() {
+    let mut i = input(5_000_000_000, 5_000_000_000);
+    i.forecasts.requirement = Requirement::Optional;
+    i.forecasts.state = State::Missing;
+    i.forecasts.value = None;
+
+    let out = evaluate(&i, &policy());
+    assert!(
+        out.omitted_evidence.iter().any(|e| e == "fc"),
+        "the omission must be visible in the output, got {:?}",
+        out.omitted_evidence
+    );
+}
+
+/// Optional evidence that is Stale must not still contribute.
+///
+/// Listing it in omitted_evidence while its retained value continues to
+/// lower the APR would report an omission that did not happen -- the
+/// explanation and the arithmetic must agree.
+#[test]
+fn optional_stale_history_does_not_improve_terms() {
+    let fresh = input(5_000_000_000, 5_000_000_000);
+    let baseline = evaluate(&fresh, &policy());
+
+    let mut stale = input(5_000_000_000, 5_000_000_000);
+    stale.history.requirement = Requirement::Optional;
+    stale.history.state = State::Stale;
+    // The value is retained: this is exactly the case where a stale
+    // reading is still sitting in the struct.
+    let out = evaluate(&stale, &policy());
+
+    assert!(
+        out.omitted_evidence.iter().any(|e| e == "hist"),
+        "stale optional history must be reported omitted, got {:?}",
+        out.omitted_evidence
+    );
+
+    let apr = |a: &risk_core::assessment::RiskAssessment| match &a.outcome {
+        Outcome::ApprovedOrigination { terms, .. } => Some(terms.apr_bps),
+        _ => None,
+    };
+    if let (Some(base), Some(got)) = (apr(&baseline), apr(&out)) {
+        assert!(
+            got >= base,
+            "omitted history must not earn the discount it would have: {:?} vs {:?}",
+            got,
+            base
+        );
+    }
+}
