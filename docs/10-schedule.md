@@ -42,9 +42,9 @@ From here everything raises fidelity. **Later changes can still introduce regres
 
 | Decision | Due | Working default |
 |---|---|---|
-| Event environment and submission specifics | 13 Sep | Monad testnet prototype; submit 12 Oct |
-| Settlement and risky assets, venue, valuation | 14 Sep | Named test assets; isolated scenario venue if unproven |
-| Strategy economic purpose | 14 Sep | One paragraph: activity, why financed, accept/decline logic, exit |
+| Event environment and submission specifics | 13 Sep | Monad testnet prototype; submit 12 Oct. **Demos verified portable 13 Sep**: run against chain id 10143 with no code change, manifests keyed by chain |
+| Settlement and risky assets, venue, valuation | 14 Sep | **Settled 13 Sep** — working default taken; see [08 · Integrations](08-integrations.md#assets-venue-and-valuation--settled-13-september) |
+| Strategy economic purpose | 14 Sep | **Settled 13 Sep** — see [07 · Simulation](07-simulation.md#what-the-strategy-does-and-why-it-is-financed) |
 | CRE access and verification level | Access 13 Sep; level 25 Sep | Development attestation baseline |
 | ERC-8004 deployment and feedback compatibility | 15 Sep | Local adapter for development only; selected-network registry and independent reader required for release |
 | Policy thresholds and pricing schedule | 17 Sep | Conservative named assumptions; no calibrated-PD claim |
