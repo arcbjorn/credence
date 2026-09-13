@@ -190,3 +190,32 @@ func (r *Registry) ActiveWatches(ctx context.Context) ([]ActiveWatch, error) {
 	}
 	return out, rows.Err()
 }
+
+// WatchedStateVersion returns the account state version the open loan was
+// enrolled against.
+//
+// The binding the engine consumes must carry this rather than a
+// placeholder: the engine compares it against the account's live version
+// and refuses a mismatch, so a hardcoded zero blocks every cycle on an
+// account that has ever executed.
+func (r *Registry) WatchedStateVersion(
+	ctx context.Context,
+	bindingKey string,
+) (uint64, error) {
+	var payload []byte
+	err := r.store.db.QueryRowContext(ctx,
+		`SELECT payload FROM chain_events
+		 WHERE tx_hash = ? AND event_name = 'ActiveLoan' AND invalidated_at IS NULL`,
+		loanWatchKey(bindingKey)).Scan(&payload)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, fmt.Errorf("%w: no active loan for %q", ErrNotFound, bindingKey)
+	}
+	if err != nil {
+		return 0, fmt.Errorf("read watched state version: %w", err)
+	}
+	w, err := parseWatchPayload(payload)
+	if err != nil {
+		return 0, err
+	}
+	return w.AccountStateVersion, nil
+}
