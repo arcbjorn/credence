@@ -7,6 +7,10 @@
 set -euo pipefail
 
 RPC=${RPC:-http://127.0.0.1:8546}
+# Read from the node, not assumed. The deploy script writes its manifest
+# keyed by chain id, so a hardcoded 31337 silently reads a stale local
+# deployment when pointed at a testnet.
+CHAIN_ID=${CHAIN_ID:-$(cast chain-id --rpc-url "$RPC")}
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 WORK=${WORK:-/tmp/credence-repay}
 # A fresh database each run: a stale one carries forecasts and history
@@ -25,7 +29,7 @@ export DEPLOYER_KEY=0x$DEPLOYER
 export ATTESTOR_ADDRESS=$(cast wallet address --private-key "0x$SIGNER")
 export DEPLOYMENT_ID=7
 forge script script/Deploy.s.sol --rpc-url "$RPC" --broadcast >/dev/null
-MANIFEST="$ROOT/contracts/deployments/31337.json"
+MANIFEST="$ROOT/contracts/deployments/$CHAIN_ID.json"
 addr() { python3 -c "import json;print(json.load(open('$MANIFEST'))['addresses']['$1'])"; }
 ORACLE=$(addr oracle);             VAULT=$(addr vault)
 MANAGER=$(addr loan_manager);      SETTLEMENT=$(addr settlement)
@@ -58,7 +62,7 @@ go build -o credence-scenario ./cmd/credence-scenario
 ./credence-scenario -rpc "$RPC" -oracle "$ORACLE" -manager "$MANAGER" \
   -account "$ACCOUNT" -settlement "$SETTLEMENT" -principal "$PRINCIPAL" \
   -adapter "$ADAPTER" -risky "$RISKY" -price-source "$PRICE_SOURCE" \
-  -deploy-bps 10000 -loans "$LOANS" \
+  -chain-id "$CHAIN_ID" -deploy-bps 10000 -loans "$LOANS" \
   -enroll "$WORK/scenario.db" -vault "$VAULT" -risk http://127.0.0.1:18111 -policy "$ROOT/config/engine-policy.json"
 
 # `docs/11`: a passing unit test and a correctly wired deployment are

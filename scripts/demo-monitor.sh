@@ -10,6 +10,10 @@
 set -euo pipefail
 
 RPC=${RPC:-http://127.0.0.1:8546}
+# Read from the node, not assumed. The deploy script writes its manifest
+# keyed by chain id, so a hardcoded 31337 silently reads a stale local
+# deployment when pointed at a testnet.
+CHAIN_ID=${CHAIN_ID:-$(cast chain-id --rpc-url "$RPC")}
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 WORK=${WORK:-/tmp/credence-monitor}
 DEPLOYER=ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
@@ -27,7 +31,7 @@ cd "$ROOT/contracts"
 export DEPLOYER_KEY=0x$DEPLOYER DEPLOYMENT_ID=7
 export ATTESTOR_ADDRESS=$(cast wallet address --private-key "0x$SIGNER")
 forge script script/Deploy.s.sol --rpc-url "$RPC" --broadcast >/dev/null
-MANIFEST="$ROOT/contracts/deployments/31337.json"
+MANIFEST="$ROOT/contracts/deployments/$CHAIN_ID.json"
 addr() { python3 -c "import json;print(json.load(open('$MANIFEST'))['addresses']['$1'])"; }
 ORACLE=$(addr oracle);        VAULT=$(addr vault)
 MANAGER=$(addr loan_manager); SETTLEMENT=$(addr settlement)
@@ -50,7 +54,7 @@ go build -o credence-gateway ./cmd/credence-gateway
 ./credence-scenario -rpc "$RPC" -oracle "$ORACLE" -manager "$MANAGER" \
   -account "$ACCOUNT" -settlement "$SETTLEMENT" -principal 4000000000 \
   -adapter "$ADAPTER" -risky "$RISKY" -price-source "$PRICE_SOURCE" \
-  -deploy-bps 10000 -loans 1 -enroll "$WORK/credence.db" >"$WORK/scenario.log" 2>&1
+  -chain-id "$CHAIN_ID" -deploy-bps 10000 -loans 1 -enroll "$WORK/credence.db" >"$WORK/scenario.log" 2>&1
 echo "loan open and deployed"
 
 cd "$ROOT/risk"
@@ -65,7 +69,7 @@ done
 
 # Same engine policy the scenario priced against, so the monitoring result
 # is comparable to the origination it follows.
-python3 - "$MANIFEST" "$WORK" "$ROOT" <<'PY'
+python3 - "$MANIFEST" "$WORK" "$ROOT" "$CHAIN_ID" "$RPC" <<'PY'
 import json, sys
 manifest, work, root = sys.argv[1], sys.argv[2], sys.argv[3]
 a = json.load(open(manifest))["addresses"]
@@ -82,6 +86,11 @@ base["risky_asset"] = {
     "price": 2000000000, "price_scale": 6,
     "decimals": 18, "haircut_bps": 2000,
 }
+# The node this run actually targets. Leaving the template's RPC here
+# points the gateway at a different chain than everything else, and every
+# read returns empty rather than failing loudly.
+base["rpc_url"] = sys.argv[5]
+base["chain_id"] = int(sys.argv[4])
 base["database_path"] = work + "/credence.db"
 json.dump(base, open(work + "/gateway.json", "w"), indent=2)
 PY

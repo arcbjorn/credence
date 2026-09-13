@@ -12,6 +12,10 @@
 set -euo pipefail
 
 RPC=${RPC:-http://127.0.0.1:8546}
+# Read from the node, not assumed. The deploy script writes its manifest
+# keyed by chain id, so a hardcoded 31337 silently reads a stale local
+# deployment when pointed at a testnet.
+CHAIN_ID=${CHAIN_ID:-$(cast chain-id --rpc-url "$RPC")}
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 # anvil #0 owns the deployment and acts as keeper; #1 is the agent.
 DEPLOYER=ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
@@ -36,7 +40,7 @@ export DEPLOYER_KEY=0x$DEPLOYER
 export ATTESTOR_ADDRESS=$(cast wallet address --private-key "0x$SIGNER")
 export DEPLOYMENT_ID=7
 forge script script/Deploy.s.sol --rpc-url "$RPC" --broadcast >/dev/null
-MANIFEST="$ROOT/contracts/deployments/31337.json"
+MANIFEST="$ROOT/contracts/deployments/$CHAIN_ID.json"
 addr() { python3 -c "import json,sys;print(json.load(open('$MANIFEST'))['addresses']['$1'])"; }
 ORACLE=$(addr oracle);       VAULT=$(addr vault)
 MANAGER=$(addr loan_manager); SETTLEMENT=$(addr settlement)
@@ -57,7 +61,8 @@ go build -o credence-scenario ./cmd/credence-scenario
 go build -o credence-recover ./cmd/credence-recover
 ./credence-scenario -rpc "$RPC" -oracle "$ORACLE" -manager "$MANAGER" \
   -account "$ACCOUNT" -settlement "$SETTLEMENT" \
-  -principal "$PRINCIPAL" -adapter "$ADAPTER" -risky "$RISKY" -deploy-bps 10000
+  -principal "$PRINCIPAL" -adapter "$ADAPTER" -risky "$RISKY" \
+  -chain-id "$CHAIN_ID" -deploy-bps 10000
 
 # The crash. Venue and independent price move together: this is a market
 # move, so the adapter's slippage guard correctly does not block the exit.
@@ -81,4 +86,4 @@ echo "after unwind: debt $DEBT against cash $CASH"
 # Collect everything that exists (survives-bps 10000): the shortfall is
 # what the market actually destroyed, not a number this script chose.
 ./credence-recover -rpc "$RPC" -manager "$MANAGER" -vault "$VAULT" \
-  -account "$ACCOUNT" -settlement "$SETTLEMENT" -loan 1 -survives-bps 10000
+  -account "$ACCOUNT" -settlement "$SETTLEMENT" -loan 1 -chain-id "$CHAIN_ID" -survives-bps 10000
