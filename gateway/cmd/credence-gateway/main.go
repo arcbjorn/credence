@@ -112,6 +112,7 @@ func build(ctx context.Context, cfg *config.Config) (*deps, error) {
 		Oracle:      cfg.Addresses.Oracle,
 		LoanManager: cfg.Addresses.LoanManager,
 		Settlement:  cfg.Addresses.Settlement,
+		Vault:       cfg.Addresses.Vault,
 	})
 
 	// Submission is deliberately absent for now: signing and nonce
@@ -419,19 +420,70 @@ func buildMarketReader(cfg *config.Config) (evidence.MarketReader, error) {
 		cfg.Market.WindowSeconds, cfg.Market.LiquidityDepth), nil
 }
 
+// bindingLookup builds the binding the engine consumes.
+//
+// Every field comes from the registry. A placeholder would be hashed into
+// the snapshot and signed, binding a decision to an identity that does not
+// exist — so an incomplete record is a lookup failure, not a default.
 func bindingLookup(db *store.Store) func(string) (evidence.BindingInfo, bool) {
+	registry := store.NewRegistry(db)
 	return func(bindingKey string) (evidence.BindingInfo, bool) {
-		var account string
-		err := db.DB().QueryRow(
-			`SELECT credit_account FROM bindings WHERE binding_key = ?`, bindingKey,
-		).Scan(&account)
+		ctx := context.Background()
+
+		binding, err := registry.Binding(ctx, bindingKey)
 		if err != nil {
 			return evidence.BindingInfo{}, false
 		}
+
+		var (
+			registryChainID uint64
+			registryAddr    string
+			agentID         string
+		)
+		err = db.DB().QueryRowContext(ctx,
+			`SELECT identity_registry_chain_id, identity_registry, agent_id
+			 FROM agents WHERE agent_key = ?`, binding.AgentKey,
+		).Scan(&registryChainID, &registryAddr, &agentID)
+		if err != nil {
+			return evidence.BindingInfo{}, false
+		}
+
+		// The accepted sequence is read from chain at collection time, so
+		// it is left at zero here and the collector supplies the proposal.
+		raw, err := json.Marshal(map[string]any{
+			"agent": map[string]any{
+				"identity_registry_chain_id": registryChainID,
+				"identity_registry":          registryAddr,
+				"agent_id":                   agentID,
+			},
+			"operator":              binding.Operator,
+			"credit_account":        binding.CreditAccount,
+			"facility_id":           binding.FacilityID,
+			"account_state_version": 0,
+			"config_version":        binding.ConfigVersion,
+			"config_hash":           binding.ConfigHash,
+			"policy_epoch":          binding.PolicyEpoch,
+			"policy_hash":           binding.PolicyHash,
+			"accepted_sequence":     0,
+		})
+		if err != nil {
+			return evidence.BindingInfo{}, false
+		}
+
+		modelPolicy, err := json.Marshal(map[string]any{
+			"model_id":    "m1",
+			"model_hash":  "model-hash",
+			"policy_id":   "p1",
+			"policy_hash": "policy-hash",
+		})
+		if err != nil {
+			return evidence.BindingInfo{}, false
+		}
+
 		return evidence.BindingInfo{
-			Raw:         json.RawMessage(fmt.Sprintf(`{"binding_key":%q}`, bindingKey)),
-			ModelPolicy: json.RawMessage(`{}`),
-			Account:     account,
+			Raw:         raw,
+			ModelPolicy: modelPolicy,
+			Account:     binding.CreditAccount,
 		}, true
 	}
 }
