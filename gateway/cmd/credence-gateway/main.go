@@ -209,7 +209,13 @@ func build(ctx context.Context, cfg *config.Config) (*deps, error) {
 		scheduler: sched,
 		risk:      risk,
 		monitor: monitor.New(sched, collector, risk,
-			publisherFunc{adapter: adapter, store: db}, recorder{db}, monitor.Config{
+			publisherFunc{adapter: adapter, store: db},
+			recorder{
+				store:         db,
+				registry:      store.NewRegistry(db),
+				schemaVersion: cfg.SchemaVersion,
+			},
+			monitor.Config{
 				Policy: cfg.EnginePolicy,
 			}),
 		signerAddress:   attest.SignerAddress(signer),
@@ -429,7 +435,24 @@ func loadBinding(
 
 // recorder persists each cycle so a blocked result is as retrievable as an
 // allowed one.
-type recorder struct{ store *store.Store }
+type recorder struct {
+	store    *store.Store
+	registry *store.Registry
+	// schemaVersion labels retained snapshots, so a later reader knows
+	// which shape the bytes are in.
+	schemaVersion string
+}
+
+// RetainDecision stores the canonical snapshot and assessment so the
+// decision can be replayed from retained evidence (`docs/04`).
+func (r recorder) RetainDecision(
+	ctx context.Context,
+	bindingKey, inputHash string,
+	snapshot, assessment []byte,
+) error {
+	return r.registry.Retain(ctx, bindingKey, r.schemaVersion,
+		inputHash, snapshot, assessment)
+}
 
 func (r recorder) RecordCycle(ctx context.Context, c monitor.Cycle) error {
 	_, err := r.store.DB().ExecContext(ctx,
