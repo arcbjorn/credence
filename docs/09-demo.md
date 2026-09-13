@@ -46,7 +46,7 @@ on demo day:
 
 ```
 scripts/demo-repay.sh     # beat 4: deploy, hold, close, repay
-scripts/demo-monitor.sh   # beat 5b: price moves, gateway reassesses
+scripts/demo-monitor.sh   # beat 5b + 8: reassess on a move, then replay
 scripts/demo-default.sh   # beat 7: deploy, crash, unwind, default
 ```
 
@@ -67,6 +67,18 @@ trigger=price_move permission=Blocked tx=0xe5e59833...   <- the move
 `permission=Blocked` is the correct outcome, not a failure: the asset fell
 20%, so withdrawing permission is the right answer. What is demonstrated
 is that the reassessment happened unprompted and reached chain.
+
+The decision must also *change* for the right reason. Before the move the
+retained assessments read `MonitoringAllowed` / `Eligible`; after it they
+read `MonitoringBlocked` / `MonitoringCoverageBreach`. That flip only
+happens because positions are marked at the **observed** price: with a
+declared constant the scheduler still fires, the engine re-runs, and it
+reaches the same answer every time — motion without consequence.
+
+**Beat 8 runs at the end of the same script.** The last retained snapshot
+and assessment are replayed, and then replayed again with one digit of the
+position's mark altered. A `MATCH` is only evidence if the tampered run
+produces a `DIFFERENCE`, so the script fails loudly if it does not.
 
 **Agent equity is the first loss layer, and the demo must respect it.**
 Lenders only lose once a fall exceeds the agent's own capital, so the
