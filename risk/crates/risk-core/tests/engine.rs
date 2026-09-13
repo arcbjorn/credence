@@ -666,3 +666,94 @@ fn validity_still_honours_a_shorter_request() {
     let out = evaluate(&i, &p);
     assert_eq!(out.valid_until, 1_010, "a shorter request must not be extended");
 }
+
+/// Incomplete history is not clean history.
+///
+/// `docs/04`: coverage that cannot be proven must not earn the capacity a
+/// verified record would. An agent whose outcomes were never fully
+/// enumerated has not demonstrated the repayment behaviour the weight
+/// claims, so the earned portion cannot be taken at face value.
+#[test]
+fn incomplete_history_does_not_earn_full_capacity() {
+    // A low base cap and a perfect forecast record, so the HISTORY cap is
+    // the binding constraint. Otherwise the forecast cap dominates and the
+    // comparison says nothing about history at all.
+    let mut p = policy();
+    p.base_history_cap = Amount(1_000_000_000);
+    p.forecast.min_outcomes = 0;
+    p.forecast.worst_brier_ppm = 1_000_000;
+
+    let mut complete = input(5_000_000_000, 5_000_000_000);
+    if let Some(h) = complete.history.value.as_mut() {
+        h.weighted_repayments_ppm = 500_000;
+        h.coverage_complete = true;
+    }
+    if let Some(f) = complete.forecasts.value.as_mut() {
+        f.comparable_resolved = 10;
+        f.mean_brier_ppm = 0;
+    }
+    let with_coverage = evaluate(&complete, &p);
+
+    let mut partial = complete.clone();
+    if let Some(h) = partial.history.value.as_mut() {
+        h.coverage_complete = false;
+    }
+    let without = evaluate(&partial, &p);
+
+    let cap = |a: &risk_core::assessment::RiskAssessment| match &a.outcome {
+        Outcome::ApprovedOrigination { capacity, .. } => Some(capacity.agent_capacity),
+        Outcome::Denied { capacity, .. } => capacity.as_ref().map(|c| c.agent_capacity),
+        _ => None,
+    };
+
+    match (cap(&with_coverage), cap(&without)) {
+        (Some(full), Some(reduced)) => assert!(
+            reduced < full,
+            "unproven coverage must not earn the same capacity: {reduced:?} vs {full:?}"
+        ),
+        other => panic!("expected capacity on both results, got {other:?}"),
+    }
+}
+
+/// Past defaults and policy breaches must bear on the decision.
+///
+/// Reporting them and then ignoring them means the fields describe an
+/// agent the engine never actually considered.
+#[test]
+fn resolved_defaults_reduce_capacity() {
+    let mut p = policy();
+    p.base_history_cap = Amount(1_000_000_000);
+    p.forecast.min_outcomes = 0;
+    p.forecast.worst_brier_ppm = 1_000_000;
+
+    let mut clean = input(5_000_000_000, 5_000_000_000);
+    if let Some(h) = clean.history.value.as_mut() {
+        h.weighted_repayments_ppm = 500_000;
+    }
+    if let Some(f) = clean.forecasts.value.as_mut() {
+        f.comparable_resolved = 10;
+        f.mean_brier_ppm = 0;
+    }
+    let baseline = evaluate(&clean, &p);
+
+    let mut scarred = clean.clone();
+    if let Some(h) = scarred.history.value.as_mut() {
+        h.resolved_defaults = 5;
+        h.policy_breaches = 5;
+    }
+    let out = evaluate(&scarred, &p);
+
+    let cap = |a: &risk_core::assessment::RiskAssessment| match &a.outcome {
+        Outcome::ApprovedOrigination { capacity, .. } => Some(capacity.agent_capacity),
+        Outcome::Denied { capacity, .. } => capacity.as_ref().map(|c| c.agent_capacity),
+        _ => None,
+    };
+
+    match (cap(&baseline), cap(&out)) {
+        (Some(clean_cap), Some(scarred_cap)) => assert!(
+            scarred_cap < clean_cap,
+            "defaults and breaches must reduce capacity: {scarred_cap:?} vs {clean_cap:?}"
+        ),
+        other => panic!("expected capacity on both results, got {other:?}"),
+    }
+}

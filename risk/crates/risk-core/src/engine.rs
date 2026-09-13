@@ -260,10 +260,17 @@ pub fn evaluate(input: &RiskInput, policy: &Policy) -> RiskAssessment {
             );
 
             // Step 6 — history, caps.
+            // Earned rather than reported: unproven coverage and past
+            // adverse outcomes both reduce what the raw weight claims.
+            let earned_ppm = capacity::earned_repayment_ppm(
+                history.weighted_repayments_ppm,
+                history.coverage_complete,
+                history.resolved_defaults,
+                history.policy_breaches,
+            );
             let history_growth_cap = Amount(
                 policy.base_history_cap.0.saturating_add(
-                    (history.weighted_repayments_ppm as u128)
-                        .saturating_mul(policy.history_growth_per_ppm),
+                    (earned_ppm as u128).saturating_mul(policy.history_growth_per_ppm),
                 ),
             );
 

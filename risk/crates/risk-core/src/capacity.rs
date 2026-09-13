@@ -55,6 +55,39 @@ pub fn forecast_cap(account_hard_cap: Amount, penalty_bps: Bps) -> Amount {
     Amount(account_hard_cap.0.saturating_mul(remaining) / 10_000)
 }
 
+/// Repayment weight an agent has actually demonstrated.
+///
+/// Three corrections to the raw weight, all of them `docs/04` requirements
+/// that a reported-but-unused field would quietly drop:
+///
+///   * **Unproven coverage halves it.** History the gateway could not
+///     fully enumerate is not a clean record; it is an unknown one, and an
+///     unknown record must not earn what a verified one does.
+///   * **Resolved defaults and policy breaches subtract.** An agent that
+///     defaulted and repaid has demonstrated something real about its risk,
+///     and reporting that outcome while ignoring it describes an agent the
+///     engine never considered.
+///   * The result floors at zero rather than wrapping.
+///
+/// Deliberately coarse. `docs/12` records that the precise penalty for a
+/// past resolved default needs a published policy; until then the rule is
+/// visible, conservative, and stated rather than absent.
+pub fn earned_repayment_ppm(
+    weighted_repayments_ppm: u64,
+    coverage_complete: bool,
+    resolved_defaults: u32,
+    policy_breaches: u32,
+) -> u64 {
+    let mut earned = weighted_repayments_ppm;
+    if !coverage_complete {
+        earned /= 2;
+    }
+    // Each adverse outcome costs a fixed slice of demonstrated history.
+    const PENALTY_PER_OUTCOME_PPM: u64 = 50_000;
+    let adverse = (resolved_defaults as u64).saturating_add(policy_breaches as u64);
+    earned.saturating_sub(adverse.saturating_mul(PENALTY_PER_OUTCOME_PPM))
+}
+
 /// Which constraint bound the result. Always reported beside the number:
 /// a capacity without its binding constraint hides *why* it is what it is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
