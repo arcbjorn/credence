@@ -72,6 +72,7 @@ func (p *stubPublisher) Publish(context.Context, string, json.RawMessage) (strin
 type stubRecorder struct {
 	cycles   []monitor.Cycle
 	retained int
+	accepted int
 	// retainErr makes retention fail, so the test can check that an
 	// unretainable decision blocks rather than publishing unrecorded.
 	retainErr error
@@ -79,6 +80,11 @@ type stubRecorder struct {
 
 func (r *stubRecorder) RecordCycle(_ context.Context, c monitor.Cycle) error {
 	r.cycles = append(r.cycles, c)
+	return nil
+}
+
+func (r *stubRecorder) MarkAccepted(_ context.Context, _ string) error {
+	r.accepted++
 	return nil
 }
 

@@ -446,6 +446,12 @@ type recorder struct {
 
 // RetainDecision stores the canonical snapshot and assessment so the
 // decision can be replayed from retained evidence (`docs/04`).
+// MarkAccepted records that the chain took this assessment, which is what
+// reserves its sequence for the binding (`docs/05`).
+func (r recorder) MarkAccepted(ctx context.Context, assessmentID string) error {
+	return r.registry.MarkAccepted(ctx, assessmentID)
+}
+
 func (r recorder) RetainDecision(
 	ctx context.Context,
 	bindingKey, inputHash string,

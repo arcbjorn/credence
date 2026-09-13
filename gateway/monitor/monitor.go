@@ -56,6 +56,9 @@ type Recorder interface {
 	// Separate from RecordCycle because a cycle log is diagnostics while
 	// these bytes are the evidence replay runs against (`docs/04`).
 	RetainDecision(ctx context.Context, bindingKey, inputHash string, snapshot, assessment []byte) error
+	// MarkAccepted records that the chain took this assessment, which is
+	// what reserves its sequence for the binding.
+	MarkAccepted(ctx context.Context, assessmentID string) error
 }
 
 // Cycle is one pass of the loop, whatever its outcome.
@@ -216,6 +219,14 @@ func (m *Monitor) runTask(
 		return m.finish(ctx, cycle, fmt.Errorf("publish: %w", err))
 	}
 	cycle.TxHash = txHash
+	if m.rec != nil && cycle.AssessmentID != "" {
+		// Delivery confirmed, so this assessment now owns its sequence.
+		// A failure here is recorded but does not undo the publication,
+		// which already happened.
+		if err := m.rec.MarkAccepted(ctx, cycle.AssessmentID); err != nil {
+			cycle.Failure = fmt.Sprintf("mark accepted: %v", err)
+		}
+	}
 
 	// The reassessment landed, so the standing permission is now bound to
 	// this price and this evidence. Advancing the reference here -- and
