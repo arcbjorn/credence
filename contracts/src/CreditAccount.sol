@@ -58,6 +58,7 @@ contract CreditAccount {
     event AdapterSet(address indexed adapter, bool allowed);
     event Executed(address indexed adapter, uint64 stateVersion);
     event Withdrawn(address indexed token, address indexed to, uint256 amount);
+    event AdapterApproved(address indexed token, address indexed adapter, uint256 amount);
     event DebtOpened();
     event DebtClosed();
     event RecoveryOpened(address indexed keeper);
@@ -122,6 +123,28 @@ contract CreditAccount {
             stateVersion++;
         }
         emit Executed(adapter, stateVersion);
+    }
+
+    /// @notice Grant a registered adapter a bounded allowance to pull one
+    /// asset.
+    ///
+    /// Restricted to whitelisted adapters. Routing approvals through
+    /// `execute` would mean registering token contracts as adapters, which
+    /// would let any `approve(spender, amount)` through to any spender —
+    /// the exact hole the adapter whitelist exists to close.
+    ///
+    /// The allowance is set to an explicit amount rather than an unlimited
+    /// one, so a compromised adapter cannot drain more than the operation
+    /// it was granted for.
+    /// Setting an allowance to zero is always permitted, including for a
+    /// deregistered adapter. Otherwise revoking an adapter would strand a
+    /// live allowance that could never be cleared — turning a revocation
+    /// into a permanent claim on the account.
+    function approveAdapter(address token, address adapter, uint256 amount) external {
+        require(msg.sender == owner || msg.sender == agent, NotOwnerOrAgent());
+        require(amount == 0 || adapterAllowed[adapter], AdapterNotAllowed(adapter));
+        IERC20(token).approve(adapter, amount);
+        emit AdapterApproved(token, adapter, amount);
     }
 
     /// @notice Recovery unwind, callable only by the bound keeper.
