@@ -39,6 +39,9 @@ func main() {
 	deploymentID := flag.Uint64("deployment-id", 7, "deployment id")
 	principal := flag.Uint64("principal", 2_000_000_000, "principal in base units")
 	adapter := flag.String("adapter", "", "strategy adapter; deploys principal when set")
+	risky := flag.String("risky", "", "risky asset; required with -adapter")
+	priceSource := flag.String("price-source", "",
+		"price source to refresh after advancing chain time")
 	deployBps := flag.Uint64("deploy-bps", 0,
 		"basis points of principal to deploy into the risky asset")
 	loans := flag.Int("loans", 1, "number of sequential loans to originate and repay")
@@ -48,7 +51,7 @@ func main() {
 
 	if err := run(*rpcURL, *oracle, *manager, *account, *settlement,
 		*chainID, *deploymentID, *principal, *loans, *hold,
-		*adapter, *deployBps); err != nil {
+		*adapter, *risky, *priceSource, *deployBps); err != nil {
 		log.Fatalf("scenario: %v", err)
 	}
 }
@@ -58,11 +61,17 @@ func run(
 	chainID, deploymentID, principal uint64,
 	loans int,
 	holdSeconds uint64,
-	adapter string,
+	adapter, riskyAsset, priceSource string,
 	deployBps uint64,
 ) error {
 	ctx := context.Background()
 	rpc := chain.NewRPC(rpcURL, 15*time.Second)
+
+	// Without the risky asset address a deployed position could never be
+	// closed, and the scenario would strand itself at repayment.
+	if adapter != "" && deployBps > 0 && riskyAsset == "" {
+		return fmt.Errorf("-risky is required when deploying through -adapter")
+	}
 
 	attestKey, err := keyFromEnv("CREDENCE_SIGNER_KEY")
 	if err != nil {
@@ -216,6 +225,7 @@ func run(
 		// Deploy the principal. An account that only holds settlement can
 		// always repay from what it borrowed, so nothing about the credit
 		// decision is being tested until the principal is actually at risk.
+		deployed := false
 		if adapter != "" && deployBps > 0 {
 			// Measured against the account's whole settlement balance,
 			// not the principal alone. Agent equity is the first loss
@@ -239,6 +249,7 @@ func run(
 				return fmt.Errorf("loan %d: deploy principal: %w", i, err)
 			}
 			log.Printf("loan %d: deployed %d into the risky asset", i, amount)
+			deployed = true
 		}
 
 		// Let time pass so interest actually accrues. Without this the
@@ -248,11 +259,32 @@ func run(
 			if err := advanceTime(ctx, rpc, holdSeconds); err != nil {
 				log.Printf("loan %d: could not advance time (%v); interest will be zero", i, err)
 			}
+			// A real feed publishes continuously, so skipping days of
+			// chain time must not leave the price looking stale. Without
+			// this the adapter refuses to trade -- correctly, since it
+			// cannot tell a demo's time jump from a dead oracle.
+			if priceSource != "" {
+				if err := sendAndWait(ctx, w, reader, priceSource,
+					attest.Selector("touch()"), "touch price"); err != nil {
+					return fmt.Errorf("loan %d: refresh price: %w", i, err)
+				}
+			}
 		}
 
 		// Repay unless this is the last loan, so the demo can end with an
 		// open position for the monitoring beats.
 		if i < loans {
+			// A deployed account holds the risky asset, not settlement,
+			// so the position must be closed before the debt can be
+			// met. This is the ordinary path (`docs/09` beat 4): exit
+			// the strategy, then repay from the proceeds.
+			if deployed {
+				if err := unwindAll(ctx, w, reader, rpc,
+					account, riskyAsset, adapter); err != nil {
+					return fmt.Errorf("loan %d: unwind: %w", i, err)
+				}
+				log.Printf("loan %d: closed strategy position", i)
+			}
 			repayTx, err := w.Send(ctx, manager, encodeRepay(loanID))
 			if err != nil {
 				return fmt.Errorf("loan %d: repay: %w", i, err)
@@ -273,6 +305,60 @@ func run(
 
 	fmt.Printf("chain_key=%s\n", chainKey)
 	return nil
+}
+
+// unwindAll closes the whole risky position back into settlement.
+//
+// The mirror of deployPrincipal: approve the adapter for the risky
+// balance, then trade through the account. The adapter's slippage guard
+// still applies, so an exit at a venue price that disagrees with the
+// independent source reverts rather than dumping the position.
+func unwindAll(
+	ctx context.Context,
+	w *wallet.Wallet,
+	reader *chain.Reader,
+	rpc *chain.RPC,
+	account, risky, adapter string,
+) error {
+	at, err := reader.LatestBlock(ctx)
+	if err != nil {
+		return fmt.Errorf("pin block: %w", err)
+	}
+	balance, err := reader.TokenBalance(ctx, risky, account, at)
+	if err != nil {
+		return fmt.Errorf("read risky balance: %w", err)
+	}
+	if balance.Sign() == 0 {
+		return nil
+	}
+
+	riskyAddr, err := toAddress(risky)
+	if err != nil {
+		return err
+	}
+	adapterAddr, err := toAddress(adapter)
+	if err != nil {
+		return err
+	}
+
+	approve := append(attest.Selector("approveAdapter(address,address,uint256)"),
+		attest.AddressWord(riskyAddr)...)
+	approve = append(approve, attest.AddressWord(adapterAddr)...)
+	approve = append(approve, attest.Word(balance)...)
+	if err := sendAndWait(ctx, w, reader, account, approve, "approveAdapter risky"); err != nil {
+		return err
+	}
+
+	unwind := append(attest.Selector("unwind(uint256)"), attest.Word(balance)...)
+	execute := append(attest.Selector("execute(address,bytes)"),
+		attest.AddressWord(adapterAddr)...)
+	execute = append(execute, attest.Word(big.NewInt(64))...)
+	execute = append(execute, attest.Word(big.NewInt(int64(len(unwind))))...)
+	execute = append(execute, unwind...)
+	if pad := len(unwind) % 32; pad != 0 {
+		execute = append(execute, make([]byte, 32-pad)...)
+	}
+	return sendAndWait(ctx, w, reader, account, execute, "execute unwind")
 }
 
 // deployPrincipal converts settlement into the risky asset through the
