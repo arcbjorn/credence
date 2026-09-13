@@ -8,3 +8,4 @@ broadcast/
 # committed deliberately rather than ignored by pattern.
 deployments/3133*.json
 deployments/1337.json
+!deployments/README.md
