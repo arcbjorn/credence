@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math/big"
 	"net/http"
 	"strconv"
 	"strings"
@@ -171,6 +172,42 @@ func (r *RPC) TransactionReceipt(ctx context.Context, txHash string) (Receipt, e
 	}
 	blockNumber, _ := parseHexUint(raw.BlockNumber)
 	return Receipt{Status: status, BlockNumber: blockNumber, Found: true}, nil
+}
+
+// PendingNonce returns the next nonce for an address, including pending
+// transactions, so successive sends do not collide.
+func (r *RPC) PendingNonce(ctx context.Context, address string) (uint64, error) {
+	var result string
+	if err := r.Call(ctx, "eth_getTransactionCount",
+		[]any{address, "pending"}, &result); err != nil {
+		return 0, err
+	}
+	return parseHexUint(result)
+}
+
+func (r *RPC) GasPrice(ctx context.Context) (*big.Int, error) {
+	var result string
+	if err := r.Call(ctx, "eth_gasPrice", []any{}, &result); err != nil {
+		return nil, err
+	}
+	v, ok := new(big.Int).SetString(strings.TrimPrefix(result, "0x"), 16)
+	if !ok {
+		return nil, fmt.Errorf("gas price %q is not hex", result)
+	}
+	return v, nil
+}
+
+func (r *RPC) EstimateGas(ctx context.Context, from, to string, data []byte) (uint64, error) {
+	var result string
+	err := r.Call(ctx, "eth_estimateGas", []any{map[string]string{
+		"from": from,
+		"to":   to,
+		"data": "0x" + hex.EncodeToString(data),
+	}}, &result)
+	if err != nil {
+		return 0, err
+	}
+	return parseHexUint(result)
 }
 
 func hexUint(v uint64) string {
