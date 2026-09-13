@@ -85,7 +85,13 @@ PY
 cd "$ROOT/gateway"
 ./credence-gateway -config "$WORK/gateway.json" >"$WORK/gateway.log" 2>&1 &
 GW_PID=$!
-sleep 4
+# Let the loop settle until a cycle actually LANDS. The reference price is
+# only set by a published cycle, so moving the price before one lands would
+# leave the scheduler with nothing to measure against.
+for _ in $(seq 40); do
+  grep -q "permission=.* tx=0x" "$WORK/gateway.log" 2>/dev/null && break
+  sleep 0.5
+done
 
 echo "=== settling: cycles before the move ==="
 grep -c "trigger=" "$WORK/gateway.log" || true
@@ -95,7 +101,11 @@ OLD=$(cast call "$PRICE_SOURCE" 'price()(uint256)' --rpc-url "$RPC" | awk '{prin
 NEW=$(python3 -c "print($OLD * (10000 - $MOVE_BPS) // 10000)")
 cast send "$PRICE_SOURCE" "setPrice(uint256)" "$NEW" --private-key "0x$DEPLOYER" --rpc-url "$RPC" >/dev/null
 echo "price moves $OLD -> $NEW ($MOVE_BPS bps), no agent request"
-sleep 5
+for _ in $(seq 40); do
+  grep -q "trigger=price_move" "$WORK/gateway.log" 2>/dev/null && break
+  sleep 0.5
+done
+sleep 1
 
 kill $GW_PID 2>/dev/null || true
 sleep 1
