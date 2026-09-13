@@ -91,3 +91,13 @@ func Word(v *big.Int) []byte { return uintWord(v) }
 func AddressWord(a Address) []byte { return addrWord(a) }
 
 func Uint64Word(v uint64) []byte { return u64Word(v) }
+
+// Selector returns the four-byte function selector for a signature.
+//
+// Exported so callers building calldata for other contracts derive it the
+// same way rather than hardcoding a hex literal that drifts when a
+// signature changes.
+func Selector(signature string) []byte {
+	h := keccak([]byte(signature))
+	return h[:4]
+}
