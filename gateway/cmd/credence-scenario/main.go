@@ -390,6 +390,12 @@ func run(
 		// Let time pass so interest actually accrues. Without this the
 		// demo shows a repayment of exactly the principal, which would
 		// misrepresent the economics the whole system exists to price.
+		// Sample the account's marked value so the drawdown forecast can
+		// be resolved against what happened. `docs/06` makes the sampling
+		// cadence part of the event definition: a sampled maximum
+		// drawdown does not claim to observe every intermediate price.
+		navPeak, navTrough := navSample(ctx, reader, rpc, account, settlement, riskyAsset)
+
 		if holdSeconds > 0 {
 			if err := advanceTime(ctx, rpc, holdSeconds); err != nil {
 				// A public chain exposes no evm_increaseTime, and real
@@ -408,6 +414,19 @@ func run(
 				}
 				log.Printf("loan %d: could not advance time (%v)", i, err)
 			}
+			// Sample again after the hold: the position has been marked
+			// across the horizon, so the peak and trough now bracket it.
+			if p, t := navSample(
+				ctx, reader, rpc, account, settlement, riskyAsset,
+			); p > 0 {
+				if p > navPeak {
+					navPeak = p
+				}
+				if navTrough == 0 || t < navTrough {
+					navTrough = t
+				}
+			}
+
 			// A real feed publishes continuously, so skipping days of
 			// chain time must not leave the price looking stale. Without
 			// this the adapter refuses to trade -- correctly, since it
@@ -453,20 +472,26 @@ func run(
 				EligibleSeconds: after.Timestamp - originatedAt,
 			})
 
-			// The horizon has passed, so the forecast resolves. A loan
-			// that repaid without the strategy being closed at a loss did
-			// not see the drawdown it forecast.
+			// Resolve against what the account's value ACTUALLY did, not
+			// against the fact that it repaid. `docs/06` defines the event
+			// as a 5% drawdown from the observed peak, and a position that
+			// fell and recovered before repayment still saw the drawdown
+			// it forecast. Asserting "did not occur" after every repayment
+			// scores a question nobody observed.
 			if enrollDB != "" {
-				after, err := rpc.LatestBlock(ctx)
+				at, err := rpc.LatestBlock(ctx)
 				if err != nil {
 					return fmt.Errorf("loan %d: pin block: %w", i, err)
 				}
+				occurred := navPeak > 0 &&
+					navTrough*10_000 < navPeak*(10_000-drawdownThresholdBps)
 				if err := resolveForecast(
-					ctx, enrollDB, chainKey, i, false, after.Timestamp,
+					ctx, enrollDB, chainKey, i, occurred, at.Timestamp,
 				); err != nil {
 					return fmt.Errorf("loan %d: resolve forecast: %w", i, err)
 				}
-				log.Printf("loan %d: forecast resolved", i)
+				log.Printf("loan %d: forecast resolved occurred=%v "+
+					"(peak=%d trough=%d)", i, occurred, navPeak, navTrough)
 			}
 		} else if enrollDB != "" {
 			// Only the loan left open is enrolled. Continuous
@@ -561,6 +586,48 @@ func actionHash(adapter attest.Address, data []byte) attest.Hash {
 		out = append(out, make([]byte, 32-pad)...)
 	}
 	return attest.KeccakBytes(out)
+}
+
+// drawdownThresholdBps is the event `docs/06` defines: a fall of more than
+// 5% below the observed peak.
+const drawdownThresholdBps = 500
+
+// navSample marks the account's value once, returning it as both a
+// candidate peak and a candidate trough.
+//
+// Settlement plus the risky position at its observed price. Borrowed funds
+// add an asset and an equal liability, so debt is deliberately excluded
+// here: this measures the POSITION's drawdown, which is what the forecast
+// is about.
+func navSample(
+	ctx context.Context,
+	reader *chain.Reader,
+	rpc *chain.RPC,
+	account, settlement, riskyAsset string,
+) (uint64, uint64) {
+	at, err := rpc.LatestBlock(ctx)
+	if err != nil {
+		return 0, 0
+	}
+	ref := evidence.BlockRef{Number: at.Number, Hash: at.Hash, Timestamp: at.Timestamp}
+
+	cash, err := reader.TokenBalance(ctx, settlement, account, ref)
+	if err != nil {
+		return 0, 0
+	}
+	total := new(big.Int).Set(cash)
+
+	if riskyAsset != "" {
+		risky, err := reader.TokenBalance(ctx, riskyAsset, account, ref)
+		if err == nil && risky.Sign() > 0 {
+			// 18-decimal units at a 6-decimal price, in settlement units.
+			marked := new(big.Int).Mul(risky, big.NewInt(2_000_000_000))
+			marked.Div(marked, big.NewInt(1_000_000_000_000_000_000))
+			total.Add(total, marked)
+		}
+	}
+	v := total.Uint64()
+	return v, v
 }
 
 // declineReason extracts the engine's own explanation.
