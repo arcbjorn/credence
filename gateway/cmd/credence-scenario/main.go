@@ -57,6 +57,8 @@ func main() {
 	deployBps := flag.Uint64("deploy-bps", 0,
 		"basis points of principal to deploy into the risky asset")
 	loans := flag.Int("loans", 1, "number of sequential loans to originate and repay")
+	termSeconds := flag.Uint64("term-seconds", 10*86_400,
+		"loan term; keep it short on a chain with no time travel")
 	hold := flag.Uint64("hold-seconds", 5*86_400,
 		"seconds to hold each loan before repayment, so interest accrues")
 	flag.Parse()
@@ -64,7 +66,7 @@ func main() {
 	if err := run(*rpcURL, *oracle, *manager, *account, *settlement,
 		*chainID, *deploymentID, *principal, *loans, *hold,
 		*adapter, *risky, *priceSource, *enroll, *vault, *riskURL, *policyPath,
-		*deployBps); err != nil {
+		*termSeconds, *deployBps); err != nil {
 		log.Fatalf("scenario: %v", err)
 	}
 }
@@ -75,7 +77,7 @@ func run(
 	loans int,
 	holdSeconds uint64,
 	adapter, riskyAsset, priceSource, enrollDB, vault, riskURL, policyPath string,
-	deployBps uint64,
+	termSeconds, deployBps uint64,
 ) error {
 	ctx := context.Background()
 	rpc := chain.NewRPC(rpcURL, 15*time.Second)
@@ -103,6 +105,15 @@ func run(
 		risk = riskclient.New(riskURL, 10*time.Second)
 	}
 	repaidSoFar := 0
+
+	// Probe once, before anything is signed. A development chain exposes
+	// evm_increaseTime; a public one does not, and finding that out
+	// halfway through a run leaves a funded loan that cannot be held.
+	warpable := advanceTime(ctx, rpc, 0) == nil
+	if !warpable {
+		log.Printf("chain does not support time travel; " +
+			"terms must be short enough to observe in real time")
+	}
 
 	attestKey, err := keyFromEnv("CREDENCE_SIGNER_KEY")
 	if err != nil {
@@ -176,7 +187,7 @@ func run(
 		Terms: attest.Terms{
 			ApprovedPrincipal:   new(big.Int).SetUint64(principal),
 			AprBps:              1_200,
-			TermSeconds:         10 * 86_400,
+			TermSeconds:         termSeconds,
 			RequiredEquity:      big.NewInt(0),
 			PermittedActionHash: attest.KeccakText("action"),
 		},
@@ -247,7 +258,7 @@ func run(
 			}
 			terms, raw, err := originationTerms(
 				ctx, risk, reader, rpc, account, settlement, bindingJSON,
-				assessment.Sequence, principal, 10*86_400,
+				assessment.Sequence, principal, termSeconds,
 				historyEvidence(block.Timestamp, repaidSoFar), enginePolicy,
 			)
 			if err != nil {
@@ -365,7 +376,21 @@ func run(
 		// misrepresent the economics the whole system exists to price.
 		if holdSeconds > 0 {
 			if err := advanceTime(ctx, rpc, holdSeconds); err != nil {
-				log.Printf("loan %d: could not advance time (%v); interest will be zero", i, err)
+				// A public chain exposes no evm_increaseTime, and real
+				// time passes far too slowly to hold a multi-day loan.
+				// Refusing is the honest answer: continuing would repay
+				// after seconds and report an interest figure that
+				// describes a loan nobody made.
+				//
+				// Use -hold-seconds with a short -term-seconds against a
+				// real chain, so the accrual is genuinely observed.
+				if !warpable {
+					return fmt.Errorf(
+						"loan %d: cannot advance time on this chain (%w); "+
+							"use a short -term-seconds and a real wait instead",
+						i, err)
+				}
+				log.Printf("loan %d: could not advance time (%v)", i, err)
 			}
 			// A real feed publishes continuously, so skipping days of
 			// chain time must not leave the price looking stale. Without
