@@ -382,6 +382,19 @@ func (r *Reader) ReceiptStatus(ctx context.Context, txHash string) (publisher.St
 	return publisher.StatusFailed, nil
 }
 
+// TokenBalance reads an ERC-20 balance at a pinned block.
+//
+// The height is explicit for the same reason every other read pins one
+// (`docs/04`): a balance combined with facts from a different height is
+// not a consistent view of the account.
+func (r *Reader) TokenBalance(
+	ctx context.Context,
+	token, holder string,
+	at evidence.BlockRef,
+) (*big.Int, error) {
+	return r.callUint(ctx, token, "balanceOf(address)", at.Number, holder)
+}
+
 func (r *Reader) callUint(
 	ctx context.Context,
 	to, signature string,
