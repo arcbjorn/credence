@@ -2,4 +2,9 @@ out/
 cache/
 lib/
 broadcast/
+# Local development deployments are ephemeral output, regenerated on
+# every run. A TESTNET manifest is release evidence -- `docs/06` requires
+# the registry address and compatibility evidence in it -- so those are
+# committed deliberately rather than ignored by pattern.
 deployments/3133*.json
+deployments/1337.json
