@@ -67,6 +67,15 @@ func run(configPath string, checkOnly bool) error {
 	log.Printf("signer address 0x%s", hex.EncodeToString(deps.signerAddress[:]))
 	log.Printf("facility policy %s, class %s", cfg.FacilityPolicy, cfg.RequestedClass)
 
+	// Reload watches before anything ticks. A restart that skips this
+	// leaves active loans unmonitored while their on-chain permission
+	// continues to stand — the opposite of fail-closed, and invisible.
+	tracked, err := deps.rehydrate(ctx)
+	if err != nil {
+		return err
+	}
+	log.Printf("tracking %d active loan(s)", tracked)
+
 	if checkOnly {
 		log.Print("configuration and dependencies verified")
 		return nil
@@ -77,6 +86,7 @@ func run(configPath string, checkOnly bool) error {
 
 type deps struct {
 	store         *store.Store
+	registry      *store.Registry
 	monitor       *monitor.Monitor
 	scheduler     *scheduler.Scheduler
 	risk          *riskclient.Client
@@ -153,6 +163,7 @@ func build(ctx context.Context, cfg *config.Config) (*deps, error) {
 
 	return &deps{
 		store:     db,
+		registry:  store.NewRegistry(db),
 		scheduler: sched,
 		risk:      risk,
 		monitor: monitor.New(sched, collector, risk,
@@ -177,6 +188,29 @@ func (d *deps) verify(ctx context.Context) error {
 		return fmt.Errorf("store: expected wal and foreign keys, got %s and %d", mode, foreignKeys)
 	}
 	return nil
+}
+
+// rehydrate reloads the scheduler's watches from the store.
+func (d *deps) rehydrate(ctx context.Context) (int, error) {
+	watches, err := d.registry.ActiveWatches(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("reload watches: %w", err)
+	}
+	for _, w := range watches {
+		d.scheduler.Track(scheduler.Watch{
+			BindingKey: w.BindingKey,
+			LoanID:     w.LoanID,
+			// No reference price is known until the first observation, so
+			// the scheduler treats the absence as a staleness trigger and
+			// reassesses immediately rather than assuming the last price
+			// still holds.
+			ReferencePrice:      nil,
+			PermissionIssuedAt:  w.PermissionIssuedAt,
+			EvidenceObservedAt:  w.EvidenceObservedAt,
+			AccountStateVersion: w.AccountStateVersion,
+		})
+	}
+	return len(watches), nil
 }
 
 func (d *deps) close() {
