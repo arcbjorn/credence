@@ -8,6 +8,11 @@ set -euo pipefail
 
 RPC=${RPC:-http://127.0.0.1:8546}
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
+WORK=${WORK:-/tmp/credence-repay}
+# A fresh database each run: a stale one carries forecasts and history
+# from a previous chain, which would credit the agent for loans this run
+# never made.
+rm -rf "$WORK" && mkdir -p "$WORK"
 DEPLOYER=ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
 SIGNER=${CREDENCE_SIGNER_KEY:-5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a}
 PRINCIPAL=${PRINCIPAL:-4000000000}
@@ -39,7 +44,7 @@ echo "credit account $ACCOUNT"
 cd "$ROOT/risk"
 cargo build --quiet 2>/dev/null || true
 RISK_SERVICE_ADDR=127.0.0.1:18111 ./target/debug/credence-risk-service \
-  >"${WORK:-/tmp}/risk-repay.log" 2>&1 &
+  >"$WORK/risk-repay.log" 2>&1 &
 RISK_PID=$!
 trap 'kill $RISK_PID 2>/dev/null || true' EXIT
 for _ in $(seq 40); do
@@ -54,7 +59,7 @@ go build -o credence-scenario ./cmd/credence-scenario
   -account "$ACCOUNT" -settlement "$SETTLEMENT" -principal "$PRINCIPAL" \
   -adapter "$ADAPTER" -risky "$RISKY" -price-source "$PRICE_SOURCE" \
   -deploy-bps 10000 -loans "$LOANS" \
-  -vault "$VAULT" -risk http://127.0.0.1:18111 -policy "$ROOT/config/engine-policy.json"
+  -enroll "$WORK/scenario.db" -vault "$VAULT" -risk http://127.0.0.1:18111 -policy "$ROOT/config/engine-policy.json"
 
 echo "=== vault after repayment ==="
 for f in outstandingPrincipal collectedInterest realizedLoss idleCash; do
