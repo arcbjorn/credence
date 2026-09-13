@@ -4,6 +4,15 @@ pragma solidity 0.8.28;
 import {IERC20} from "./IERC20.sol";
 import {SafeTransfer} from "./SafeTransfer.sol";
 
+/// @dev The slice of the oracle a credit account needs. Narrow on purpose:
+/// the account asks whether it may act, and nothing else.
+interface IRiskOracle {
+    function riskAllowedFor(bytes32 key, bytes32 bindingCommitment, uint64 stateVersion)
+        external
+        view
+        returns (bool);
+}
+
 /// @title CreditAccount
 /// @notice Custody for one agent's equity plus borrowed principal.
 ///
@@ -43,8 +52,30 @@ contract CreditAccount {
     /// @dev Registered execution routes. Invariant 1.
     mapping(address adapter => bool allowed) public adapterAllowed;
 
+    /// @dev Entry points that only ever reduce risk, by selector. These
+    /// need no standing permission: invariant 3 already exempts risk
+    /// REDUCTION, because a gate that blocks de-risking would trap an
+    /// account in exactly the position it needs to exit (`docs/02`).
+    /// Registered by the loan manager, never by the agent.
+    mapping(address adapter => mapping(bytes4 selector => bool)) public deRiskingAction;
+
     /// @dev Recovery keeper, set by the loan manager when recovery opens.
     address public recoveryKeeper;
+
+    /// @dev Hash of the binding the live loan was originated against, and
+    /// the action its terms permit. Pinned by the loan manager at
+    /// origination so `execute` can check authorization without trusting
+    /// anything the caller supplies (`docs/05`).
+    bytes32 public boundBindingHash;
+    bytes32 public boundBindingKey;
+    bytes32 public permittedActionHash;
+    /// @dev True once the origination-authorized action has been taken.
+    /// Any further action needs live monitoring permission.
+    bool public actionConsumed;
+
+    /// @dev The oracle authorization is checked against. Immutable: a
+    /// swappable oracle would make every permission check meaningless.
+    address public immutable riskOracle;
 
     error NotLoanManager();
     error NotOwnerOrAgent();
@@ -54,8 +85,12 @@ contract CreditAccount {
     error RecoveryNotOpen();
     error AdapterCallFailed();
     error ZeroAddress();
+    error RiskNotPermitted();
+    error ActionNotPermitted(bytes32 expected, bytes32 presented);
+    error ExecutionBlockedByRecovery();
 
     event AdapterSet(address indexed adapter, bool allowed);
+    event DeRiskingActionSet(address indexed adapter, bytes4 selector, bool isDeRisking);
     event Executed(address indexed adapter, uint64 stateVersion);
     event Withdrawn(address indexed token, address indexed to, uint256 amount);
     event AdapterApproved(address indexed token, address indexed adapter, uint256 amount);
@@ -68,25 +103,43 @@ contract CreditAccount {
         _;
     }
 
-    constructor(address loanManager_, address owner_, address agent_) {
+    constructor(address loanManager_, address owner_, address agent_, address riskOracle_) {
         require(loanManager_ != address(0), ZeroAddress());
         require(owner_ != address(0), ZeroAddress());
         require(agent_ != address(0), ZeroAddress());
+        require(riskOracle_ != address(0), ZeroAddress());
         loanManager = loanManager_;
         owner = owner_;
         agent = agent_;
+        riskOracle = riskOracle_;
     }
 
     // --- Debt state, driven only by the loan manager ---
 
-    function openDebt() external onlyLoanManager {
+    /// @notice Open debt and pin what the loan authorizes.
+    /// @dev The binding hash and permitted action come from the signed
+    /// assessment the manager consumed. Pinning them here is what lets
+    /// `execute` verify authorization against something the caller cannot
+    /// choose.
+    function openDebt(bytes32 bindingKey_, bytes32 bindingHash, bytes32 actionHash)
+        external
+        onlyLoanManager
+    {
         debtOutstanding = true;
+        boundBindingKey = bindingKey_;
+        boundBindingHash = bindingHash;
+        permittedActionHash = actionHash;
+        actionConsumed = false;
         emit DebtOpened();
     }
 
     function closeDebt() external onlyLoanManager {
         debtOutstanding = false;
         recoveryKeeper = address(0);
+        boundBindingKey = bytes32(0);
+        boundBindingHash = bytes32(0);
+        permittedActionHash = bytes32(0);
+        actionConsumed = false;
         emit DebtClosed();
     }
 
@@ -94,6 +147,15 @@ contract CreditAccount {
         require(keeper != address(0), ZeroAddress());
         recoveryKeeper = keeper;
         emit RecoveryOpened(keeper);
+    }
+
+    /// @notice Declare an adapter entry point as risk-reducing.
+    function setDeRiskingAction(address adapter, bytes4 selector, bool isDeRisking)
+        external
+        onlyLoanManager
+    {
+        deRiskingAction[adapter][selector] = isDeRisking;
+        emit DeRiskingActionSet(adapter, selector, isDeRisking);
     }
 
     function setAdapter(address adapter, bool allowed) external onlyLoanManager {
@@ -113,6 +175,49 @@ contract CreditAccount {
     {
         require(msg.sender == owner || msg.sender == agent, NotOwnerOrAgent());
         require(adapterAllowed[adapter], AdapterNotAllowed(adapter));
+
+        // Recovery is the keeper's path. Letting the owner or agent keep
+        // trading an account under recovery would let them race the
+        // liquidation they are being recovered from.
+        require(recoveryKeeper == address(0), ExecutionBlockedByRecovery());
+
+        // While debt is live, every action needs standing permission and
+        // must be the action that was assessed. An allowlisted adapter
+        // says the route is known; it says nothing about whether acting
+        // now is safe, which is the engine's judgment (`docs/02`, `05`).
+        //
+        // Unfunded accounts are unrestricted: there is no lender exposure
+        // to protect, and requiring a quote to move one's own equity would
+        // make the account unusable before its first loan.
+        // A risk-reducing call is always permitted while debt is live.
+        // Invariant 3 constrains actions that INCREASE risk; blocking an
+        // exit would leave the account stuck in the position a
+        // reassessment is telling it to close.
+        bool deRisking = data.length >= 4 && deRiskingAction[adapter][bytes4(data[:4])];
+
+        if (debtOutstanding && !deRisking) {
+            bytes32 action = keccak256(abi.encode(adapter, data));
+            require(
+                action == permittedActionHash,
+                ActionNotPermitted(permittedActionHash, action)
+            );
+
+            // The origination assessment authorized this exact action, so
+            // performing it once needs no separate monitoring result --
+            // requiring one would mean no loan could ever deploy the
+            // principal it was just granted. Consuming the commitment is
+            // what keeps it single-use: a repeat is a NEW risk decision,
+            // and there is no permitted action left to match against.
+            if (actionConsumed) {
+                require(
+                    IRiskOracle(riskOracle).riskAllowedFor(
+                        boundBindingKey, boundBindingHash, stateVersion
+                    ),
+                    RiskNotPermitted()
+                );
+            }
+            actionConsumed = true;
+        }
 
         bool ok;
         (ok, result) = adapter.call(data);

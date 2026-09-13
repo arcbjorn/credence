@@ -3,6 +3,7 @@ pragma solidity 0.8.28;
 
 import {Test} from "forge-std/Test.sol";
 import {CreditAccount} from "../src/CreditAccount.sol";
+import {StubOracle} from "./CreditAccount.t.sol";
 import {FixedPriceSource} from "../src/FixedPriceSource.sol";
 import {IERC20} from "../src/IERC20.sol";
 import {IPriceSource} from "../src/IPriceSource.sol";
@@ -44,7 +45,7 @@ contract StrategyAdapterTest is Test {
             RISKY_DECIMALS
         );
 
-        account = new CreditAccount(LOAN_MANAGER, OWNER, AGENT);
+        account = new CreditAccount(LOAN_MANAGER, OWNER, AGENT, address(new StubOracle()));
         vm.prank(LOAN_MANAGER);
         account.setAdapter(address(adapter), true);
 
@@ -202,7 +203,7 @@ contract AdapterApprovalTest is Test {
 
     function setUp() public {
         settlement = new TestSettlementToken();
-        account = new CreditAccount(LOAN_MANAGER, OWNER, AGENT);
+        account = new CreditAccount(LOAN_MANAGER, OWNER, AGENT, address(new StubOracle()));
         settlement.mint(address(account), 10_000e6);
         vm.prank(LOAN_MANAGER);
         account.setAdapter(ADAPTER, true);
