@@ -88,9 +88,41 @@ func run(
 	if err != nil {
 		return err
 	}
-	data := append(attest.Selector("openRecovery(uint256,address)"),
+	// Recovery now requires the binding, so the manager can consult the
+	// oracle for a trigger. Seizing a healthy, unmatured position is
+	// refused (`docs/05`), which is why this cannot be a bare loan id.
+	accountAddr, err := toAddress(account)
+	if err != nil {
+		return err
+	}
+	registry, err := toAddress("0x000000000000000000000000000000000000aec0")
+	if err != nil {
+		return err
+	}
+	stateVersion, err := readUintArg(ctx, rpc, account, "stateVersion()", 0)
+	if err != nil {
+		return fmt.Errorf("read state version: %w", err)
+	}
+	binding := attest.Binding{
+		IdentityRegistryChainID: new(big.Int).SetUint64(chainID),
+		IdentityRegistry:        registry,
+		AgentID:                 big.NewInt(184),
+		Operator:                keeper,
+		CreditAccount:           accountAddr,
+		FacilityID:              big.NewInt(1),
+		AccountStateVersion:     stateVersion.Uint64(),
+		ConfigVersion:           1,
+		ConfigHash:              attest.KeccakText("config"),
+		PolicyEpoch:             1,
+		PolicyHash:              attest.KeccakText("policy"),
+	}
+
+	data := append(attest.Selector(
+		"openRecovery(uint256,address,(uint256,address,uint256,address,address,"+
+			"uint256,uint64,uint64,bytes32,uint64,bytes32))"),
 		attest.Word(new(big.Int).SetUint64(loanID))...)
 	data = append(data, attest.AddressWord(keeper)...)
+	data = append(data, attest.BindingWords(binding)...)
 	if err := send(ctx, w, reader, manager, data, "openRecovery"); err != nil {
 		return err
 	}
