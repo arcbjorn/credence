@@ -302,8 +302,22 @@ func run(
 			// underwriting governs live debt, so enrolling a repaid loan
 			// would have the gateway reassess an obligation that no
 			// longer exists.
+			// Read the account's CURRENT state version, not the one the
+			// binding was originated with: deploying the principal calls
+			// execute, which bumps it. Enrolling the stale value makes
+			// every monitoring cycle fail as a version mismatch.
+			at, err := rpc.LatestBlock(ctx)
+			if err != nil {
+				return fmt.Errorf("loan %d: pin block: %w", i, err)
+			}
+			live, err := reader.AccountAt(ctx, account, evidence.BlockRef{
+				Number: at.Number, Hash: at.Hash, Timestamp: at.Timestamp,
+			})
+			if err != nil {
+				return fmt.Errorf("loan %d: read account: %w", i, err)
+			}
 			if err := enrollLoan(ctx, enrollDB, binding, chainKey,
-				loanID, accountAddr, w.Address()); err != nil {
+				loanID, accountAddr, w.Address(), live.StateVersion); err != nil {
 				return fmt.Errorf("loan %d: enrol: %w", i, err)
 			}
 			log.Printf("loan %d: enrolled for monitoring", i)
@@ -340,6 +354,7 @@ func enrollLoan(
 	loanID uint64,
 	account attest.Address,
 	operator string,
+	stateVersion uint64,
 ) error {
 	db, err := store.Open(ctx, dbPath)
 	if err != nil {
@@ -382,7 +397,7 @@ func enrollLoan(
 	// the scheduler reads that as maximally stale and reassesses on the
 	// first tick rather than assuming the origination still holds.
 	return reg.OpenLoan(ctx, chainKey, strconv.FormatUint(loanID, 10),
-		binding.AccountStateVersion, 0)
+		stateVersion, 0)
 }
 
 // unwindAll closes the whole risky position back into settlement.
