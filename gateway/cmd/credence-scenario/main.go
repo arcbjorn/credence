@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/arcbjorn/credence/gateway/attest"
+	"github.com/arcbjorn/credence/gateway/canonical"
 	"github.com/arcbjorn/credence/gateway/chain"
 	"github.com/arcbjorn/credence/gateway/evidence"
 	"github.com/arcbjorn/credence/gateway/publisher"
@@ -116,6 +117,13 @@ func run(
 			"terms must be short enough to observe in real time")
 	}
 
+	// The class this deployment may act on. Pinned in the oracle at
+	// construction, so the envelope must match it rather than guess.
+	executableClass, err := readExecutableClass(ctx, rpc, oracle)
+	if err != nil {
+		return fmt.Errorf("read executable class: %w", err)
+	}
+
 	attestKey, err := keyFromEnv("CREDENCE_SIGNER_KEY")
 	if err != nil {
 		return err
@@ -175,7 +183,11 @@ func run(
 		ModelHash:        attest.KeccakText("model-v1"),
 		InputHash:        attest.KeccakText("input"),
 		EvidenceRoot:     attest.KeccakText("evidence"),
-		Class:            attest.ClassPrototypeEligible,
+		// Read from the deployment, not assumed. A scenario deployment
+		// issues ScenarioOnly assessments and executes them; signing
+		// PrototypeEligible against it would store no quote and surface
+		// later as NoQuote, naming the wrong cause.
+		Class: executableClass,
 		Sequence:         1,
 		ValidAfter:       now - 60,
 		ValidUntil:       now + 3600,
@@ -296,6 +308,27 @@ func run(
 			assessment.Terms.AprBps = terms.AprBps
 			assessment.Terms.TermSeconds = terms.TermSeconds
 			assessment.Terms.RequiredEquity = terms.RequiredEquity
+
+			// Commit to what the engine actually decided. Signing
+			// placeholder hashes means the envelope attests to constants:
+			// replay would "verify" any assessment against any other, and
+			// the evidence root would claim no evidence at all.
+			if err := bindEngineOutput(&assessment, terms, raw); err != nil {
+				return fmt.Errorf("loan %d: bind assessment: %w", i, err)
+			}
+
+			// Retain what the decision was made from and produced.
+			// `docs/04` requires replay from retained evidence, and an
+			// assessment that reached chain with nothing behind it cannot
+			// be replayed at all.
+			if enrollDB != "" {
+				if err := retainDecision(
+					ctx, enrollDB, chainKey, terms.InputHash,
+					terms.InputJSON, raw,
+				); err != nil {
+					return fmt.Errorf("loan %d: retain: %w", i, err)
+				}
+			}
 			principal = terms.ApprovedPrincipal.Uint64()
 
 			log.Printf("loan %d: engine terms apr=%dbps capacity=%s binding=%s",
@@ -628,6 +661,108 @@ func navSample(
 	}
 	v := total.Uint64()
 	return v, v
+}
+
+// bindEngineOutput replaces the envelope's placeholders with the engine's
+// own identity, content hash, and authorization class.
+//
+// `docs/04`: the signed hashes are what a reader verifies a retained
+// assessment against. A constant there proves nothing, and an inflated
+// class would claim an executable authorization the engine did not grant.
+func bindEngineOutput(
+	a *attest.Assessment,
+	terms *assessedTerms,
+	raw json.RawMessage,
+) error {
+	id, err := parseHashHex(terms.AssessmentID)
+	if err != nil {
+		return fmt.Errorf("assessment_id: %w", err)
+	}
+	input, err := parseHashHex(terms.InputHash)
+	if err != nil {
+		return fmt.Errorf("input_hash: %w", err)
+	}
+
+	// The canonical hash of the whole assessment, the same value
+	// store.Retain computes, so chain and retained evidence agree.
+	decoded, err := canonical.DecodeStrict(raw)
+	if err != nil {
+		return fmt.Errorf("canonicalize: %w", err)
+	}
+	contentHex, err := canonical.HashHex(decoded)
+	if err != nil {
+		return fmt.Errorf("hash assessment: %w", err)
+	}
+	content, err := parseHashHex(contentHex)
+	if err != nil {
+		return fmt.Errorf("assessment hash: %w", err)
+	}
+
+	class, err := mapClass(terms.Class)
+	if err != nil {
+		return err
+	}
+
+	a.AssessmentID = id
+	a.InputHash = input
+	a.AssessmentHash = content
+	// The input hash commits to the evidence values the decision rested
+	// on, which is what the root must reference.
+	a.EvidenceRoot = input
+	a.Class = class
+	return nil
+}
+
+// mapClass refuses an unknown class rather than defaulting.
+//
+// A default would silently sign one authorization level while the engine
+// granted another -- and ScenarioOnly is NON-EXECUTABLE by design, so
+// defaulting upward is exactly the failure to avoid (`docs/04`).
+func mapClass(name string) (uint8, error) {
+	switch name {
+	case "ScenarioOnly":
+		return attest.ClassScenarioOnly, nil
+	case "ObservedShadow":
+		return attest.ClassObservedShadow, nil
+	case "PrototypeEligible":
+		return attest.ClassPrototypeEligible, nil
+	default:
+		return 0, fmt.Errorf("unknown authorization class %q", name)
+	}
+}
+
+func parseHashHex(s string) (attest.Hash, error) {
+	var h attest.Hash
+	b, err := hex.DecodeString(strings.TrimPrefix(s, "0x"))
+	if err != nil {
+		return h, fmt.Errorf("not hex: %w", err)
+	}
+	if len(b) != 32 {
+		return h, fmt.Errorf("expected 32 bytes, got %d", len(b))
+	}
+	copy(h[:], b)
+	return h, nil
+}
+
+// readExecutableClass asks the oracle which class it will act on.
+func readExecutableClass(
+	ctx context.Context, rpc *chain.RPC, oracle string,
+) (uint8, error) {
+	// Pinned to a real block: 0 encodes as the genesis block, where the
+	// oracle does not yet exist.
+	at, err := rpc.LatestBlock(ctx)
+	if err != nil {
+		return 0, err
+	}
+	out, err := rpc.CallContract(ctx, oracle,
+		attest.Selector("executableClass()"), at.Number)
+	if err != nil {
+		return 0, err
+	}
+	if len(out) < 32 {
+		return 0, fmt.Errorf("short result")
+	}
+	return out[31], nil
 }
 
 // declineReason extracts the engine's own explanation.

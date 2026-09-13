@@ -139,7 +139,10 @@ func originationTerms(
 	}
 
 	var doc struct {
-		Outcome struct {
+		AssessmentID string `json:"assessment_id"`
+		InputHash    string `json:"input_hash"`
+		Class        string `json:"authorization_class"`
+		Outcome      struct {
 			Decision          string `json:"decision"`
 			ApprovedPrincipal string `json:"approved_principal"`
 			Terms             struct {
@@ -172,6 +175,9 @@ func originationTerms(
 	}
 
 	return &assessedTerms{
+		AssessmentID:      doc.AssessmentID,
+		InputHash:         doc.InputHash,
+		Class:             doc.Class,
 		ApprovedPrincipal: approved,
 		AprBps:            doc.Outcome.Terms.AprBps,
 		TermSeconds:       doc.Outcome.Terms.TermSeconds,
@@ -192,6 +198,12 @@ type AcquireAction struct {
 }
 
 type assessedTerms struct {
+	// What the ENGINE decided, so the envelope commits to it rather than
+	// to placeholders. `docs/04`: the signed hashes are what replay is
+	// verified against, and a constant there verifies nothing.
+	AssessmentID      string
+	InputHash         string
+	Class             string
 	ApprovedPrincipal *big.Int
 	AprBps            uint32
 	TermSeconds       uint64
@@ -430,4 +442,24 @@ func forecastEvidence(
 		return missing
 	}
 	return ev
+}
+
+// retainDecision stores the snapshot and assessment behind one origination.
+//
+// The gateway's monitoring loop retains every cycle; origination happens
+// here instead, so without this the loans the demo funds have no retained
+// evidence and `docs/04`'s replay guarantee does not cover them.
+func retainDecision(
+	ctx context.Context,
+	dbPath, bindingKey, inputHash string,
+	snapshotJSON, assessment []byte,
+) error {
+	db, err := store.Open(ctx, dbPath)
+	if err != nil {
+		return fmt.Errorf("open store: %w", err)
+	}
+	defer db.Close()
+
+	return store.NewRegistry(db).Retain(
+		ctx, bindingKey, "v1", inputHash, snapshotJSON, assessment)
 }
