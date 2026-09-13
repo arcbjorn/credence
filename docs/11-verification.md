@@ -82,7 +82,7 @@ assumed; a green suite is not evidence for a behavioural claim.
 | Row | Status | Reproduce |
 |---|---|---|
 | Performer lifecycle | evidence | `scripts/demo-repay.sh` |
-| **Three sequential loans** | evidence | `LOANS=4 scripts/demo-repay.sh` |
+| **Three sequential loans** | **partial** | `LOANS=4 scripts/demo-repay.sh` shows APR falling under one policy and model hash; the binding-constraint switch is not demonstrated (fixtures leave stress binding throughout) |
 | Behavioral ablation | evidence | `cargo test -p risk-core --test ablation` (A→B, A→C, A→D, each naming its binding constraint) |
 | **Continuous underwriting** | evidence | `scripts/demo-monitor.sh` |
 | Concentration override | evidence | `cargo test -p risk-core --test ablation concentration` — perfect history, zero capacity, bound by `StressCapacity` |
@@ -100,16 +100,25 @@ Observed on 13 September for the sequential-loans row, one policy and
 model hash throughout, only demonstrated history varying:
 
 ```
-loan 1: apr=1200bps capacity=10000000000 binding=HistoryGrowthCap
-loan 2: apr=1120bps capacity=11040000000 binding=ForecastCap
-loan 3: apr=1040bps capacity=11040000000 binding=ForecastCap
-loan 4: apr= 960bps capacity=11040000000 binding=ForecastCap
+loan 1: apr=1200bps capacity=7438474896 binding=StressCapacity
+loan 2: apr=1147bps capacity=7428692826 binding=StressCapacity
+loan 3: apr=1094bps capacity=7419342778 binding=StressCapacity
+loan 4: apr=1041bps capacity=7410424756 binding=StressCapacity
 ```
 
-Capacity rises while history is what limits it, then **plateaus** once the
-forecast cap takes over — which is why the binding constraint is reported
-beside the number rather than the number alone. APR keeps falling after
-capacity stops, because pricing still responds to demonstrated history.
+**APR falls throughout** as history accumulates. Capacity is bound by
+`StressCapacity` from the first loan, because the scenario assesses the
+action it actually funds — an acquisition that puts the whole book into
+the risky asset — rather than a cash hold. Capacity drifts slightly *down*
+across the run as the account carries more risky exposure, which is stress
+sizing working rather than credit failing to compound.
+
+> **The release row asks for the binding constraint to switch from history
+> to stress capacity.** This run never leaves stress capacity, so the
+> switch is not demonstrated: the fixtures put the account under stress
+> pressure from the outset. `docs/03` is explicit that fixtures must be
+> calibrated so behaviour binds first, and these are not. The APR response
+> is real; the constraint *switch* remains **pending**.
 
 Forecast commitments retained by that run, every commitment timestamped
 before its resolution:
