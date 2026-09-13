@@ -148,6 +148,21 @@ bumped state version — would let a stale quote fund.
 10. **The receivable is the obligation.** Recovery marks principal *and* frozen interest unresolved, so the epoch cannot settle while either is still being collected
 11. **Configuration is immutable for an obligation's life.** A facility's route cannot be re-pinned while it has live loans, and an execution route cannot be *added* to an account that owes. Revocation stays open, because withdrawing a route only reduces what an account can do
 12. **Recovery needs a trigger.** Maturity passed, or risk permission withdrawn. Seizing a healthy, unmatured position would make every loan callable at will, which is not the instrument the borrower agreed to
+13. **The executable class is pinned per deployment.** An oracle acts only on the class its deployment declares, by exact match. A scenario deployment issues and executes `ScenarioOnly`; a production one requires `PrototypeEligible` and refuses scenario evidence. An assessment of any other class is accepted as a record and stores no quote
+
+### Why the class is scoped, not a threshold
+
+`docs/04` describes scenario fallback as starting a **separately bound
+scenario deployment**. Its evidence is honestly synthetic, so its
+assessments are honestly `ScenarioOnly` — and a deployment that refused to
+act on them would make the fallback useless, while signing
+`PrototypeEligible` instead would claim an authorization the engine never
+granted.
+
+The comparison is an exact match rather than a ranking, because
+`ObservedShadow` is not "less executable" than `PrototypeEligible`; it is a
+different kind of record. A scenario deployment must no more execute shadow
+results than a production one executes scenario results.
 
 ## Trust assumptions
 
