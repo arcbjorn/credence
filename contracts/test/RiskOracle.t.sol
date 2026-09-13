@@ -25,7 +25,7 @@ contract RiskOracleTest is Test {
         devSigner = vm.addr(devKey);
         creSigner = vm.addr(creKey);
 
-        oracle = new RiskOracle(OPERATOR, DEPLOYMENT);
+        oracle = new RiskOracle(OPERATOR, DEPLOYMENT, Class.PrototypeEligible);
         vm.startPrank(OPERATOR);
         oracle.setLoanManager(CONSUMER);
         oracle.pinRoute(FACILITY, Route.Development);
@@ -504,5 +504,78 @@ contract RiskOracleTest is Test {
         Assessment memory block_ = _monitoring(2, Permission.Blocked);
         oracle.accept(block_, _sign(block_, devKey));
         assertFalse(oracle.riskAllowed(_binding()), "a block must withdraw permission");
+    }
+
+    // --- Executable class is scoped to the deployment (docs/04) ---
+
+    /// A scenario deployment acts on its own scenario-class assessments.
+    ///
+    /// `docs/04`: scenario fallback starts a SEPARATELY BOUND scenario
+    /// deployment. Its evidence is honestly synthetic, so its assessments
+    /// are ScenarioOnly — and refusing to act on them would make the
+    /// fallback useless, while signing PrototypeEligible instead would
+    /// claim an authorization the engine never granted.
+    function test_ScenarioDeploymentExecutesScenarioClass() public {
+        RiskOracle scenario = new RiskOracle(OPERATOR, DEPLOYMENT, Class.ScenarioOnly);
+        vm.startPrank(OPERATOR);
+        scenario.setLoanManager(CONSUMER);
+        scenario.pinRoute(FACILITY, Route.Development);
+        scenario.setSigner(Route.Development, devSigner, true);
+        vm.stopPrank();
+
+        Assessment memory a = _origination(1, Decision.Approved);
+        a.class_ = Class.ScenarioOnly;
+        scenario.accept(a, _signFor(scenario, a, devKey));
+
+        vm.prank(CONSUMER);
+        (Terms memory t, ) = scenario.consumeQuote(_binding(), 5_000e6);
+        assertEq(t.approvedPrincipal, 5_000e6, "a scenario quote must fund here");
+    }
+
+    /// And refuses a class from a different deployment level. Exact match,
+    /// not a threshold: a scenario deployment must not execute shadow
+    /// results any more than a production one executes scenario results.
+    function test_ScenarioDeploymentRefusesOtherClasses() public {
+        RiskOracle scenario = new RiskOracle(OPERATOR, DEPLOYMENT, Class.ScenarioOnly);
+        vm.startPrank(OPERATOR);
+        scenario.setLoanManager(CONSUMER);
+        scenario.pinRoute(FACILITY, Route.Development);
+        scenario.setSigner(Route.Development, devSigner, true);
+        vm.stopPrank();
+
+        Assessment memory a = _origination(1, Decision.Approved);
+        a.class_ = Class.PrototypeEligible;
+        scenario.accept(a, _signFor(scenario, a, devKey));
+
+        // Accepted as a record, but it stored no quote.
+        vm.prank(CONSUMER);
+        vm.expectRevert(RiskOracle.NoQuote.selector);
+        scenario.consumeQuote(_binding(), 5_000e6);
+    }
+
+    /// The production deployment still refuses scenario evidence, which is
+    /// the rule this scoping must not weaken.
+    function test_PrototypeDeploymentRefusesScenarioClass() public {
+        Assessment memory a = _origination(1, Decision.Approved);
+        a.class_ = Class.ScenarioOnly;
+        oracle.accept(a, _sign(a, devKey));
+
+        vm.prank(CONSUMER);
+        vm.expectRevert(RiskOracle.NoQuote.selector);
+        oracle.consumeQuote(_binding(), 5_000e6);
+    }
+
+    /// Signs against an arbitrary oracle, since these tests build their
+    /// own deployments with different domain separators.
+    function _signFor(RiskOracle o, Assessment memory a, uint256 key)
+        internal
+        view
+        returns (bytes memory)
+    {
+        bytes32 digest = keccak256(
+            abi.encodePacked("\x19\x01", o.domainSeparator(), _structHash(a))
+        );
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(key, digest);
+        return abi.encodePacked(r, s, v);
     }
 }

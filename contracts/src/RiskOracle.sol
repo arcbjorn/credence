@@ -52,6 +52,15 @@ contract RiskOracle {
 
     address public immutable operator;
     uint256 public immutable deploymentId;
+
+    /// @dev The class this deployment may execute.
+    ///
+    /// `docs/04`: scenario fallback starts a SEPARATELY BOUND scenario
+    /// deployment. Its assessments are honestly ScenarioOnly, and that
+    /// deployment must be able to act on them -- while a production
+    /// deployment still refuses anything below PrototypeEligible. Pinned
+    /// at construction so it cannot be widened later.
+    Class public immutable executableClass;
     bytes32 public immutable domainSeparator;
 
     /// @dev The only contract permitted to consume quotes.
@@ -114,9 +123,10 @@ contract RiskOracle {
         _;
     }
 
-    constructor(address operator_, uint256 deploymentId_) {
+    constructor(address operator_, uint256 deploymentId_, Class executableClass_) {
         operator = operator_;
         deploymentId = deploymentId_;
+        executableClass = executableClass_;
         domainSeparator = keccak256(
             abi.encode(
                 DOMAIN_TYPEHASH,
@@ -182,6 +192,16 @@ contract RiskOracle {
     /// commitment too would mean a correctly signed monitoring result
     /// could never match after the first action -- the account would be
     /// permanently unable to act (`docs/05`).
+    /// @dev Whether a class may move capital in THIS deployment.
+    ///
+    /// An exact match, not a threshold: ObservedShadow is not "less
+    /// executable" than PrototypeEligible, it is a different kind of
+    /// record, and a scenario deployment must not execute shadow results
+    /// any more than a production one executes scenario results.
+    function _isExecutable(Class c) private view returns (bool) {
+        return c == executableClass;
+    }
+
     function bindingConfigHash(Binding calldata b) public pure returns (bytes32) {
         return keccak256(
             abi.encode(
@@ -248,13 +268,13 @@ contract RiskOracle {
             // monitoring permission. A denial is new information about
             // this binding, so leaving an older Allowed in place would let
             // the account keep acting on a superseded view.
-            if (a.decision != Decision.Approved || a.class_ != Class.PrototypeEligible) {
+            if (a.decision != Decision.Approved || !_isExecutable(a.class_)) {
                 delete riskPermission[key];
                 delete permissionStateVersion[key];
                 delete permissionValidUntil[key];
                 delete permissionBinding[key];
             }
-            if (a.decision == Decision.Approved && a.class_ == Class.PrototypeEligible) {
+            if (a.decision == Decision.Approved && _isExecutable(a.class_)) {
                 quote[key] = Stored({
                     assessmentId: a.assessmentId,
                     sequence: a.sequence,
@@ -275,7 +295,7 @@ contract RiskOracle {
             // that was meant to withdraw it.
             bool grants = a.decision == Decision.Approved
                 && a.permission == Permission.Allowed
-                && a.class_ == Class.PrototypeEligible;
+                && _isExecutable(a.class_);
 
             if (grants) {
                 riskPermission[key] = Permission.Allowed;

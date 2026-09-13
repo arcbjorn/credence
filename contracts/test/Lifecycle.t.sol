@@ -41,7 +41,7 @@ contract LifecycleTest is Test {
     function setUp() public {
         token = new MockERC20();
         vault = new CreditVault(IERC20(address(token)), OPERATOR, CAP);
-        oracle = new RiskOracle(OPERATOR, DEPLOYMENT);
+        oracle = new RiskOracle(OPERATOR, DEPLOYMENT, Class.PrototypeEligible);
         manager = new LoanManager(IERC20(address(token)), vault, oracle, OPERATOR);
 
         vm.startPrank(OPERATOR);
@@ -338,7 +338,7 @@ contract LifecycleTest is Test {
     /// a request between the two must fail on the cap specifically.
     function test_lendingRespectsGlobalCap() public {
         CreditVault capped = new CreditVault(IERC20(address(token)), OPERATOR, 10_000e6);
-        RiskOracle cappedOracle = new RiskOracle(OPERATOR, DEPLOYMENT);
+        RiskOracle cappedOracle = new RiskOracle(OPERATOR, DEPLOYMENT, Class.PrototypeEligible);
         LoanManager cappedManager =
             new LoanManager(IERC20(address(token)), capped, cappedOracle, OPERATOR);
         vm.startPrank(OPERATOR);
@@ -642,7 +642,7 @@ contract LifecycleTest is Test {
     /// bound on exposure and becomes a bound on disbursement only.
     function test_GlobalCapReservesFullTermInterest() public {
         CreditVault capped = new CreditVault(IERC20(address(token)), OPERATOR, 10_000e6);
-        RiskOracle cappedOracle = new RiskOracle(OPERATOR, DEPLOYMENT);
+        RiskOracle cappedOracle = new RiskOracle(OPERATOR, DEPLOYMENT, Class.PrototypeEligible);
         LoanManager cappedManager =
             new LoanManager(IERC20(address(token)), capped, cappedOracle, OPERATOR);
         vm.startPrank(OPERATOR);

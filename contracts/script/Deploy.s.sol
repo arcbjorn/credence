@@ -15,7 +15,7 @@ import {SpotVenue} from "../src/SpotVenue.sol";
 import {StrategyAdapter} from "../src/StrategyAdapter.sol";
 import {TestRiskyAsset} from "../src/TestRiskyAsset.sol";
 import {TestSettlementToken} from "../src/TestSettlementToken.sol";
-import {Route} from "../src/Assessment.sol";
+import {Class, Route} from "../src/Assessment.sol";
 
 /// @title Deploy
 /// @notice Deploys the prototype facility and wires it.
@@ -72,7 +72,11 @@ contract Deploy is Script {
             risky = address(new TestRiskyAsset());
         }
 
-        RiskOracle oracle = new RiskOracle(operator, deploymentId);
+        // A scenario deployment: its evidence is honestly synthetic, so
+        // ScenarioOnly is the class it issues and the class it may act on
+        // (`docs/04`). A production deployment pins PrototypeEligible.
+        RiskOracle oracle =
+            new RiskOracle(operator, deploymentId, Class.ScenarioOnly);
         CreditVault vault = new CreditVault(IERC20(settlement), operator, GLOBAL_CAP);
         LoanManager manager = new LoanManager(IERC20(settlement), vault, oracle, operator);
 

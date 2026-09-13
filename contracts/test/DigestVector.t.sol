@@ -13,7 +13,7 @@ import {Assessment, Binding, Class, Decision, Kind, Permission, Route, Terms} fr
 /// a failure that looks like a key problem but is an encoding one.
 contract DigestVectorTest is Test {
     function test_emitMonitoringDigest() public {
-        RiskOracle oracle = new RiskOracle(address(0xA1), 7);
+        RiskOracle oracle = new RiskOracle(address(0xA1), 7, Class.PrototypeEligible);
 
         Binding memory b = OracleHarness.binding(address(0xACC7), 3, 1);
         Assessment memory a = OracleHarness.approvedQuote(

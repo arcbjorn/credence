@@ -121,7 +121,7 @@ contract InvariantsTest is Test {
     function setUp() public {
         token = new MockERC20();
         vault = new CreditVault(IERC20(address(token)), OPERATOR, 100_000e6);
-        oracle = new RiskOracle(OPERATOR, 7);
+        oracle = new RiskOracle(OPERATOR, 7, Class.PrototypeEligible);
         manager = new LoanManager(IERC20(address(token)), vault, oracle, OPERATOR);
         vm.startPrank(OPERATOR);
         vault.setLoanManager(address(manager));
@@ -208,7 +208,7 @@ contract HandlerReachabilityTest is Test {
     function setUp() public {
         token = new MockERC20();
         vault = new CreditVault(IERC20(address(token)), OPERATOR, 100_000e6);
-        oracle = new RiskOracle(OPERATOR, 7);
+        oracle = new RiskOracle(OPERATOR, 7, Class.PrototypeEligible);
         manager = new LoanManager(IERC20(address(token)), vault, oracle, OPERATOR);
         vm.startPrank(OPERATOR);
         vault.setLoanManager(address(manager));

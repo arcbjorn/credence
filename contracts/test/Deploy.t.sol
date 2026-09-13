@@ -7,7 +7,7 @@ import {IERC20} from "../src/IERC20.sol";
 import {LoanManager} from "../src/LoanManager.sol";
 import {RiskOracle} from "../src/RiskOracle.sol";
 import {TestSettlementToken} from "../src/TestSettlementToken.sol";
-import {Route} from "../src/Assessment.sol";
+import {Class, Route} from "../src/Assessment.sol";
 
 /// Verifies the deployed wiring, since a mis-wired facility fails only when
 /// the first loan is attempted — far from the cause.
@@ -26,7 +26,7 @@ contract DeployTest is Test {
     function setUp() public {
         token = new TestSettlementToken();
         vm.startPrank(OPERATOR);
-        oracle = new RiskOracle(OPERATOR, DEPLOYMENT_ID);
+        oracle = new RiskOracle(OPERATOR, DEPLOYMENT_ID, Class.PrototypeEligible);
         vault = new CreditVault(IERC20(address(token)), OPERATOR, GLOBAL_CAP);
         manager = new LoanManager(IERC20(address(token)), vault, oracle, OPERATOR);
         vault.setLoanManager(address(manager));
