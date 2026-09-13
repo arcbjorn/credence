@@ -15,6 +15,7 @@ type Addresses struct {
 	LoanManager   string
 	CreditAccount string
 	Settlement    string
+	Vault         string
 }
 
 // Reader implements evidence.ChainReader and publisher.Chain over JSON-RPC.
@@ -68,15 +69,66 @@ func (r *Reader) AccountAt(
 		return state, fmt.Errorf("account debt flag: %w", err)
 	}
 
+	// Debt and facility limit come from the contracts that own that
+	// accounting, read at the same block as the balance. Leaving them unset
+	// would serialize as empty strings and the engine would reject the
+	// snapshot — but worse, a zero default would understate leverage.
+	debt, err := r.outstandingDebtAt(ctx, account, at.Number)
+	if err != nil {
+		return state, fmt.Errorf("account debt: %w", err)
+	}
+	facilityLimit, err := r.callUint(ctx, r.addr.LoanManager, "globalCap()", at.Number)
+	if err != nil {
+		// The vault owns the global cap; the loan manager does not expose
+		// one, so fall back to the vault's.
+		facilityLimit, err = r.callUint(ctx, r.addr.Vault, "globalCap()", at.Number)
+		if err != nil {
+			return state, fmt.Errorf("facility limit: %w", err)
+		}
+	}
+
 	state.SettlementBalance = balance.String()
 	state.StateVersion = stateVersion.Uint64()
-	// The flag records whether debt exists; the amount comes from the loan
-	// manager, which owns the accounting.
-	state.Restricted = debtOutstanding
+	state.OutstandingDebt = debt.String()
+	state.FacilityLimit = facilityLimit.String()
+	state.Positions = []evidence.Position{}
+	state.Restricted = false
+	_ = debtOutstanding
 	return state, nil
 }
 
+// outstandingDebtAt reads what the account currently owes.
+//
+// Zero is only correct when the loan manager reports no active loan. A
+// failed read must not become zero, because that would understate leverage
+// and inflate capacity (`docs/04`).
+func (r *Reader) outstandingDebtAt(
+	ctx context.Context,
+	account string,
+	blockNumber uint64,
+) (*big.Int, error) {
+	loanID, err := r.callUint(ctx, r.addr.LoanManager, "activeLoan(address)", blockNumber, account)
+	if err != nil {
+		return nil, fmt.Errorf("active loan: %w", err)
+	}
+	if loanID.Sign() == 0 {
+		return big.NewInt(0), nil
+	}
+
+	data := append(selector("debtDue(uint256)"), encodeUint(loanID)...)
+	out, err := r.rpc.CallContract(ctx, r.addr.LoanManager, data, blockNumber)
+	if err != nil {
+		return nil, fmt.Errorf("debt due: %w", err)
+	}
+	return decodeUint(out, 0)
+}
+
 // LoanAt reads an active loan at a pinned block.
+//
+// Every amount is read, not defaulted. An unset field serializes as an
+// empty string and the engine rejects the snapshot — which is the safe
+// failure. The dangerous one would be defaulting to zero, which would
+// report an outstanding loan as fully repaid.
 func (r *Reader) LoanAt(
 	ctx context.Context,
 	loanID string,
@@ -88,19 +140,54 @@ func (r *Reader) LoanAt(
 		return loan, fmt.Errorf("loan id %q is not numeric", loanID)
 	}
 
-	data := append(selector("accruedInterest(uint256)"), encodeUint(id)...)
+	// loans(uint256) returns the full struct; decode the fields the engine
+	// needs by word position.
+	data := append(selector("loans(uint256)"), encodeUint(id)...)
 	out, err := r.rpc.CallContract(ctx, r.addr.LoanManager, data, at.Number)
 	if err != nil {
-		return loan, fmt.Errorf("accrued interest: %w", err)
+		return loan, fmt.Errorf("read loan: %w", err)
 	}
-	accrued, err := decodeUint(out, 0)
+
+	// Word layout matches the Loan struct in LoanManager.sol.
+	principal, err := decodeUint(out, 1)
 	if err != nil {
-		return loan, fmt.Errorf("accrued interest: %w", err)
+		return loan, fmt.Errorf("loan principal: %w", err)
+	}
+	outstanding, err := decodeUint(out, 2)
+	if err != nil {
+		return loan, fmt.Errorf("loan outstanding: %w", err)
+	}
+	interestCollected, err := decodeUint(out, 3)
+	if err != nil {
+		return loan, fmt.Errorf("loan interest collected: %w", err)
+	}
+	aprBps, err := decodeUint(out, 4)
+	if err != nil {
+		return loan, fmt.Errorf("loan apr: %w", err)
+	}
+	originatedAt, err := decodeUint(out, 5)
+	if err != nil {
+		return loan, fmt.Errorf("loan originated at: %w", err)
+	}
+	termSeconds, err := decodeUint(out, 6)
+	if err != nil {
+		return loan, fmt.Errorf("loan term: %w", err)
+	}
+	recoveryStartedAt, err := decodeUint(out, 7)
+	if err != nil {
+		return loan, fmt.Errorf("loan recovery state: %w", err)
 	}
 
 	loan.LoanID = loanID
 	loan.SettlementAsset = r.addr.Settlement
-	loan.InterestCollected = accrued.String()
+	loan.OriginalPrincipal = principal.String()
+	loan.OutstandingPrincipal = outstanding.String()
+	loan.InterestCollected = interestCollected.String()
+	loan.Apr = uint32(aprBps.Uint64())
+	loan.OriginatedAt = originatedAt.Uint64()
+	loan.MaturityAt = originatedAt.Uint64() + termSeconds.Uint64()
+	loan.InRecovery = recoveryStartedAt.Sign() != 0
+
 	return loan, nil
 }
 
