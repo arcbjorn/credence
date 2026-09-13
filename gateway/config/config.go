@@ -80,6 +80,10 @@ type Addresses struct {
 	// Risky is optional: a deployment with none supports settlement-only
 	// accounts, which cannot demonstrate concentration.
 	Risky string `json:"risky,omitempty"`
+	// PriceSource is an on-chain IPriceSource. When set, the scheduler
+	// compares real observations and a market move triggers reassessment;
+	// without it only the clock can, so `price_move` never fires.
+	PriceSource string `json:"price_source,omitempty"`
 }
 
 // RiskyAssetPolicy declares how the risky asset is valued.

@@ -96,6 +96,13 @@ type deps struct {
 	risk            *riskclient.Client
 	signerAddress   attest.Address
 	operatorAddress string
+
+	// Price feed for the scheduler. Nil when no on-chain source is
+	// configured, in which case an absent price keeps the fail-closed
+	// staleness path.
+	reader      *chain.Reader
+	rpc         *chain.RPC
+	priceSource string
 }
 
 func build(ctx context.Context, cfg *config.Config) (*deps, error) {
@@ -207,6 +214,9 @@ func build(ctx context.Context, cfg *config.Config) (*deps, error) {
 			}),
 		signerAddress:   attest.SignerAddress(signer),
 		operatorAddress: operatorWallet.Address(),
+		reader:          reader,
+		rpc:             rpc,
+		priceSource:     cfg.Addresses.PriceSource,
 	}, nil
 }
 
@@ -266,11 +276,12 @@ func (d *deps) loop(ctx context.Context, period time.Duration) error {
 			log.Print("shutting down")
 			return nil
 		case <-ticker.C:
-			// Prices come from the market reader once one is configured.
-			// An empty map is not a shortcut: the scheduler treats an
-			// absent price as a staleness trigger, which is the
-			// fail-closed behaviour.
-			cycles := d.monitor.Tick(ctx, map[string]*big.Int{}, time.Now().Unix())
+			// An absent price is not a shortcut: the scheduler treats it
+			// as a staleness trigger, which is the fail-closed behaviour.
+			// A configured source turns that into a real observation, so
+			// a market move -- not merely the clock -- can trigger
+			// reassessment.
+			cycles := d.monitor.Tick(ctx, d.prices(ctx), time.Now().Unix())
 			for _, c := range cycles {
 				if c.Failure != "" {
 					log.Printf("cycle %s loan=%s trigger=%s permission=%s failure=%s",
@@ -282,6 +293,41 @@ func (d *deps) loop(ctx context.Context, period time.Duration) error {
 			}
 		}
 	}
+}
+
+// prices observes the risky asset for every watched binding.
+//
+// One read serves all bindings because the prototype has a single risky
+// asset. A read failure returns no price rather than a stale one: the
+// scheduler then reassesses on staleness, which blocks permission, while
+// substituting the last known price would let authorization stand on a
+// feed that has stopped responding.
+func (d *deps) prices(ctx context.Context) map[string]*big.Int {
+	out := map[string]*big.Int{}
+	if d.priceSource == "" {
+		return out
+	}
+
+	keys := d.scheduler.Keys()
+	if len(keys) == 0 {
+		return out
+	}
+
+	block, err := d.rpc.LatestBlock(ctx)
+	if err != nil {
+		log.Printf("price: pin block: %v", err)
+		return out
+	}
+	obs, err := d.reader.RiskyPriceAt(ctx, d.priceSource, block.Number)
+	if err != nil {
+		log.Printf("price: read source: %v", err)
+		return out
+	}
+
+	for _, k := range keys {
+		out[k] = obs.Price
+	}
+	return out
 }
 
 type systemClock struct{}
