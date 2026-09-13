@@ -39,18 +39,34 @@ Lead with amounts, terms, actions, reasons. Hashes, model versions, and service 
 
 In beat 4b, the rising limit is `agent_capacity`; show `facility_limit`, debt headroom (`available_credit`), `drawable_capacity`, and requested/granted principal separately. Beat 5b and the withdrawal attempt require an active loan: open the overconfident account's loan before those beats, then continue its outcomes and recovery in beat 7. Do not rely on the performer's already repaid loan to demonstrate an active-debt restriction.
 
-## Driving beats 4 and 7
+## Driving beats 4, 5b and 7
 
 Both run end to end from a clean chain, so neither is reassembled by hand
 on demo day:
 
 ```
 scripts/demo-repay.sh     # beat 4: deploy, hold, close, repay
+scripts/demo-monitor.sh   # beat 5b: price moves, gateway reassesses
 scripts/demo-default.sh   # beat 7: deploy, crash, unwind, default
 ```
 
 `demo-repay.sh` leaves a second loan open and deployed, which is the live
 position beats 5b and 6 need.
+
+**Beat 5b must show `trigger=price_move`, not `trigger=staleness`.**
+A staleness cycle only proves a clock still ticks; it says nothing about
+the gateway reacting to the market. The run is only valid if the log shows
+the loop go quiet after a cycle lands, and then wake on the move:
+
+```
+trigger=staleness  permission=Blocked tx=0x05f79d21...   <- reference set
+                                                            (quiet)
+trigger=price_move permission=Blocked tx=0xe5e59833...   <- the move
+```
+
+`permission=Blocked` is the correct outcome, not a failure: the asset fell
+20%, so withdrawing permission is the right answer. What is demonstrated
+is that the reassessment happened unprompted and reached chain.
 
 **Agent equity is the first loss layer, and the demo must respect it.**
 Lenders only lose once a fall exceeds the agent's own capital, so the
