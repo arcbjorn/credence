@@ -26,7 +26,11 @@ CREATE TABLE IF NOT EXISTS bindings (
     config_hash    TEXT    NOT NULL,
     policy_epoch   INTEGER NOT NULL,
     policy_hash    TEXT    NOT NULL,
-    created_at     INTEGER NOT NULL
+    created_at     INTEGER NOT NULL,
+    -- Block from which this binding's outcomes have been indexed. Zero
+    -- means the gateway cannot prove it enumerated anything, so history
+    -- coverage is incomplete rather than verified-empty (docs/04).
+    indexed_from   INTEGER NOT NULL DEFAULT 0
 );
 
 -- Immutable observations. Origin is a property of the evidence itself:

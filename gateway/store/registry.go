@@ -40,6 +40,11 @@ type Binding struct {
 	ConfigHash    string
 	PolicyEpoch   uint64
 	PolicyHash    string
+	// IndexedFrom is the block from which this binding's outcomes have
+	// been enumerated. Zero means coverage is unproven, which is the
+	// honest default: registration alone proves nothing about what
+	// happened before it (`docs/04`).
+	IndexedFrom uint64
 }
 
 // ActiveWatch is a binding with an open loan, as reloaded at startup.
@@ -83,8 +88,9 @@ func (r *Registry) RegisterBinding(ctx context.Context, b Binding) error {
 	_, err := r.store.db.ExecContext(ctx,
 		`INSERT INTO bindings
 		   (binding_key, agent_key, operator, credit_account, facility_id,
-		    config_version, config_hash, policy_epoch, policy_hash, created_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		    config_version, config_hash, policy_epoch, policy_hash, created_at,
+		    indexed_from)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		 ON CONFLICT(binding_key) DO UPDATE SET
 		   operator       = excluded.operator,
 		   credit_account = excluded.credit_account,
@@ -92,10 +98,11 @@ func (r *Registry) RegisterBinding(ctx context.Context, b Binding) error {
 		   config_version = excluded.config_version,
 		   config_hash    = excluded.config_hash,
 		   policy_epoch   = excluded.policy_epoch,
-		   policy_hash    = excluded.policy_hash`,
+		   policy_hash    = excluded.policy_hash,
+		   indexed_from   = excluded.indexed_from`,
 		b.BindingKey, b.AgentKey, b.Operator, b.CreditAccount, b.FacilityID,
 		b.ConfigVersion, b.ConfigHash, b.PolicyEpoch, b.PolicyHash,
-		time.Now().Unix())
+		time.Now().Unix(), b.IndexedFrom)
 	if err != nil {
 		return fmt.Errorf("register binding: %w", err)
 	}

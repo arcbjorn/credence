@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"encoding/json"
 	"fmt"
 )
@@ -51,19 +52,25 @@ type ForecastSummary struct {
 // Missing evidence, which blocks authorization. A known binding with no
 // loans returns a complete, empty history instead — a verified absence.
 func (d *Derived) History(ctx context.Context, bindingKey string) (json.RawMessage, error) {
-	var exists int
+	var indexedFrom int64
 	err := d.store.db.QueryRowContext(ctx,
-		`SELECT count(*) FROM bindings WHERE binding_key = ?`, bindingKey).Scan(&exists)
-	if err != nil {
-		return nil, fmt.Errorf("history: check binding: %w", err)
-	}
-	if exists == 0 {
+		`SELECT indexed_from FROM bindings WHERE binding_key = ?`,
+		bindingKey).Scan(&indexedFrom)
+	if errors.Is(err, sql.ErrNoRows) {
 		// Unknown, not empty. The gateway cannot prove anything about a
 		// binding it has never registered.
 		return nil, fmt.Errorf("history: unknown binding %q", bindingKey)
 	}
+	if err != nil {
+		return nil, fmt.Errorf("history: check binding: %w", err)
+	}
 
-	summary := HistorySummary{CoverageComplete: true}
+	// Registration is not coverage. A binding registered after its account
+	// was already active has outcomes the gateway never saw, and reporting
+	// that as a verified-clean history would earn credit the agent has not
+	// demonstrated (`docs/04`). Only a recorded indexing start proves the
+	// enumeration is complete.
+	summary := HistorySummary{CoverageComplete: indexedFrom > 0}
 
 	// Outcomes are recorded as chain events, so a binding with no recorded
 	// outcomes has a verified empty history.

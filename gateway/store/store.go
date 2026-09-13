@@ -11,6 +11,7 @@ import (
 	"database/sql"
 	_ "embed"
 	"fmt"
+	"strings"
 
 	_ "modernc.org/sqlite"
 )
@@ -41,7 +42,28 @@ func Open(ctx context.Context, path string) (*Store, error) {
 		db.Close()
 		return nil, fmt.Errorf("apply schema: %w", err)
 	}
+	if err := migrate(ctx, db); err != nil {
+		db.Close()
+		return nil, err
+	}
 	return &Store{db: db}, nil
+}
+
+// migrate applies changes CREATE TABLE IF NOT EXISTS cannot make to a
+// database that already exists.
+//
+// Each step is written to succeed on a fresh database too, so there is one
+// code path rather than a fresh-install branch that is never exercised.
+func migrate(ctx context.Context, db *sql.DB) error {
+	// A column added after the first release. Defaults to zero, which
+	// reads as "coverage unproven" -- the conservative value for a
+	// binding registered before indexing was tracked.
+	if _, err := db.ExecContext(ctx,
+		`ALTER TABLE bindings ADD COLUMN indexed_from INTEGER NOT NULL DEFAULT 0`,
+	); err != nil && !strings.Contains(err.Error(), "duplicate column") {
+		return fmt.Errorf("migrate bindings.indexed_from: %w", err)
+	}
+	return nil
 }
 
 func (s *Store) Close() error { return s.db.Close() }

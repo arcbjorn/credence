@@ -31,6 +31,27 @@ func seedBindingFor(t *testing.T, r *store.Registry, key string) {
 		BindingKey: key, AgentKey: "ag1", Operator: "0xop",
 		CreditAccount: "0xacct", FacilityID: "1",
 		ConfigHash: "0xc", PolicyHash: "0xp",
+		// Indexed from the first block, so coverage is genuinely proven.
+		IndexedFrom: 1,
+	}); err != nil {
+		t.Fatalf("binding: %v", err)
+	}
+}
+
+// Registers a binding WITHOUT declaring where indexing started, which is
+// the state of an account enrolled after it was already active.
+func seedUnindexedBinding(t *testing.T, r *store.Registry, key string) {
+	t.Helper()
+	ctx := context.Background()
+	if err := r.RegisterAgent(ctx, store.Agent{
+		AgentKey: "ag1", IdentityRegistry: "0xreg", AgentID: "184",
+	}); err != nil {
+		t.Fatalf("agent: %v", err)
+	}
+	if err := r.RegisterBinding(ctx, store.Binding{
+		BindingKey: key, AgentKey: "ag1", Operator: "0xop",
+		CreditAccount: "0xacct", FacilityID: "1",
+		ConfigHash: "0xc", PolicyHash: "0xp",
 	}); err != nil {
 		t.Fatalf("binding: %v", err)
 	}
@@ -62,18 +83,34 @@ func TestUnknownBindingHasNoHistory(t *testing.T) {
 	}
 }
 
-// A registered binding with no loans has a *verified* empty history, which
-// the engine treats as a new account rather than as missing evidence.
-func TestRegisteredBindingWithNoLoansIsVerifiedEmpty(t *testing.T) {
+// An INDEXED binding with no loans has a verified empty history, which the
+// engine treats as a new account rather than as missing evidence.
+func TestIndexedBindingWithNoLoansIsVerifiedEmpty(t *testing.T) {
 	d, r, _ := derived(t)
 	seedBindingFor(t, r, "b1")
 
 	h := historyOf(t, d, "b1")
 	if !h.CoverageComplete {
-		t.Fatal("a binding with no loans has complete coverage, not unknown coverage")
+		t.Fatal("an indexed binding with no loans has complete coverage")
 	}
 	if h.WeightedRepaymentsPPM != 0 || h.ResolvedDefaults != 0 {
 		t.Fatalf("expected an empty history, got %+v", h)
+	}
+}
+
+// Registration is not coverage.
+//
+// A binding enrolled after its account was already active has outcomes the
+// gateway never saw. Reporting that as verified-clean would earn credit
+// the agent never demonstrated (`docs/04`), so an undeclared indexing
+// start must read as incomplete.
+func TestUnindexedBindingHasIncompleteCoverage(t *testing.T) {
+	d, r, _ := derived(t)
+	seedUnindexedBinding(t, r, "b1")
+
+	h := historyOf(t, d, "b1")
+	if h.CoverageComplete {
+		t.Fatal("registration alone must not assert complete coverage")
 	}
 }
 
