@@ -166,6 +166,33 @@ type Input struct {
 	ModelPolicy    json.RawMessage `json:"model_policy"`
 }
 
+// OldestRequiredObservation returns the observation time of the oldest
+// Required evidence, and whether any was present.
+//
+// Deliberately the oldest, not the newest: permission rests on every
+// required item at once, so the first one to age past its bound is what
+// makes the whole standing result stale. Taking the freshest timestamp
+// would understate the age of the evidence actually backing permission and
+// let it stand after part of its basis had expired.
+//
+// Missing evidence has no observation time and is skipped; a snapshot with
+// no present required evidence reports false, which the caller must treat
+// as "cannot vouch for freshness" rather than "fresh".
+func (i Input) OldestRequiredObservation() (uint64, bool) {
+	oldest := uint64(0)
+	found := false
+	for _, e := range []Evidence{i.Account, i.Market, i.History, i.Forecasts, i.Portfolio} {
+		if e.Requirement != Required || e.State != StatePresent || e.ObservedAt == nil {
+			continue
+		}
+		if !found || *e.ObservedAt < oldest {
+			oldest = *e.ObservedAt
+			found = true
+		}
+	}
+	return oldest, found
+}
+
 var (
 	ErrDuplicateEvidenceID = errors.New("snapshot: duplicate evidence id")
 	ErrSyntheticInObserved = errors.New("snapshot: synthetic evidence in an observed facility")
