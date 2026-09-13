@@ -116,6 +116,12 @@ func build(ctx context.Context, cfg *config.Config) (*deps, error) {
 		LoanManager: cfg.Addresses.LoanManager,
 		Settlement:  cfg.Addresses.Settlement,
 		Vault:       cfg.Addresses.Vault,
+		Risky:       cfg.Addresses.Risky,
+	}).WithRiskyAsset(chain.RiskyAssetPolicy{
+		Price:      cfg.RiskyAsset.Price,
+		PriceScale: cfg.RiskyAsset.PriceScale,
+		Decimals:   cfg.RiskyAsset.Decimals,
+		HaircutBps: cfg.RiskyAsset.HaircutBps,
 	})
 
 	// The operator key spends gas; the attestation key only signs. Keeping

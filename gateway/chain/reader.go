@@ -16,6 +16,25 @@ type Addresses struct {
 	CreditAccount string
 	Settlement    string
 	Vault         string
+	// Risky is the one supported risky asset. Empty means the deployment
+	// supports none, and accounts can hold only settlement tokens.
+	Risky string
+}
+
+// RiskyAssetPolicy declares how the risky asset is valued.
+//
+// Price and haircut are policy inputs, not observations: this prototype has
+// no oracle for the test asset, and inventing one would present a made-up
+// number as a measurement. They are declared, versioned, and visible.
+type RiskyAssetPolicy struct {
+	// Price in settlement base units per whole risky unit.
+	Price uint64
+	// PriceScale is the decimal scale of Price.
+	PriceScale uint32
+	// Decimals of the risky token itself, which need not match the
+	// settlement token's.
+	Decimals   uint32
+	HaircutBps uint32
 }
 
 // Reader implements evidence.ChainReader and publisher.Chain over JSON-RPC.
@@ -26,12 +45,19 @@ type Addresses struct {
 // its question is "has this landed by now?" rather than "what was true at
 // snapshot time?".
 type Reader struct {
-	rpc  *RPC
-	addr Addresses
+	rpc   *RPC
+	addr  Addresses
+	risky RiskyAssetPolicy
 }
 
 func NewReader(rpc *RPC, addr Addresses) *Reader {
 	return &Reader{rpc: rpc, addr: addr}
+}
+
+// WithRiskyAsset sets the valuation policy for the risky asset.
+func (r *Reader) WithRiskyAsset(policy RiskyAssetPolicy) *Reader {
+	r.risky = policy
+	return r
 }
 
 // --- evidence.ChainReader ---
@@ -87,14 +113,68 @@ func (r *Reader) AccountAt(
 		}
 	}
 
+	// Read what the account actually holds. A hardcoded empty list would
+	// report every account as unconcentrated no matter what it owns, so
+	// the engine could never see a dangerous book.
+	positions, err := r.positionsAt(ctx, account, at.Number)
+	if err != nil {
+		return state, fmt.Errorf("account positions: %w", err)
+	}
+
 	state.SettlementBalance = balance.String()
 	state.StateVersion = stateVersion.Uint64()
 	state.OutstandingDebt = debt.String()
 	state.FacilityLimit = facilityLimit.String()
-	state.Positions = []evidence.Position{}
+	state.Positions = positions
 	state.Restricted = false
 	_ = debtOutstanding
 	return state, nil
+}
+
+// positionsAt reads the account's holdings of supported risky assets.
+//
+// Returns an empty slice when the deployment supports no risky asset, which
+// is different from failing to read one: an unreadable balance is an error,
+// because treating it as zero would understate concentration.
+func (r *Reader) positionsAt(
+	ctx context.Context,
+	account string,
+	blockNumber uint64,
+) ([]evidence.Position, error) {
+	if r.addr.Risky == "" {
+		return []evidence.Position{}, nil
+	}
+
+	amount, err := r.callUint(ctx, account, "balanceOf(address)", blockNumber, r.addr.Risky)
+	if err != nil {
+		return nil, fmt.Errorf("risky balance: %w", err)
+	}
+	if amount.Sign() == 0 {
+		return []evidence.Position{}, nil
+	}
+
+	// The engine marks a position as amount * price / 10^price_scale, so
+	// the amount must be expressed in the same scale as the price. A raw
+	// 18-decimal balance against a 6-decimal price would overstate the
+	// position by twelve orders of magnitude.
+	normalized := amount
+	if r.risky.Decimals > r.risky.PriceScale {
+		divisor := new(big.Int).Exp(big.NewInt(10),
+			big.NewInt(int64(r.risky.Decimals-r.risky.PriceScale)), nil)
+		normalized = new(big.Int).Div(amount, divisor)
+	} else if r.risky.PriceScale > r.risky.Decimals {
+		multiplier := new(big.Int).Exp(big.NewInt(10),
+			big.NewInt(int64(r.risky.PriceScale-r.risky.Decimals)), nil)
+		normalized = new(big.Int).Mul(amount, multiplier)
+	}
+
+	return []evidence.Position{{
+		Asset:      r.addr.Risky,
+		Amount:     normalized.String(),
+		Price:      new(big.Int).SetUint64(r.risky.Price).String(),
+		PriceScale: r.risky.PriceScale,
+		HaircutBps: r.risky.HaircutBps,
+	}}, nil
 }
 
 // outstandingDebtAt reads what the account currently owes.

@@ -49,10 +49,11 @@ type Config struct {
 	SchemaVersion    string `json:"schema_version"`
 
 	// Policy
-	Scheduler SchedulerPolicy `json:"scheduler"`
-	Evidence  EvidencePolicy  `json:"evidence"`
-	Market    MarketPolicy    `json:"market"`
-	Wallet    WalletPolicy    `json:"wallet"`
+	Scheduler  SchedulerPolicy  `json:"scheduler"`
+	Evidence   EvidencePolicy   `json:"evidence"`
+	Market     MarketPolicy     `json:"market"`
+	Wallet     WalletPolicy     `json:"wallet"`
+	RiskyAsset RiskyAssetPolicy `json:"risky_asset"`
 
 	// StrategyID names the single supported strategy in v0.
 	StrategyID string `json:"strategy_id"`
@@ -76,6 +77,21 @@ type Addresses struct {
 	LoanManager string `json:"loan_manager"`
 	Vault       string `json:"vault"`
 	Settlement  string `json:"settlement"`
+	// Risky is optional: a deployment with none supports settlement-only
+	// accounts, which cannot demonstrate concentration.
+	Risky string `json:"risky,omitempty"`
+}
+
+// RiskyAssetPolicy declares how the risky asset is valued.
+//
+// These are policy inputs, not observations. The prototype has no oracle
+// for a test asset, and presenting an invented price as a measurement would
+// be exactly the dishonesty `docs/04` forbids.
+type RiskyAssetPolicy struct {
+	Price      uint64 `json:"price"`
+	PriceScale uint32 `json:"price_scale"`
+	Decimals   uint32 `json:"decimals"`
+	HaircutBps uint32 `json:"haircut_bps"`
 }
 
 type SchedulerPolicy struct {
@@ -233,6 +249,23 @@ func (c *Config) Validate() error {
 	}
 	if c.Scheduler.HeartbeatSeconds <= 0 {
 		return fmt.Errorf("config: scheduler.heartbeat_seconds must be positive")
+	}
+
+	// A declared risky asset needs a complete valuation policy, or the
+	// engine would mark a real position at zero and see no concentration.
+	if c.Addresses.Risky != "" {
+		if err := validateAddress(c.Addresses.Risky); err != nil {
+			return fmt.Errorf("config: addresses.risky: %w", err)
+		}
+		if c.RiskyAsset.Price == 0 {
+			return fmt.Errorf("config: risky_asset.price is required when a risky asset is set")
+		}
+		if c.RiskyAsset.Decimals == 0 {
+			return fmt.Errorf("config: risky_asset.decimals is required when a risky asset is set")
+		}
+		if c.RiskyAsset.HaircutBps >= 10_000 {
+			return fmt.Errorf("config: risky_asset.haircut_bps must be below 10000")
+		}
 	}
 
 	// Both caps must be set: an unbounded gas limit or price turns a
