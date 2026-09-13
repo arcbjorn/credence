@@ -69,10 +69,28 @@ func (p *stubPublisher) Publish(context.Context, string, json.RawMessage) (strin
 	return p.tx, p.err
 }
 
-type stubRecorder struct{ cycles []monitor.Cycle }
+type stubRecorder struct {
+	cycles   []monitor.Cycle
+	retained int
+	// retainErr makes retention fail, so the test can check that an
+	// unretainable decision blocks rather than publishing unrecorded.
+	retainErr error
+}
 
 func (r *stubRecorder) RecordCycle(_ context.Context, c monitor.Cycle) error {
 	r.cycles = append(r.cycles, c)
+	return nil
+}
+
+func (r *stubRecorder) RetainDecision(
+	_ context.Context,
+	_, _ string,
+	_, _ []byte,
+) error {
+	if r.retainErr != nil {
+		return r.retainErr
+	}
+	r.retained++
 	return nil
 }
 
@@ -308,5 +326,53 @@ func TestNothingDueProducesNoCycles(t *testing.T) {
 		map[string]*big.Int{"b1": big.NewInt(2_000_000000)}, 10_030)
 	if len(cycles) != 0 {
 		t.Fatalf("expected no work, got %d cycles", len(cycles))
+	}
+}
+
+// Every decision that reaches the engine must be retained, because
+// `docs/04` requires replay from retained evidence and a published
+// assessment with no stored snapshot cannot be replayed at all.
+func TestDecisionIsRetained(t *testing.T) {
+	m, rec := setup(t, stubEvidence{input: monitoringInput("loan-1")},
+		engineReturning(t, "MonitoringAllowed"), &stubPublisher{tx: "0x1"})
+
+	tick(m)
+	if rec.retained != 1 {
+		t.Fatalf("expected the decision to be retained, got %d", rec.retained)
+	}
+}
+
+// A decision that cannot be retained must not be published. Publishing it
+// would put an assessment on chain that no one can ever replay, which is
+// precisely the claim the retained evidence exists to support.
+func TestUnretainableDecisionIsNotPublished(t *testing.T) {
+	pub := &stubPublisher{tx: "0x1"}
+	clk := &fakeClock{t: 10_000}
+	s := scheduler.New(scheduler.Policy{
+		PriceMoveBps:          500,
+		MaxEvidenceAgeSeconds: 300,
+		RefreshLeadSeconds:    60,
+		HeartbeatSeconds:      600,
+	}, clk)
+	s.Track(scheduler.Watch{
+		BindingKey:         "b1",
+		LoanID:             "loan-1",
+		ReferencePrice:     big.NewInt(2_000_000000),
+		PermissionIssuedAt: 10_000,
+		EvidenceObservedAt: 10_000,
+	})
+	clk.t += 280
+
+	rec := &stubRecorder{retainErr: errors.New("disk full")}
+	m := monitor.New(s, stubEvidence{input: monitoringInput("loan-1")},
+		engineReturning(t, "MonitoringAllowed"), pub, rec,
+		monitor.Config{Policy: json.RawMessage(`{}`)})
+
+	c := tick(m)[0]
+	if pub.calls != 0 {
+		t.Fatalf("an unretainable decision must not be published, got %d calls", pub.calls)
+	}
+	if c.Permission != monitor.PermissionBlocked {
+		t.Fatalf("permission must fail closed, got %s", c.Permission)
 	}
 }

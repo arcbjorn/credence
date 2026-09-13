@@ -52,6 +52,10 @@ type Publisher interface {
 // happened.
 type Recorder interface {
 	RecordCycle(ctx context.Context, c Cycle) error
+	// RetainDecision stores the canonical snapshot and assessment.
+	// Separate from RecordCycle because a cycle log is diagnostics while
+	// these bytes are the evidence replay runs against (`docs/04`).
+	RetainDecision(ctx context.Context, bindingKey, inputHash string, snapshot, assessment []byte) error
 }
 
 // Cycle is one pass of the loop, whatever its outcome.
@@ -173,6 +177,16 @@ func (m *Monitor) runTask(
 	}
 	if err := json.Unmarshal(raw, &result); err != nil {
 		return m.finish(ctx, cycle, fmt.Errorf("decode assessment: %w", err))
+	}
+
+	// Retained before publishing: a decision that fails to reach chain was
+	// still made, and `docs/04` requires it be replayable. Retaining only
+	// on success would lose exactly the cases worth investigating.
+	if m.rec != nil {
+		if err := m.rec.RetainDecision(
+			ctx, task.BindingKey, cycle.InputHash, inputJSON, raw); err != nil {
+			return m.finish(ctx, cycle, fmt.Errorf("retain: %w", err))
+		}
 	}
 
 	cycle.AssessmentID = result.AssessmentID
