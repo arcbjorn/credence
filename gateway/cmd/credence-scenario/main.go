@@ -198,6 +198,36 @@ func run(
 		assessment.Binding.AccountStateVersion = stateVersion
 		bindingForDraw := assessment.Binding
 
+		// Commit to the exact action this loan will take. The account
+		// compares every execution against this hash, so it must be the
+		// real call -- adapter and calldata both -- not a placeholder.
+		//
+		// The deploy amount is knowable before origination: it is the
+		// balance the account will hold once the principal lands.
+		deployAmount := uint64(0)
+		if adapter != "" && deployBps > 0 {
+			at, err := reader.LatestBlock(ctx)
+			if err != nil {
+				return fmt.Errorf("loan %d: pin block: %w", i, err)
+			}
+			held, err := reader.TokenBalance(ctx, settlement, account, at)
+			if err != nil {
+				return fmt.Errorf("loan %d: read account balance: %w", i, err)
+			}
+			after := new(big.Int).Add(held, new(big.Int).SetUint64(principal))
+			deployAmount = new(big.Int).Div(
+				new(big.Int).Mul(after, new(big.Int).SetUint64(deployBps)),
+				big.NewInt(10_000)).Uint64()
+
+			adapterAddr, err := toAddress(adapter)
+			if err != nil {
+				return err
+			}
+			acquire := append(attest.Selector("acquire(uint256)"),
+				attest.Word(new(big.Int).SetUint64(deployAmount))...)
+			assessment.Terms.PermittedActionHash = actionHash(adapterAddr, acquire)
+		}
+
 		signature, err := attest.Sign(attest.Digest(domain, assessment), attestKey)
 		if err != nil {
 			return fmt.Errorf("loan %d: sign: %w", i, err)
@@ -231,23 +261,12 @@ func run(
 		// decision is being tested until the principal is actually at risk.
 		deployed := false
 		if adapter != "" && deployBps > 0 {
-			// Measured against the account's whole settlement balance,
-			// not the principal alone. Agent equity is the first loss
-			// layer, so leaving it in settlement while only the borrowed
-			// funds trade would let equity absorb any crash from the
-			// sidelines -- lenders could never be shown taking a loss,
-			// however far the asset fell.
-			at, err := reader.LatestBlock(ctx)
-			if err != nil {
-				return fmt.Errorf("loan %d: pin block: %w", i, err)
-			}
-			balance, err := reader.TokenBalance(ctx, settlement, account, at)
-			if err != nil {
-				return fmt.Errorf("loan %d: read account balance: %w", i, err)
-			}
-			amount := new(big.Int).Div(
-				new(big.Int).Mul(balance, new(big.Int).SetUint64(deployBps)),
-				big.NewInt(10_000)).Uint64()
+			// The amount committed to above. Measured against the
+			// account's whole settlement balance, not the principal
+			// alone: agent equity is the first loss layer, so leaving it
+			// in settlement while only the borrowed funds trade would let
+			// equity absorb any crash from the sidelines.
+			amount := deployAmount
 			if err := deployPrincipal(ctx, w, reader, account, settlement,
 				adapter, amount); err != nil {
 				return fmt.Errorf("loan %d: deploy principal: %w", i, err)
@@ -398,6 +417,24 @@ func enrollLoan(
 	// first tick rather than assuming the origination still holds.
 	return reg.OpenLoan(ctx, chainKey, strconv.FormatUint(loanID, 10),
 		stateVersion, 0)
+}
+
+// actionHash mirrors the credit account's permitted-action commitment:
+// keccak256(abi.encode(adapter, data)).
+//
+// abi.encode of (address, bytes) is a head of two words -- the address and
+// the offset to the bytes -- followed by the length and the right-padded
+// payload. Computed here rather than approximated, because a mismatch
+// makes every execution revert as an unpermitted action.
+func actionHash(adapter attest.Address, data []byte) attest.Hash {
+	out := attest.AddressWord(adapter)
+	out = append(out, attest.Word(big.NewInt(64))...)
+	out = append(out, attest.Word(big.NewInt(int64(len(data))))...)
+	out = append(out, data...)
+	if pad := len(data) % 32; pad != 0 {
+		out = append(out, make([]byte, 32-pad)...)
+	}
+	return attest.KeccakBytes(out)
 }
 
 // unwindAll closes the whole risky position back into settlement.
