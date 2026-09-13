@@ -169,6 +169,45 @@ credence evidence inspect --assessment <id>
 credence scenario compare --run <a> --run <b>
 ```
 
+### What the envelope actually commits to
+
+`assessment_hash` is the canonical hash of the whole retained document, so
+two assessments differing only in their reasons, stress results, or terms
+produce different signed calldata. Hashing the assessment *ID* instead
+would make the signature attest to a name rather than a decision, and
+replay against chain would prove nothing.
+
+`evidence_root` is the input hash when nothing was omitted, and the input
+hash combined with the sorted set of omitted evidence IDs otherwise. A zero
+root asserts "no evidence" for every assessment — both false and
+unverifiable.
+
+The policy the engine reports must equal the policy the binding is signed
+under. A divergence means attesting that a decision was produced under a
+policy the engine never saw, so it is refused at the boundary.
+
+### Coverage is proven, not assumed
+
+Registration is not coverage. A binding enrolled after its account was
+already active has outcomes the gateway never indexed, so `indexed_from`
+records where enumeration actually began. Zero — the default — reads as
+unproven, and unproven coverage does not earn what a verified record does:
+it halves the demonstrated repayment weight. Resolved defaults and policy
+breaches each subtract a fixed slice of it.
+
+> The precise penalty for a past resolved default still needs a published
+> policy ([12 · Claims & Roadmap](12-claims-roadmap.md)). Until then the
+> rule is coarse, but visible and conservative rather than absent.
+
+### Reported evidence describes what was decided
+
+Stress cases reported beside an **approval** describe the portfolio that
+draw produces — principal, reserved interest, and the declared action's
+effect on positions. Reporting the pre-draw book beside a positive grant
+shows a debt-free account stressed against zero debt: evidence for a loan
+that will never exist. A **denial** reports the portfolio as it stands,
+which is what a reader needs when no draw will happen.
+
 ## Persistence
 
 | Table | Purpose |
