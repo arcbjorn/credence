@@ -24,7 +24,7 @@
     "worst_brier_ppm": 250000
   },
   "account_hard_cap": "12000000000",
-  "base_history_cap": "10000000000",
+  "base_history_cap": "5000000000",
   "history_growth_per_ppm": 10000,
   "max_evidence_age_seconds": 3600,
   "funding_rate_bps": 450,
