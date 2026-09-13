@@ -282,3 +282,6 @@ func SignerAddress(privKey *secp256k1.PrivateKey) Address {
 	copy(addr[:], h[12:])
 	return addr
 }
+
+// KeccakBytes hashes raw bytes, for callers computing contract-side keys.
+func KeccakBytes(b []byte) Hash { return keccak(b) }
