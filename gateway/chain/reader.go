@@ -48,10 +48,26 @@ type Reader struct {
 	rpc   *RPC
 	addr  Addresses
 	risky RiskyAssetPolicy
+	// riskySource is an on-chain IPriceSource. When set, it supersedes
+	// the declared price for marking positions.
+	riskySource string
 }
 
 func NewReader(rpc *RPC, addr Addresses) *Reader {
 	return &Reader{rpc: rpc, addr: addr}
+}
+
+// WithRiskySource marks a position at a price read from chain rather than
+// at the declared policy price.
+//
+// Without this the policy price is a constant, so a position's mark never
+// changes and no market move can alter a decision -- the scheduler would
+// reassess on a move and the engine would reach the same answer every
+// time. Empty means keep the declared price, which is honest for a
+// facility that genuinely has no oracle.
+func (r *Reader) WithRiskySource(source string) *Reader {
+	r.riskySource = source
+	return r
 }
 
 // WithRiskyAsset sets the valuation policy for the risky asset.
@@ -168,11 +184,33 @@ func (r *Reader) positionsAt(
 		normalized = new(big.Int).Mul(amount, multiplier)
 	}
 
+	// Prefer an observed price over the declared one. A read failure is an
+	// error, not a silent fall back to policy: marking a position at a
+	// stale constant while the feed is down would understate risk exactly
+	// when the market is most likely moving.
+	price := new(big.Int).SetUint64(r.risky.Price)
+	scale := r.risky.PriceScale
+	if r.riskySource != "" {
+		obs, err := r.RiskyPriceAt(ctx, r.riskySource, blockNumber)
+		if err != nil {
+			return nil, fmt.Errorf("risky price: %w", err)
+		}
+		price, scale = obs.Price, obs.Scale
+
+		// The amount was normalized to the DECLARED scale above; if the
+		// source reports a different one, that normalization is wrong.
+		if scale != r.risky.PriceScale {
+			return nil, fmt.Errorf(
+				"risky price scale %d from source does not match declared %d",
+				scale, r.risky.PriceScale)
+		}
+	}
+
 	return []evidence.Position{{
 		Asset:      r.addr.Risky,
 		Amount:     normalized.String(),
-		Price:      new(big.Int).SetUint64(r.risky.Price).String(),
-		PriceScale: r.risky.PriceScale,
+		Price:      price.String(),
+		PriceScale: scale,
 		HaircutBps: r.risky.HaircutBps,
 	}}, nil
 }
