@@ -305,6 +305,19 @@ func run(
 			return fmt.Errorf("loan %d: sign: %w", i, err)
 		}
 
+		// Commit the forecast BEFORE the quote is accepted, let alone
+		// funded. `docs/06`: a forecast recorded after the outcome is
+		// known is not a forecast, so commitment order is what makes the
+		// Brier score mean anything.
+		if enrollDB != "" {
+			if err := commitForecast(
+				ctx, enrollDB, binding, chainKey, i, block.Timestamp,
+			); err != nil {
+				return fmt.Errorf("loan %d: commit forecast: %w", i, err)
+			}
+			log.Printf("loan %d: forecast committed before funding", i)
+		}
+
 		log.Printf("loan %d: accepting quote at sequence %d", i, assessment.Sequence)
 		acceptTx, err := w.Send(ctx, oracle, attest.EncodeAccept(assessment, signature))
 		if err != nil {
@@ -389,6 +402,22 @@ func run(
 			}
 			log.Printf("loan %d: repaid", i)
 			repaidSoFar++
+
+			// The horizon has passed, so the forecast resolves. A loan
+			// that repaid without the strategy being closed at a loss did
+			// not see the drawdown it forecast.
+			if enrollDB != "" {
+				after, err := rpc.LatestBlock(ctx)
+				if err != nil {
+					return fmt.Errorf("loan %d: pin block: %w", i, err)
+				}
+				if err := resolveForecast(
+					ctx, enrollDB, chainKey, i, false, after.Timestamp,
+				); err != nil {
+					return fmt.Errorf("loan %d: resolve forecast: %w", i, err)
+				}
+				log.Printf("loan %d: forecast resolved", i)
+			}
 		} else if enrollDB != "" {
 			// Only the loan left open is enrolled. Continuous
 			// underwriting governs live debt, so enrolling a repaid loan
@@ -455,39 +484,8 @@ func enrollLoan(
 	defer db.Close()
 	reg := store.NewRegistry(db)
 
-	agentKey := fmt.Sprintf("%s:%s:%s",
-		binding.IdentityRegistryChainID,
-		addressHex(binding.IdentityRegistry),
-		binding.AgentID)
-
-	if err := reg.RegisterAgent(ctx, store.Agent{
-		AgentKey:                agentKey,
-		IdentityRegistryChainID: binding.IdentityRegistryChainID.Uint64(),
-		IdentityRegistry:        addressHex(binding.IdentityRegistry),
-		AgentID:                 binding.AgentID.String(),
-	}); err != nil {
-		return fmt.Errorf("register agent: %w", err)
-	}
-
-	// The binding key is the on-chain one, not a local string: the oracle
-	// rejects an assessment bound to anything else.
-	if err := reg.RegisterBinding(ctx, store.Binding{
-		BindingKey:    chainKey,
-		AgentKey:      agentKey,
-		Operator:      operator,
-		CreditAccount: addressHex(account),
-		FacilityID:    binding.FacilityID.String(),
-		ConfigVersion: binding.ConfigVersion,
-		ConfigHash:    hashHex(binding.ConfigHash),
-		PolicyEpoch:   binding.PolicyEpoch,
-		PolicyHash:    hashHex(binding.PolicyHash),
-		// The scenario creates the account in this same run, so indexing
-		// genuinely covers its whole history. A real deployment must
-		// record where its indexer actually started, and leave this zero
-		// when it cannot prove coverage.
-		IndexedFrom: 1,
-	}); err != nil {
-		return fmt.Errorf("register binding: %w", err)
+	if err := registerBindingFor(ctx, reg, binding, chainKey); err != nil {
+		return err
 	}
 
 	// No observation time is known yet, so zero is recorded deliberately:
@@ -513,6 +511,51 @@ func actionHash(adapter attest.Address, data []byte) attest.Hash {
 		out = append(out, make([]byte, 32-pad)...)
 	}
 	return attest.KeccakBytes(out)
+}
+
+// registerBindingFor records the agent and binding a run operates under.
+//
+// Shared because a forecast is committed before the loan is enrolled, and
+// both need the binding row to exist. Idempotent, so whichever runs first
+// establishes it.
+func registerBindingFor(
+	ctx context.Context,
+	reg *store.Registry,
+	binding attest.Binding,
+	chainKey string,
+) error {
+	agentKey := fmt.Sprintf("%s:%s:%s",
+		binding.IdentityRegistryChainID,
+		addressHex(binding.IdentityRegistry),
+		binding.AgentID)
+
+	if err := reg.RegisterAgent(ctx, store.Agent{
+		AgentKey:                agentKey,
+		IdentityRegistryChainID: binding.IdentityRegistryChainID.Uint64(),
+		IdentityRegistry:        addressHex(binding.IdentityRegistry),
+		AgentID:                 binding.AgentID.String(),
+	}); err != nil {
+		return fmt.Errorf("register agent: %w", err)
+	}
+
+	// The binding key is the on-chain one, not a local string: the oracle
+	// rejects an assessment bound to anything else.
+	return reg.RegisterBinding(ctx, store.Binding{
+		BindingKey:    chainKey,
+		AgentKey:      agentKey,
+		Operator:      addressHex(binding.Operator),
+		CreditAccount: addressHex(binding.CreditAccount),
+		FacilityID:    binding.FacilityID.String(),
+		ConfigVersion: binding.ConfigVersion,
+		ConfigHash:    hashHex(binding.ConfigHash),
+		PolicyEpoch:   binding.PolicyEpoch,
+		PolicyHash:    hashHex(binding.PolicyHash),
+		// The scenario creates the account in this same run, so indexing
+		// genuinely covers its whole history. A real deployment must
+		// record where its indexer actually started, and leave this zero
+		// when it cannot prove coverage.
+		IndexedFrom: 1,
+	})
 }
 
 // unwindAll closes the whole risky position back into settlement.

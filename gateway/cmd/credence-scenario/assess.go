@@ -10,6 +10,7 @@ import (
 	"github.com/arcbjorn/credence/gateway/chain"
 	"github.com/arcbjorn/credence/gateway/evidence"
 	"github.com/arcbjorn/credence/gateway/riskclient"
+	"github.com/arcbjorn/credence/gateway/store"
 	"github.com/arcbjorn/credence/gateway/snapshot"
 )
 
@@ -256,4 +257,90 @@ func bindingSnapshotJSON(b attest.Binding, acceptedSequence uint64) (json.RawMes
 		"policy_hash":           hashHex(b.PolicyHash),
 		"accepted_sequence":     acceptedSequence,
 	})
+}
+
+// commitForecast records a drawdown-probability forecast before funding.
+//
+// The event `docs/06` defines: cash-flow-adjusted marked account NAV falls
+// more than 5% below its observed peak within 20 minutes. One quantity is
+// scored this release, chosen because it resolves precisely.
+//
+// The probability declines across a run as the agent accumulates history,
+// which is what makes repeated forecasts scoreable rather than a single
+// observation -- `docs/06` is explicit that one drawdown exceeding a
+// low-probability forecast is an observation, not proof of deception.
+func commitForecast(
+	ctx context.Context,
+	dbPath string,
+	binding attest.Binding,
+	chainKey string,
+	loanIndex int,
+	committedAt uint64,
+) error {
+	db, err := store.Open(ctx, dbPath)
+	if err != nil {
+		return fmt.Errorf("open store: %w", err)
+	}
+	defer db.Close()
+	reg := store.NewRegistry(db)
+
+	if err := registerBindingFor(ctx, reg, binding, chainKey); err != nil {
+		return err
+	}
+
+	// Declining confidence in a drawdown as the record builds.
+	probability := uint64(300_000)
+	if loanIndex > 1 {
+		probability = 300_000 / uint64(loanIndex)
+	}
+
+	payload, err := json.Marshal(map[string]any{
+		"event": "cash-flow-adjusted marked account NAV falls more than 5% " +
+			"below its observed peak during the next 20 minutes",
+		"probability_ppm":  probability,
+		"horizon_seconds":  1_200,
+		"observation":      "supported account, named price source, fixed cadence",
+		"early_exit_rule":  "scored on close; final unitized equity carries the horizon",
+		"committed_before": "disbursement",
+	})
+	if err != nil {
+		return err
+	}
+
+	return reg.CommitForecast(ctx, store.Forecast{
+		ForecastID:      fmt.Sprintf("%s:forecast:%d", chainKey, loanIndex),
+		BindingKey:      chainKey,
+		EventDefinition: "nav_drawdown_5pct_20m",
+		ProbabilityPPM:  probability,
+		HorizonSeconds:  1_200,
+		CommittedAt:     int64(committedAt),
+		Payload:         payload,
+	})
+}
+
+// resolveForecast records what the horizon actually showed.
+//
+// Called after the loan closes, so the outcome is observed rather than
+// assumed. A run that never resolves leaves the commitment counted as
+// unresolved, which takes the engine's maximum forecast penalty.
+func resolveForecast(
+	ctx context.Context,
+	dbPath, chainKey string,
+	loanIndex int,
+	occurred bool,
+	resolvedAt uint64,
+) error {
+	db, err := store.Open(ctx, dbPath)
+	if err != nil {
+		return fmt.Errorf("open store: %w", err)
+	}
+	defer db.Close()
+
+	resolution := store.DidNotOccur
+	if occurred {
+		resolution = store.Occurred
+	}
+	forecastID := fmt.Sprintf("%s:forecast:%d", chainKey, loanIndex)
+	return store.NewRegistry(db).ResolveForecast(
+		ctx, forecastID+":outcome", forecastID, resolution, int64(resolvedAt), nil)
 }
