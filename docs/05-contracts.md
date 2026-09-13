@@ -146,6 +146,8 @@ bumped state version — would let a stale quote fund.
 8. **Collection is bounded.** Recovery takes only what the loan is owed, and only the appointed keeper takes it. The surplus is the borrower's residual equity
 9. **Resolution before write-off.** A default requires every registered collateral asset exhausted, not merely the settlement token. Unsold positions leave the loan `RecoveryPending`
 10. **The receivable is the obligation.** Recovery marks principal *and* frozen interest unresolved, so the epoch cannot settle while either is still being collected
+11. **Configuration is immutable for an obligation's life.** A facility's route cannot be re-pinned while it has live loans, and an execution route cannot be *added* to an account that owes. Revocation stays open, because withdrawing a route only reduces what an account can do
+12. **Recovery needs a trigger.** Maturity passed, or risk permission withdrawn. Seizing a healthy, unmatured position would make every loan callable at will, which is not the instrument the borrower agreed to
 
 ## Trust assumptions
 

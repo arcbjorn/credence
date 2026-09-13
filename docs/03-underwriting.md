@@ -49,6 +49,37 @@ available_credit     max(facility_limit - outstanding_debt, 0)   (headroom)
 
 **`available_credit` is debt headroom, not drawable cash.** The separate `drawable_capacity` accounts for reserved interest, borrower capacity, lender liquidity, and origination gates. The one-active-loan rule can block a draw while headroom is positive; vault budget can block it too. Never present headroom as immediately borrowable. The demo's changing behavioral limit is `agent_capacity`; it does not change the pinned `facility_limit`.
 
+## Liquidation cost scales with depth
+
+The liquidity haircut is **not** a flat rate. Market impact grows with the
+square root of position size relative to available depth, which is the
+standard form for liquidation cost:
+
+```
+impact_bps = liquidity_haircut_bps × √(position_value / liquidity_depth)
+```
+
+| Position vs depth | Impact |
+|---|---|
+| size = depth | the full declared haircut |
+| size = depth / 4 | half of it |
+| size = depth / 100 | a tenth of it |
+
+A flat haircut misprices both ends: it over-penalises a small clip that
+barely moves the market, and under-penalises a book that *is* the market
+and cannot be sold at the observed price. Concentrated positions are
+exactly what the liquidity scenario exists to catch.
+
+**A declared depth of zero means undeclared, never infinite.** An
+undeclared market takes the maximum impact.
+
+Computed with an integer square root (Newton's method on `u128`), so no
+floating-point path produces a value used in authorization.
+
+> **Declare the depth the venue actually has.** A depth larger than the
+> venue's real liquidity makes every exit look costless — the same failure
+> as omitting the haircut entirely.
+
 ## Forecast penalty
 
 The versioned policy declares a positive integer `min_forecast_outcomes`, a maximum penalty with `0 < max_forecast_penalty_bps < 10_000`, and a table mapping comparable mean Brier loss to `forecast_penalty_bps` between zero and that maximum. Higher loss cannot reduce the penalty. With sufficient eligible resolved observations, use that table; otherwise use the **maximum penalty**, including when outcomes are missing or unobservable. No forecast credit is earned merely because observations are absent.
