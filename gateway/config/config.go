@@ -45,6 +45,10 @@ type Config struct {
 	// Policy
 	Scheduler SchedulerPolicy `json:"scheduler"`
 	Evidence  EvidencePolicy  `json:"evidence"`
+	Market    MarketPolicy    `json:"market"`
+
+	// StrategyID names the single supported strategy in v0.
+	StrategyID string `json:"strategy_id"`
 
 	// Engine policy, passed through opaquely: the gateway must not reshape
 	// what the engine hashes.
@@ -72,6 +76,20 @@ type SchedulerPolicy struct {
 	MaxEvidenceAgeSeconds int64  `json:"max_evidence_age_seconds"`
 	RefreshLeadSeconds    int64  `json:"refresh_lead_seconds"`
 	HeartbeatSeconds      int64  `json:"heartbeat_seconds"`
+}
+
+// MarketPolicy configures the one external evidence source.
+type MarketPolicy struct {
+	ProviderURL   string `json:"provider_url,omitempty"`
+	ClosesField   string `json:"closes_field,omitempty"`
+	TimeField     string `json:"time_field,omitempty"`
+	WindowSeconds uint64 `json:"window_seconds"`
+	// LiquidityDepth is a declared policy input, not an observation: no
+	// public feed reports the depth available to this protocol at
+	// liquidation.
+	LiquidityDepth string `json:"liquidity_depth"`
+	// StaticCloses serves scenario facilities only.
+	StaticCloses []uint64 `json:"static_closes,omitempty"`
 }
 
 type EvidencePolicy struct {
@@ -113,6 +131,15 @@ func (c *Config) applyDefaults() {
 	}
 	if c.SchemaVersion == "" {
 		c.SchemaVersion = "v1"
+	}
+	if c.StrategyID == "" {
+		c.StrategyID = "spot-v1"
+	}
+	if c.Market.ClosesField == "" {
+		c.Market.ClosesField = "closes"
+	}
+	if c.Market.TimeField == "" {
+		c.Market.TimeField = "observed_at"
 	}
 	if c.RequestedClass == "" {
 		c.RequestedClass = "PrototypeEligible"
@@ -193,6 +220,28 @@ func (c *Config) Validate() error {
 	}
 	if c.Scheduler.HeartbeatSeconds <= 0 {
 		return fmt.Errorf("config: scheduler.heartbeat_seconds must be positive")
+	}
+
+	if c.Market.WindowSeconds == 0 {
+		return fmt.Errorf("config: market.window_seconds must be positive")
+	}
+	if c.Market.LiquidityDepth == "" {
+		return fmt.Errorf("config: market.liquidity_depth is required")
+	}
+	// An observed facility cannot fall back to a static series: that would
+	// be synthetic evidence inside an executable decision (`docs/04`).
+	if c.FacilityPolicy == "Observed" && c.Market.ProviderURL == "" {
+		return fmt.Errorf("config: market.provider_url is required for an Observed facility")
+	}
+	if c.FacilityPolicy == "Observed" && len(c.Market.StaticCloses) > 0 {
+		return fmt.Errorf("config: market.static_closes is not permitted for an Observed facility")
+	}
+	if c.FacilityPolicy == "Scenario" && c.Market.ProviderURL == "" &&
+		len(c.Market.StaticCloses) < 2 {
+		return fmt.Errorf("config: a Scenario facility needs a provider or at least two static closes")
+	}
+	if err := validateAddress(c.Addresses.Vault); err != nil {
+		return fmt.Errorf("config: addresses.vault: %w", err)
 	}
 
 	if c.Evidence.ValiditySeconds == 0 {

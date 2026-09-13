@@ -40,6 +40,11 @@ const valid = `{
     "heartbeat_seconds": 600
   },
   "evidence": { "max_skew_seconds": 60, "validity_seconds": 300 },
+  "market": {
+    "provider_url": "http://127.0.0.1:9000/candles",
+    "window_seconds": 3600,
+    "liquidity_depth": "50000000000"
+  },
   "engine_policy": {}
 }`
 
@@ -152,5 +157,61 @@ func TestNonHexSignerKeyIsRejected(t *testing.T) {
 	t.Setenv(config.SignerKeyEnv, strings.Repeat("zz", 32))
 	if _, err := config.SignerKey(); err == nil {
 		t.Fatal("a non-hex key must be rejected")
+	}
+}
+
+// docs/04: an observed facility must not run on synthetic evidence. A
+// static series would be exactly that, inside an executable decision.
+func TestObservedFacilityRejectsStaticCloses(t *testing.T) {
+	body := strings.Replace(valid, `"window_seconds": 3600`,
+		`"window_seconds": 3600, "static_closes": [100, 101]`, 1)
+	_, err := config.Load(write(t, body))
+	if err == nil || !strings.Contains(err.Error(), "static_closes") {
+		t.Fatalf("expected a static_closes refusal, got %v", err)
+	}
+}
+
+// And it must have a real provider rather than falling back.
+func TestObservedFacilityRequiresProvider(t *testing.T) {
+	body := strings.Replace(valid,
+		`"provider_url": "http://127.0.0.1:9000/candles",`, "", 1)
+	_, err := config.Load(write(t, body))
+	if err == nil || !strings.Contains(err.Error(), "provider_url") {
+		t.Fatalf("expected a provider refusal, got %v", err)
+	}
+}
+
+// A scenario facility may use a static series, because synthetic evidence
+// is permitted there and the engine caps the result at ScenarioOnly.
+func TestScenarioFacilityAcceptsStaticCloses(t *testing.T) {
+	body := strings.Replace(valid, `"facility_policy": "Observed"`,
+		`"facility_policy": "Scenario", "scenario_id": "run-1"`, 1)
+	body = strings.Replace(body,
+		`"provider_url": "http://127.0.0.1:9000/candles",`,
+		`"static_closes": [10000, 10100, 10201],`, 1)
+
+	if _, err := config.Load(write(t, body)); err != nil {
+		t.Fatalf("a scenario facility with a static series must load: %v", err)
+	}
+}
+
+// A scenario facility with neither a provider nor a usable series has no
+// market evidence at all.
+func TestScenarioFacilityNeedsSomeMarketSource(t *testing.T) {
+	body := strings.Replace(valid, `"facility_policy": "Observed"`,
+		`"facility_policy": "Scenario", "scenario_id": "run-1"`, 1)
+	body = strings.Replace(body,
+		`"provider_url": "http://127.0.0.1:9000/candles",`, "", 1)
+
+	if _, err := config.Load(write(t, body)); err == nil {
+		t.Fatal("a scenario facility with no market source must be rejected")
+	}
+}
+
+func TestLiquidityDepthIsRequired(t *testing.T) {
+	body := strings.Replace(valid, `"liquidity_depth": "50000000000"`,
+		`"liquidity_depth": ""`, 1)
+	if _, err := config.Load(write(t, body)); err == nil {
+		t.Fatal("liquidity depth must be declared")
 	}
 }

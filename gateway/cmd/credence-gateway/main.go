@@ -24,10 +24,12 @@ import (
 	"github.com/arcbjorn/credence/gateway/chain"
 	"github.com/arcbjorn/credence/gateway/config"
 	"github.com/arcbjorn/credence/gateway/evidence"
+	"github.com/arcbjorn/credence/gateway/market"
 	"github.com/arcbjorn/credence/gateway/monitor"
 	"github.com/arcbjorn/credence/gateway/publisher"
 	"github.com/arcbjorn/credence/gateway/riskclient"
 	"github.com/arcbjorn/credence/gateway/scheduler"
+	"github.com/arcbjorn/credence/gateway/sources"
 	"github.com/arcbjorn/credence/gateway/store"
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
 )
@@ -149,7 +151,16 @@ func build(ctx context.Context, cfg *config.Config) (*deps, error) {
 		scenarioID = &id
 	}
 
-	collector := evidence.New(reader, unavailableMarket{}, unavailableHistory{},
+	marketReader, err := buildMarketReader(cfg)
+	if err != nil {
+		return nil, err
+	}
+	historyReader := sources.NewHistory(
+		store.NewDerived(db),
+		chain.NewPortfolioReader(rpc, cfg.Addresses.Vault, cfg.StrategyID),
+	)
+
+	collector := evidence.New(reader, marketReader, historyReader,
 		bindingLookup(db), evidence.Config{
 			SchemaVersion:   cfg.SchemaVersion,
 			FacilityPolicy:  cfg.FacilityPolicy,
@@ -380,27 +391,32 @@ func mustJSON(v any) []byte {
 	return raw
 }
 
-// Placeholder readers. They return errors rather than fabricated values, so
-// the engine records Unavailable with a reason instead of deciding on
-// invented evidence.
-type unavailableMarket struct{}
+// buildMarketReader constructs the market source for this facility.
+//
+// A scenario facility may use a configured series, because synthetic
+// evidence is permitted there and the engine caps the result at
+// ScenarioOnly. An observed facility must have a real provider: falling
+// back to a static series would feed invented data into an executable
+// decision, which `docs/04` forbids outright.
+func buildMarketReader(cfg *config.Config) (evidence.MarketReader, error) {
+	if cfg.Market.ProviderURL != "" {
+		provider := market.NewHTTPProvider(
+			cfg.Market.ProviderURL,
+			cfg.Market.ClosesField,
+			cfg.Market.TimeField,
+			cfg.RPCTimeout,
+		)
+		return market.NewReader(provider, cfg.Market.WindowSeconds,
+			cfg.Market.LiquidityDepth), nil
+	}
 
-func (unavailableMarket) Market(context.Context) (evidence.MarketState, error) {
-	return evidence.MarketState{}, fmt.Errorf("no market reader configured")
-}
-
-type unavailableHistory struct{}
-
-func (unavailableHistory) History(context.Context, string, evidence.BlockRef) (json.RawMessage, error) {
-	return nil, fmt.Errorf("no history reader configured")
-}
-
-func (unavailableHistory) Forecasts(context.Context, string) (json.RawMessage, error) {
-	return nil, fmt.Errorf("no forecast reader configured")
-}
-
-func (unavailableHistory) Portfolio(context.Context, evidence.BlockRef) (json.RawMessage, error) {
-	return nil, fmt.Errorf("no portfolio reader configured")
+	if cfg.FacilityPolicy != "Scenario" {
+		return nil, fmt.Errorf(
+			"config: market.provider_url is required for an Observed facility; " +
+				"a static series would be synthetic evidence in an executable decision")
+	}
+	return market.NewReader(market.StaticProvider{Closes: cfg.Market.StaticCloses},
+		cfg.Market.WindowSeconds, cfg.Market.LiquidityDepth), nil
 }
 
 func bindingLookup(db *store.Store) func(string) (evidence.BindingInfo, bool) {
