@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
+	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -201,3 +202,88 @@ func TestPublisherViewWithoutSubmitterRefuses(t *testing.T) {
 type errString string
 
 func (e errString) Error() string { return string(e) }
+
+// An 18-decimal token against a 6-decimal price scale is the common case,
+// and getting it wrong overstates a position by twelve orders of magnitude
+// — enough to make a dangerous book look safe, or a safe one look absurd.
+func TestRiskyPositionIsScaledToThePrice(t *testing.T) {
+	// 2 whole tokens at 18 decimals.
+	const eighteenDecimalBalance = "0000000000000000000000000000000000000000000000001bc16d674ec80000"
+
+	rpc := rpcServer(t, func(method string, params []any) (any, error) {
+		if method == "eth_getBlockByNumber" {
+			return map[string]string{"number": "0x10", "hash": "0xa", "timestamp": "0x20"}, nil
+		}
+		// Every uint call returns 2e18; only the position read matters here.
+		return "0x" + eighteenDecimalBalance, nil
+	})
+
+	reader := chain.NewReader(rpc, chain.Addresses{
+		LoanManager: "0x" + strings.Repeat("11", 20),
+		Vault:       "0x" + strings.Repeat("22", 20),
+		Settlement:  "0x" + strings.Repeat("33", 20),
+		Risky:       "0x" + strings.Repeat("44", 20),
+	}).WithRiskyAsset(chain.RiskyAssetPolicy{
+		Price:      2_000_000_000, // 2000.000000
+		PriceScale: 6,
+		Decimals:   18,
+		HaircutBps: 500,
+	})
+
+	state, err := reader.AccountAt(context.Background(),
+		"0x"+strings.Repeat("55", 20), evidence.BlockRef{Number: 16})
+	if err != nil {
+		t.Fatalf("account: %v", err)
+	}
+	if len(state.Positions) != 1 {
+		t.Fatalf("expected one position, got %d", len(state.Positions))
+	}
+
+	// 2e18 raw, rescaled to 6 decimals, is 2_000_000.
+	if state.Positions[0].Amount != "2000000" {
+		t.Fatalf("amount = %s, want 2000000 — an 18-decimal balance must be "+
+			"rescaled to the price scale", state.Positions[0].Amount)
+	}
+
+	// And it marks at 2 * 2000 = 4000 settlement units.
+	amount := mustBig(t, state.Positions[0].Amount)
+	price := mustBig(t, state.Positions[0].Price)
+	marked := new(big.Int).Div(new(big.Int).Mul(amount, price), big.NewInt(1_000_000))
+	if marked.String() != "4000000000" {
+		t.Fatalf("marked value = %s, want 4000000000 (4000.000000)", marked)
+	}
+}
+
+// A deployment with no risky asset reports no positions, which is different
+// from failing to read one.
+func TestNoRiskyAssetYieldsNoPositions(t *testing.T) {
+	rpc := rpcServer(t, func(method string, _ []any) (any, error) {
+		if method == "eth_getBlockByNumber" {
+			return map[string]string{"number": "0x10", "hash": "0xa", "timestamp": "0x20"}, nil
+		}
+		return "0x" + strings.Repeat("00", 31) + "05", nil
+	})
+	reader := chain.NewReader(rpc, chain.Addresses{
+		LoanManager: "0x" + strings.Repeat("11", 20),
+		Vault:       "0x" + strings.Repeat("22", 20),
+		Settlement:  "0x" + strings.Repeat("33", 20),
+	})
+
+	state, err := reader.AccountAt(context.Background(),
+		"0x"+strings.Repeat("55", 20), evidence.BlockRef{Number: 16})
+	if err != nil {
+		t.Fatalf("account: %v", err)
+	}
+	if len(state.Positions) != 0 {
+		t.Fatalf("expected no positions, got %d", len(state.Positions))
+	}
+}
+
+func mustBig(t *testing.T, s string) *big.Int {
+	t.Helper()
+	v, ok := new(big.Int).SetString(s, 10)
+	if !ok {
+		t.Fatalf("not an integer: %q", s)
+	}
+	return v
+}
