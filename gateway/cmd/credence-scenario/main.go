@@ -19,12 +19,14 @@ import (
 	"log"
 	"math/big"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/arcbjorn/credence/gateway/attest"
 	"github.com/arcbjorn/credence/gateway/chain"
 	"github.com/arcbjorn/credence/gateway/evidence"
 	"github.com/arcbjorn/credence/gateway/publisher"
+	"github.com/arcbjorn/credence/gateway/store"
 	"github.com/arcbjorn/credence/gateway/wallet"
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
 )
@@ -40,6 +42,8 @@ func main() {
 	principal := flag.Uint64("principal", 2_000_000_000, "principal in base units")
 	adapter := flag.String("adapter", "", "strategy adapter; deploys principal when set")
 	risky := flag.String("risky", "", "risky asset; required with -adapter")
+	enroll := flag.String("enroll", "",
+		"gateway database to enrol the open loan into, so it is monitored")
 	priceSource := flag.String("price-source", "",
 		"price source to refresh after advancing chain time")
 	deployBps := flag.Uint64("deploy-bps", 0,
@@ -51,7 +55,7 @@ func main() {
 
 	if err := run(*rpcURL, *oracle, *manager, *account, *settlement,
 		*chainID, *deploymentID, *principal, *loans, *hold,
-		*adapter, *risky, *priceSource, *deployBps); err != nil {
+		*adapter, *risky, *priceSource, *enroll, *deployBps); err != nil {
 		log.Fatalf("scenario: %v", err)
 	}
 }
@@ -61,7 +65,7 @@ func run(
 	chainID, deploymentID, principal uint64,
 	loans int,
 	holdSeconds uint64,
-	adapter, riskyAsset, priceSource string,
+	adapter, riskyAsset, priceSource, enrollDB string,
 	deployBps uint64,
 ) error {
 	ctx := context.Background()
@@ -293,6 +297,16 @@ func run(
 				return fmt.Errorf("loan %d: repay: %w", i, err)
 			}
 			log.Printf("loan %d: repaid", i)
+		} else if enrollDB != "" {
+			// Only the loan left open is enrolled. Continuous
+			// underwriting governs live debt, so enrolling a repaid loan
+			// would have the gateway reassess an obligation that no
+			// longer exists.
+			if err := enrollLoan(ctx, enrollDB, binding, chainKey,
+				loanID, accountAddr, w.Address()); err != nil {
+				return fmt.Errorf("loan %d: enrol: %w", i, err)
+			}
+			log.Printf("loan %d: enrolled for monitoring", i)
 		}
 
 		// Refresh after any time advance so the next quote is written
@@ -305,6 +319,70 @@ func run(
 
 	fmt.Printf("chain_key=%s\n", chainKey)
 	return nil
+}
+
+// addressHex and hashHex render fixed-size values for the registry, which
+// stores them as lowercase hex strings.
+func addressHex(a attest.Address) string { return "0x" + hex.EncodeToString(a[:]) }
+func hashHex(h attest.Hash) string       { return "0x" + hex.EncodeToString(h[:]) }
+
+// enrollLoan registers the agent, binding, and open loan in the gateway's
+// store so the monitoring loop picks the loan up at startup.
+//
+// The gateway has no chain discovery: it reassesses what its registry says
+// is live. Without this the loop runs correctly and tracks nothing, which
+// looks healthy in the logs while no loan is actually being underwritten.
+func enrollLoan(
+	ctx context.Context,
+	dbPath string,
+	binding attest.Binding,
+	chainKey string,
+	loanID uint64,
+	account attest.Address,
+	operator string,
+) error {
+	db, err := store.Open(ctx, dbPath)
+	if err != nil {
+		return fmt.Errorf("open store: %w", err)
+	}
+	defer db.Close()
+	reg := store.NewRegistry(db)
+
+	agentKey := fmt.Sprintf("%s:%s:%s",
+		binding.IdentityRegistryChainID,
+		addressHex(binding.IdentityRegistry),
+		binding.AgentID)
+
+	if err := reg.RegisterAgent(ctx, store.Agent{
+		AgentKey:                agentKey,
+		IdentityRegistryChainID: binding.IdentityRegistryChainID.Uint64(),
+		IdentityRegistry:        addressHex(binding.IdentityRegistry),
+		AgentID:                 binding.AgentID.String(),
+	}); err != nil {
+		return fmt.Errorf("register agent: %w", err)
+	}
+
+	// The binding key is the on-chain one, not a local string: the oracle
+	// rejects an assessment bound to anything else.
+	if err := reg.RegisterBinding(ctx, store.Binding{
+		BindingKey:    chainKey,
+		AgentKey:      agentKey,
+		Operator:      operator,
+		CreditAccount: addressHex(account),
+		FacilityID:    binding.FacilityID.String(),
+		ConfigVersion: binding.ConfigVersion,
+		ConfigHash:    hashHex(binding.ConfigHash),
+		PolicyEpoch:   binding.PolicyEpoch,
+		PolicyHash:    hashHex(binding.PolicyHash),
+	}); err != nil {
+		return fmt.Errorf("register binding: %w", err)
+	}
+
+	// No observation time is known yet, so zero is recorded deliberately:
+	// the scheduler reads that as maximally stale and reassesses on the
+	// first tick rather than assuming the origination still holds.
+	return reg.OpenLoan(ctx, chainKey, strconv.FormatUint(loanID, 10),
+		binding.AccountStateVersion, 0)
 }
 
 // unwindAll closes the whole risky position back into settlement.
