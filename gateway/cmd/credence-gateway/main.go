@@ -129,7 +129,7 @@ func build(ctx context.Context, cfg *config.Config) (*deps, error) {
 		PriceScale: cfg.RiskyAsset.PriceScale,
 		Decimals:   cfg.RiskyAsset.Decimals,
 		HaircutBps: cfg.RiskyAsset.HaircutBps,
-	})
+	}).WithRiskySource(cfg.Addresses.PriceSource)
 
 	// The operator key spends gas; the attestation key only signs. Keeping
 	// them separate means a compromised attestor cannot move funds.
@@ -182,7 +182,7 @@ func build(ctx context.Context, cfg *config.Config) (*deps, error) {
 		scenarioID = &id
 	}
 
-	marketReader, err := buildMarketReader(cfg)
+	marketReader, err := buildMarketReader(cfg, rpc)
 	if err != nil {
 		return nil, err
 	}
@@ -492,7 +492,7 @@ func mustJSON(v any) []byte {
 // ScenarioOnly. An observed facility must have a real provider: falling
 // back to a static series would feed invented data into an executable
 // decision, which `docs/04` forbids outright.
-func buildMarketReader(cfg *config.Config) (evidence.MarketReader, error) {
+func buildMarketReader(cfg *config.Config, rpc *chain.RPC) (evidence.MarketReader, error) {
 	if cfg.Market.ProviderURL != "" {
 		provider := market.NewHTTPProvider(
 			cfg.Market.ProviderURL,
@@ -509,7 +509,24 @@ func buildMarketReader(cfg *config.Config) (evidence.MarketReader, error) {
 			"config: market.provider_url is required for an Observed facility; " +
 				"a static series would be synthetic evidence in an executable decision")
 	}
-	return market.NewReader(market.StaticProvider{Closes: cfg.Market.StaticCloses},
+	// A scenario series is stamped with CHAIN time, not the gateway's
+	// clock. The collector measures skew against the pinned block, so a
+	// wall-clock stamp reads as stale by however far the two have drifted
+	// -- which a scenario that advances chain time guarantees.
+	return market.NewReader(
+		market.StaticProvider{
+			Closes: cfg.Market.StaticCloses,
+			ObservedAt: func() uint64 {
+				b, err := rpc.LatestBlock(context.Background())
+				if err != nil {
+					// Zero reads as maximally stale, which blocks. That is
+					// the right failure: an unreachable chain means the
+					// observation cannot be placed in time at all.
+					return 0
+				}
+				return b.Timestamp
+			},
+		},
 		cfg.Market.WindowSeconds, cfg.Market.LiquidityDepth), nil
 }
 
@@ -541,6 +558,15 @@ func bindingLookup(db *store.Store) func(string) (evidence.BindingInfo, bool) {
 			return evidence.BindingInfo{}, false
 		}
 
+		// The state version the permission is bound to. Read rather than
+		// defaulted: the engine compares it against the account's live
+		// version, so a placeholder zero blocks every cycle on an account
+		// that has executed even once.
+		stateVersion, err := registry.WatchedStateVersion(ctx, bindingKey)
+		if err != nil {
+			return evidence.BindingInfo{}, false
+		}
+
 		// The accepted sequence is read from chain at collection time, so
 		// it is left at zero here and the collector supplies the proposal.
 		raw, err := json.Marshal(map[string]any{
@@ -552,7 +578,7 @@ func bindingLookup(db *store.Store) func(string) (evidence.BindingInfo, bool) {
 			"operator":              binding.Operator,
 			"credit_account":        binding.CreditAccount,
 			"facility_id":           binding.FacilityID,
-			"account_state_version": 0,
+			"account_state_version": stateVersion,
 			"config_version":        binding.ConfigVersion,
 			"config_hash":           binding.ConfigHash,
 			"policy_epoch":          binding.PolicyEpoch,
