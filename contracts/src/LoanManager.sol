@@ -325,14 +325,20 @@ contract LoanManager {
         uint256 interestDue = accruedInterest(loanId) - loan.interestCollected;
         uint256 principal = loan.principalOutstanding;
 
-        CreditAccount(loan.account).sweepTo(address(asset), address(vault), principal + interestDue);
-
+        // Effects BEFORE the transfer. A settlement token that calls back
+        // during sweepTo would otherwise find this loan still Active with
+        // its principal outstanding, repay a second time, and record the
+        // principal twice at the vault -- underflowing outstandingPrincipal
+        // on the way out (`docs/11`: reentrant callbacks cannot alter debt
+        // or accounting before checks settle).
         loan.principalOutstanding = 0;
         loan.interestCollected += interestDue;
         loan.status = Status.Repaid;
         loan.resolvedAt = uint64(block.timestamp);
         activeLoan[loan.account] = 0;
         _releaseReservation(loanId);
+
+        CreditAccount(loan.account).sweepTo(address(asset), address(vault), principal + interestDue);
 
         vault.recordPrincipalRepaid(loan.account, principal);
         vault.recordInterestCollected(loan.account, interestDue);
@@ -429,20 +435,25 @@ contract LoanManager {
         }
         require(amount > 0, ZeroAmount());
 
-        CreditAccount(loan.account).sweepTo(address(asset), address(vault), amount);
-
         uint256 toPrincipal = amount > loan.principalOutstanding
             ? loan.principalOutstanding
             : amount;
         uint256 toInterest = amount - toPrincipal;
 
+        // Effects before the transfer, for the same reason repay() orders
+        // them that way: a settlement token that calls back during sweepTo
+        // would otherwise see this loan's principal still outstanding and
+        // collect against it twice.
+        loan.principalOutstanding -= toPrincipal;
+        loan.interestCollected += toInterest;
+
+        CreditAccount(loan.account).sweepTo(address(asset), address(vault), amount);
+
         if (toPrincipal > 0) {
-            loan.principalOutstanding -= toPrincipal;
             vault.recordPrincipalRepaid(loan.account, toPrincipal);
             vault.clearReceivable(toPrincipal);
         }
         if (toInterest > 0) {
-            loan.interestCollected += toInterest;
             vault.recordInterestCollected(loan.account, toInterest);
             vault.clearReceivable(toInterest);
         }
