@@ -27,18 +27,18 @@ Foundry unit plus invariant and fuzz tests. **Test observable failures, not priv
 - A repeated draw, duplicate report, or transaction retry cannot duplicate an economic effect
 - Wrong chain, contract, account, asset, action, policy, configuration, or evidence domain fails authorization
 - Policy epoch/hash and configuration version/hash each match their pinned records; swapping either identifier or hash is rejected
-- A CRE facility rejects development attestations for both origination and monitoring; provider failure cannot change its route
+- A CRE facility rejects development attestations for both origination and monitoring; provider failure cannot change its route — `forge test --match-test CREFacility`
 - Monitoring updates cannot originate loans or carry loan terms; blocked updates supersede unused quotes, while expired permission blocks risk increases without blocking repayment
 - Grants and draws match the exact committed request amount; partial or larger draws fail
 - Expired or superseded quotes cannot originate loans
 - Owners, agents, adapters, and rescue functions cannot remove assets while debt remains
 - **A bad-price trade through an otherwise approved venue is rejected**
-- Reentrant callbacks cannot alter debt or accounting before checks settle
+- Reentrant callbacks cannot alter debt or accounting before checks settle — `forge test --match-contract Reentrancy` repays and collects through a settlement token that calls back mid-transfer
 - Pauses preserve repayment and permitted recovery
 - **Healthy-account checks do not lock an unhealthy account out of a valid risk-reducing recovery action**
 - Stale data blocks new risk without inventing a zero liquidation value
 - Lender withdrawals are bounded by actual settled cash; collections and losses cannot be double-counted
-- Identity transfer leaves existing debt and recovery rights intact
+- Identity transfer leaves existing debt and recovery rights intact — `forge test --match-test IdentityTransfer`
 - **Unavailable liquidity produces `RecoveryPending`, not fictitious repayment**
 
 ## Integration and operational
