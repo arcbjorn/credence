@@ -92,7 +92,7 @@ assumed; a green suite is not evidence for a behavioural claim.
 | Default handling | evidence | `scripts/demo-default.sh` |
 | Replay | evidence | `scripts/demo-monitor.sh` (beat 8, with its tampering control) |
 | Missing / stale data | evidence | `forge test --match-test ExecuteRequiresStandingPermission`; engine blocks on stale required evidence |
-| **Independent reputation reader** | **partial** | `scripts/demo-feedback.sh` publishes and reads back with no Credence code; against a **local adapter**, not the selected network's ERC-8004 registry, so the release row stays open |
+| **Independent reputation reader** | **not met** | `scripts/demo-feedback.sh` exercises a LOCAL adapter whose ABI is incompatible with ERC-8004 in both directions. Porting is a rewrite, not a config change; see [06 · Identity](06-identity-forecasts.md#what-is-not-integrated) |
 | Integration honesty | evidence | scenario facility and test assets labelled; `TestRiskyAsset` is named *NOT ETH* |
 | Reproducibility | evidence | the three scripts run from a clean chain |
 
@@ -127,6 +127,11 @@ Three observations permit an average, **not a reliability claim**
 (`docs/06`). No calibration statement is made from this sample.
 
 ### Independent reader — what is and is not demonstrated
+
+> **Corrected 14 September.** An earlier version of this section implied
+> the reader would port to a real registry by changing an address. It will
+> not: the local adapter and ERC-8004 share no selectors, and the value
+> model differs. What follows describes the LOCAL adapter only.
 
 `tools/reader/read_feedback.py` prints an agent's obligation history from
 a JSON-RPC endpoint alone. It imports only the Python standard library and
