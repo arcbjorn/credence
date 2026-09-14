@@ -211,7 +211,7 @@ func build(ctx context.Context, cfg *config.Config) (*deps, error) {
 		scheduler: sched,
 		risk:      risk,
 		monitor: monitor.New(sched, collector, risk,
-			publisherFunc{adapter: adapter, store: db},
+			publisherFunc{adapter: adapter, store: db, reader: reader},
 			recorder{
 				store:         db,
 				registry:      store.NewRegistry(db),
@@ -351,6 +351,7 @@ func (systemClock) Now() int64 { return time.Now().Unix() }
 type publisherFunc struct {
 	adapter *attestpub.Adapter
 	store   *store.Store
+	reader  *chain.Reader
 }
 
 func (p publisherFunc) Publish(
@@ -358,7 +359,32 @@ func (p publisherFunc) Publish(
 	bindingKey string,
 	assessment json.RawMessage,
 ) (string, error) {
-	binding, err := gatewayrt.LoadBinding(ctx, p.store, bindingKey)
+	account, err := gatewayrt.AccountFor(ctx, p.store, bindingKey)
+	if err != nil {
+		return "", err
+	}
+
+	// The LIVE account state version, read from chain moments after the
+	// collector read it for the snapshot.
+	//
+	// Three places compare this and they must agree: the engine refuses a
+	// snapshot whose binding and account evidence disagree, the oracle
+	// stores it as the version permission applies to, and
+	// `riskAllowedFor` compares that against the account's current
+	// version. Reading a stored value instead -- the version permission
+	// was last bound to -- is correct on the first cycle and deadlocks
+	// afterwards. Reported by review, 14 September.
+	block, err := p.reader.LatestBlock(ctx)
+	if err != nil {
+		return "", fmt.Errorf("pin block for state version: %w", err)
+	}
+	state, err := p.reader.AccountAt(ctx, account, block)
+	if err != nil {
+		return "", fmt.Errorf("read account state version: %w", err)
+	}
+
+	binding, err := gatewayrt.LoadBinding(
+		ctx, p.store, bindingKey, state.StateVersion)
 	if err != nil {
 		return "", err
 	}

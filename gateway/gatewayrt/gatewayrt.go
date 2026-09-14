@@ -46,6 +46,7 @@ func LoadBinding(
 	ctx context.Context,
 	db *store.Store,
 	bindingKey string,
+	accountStateVersion uint64,
 ) (attest.Binding, error) {
 	var (
 		registryChainID            uint64
@@ -97,21 +98,23 @@ func LoadBinding(
 		return attest.Binding{}, fmt.Errorf("facility id %q is not numeric", facilityID)
 	}
 
-	// The account state version the standing permission is bound to.
+	// AccountStateVersion is supplied by the CALLER, not read here.
 	//
-	// NOT a defaulted zero. The oracle stores this as the version
-	// permission applies to, and `riskAllowedFor` compares it against the
-	// account's CURRENT version -- so a signed zero is accepted on chain
-	// and then never matches, and every monitoring cycle lands while none
-	// of them authorizes anything. Reported by review, 14 September.
+	// It must be the version the engine actually assessed, because three
+	// places compare it and they must agree:
 	//
-	// A binding with no watched loan legitimately has no version to carry,
-	// and zero is right there: there is no standing permission to bind.
-	stateVersion, err := NewRegistryStateVersion(ctx, db, bindingKey)
-	if err != nil {
-		return attest.Binding{}, err
-	}
-
+	//   * the engine refuses a snapshot whose binding and account evidence
+	//     disagree (`AccountStateVersionMismatch`);
+	//   * the oracle stores it as the version permission applies to;
+	//   * `riskAllowedFor` compares that against the account's CURRENT
+	//     version at execution time.
+	//
+	// An earlier fix read the WATCHED version from the store. That is the
+	// version permission was last bound to, which is frozen at enrolment
+	// -- correct for the first cycle and wrong for every one after the
+	// account executes again, at which point the engine rejects every
+	// assessment and monitoring deadlocks. Reported by review,
+	// 14 September; the first fix traded a silent failure for a loud one.
 	return attest.Binding{
 		IdentityRegistryChainID: new(big.Int).SetUint64(registryChainID),
 		IdentityRegistry:        registryAddr,
@@ -119,12 +122,32 @@ func LoadBinding(
 		Operator:                operatorAddr,
 		CreditAccount:           accountAddr,
 		FacilityID:              facility,
-		AccountStateVersion:     stateVersion,
+		AccountStateVersion:     accountStateVersion,
 		ConfigVersion:           configVersion,
 		ConfigHash:              cfgHash,
 		PolicyEpoch:             policyEpoch,
 		PolicyHash:              polHash,
 	}, nil
+}
+
+// AccountFor returns the credit account a binding names.
+//
+// Split out so a caller can read the account's LIVE state version before
+// building the binding -- the version the engine assessed, which is what
+// the oracle must store.
+func AccountFor(
+	ctx context.Context,
+	db *store.Store,
+	bindingKey string,
+) (string, error) {
+	var account string
+	err := db.DB().QueryRowContext(ctx,
+		`SELECT credit_account FROM bindings WHERE binding_key = ?`,
+		bindingKey).Scan(&account)
+	if err != nil {
+		return "", fmt.Errorf("unknown binding %q: %w", bindingKey, err)
+	}
+	return account, nil
 }
 
 // NewRegistryStateVersion reads the watched account state version,

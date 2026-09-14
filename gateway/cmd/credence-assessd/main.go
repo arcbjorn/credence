@@ -220,7 +220,10 @@ func parseLoans(
 		if loanID == 0 {
 			return nil, fmt.Errorf("loan id must be non-zero in %q", pair)
 		}
-		binding, err := gatewayrt.LoadBinding(ctx, db, pair[eq+1:])
+		// Zero here, and replaced per request: the version an assessment
+		// binds to is the one the engine SAW, which is read fresh in
+		// `Assess` rather than frozen at configuration time.
+		binding, err := gatewayrt.LoadBinding(ctx, db, pair[eq+1:], 0)
 		if err != nil {
 			return nil, fmt.Errorf("loan %d: %w", loanID, err)
 		}

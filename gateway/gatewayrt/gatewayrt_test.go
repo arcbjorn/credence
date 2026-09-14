@@ -7,18 +7,20 @@ import (
 	"github.com/arcbjorn/credence/gateway/store"
 )
 
-// The signed binding must carry the account state version the assessment
-// was made against.
+// The binding carries the version the CALLER assessed, not one read from
+// the store.
 //
-// The oracle stores `a.binding.accountStateVersion` as the version
-// permission is bound to, and `riskAllowedFor` compares that against the
-// account's CURRENT version. A signed zero is therefore not a harmless
-// default: the update is accepted on chain and then can never match, so
-// every monitoring cycle lands and none of them authorizes anything.
+// Three places compare it: the engine refuses a snapshot whose binding and
+// account evidence disagree, the oracle stores it as the version
+// permission applies to, and `riskAllowedFor` compares that against the
+// account's current version at execution time.
 //
-// Reported by review, 14 September: the assessment binding carried the
-// enrolled version while the signing binding left it zero.
-func TestLoadBindingCarriesTheWatchedStateVersion(t *testing.T) {
+// An earlier fix read the WATCHED version here -- the version permission
+// was last bound to, frozen at enrolment. That is right for the first
+// cycle and wrong for every one after the account executes again, at which
+// point the engine rejects every assessment and monitoring deadlocks.
+// Reported by review, 14 September.
+func TestLoadBindingCarriesTheSuppliedStateVersion(t *testing.T) {
 	ctx := context.Background()
 	db, err := store.Open(ctx, ":memory:")
 	if err != nil {
@@ -26,31 +28,30 @@ func TestLoadBindingCarriesTheWatchedStateVersion(t *testing.T) {
 	}
 	defer db.Close()
 
-	registry := store.NewRegistry(db)
 	const bindingKey = "0xabc"
-
 	seedBinding(t, db, bindingKey)
 
-	// The account has executed seven times since origination.
-	if err := registry.OpenLoan(ctx, bindingKey, "1", 7, 1_000_000); err != nil {
+	// A watch exists at version 3, and it must NOT be what gets signed:
+	// the account has executed since, and the assessment is about the
+	// account as it stands now.
+	if err := store.NewRegistry(db).OpenLoan(
+		ctx, bindingKey, "1", 3, 1_000_000); err != nil {
 		t.Fatal(err)
 	}
 
-	binding, err := LoadBinding(ctx, db, bindingKey)
+	binding, err := LoadBinding(ctx, db, bindingKey, 9)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if binding.AccountStateVersion != 7 {
-		t.Fatalf("signed binding carries version %d, want the watched 7 -- "+
-			"a zero here is accepted on chain and then never matches",
-			binding.AccountStateVersion)
+	if binding.AccountStateVersion != 9 {
+		t.Fatalf("signed binding carries version %d, want the assessed 9 "+
+			"(the stale watch says 3)", binding.AccountStateVersion)
 	}
 }
 
-// A binding with no watched loan has no version to carry. Reporting zero
-// there is correct -- there is no standing permission to bind -- but it
-// must not be confused with the case above.
-func TestLoadBindingWithoutAWatchedLoan(t *testing.T) {
+// AccountFor resolves the account a binding names, so a caller can read
+// its live state version before building the binding.
+func TestAccountForResolvesTheBinding(t *testing.T) {
 	ctx := context.Background()
 	db, err := store.Open(ctx, ":memory:")
 	if err != nil {
@@ -61,13 +62,16 @@ func TestLoadBindingWithoutAWatchedLoan(t *testing.T) {
 	const bindingKey = "0xdef"
 	seedBinding(t, db, bindingKey)
 
-	binding, err := LoadBinding(ctx, db, bindingKey)
+	account, err := AccountFor(ctx, db, bindingKey)
 	if err != nil {
-		t.Fatalf("an unwatched binding must still load: %v", err)
+		t.Fatal(err)
 	}
-	if binding.AccountStateVersion != 0 {
-		t.Fatalf("version = %d, want 0 for an unwatched binding",
-			binding.AccountStateVersion)
+	if account != "0x00000000000000000000000000000000000000ac" {
+		t.Fatalf("account = %q", account)
+	}
+
+	if _, err := AccountFor(ctx, db, "0xunknown"); err == nil {
+		t.Fatal("an unknown binding must not resolve to an empty account")
 	}
 }
 
@@ -75,7 +79,7 @@ func seedBinding(t *testing.T, db *store.Store, bindingKey string) {
 	t.Helper()
 	ctx := context.Background()
 	if _, err := db.DB().ExecContext(ctx,
-		`INSERT INTO agents
+		`INSERT OR IGNORE INTO agents
 		   (agent_key, identity_registry_chain_id, identity_registry, agent_id,
 		    created_at)
 		 VALUES ('a1', 10143, '0x00000000000000000000000000000000000000ae',

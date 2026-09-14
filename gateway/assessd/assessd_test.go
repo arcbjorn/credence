@@ -88,9 +88,17 @@ func (s *stubRetainer) RetainDecision(
 func monitoringInput() snapshot.Input {
 	const now = 1_000_000
 	ev := func(id string) snapshot.Evidence {
+		value := map[string]any{"v": 1}
+		if id == "account" {
+			// The version the COLLECTOR saw. What the response must
+			// report, because the engine compares it against the binding
+			// and the oracle stores it as the version permission applies
+			// to.
+			value = map[string]any{"state_version": 7}
+		}
 		e, err := snapshot.Present(
 			id, "test", snapshot.OriginSynthetic, snapshot.Required,
-			now, now, map[string]any{"v": 1})
+			now, now, value)
 		if err != nil {
 			panic(err)
 		}
@@ -183,18 +191,32 @@ func TestAssessReturnsTheNormalizedAssessment(t *testing.T) {
 	}
 }
 
-// The state version comes from the BINDING this deployment holds, not from
-// the caller. `riskAllowedFor` compares it against the account's current
-// version, so a caller who could set it would grant permission against a
-// portfolio nobody assessed.
-func TestStateVersionComesFromTheBinding(t *testing.T) {
+// The state version comes from the SNAPSHOT the engine was given, not
+// from the configured binding.
+//
+// Three places compare it: the engine refuses a snapshot whose binding and
+// account evidence disagree, the oracle stores it as the version
+// permission applies to, and `riskAllowedFor` compares that against the
+// account's current version at execution time. A configured value is
+// frozen, so it is right on the first cycle and wrong after the account
+// executes again -- which deadlocks monitoring rather than failing
+// silently.
+//
+// Not caller-supplied either: the request carries one field, and a caller
+// that could set this would bind permission to a portfolio nobody
+// assessed.
+//
+// Reported by review, 14 September.
+func TestStateVersionComesFromTheAssessedSnapshot(t *testing.T) {
 	s, _ := newServer(t)
 	resp, _, err := s.Assess(context.Background(), Request{LoanID: monitoredLoan})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if resp.AccountStateVersion != testBinding().AccountStateVersion {
-		t.Fatalf("state version = %d, want %d",
+	// 7 is what the collector put in the account evidence; 3 is what the
+	// configured binding carries. The snapshot wins.
+	if resp.AccountStateVersion != 7 {
+		t.Fatalf("state version = %d, want the assessed 7 (binding says %d)",
 			resp.AccountStateVersion, testBinding().AccountStateVersion)
 	}
 }

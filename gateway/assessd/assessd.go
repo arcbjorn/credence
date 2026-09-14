@@ -278,7 +278,13 @@ func (s *Server) Assess(ctx context.Context, req Request) (*Response, int, error
 		InputHash:           hashHex(envelope.InputHash),
 		EvidenceRoot:        hashHex(envelope.EvidenceRoot),
 		AssessmentHash:      hashHex(envelope.AssessmentHash),
-		AccountStateVersion: binding.AccountStateVersion,
+		// The version the COLLECTOR saw, read out of the snapshot that
+		// produced this decision rather than from the configured binding.
+		// The engine compares the two and refuses a mismatch, and the
+		// oracle stores this as the version permission applies to -- so a
+		// stale value here is either a rejected assessment or, worse, a
+		// permission bound to a portfolio nobody assessed.
+		AccountStateVersion: assessedStateVersion(inputJSON),
 		LoanID:              req.LoanID,
 	}, http.StatusOK, nil
 }
@@ -396,4 +402,25 @@ type StaticBindings map[uint64]attest.Binding
 func (b StaticBindings) Lookup(loanID uint64) (attest.Binding, bool) {
 	binding, ok := b[loanID]
 	return binding, ok
+}
+
+
+// assessedStateVersion reads the account state version out of the
+// snapshot the engine was given.
+//
+// The snapshot is authoritative because it is what was hashed and
+// retained: any other source could disagree with the decision it
+// accompanies.
+func assessedStateVersion(input []byte) uint64 {
+	var doc struct {
+		Account struct {
+			Value struct {
+				StateVersion uint64 `json:"state_version"`
+			} `json:"value"`
+		} `json:"account"`
+	}
+	if err := json.Unmarshal(input, &doc); err != nil {
+		return 0
+	}
+	return doc.Account.Value.StateVersion
 }
