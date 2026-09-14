@@ -441,12 +441,9 @@ than assumed.
 
 Stated plainly, because the workflow reads as complete otherwise:
 
-- **The assessment endpoint does not exist.** `docs/01` keeps the engine
-  pure -- `POST /v1/assess` takes a whole `{input, policy}` snapshot and
-  performs no I/O, so it cannot look a loan up by id. The gateway
-  assembles that snapshot (`gateway/riskclient`), but the gateway is a set
-  of CLI tools, not an HTTP service. The workflow was simulated against a
-  stub returning a well-formed assessment.
+- ~~The assessment endpoint does not exist.~~ **Built 14 September**:
+  `credence-assessd` serves `POST /v1/assess {loan_id}` and returns a
+  normalized monitoring assessment. See below.
 - **No report has travelled the real path.** The receiver is tested
   against a stub forwarder, and the metadata layout against the live mock
   one, but a DON-signed report has never reached it. That needs deploy
@@ -454,6 +451,97 @@ Stated plainly, because the workflow reads as complete otherwise:
 - **The continuous-underwriting row still rests on the signed route.**
   `scripts/demo-monitor.sh` is the evidence for it; the CRE route is an
   alternative authorization path, not a second demonstration of that row.
+
+## The assessment endpoint — 14 September
+
+`docs/01` keeps the engine pure: `POST /v1/assess` on the risk service
+takes a whole `{input, policy}` snapshot and performs no I/O, so it cannot
+look a loan up by id. Something must read chain and evidence and build
+that snapshot. `credence-assessd` is that boundary.
+
+```
+POST /v1/assess  {"loan_id": 1}
+->  {"decision":"Denied","permission":"Blocked","class":"PrototypeEligible",
+     "model_hash":"0x23ec20bd…","input_hash":"0x589f3acc…",
+     "evidence_root":"0xb23dedb2…","assessment_hash":"0x14855922…",
+     "account_state_version":0,"loan_id":1}
+```
+
+Observed against the state `scripts/demo-monitor.sh` leaves behind, where
+the price has fallen 70% -- so `Denied`/`Blocked` is the engine's real
+answer, not a placeholder.
+
+### A separate binary, on purpose
+
+`credence-gateway` assesses **and publishes**, signing with a development
+key. `credence-assessd` only assesses.
+
+They are separate processes because `docs/05` pins ONE authorization route
+per facility epoch. A single process that could both sign an assessment
+and hand one to a DON would be two authorities for the same facility --
+the arrangement the pinned route exists to prevent. A CRE deployment runs
+`credence-assessd` and holds no attestation key at all: the normalizer is
+constructed with a nil signer, so there is nothing there to misuse.
+
+Construction they share lives in `gateway/gatewayrt`, not duplicated:
+two spellings of the binding query would answer differently after a schema
+change, and two policy hashes would let one process attest under a policy
+the other never ran.
+
+### What a caller cannot do
+
+The request has **one field**. Unknown fields are refused rather than
+ignored, so a caller cannot supply a binding, a state version, or a
+policy:
+
+```
+{"loan_id":1,"account_state_version":999}   -> 400 invalid_body
+{"loan_id":42}                              -> 404, loan not monitored
+```
+
+The binding comes from the store, keyed by the loan the operator enrolled
+with `-loans loanID=bindingKey`. That mirrors `CREReceiver.enrol` on
+chain: the caller names a loan, the operator says what that loan IS.
+
+### Failing closed
+
+Every failure returns an **error**, never a Blocked assessment:
+
+| Failure | Status |
+|---|---|
+| evidence unavailable | 503 |
+| engine unreachable | 503 |
+| normalization failed (e.g. policy divergence) | 500 |
+| retention failed | 500 |
+
+The caller's correct response to an error is to publish nothing, which
+leaves the standing permission to expire -- and `docs/05` makes expired
+permission block risk increases on its own. Returning `Blocked` instead
+would assert a judgment the engine never made.
+`TestFailuresReturnErrorsNotBlockedAssessments` pins this; replacing the
+engine-error branch with a Blocked response fails it.
+
+### Monitoring can never fund
+
+The snapshot is checked before it reaches the engine, with the same guard
+the monitor loop uses. Three things must hold: the context kind is
+`Monitoring`, it names an active loan, and it carries **no borrower
+request** -- the third being how an origination would otherwise wear a
+monitoring label and turn a health check into a draw.
+
+### End to end, no stubs
+
+```
+cre workflow simulate underwrite
+->  {"Assessed":1,"Written":1,"Blocked":0}
+```
+
+That run reads `nextSequence` from the receiver deployed on Monad testnet,
+calls `credence-assessd`, which collects real evidence and calls the real
+engine, normalizes the answer through the same path the development route
+signs, generates a DON-signed report, and submits the write. The only
+thing still simulated is the chain write itself, which needs deploy
+access.
 
 ## Operational measurement
 
