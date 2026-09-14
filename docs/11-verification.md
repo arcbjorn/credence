@@ -200,7 +200,7 @@ README already fixed by pointing here, and this document had not.
 Reported by review, 14 September.
 
 Three loans completed the full lifecycle on the public chain, and all
-seven deployment checks passed against it — including the one that
+deployment checks passed against it — including the one that
 separates the two refusal reasons:
 
 ```

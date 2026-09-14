@@ -59,11 +59,34 @@ scripts/demo-monitor.sh         # continuous underwriting, and replay
 scripts/demo-erc8004.sh         # publish and read back, no Credence endpoint
 ```
 
-Each script prints what it proves. `demo-repay` ends with seven checks run
-against the deployment rather than against its own log.
+Each script prints what it proves. `demo-repay` ends with ten checks run
+against the deployment rather than against its own log — the withdrawal
+refusals and the vault's ledgers among them.
 
-Against a public chain, export a funded key — the scripts refuse anvil's
-published keys anywhere but localhost:
+### The interface
+
+`docs/09`'s eight screens, rendering what the demos retained. It needs two
+generated artifacts, so run the demos first:
+
+```sh
+cargo install wasm-bindgen-cli --version 0.2.128   # once
+rustup target add wasm32-unknown-unknown           # once
+
+cd web
+pnpm install
+pnpm wasm    # compile the risk engine to WebAssembly
+pnpm data    # bundle what the demos retained
+pnpm dev
+```
+
+The replay screen runs the **actual engine** — the same Rust the gateway
+uses, compiled to WebAssembly — so a reader can reproduce a retained
+assessment in their own tab, and watch a tampered one fail.
+
+### Against a public chain
+
+Export a funded key — the scripts refuse anvil's published keys anywhere
+but localhost:
 
 ```sh
 export RPC=https://testnet-rpc.monad.xyz
