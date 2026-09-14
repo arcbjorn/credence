@@ -27,6 +27,17 @@ import {
 ///   - Current contract state is still checked at draw time. A correctly
 ///     signed assessment is not permission to ignore a vault cap or an
 ///     open loan.
+//
+// **On `block.timestamp`.** Several comparisons below are flagged by
+// `forge lint` as manipulable by validators, and each one is annotated
+// rather than rewritten. The reasoning is the same in every case: these
+// are VALIDITY WINDOWS measured in hours -- a 3600s permission window, a
+// 12-hour recovery grace, a loan term in days -- and the few seconds a
+// proposer can shift a block by is immaterial against them. There is no
+// comparison here where a small drift changes who may act, only when by a
+// margin far inside the window's own tolerance.
+//
+// `docs/05` records this as an accepted assumption of the trust model.
 contract RiskOracle {
     bytes32 private constant BINDING_TYPEHASH = keccak256(
         "Binding(uint256 identityRegistryChainId,address identityRegistry,uint256 agentId,address operator,address creditAccount,uint256 facilityId,uint64 accountStateVersion,uint64 configVersion,bytes32 configHash,uint64 policyEpoch,bytes32 policyHash)"
@@ -324,7 +335,9 @@ contract RiskOracle {
     /// @dev Everything an accepted assessment does, independent of how it
     /// was authenticated.
     function _record(Assessment calldata a) private {
+        // forge-lint: disable-next-line(block-timestamp)
         require(block.timestamp >= a.validAfter, NotYetValid());
+        // forge-lint: disable-next-line(block-timestamp)
         require(block.timestamp < a.validUntil, Expired());
 
         bytes32 key = bindingKey(a.binding);
@@ -471,6 +484,7 @@ contract RiskOracle {
         require(!q.consumed, QuoteConsumed());
         // Validity binds here, not only at accept: the draw is the moment
         // credit is actually extended (`docs/05`).
+        // forge-lint: disable-next-line(block-timestamp)
         require(block.timestamp < q.validUntil, QuoteExpired());
         // The binding presented here must be the one that was signed, in
         // full -- not merely one that shares the standing-quote key.
@@ -499,6 +513,7 @@ contract RiskOracle {
     {
         if (permissionBinding[key] != bindingCommitment) return false;
         if (riskPermission[key] != Permission.Allowed) return false;
+        // forge-lint: disable-next-line(block-timestamp)
         if (block.timestamp >= permissionValidUntil[key]) return false;
         if (permissionStateVersion[key] != stateVersion) return false;
         return true;
@@ -531,6 +546,7 @@ contract RiskOracle {
     function permissionWithdrawn(Binding calldata b) external view returns (bool) {
         bytes32 key = bindingKey(b);
         if (
+            // forge-lint: disable-next-line(block-timestamp)
             riskPermission[key] == Permission.Allowed && permissionValidUntil[key] > block.timestamp
                 && permissionStateVersion[key] == b.accountStateVersion
         ) {
@@ -572,6 +588,7 @@ contract RiskOracle {
         // Reported by review, 14 September.
         if (permissionBinding[key] != bindingConfigHash(b)) return false;
         if (riskPermission[key] != Permission.Allowed) return false;
+        // forge-lint: disable-next-line(block-timestamp)
         if (block.timestamp >= permissionValidUntil[key]) return false;
         if (permissionStateVersion[key] != b.accountStateVersion) return false;
         return true;

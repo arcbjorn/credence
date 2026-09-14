@@ -42,6 +42,17 @@ interface IRiskOracle {
 ///   4. Proceeds return to this account.
 ///   5. Close-out ordering: principal, then accrued interest, then residual
 ///      equity to the bound recipient.
+//
+// **On `block.timestamp`.** Several comparisons below are flagged by
+// `forge lint` as manipulable by validators, and each one is annotated
+// rather than rewritten. The reasoning is the same in every case: these
+// are VALIDITY WINDOWS measured in hours -- a 3600s permission window, a
+// 12-hour recovery grace, a loan term in days -- and the few seconds a
+// proposer can shift a block by is immaterial against them. There is no
+// comparison here where a small drift changes who may act, only when by a
+// margin far inside the window's own tolerance.
+//
+// `docs/05` records this as an accepted assumption of the trust model.
 contract CreditAccount {
     using SafeTransfer for IERC20;
     /// @dev Set once at construction; the loan manager is the only party that
@@ -273,6 +284,7 @@ contract CreditAccount {
             bool superseded =
                 IRiskOracle(riskOracle).lastSequence(boundBindingKey) > permittedActionSequence;
             bool coveredByQuote =
+            // forge-lint: disable-next-line(block-timestamp)
                 !actionConsumed && block.timestamp < permittedActionValidUntil && !superseded;
 
             if (!coveredByQuote) {

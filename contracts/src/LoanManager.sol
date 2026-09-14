@@ -27,6 +27,17 @@ import {Binding, Terms} from "./Assessment.sol";
 /// Repaid, Recovered, and Defaulted are terminal. A default leaves the loss
 /// permanently attributable to the original binding, and that binding takes
 /// no new loans.
+//
+// **On `block.timestamp`.** Several comparisons below are flagged by
+// `forge lint` as manipulable by validators, and each one is annotated
+// rather than rewritten. The reasoning is the same in every case: these
+// are VALIDITY WINDOWS measured in hours -- a 3600s permission window, a
+// 12-hour recovery grace, a loan term in days -- and the few seconds a
+// proposer can shift a block by is immaterial against them. There is no
+// comparison here where a small drift changes who may act, only when by a
+// margin far inside the window's own tolerance.
+//
+// `docs/05` records this as an accepted assumption of the trust model.
 contract LoanManager {
     using SafeTransfer for IERC20;
 
@@ -544,6 +555,7 @@ contract LoanManager {
             StaleAccountState(binding.accountStateVersion, acct.stateVersion())
         );
 
+        // forge-lint: disable-next-line(block-timestamp)
         bool matured = block.timestamp >= loan.originatedAt + loan.termSeconds;
 
         // Two different facts, deliberately not merged.
@@ -574,6 +586,7 @@ contract LoanManager {
         // Anchoring to origination gives the borrower the same protection
         // and the lender the same backstop in both cases.
         uint256 silenceSince = expiry != 0 ? uint256(expiry) : loan.originatedAt;
+        // forge-lint: disable-next-line(block-timestamp)
         bool lapsedBeyondGrace = block.timestamp >= silenceSince + recoveryGraceSeconds;
 
         require(matured || withdrawn || lapsedBeyondGrace, LoanNotRecoverable(loanId));

@@ -22,6 +22,17 @@ import {SpotVenue} from "./SpotVenue.sol";
 /// The adapter holds nothing. It pulls from the calling account, trades,
 /// and returns output to that same account, so there is no balance for a
 /// later call to sweep.
+//
+// **On `block.timestamp`.** Several comparisons below are flagged by
+// `forge lint` as manipulable by validators, and each one is annotated
+// rather than rewritten. The reasoning is the same in every case: these
+// are VALIDITY WINDOWS measured in hours -- a 3600s permission window, a
+// 12-hour recovery grace, a loan term in days -- and the few seconds a
+// proposer can shift a block by is immaterial against them. There is no
+// comparison here where a small drift changes who may act, only when by a
+// margin far inside the window's own tolerance.
+//
+// `docs/05` records this as an accepted assumption of the trust model.
 contract StrategyAdapter {
     using SafeTransfer for IERC20;
 
@@ -136,6 +147,7 @@ contract StrategyAdapter {
         // A stale reference cannot detect a bad fill, so a trade against one
         // is refused rather than waved through.
         require(
+            // forge-lint: disable-next-line(block-timestamp)
             block.timestamp <= observedAt + maxPriceAgeSeconds,
             PriceStale(observedAt, maxPriceAgeSeconds)
         );
