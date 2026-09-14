@@ -207,6 +207,19 @@ for name, db in zip(names, dbs):
     print(f"  {name:<8} policy -> {os.path.basename(out_path)}"
           f" (hash {got[:12]}... verified)")
 
+# `docs/09` beat 1: the three-profile comparison, assessed by the real
+# engine under the shipped policy. Emitted by
+# `cargo test --test ablation -- --ignored emit_comparison`, and pinned by
+# `comparison_fixture_matches_the_engine` so it cannot drift from what the
+# engine says.
+cmp_path = os.path.join(REPO, "fixtures", "demo", "comparison.json")
+if os.path.exists(cmp_path):
+    with open(cmp_path) as f:
+        comparison = json.load(f)
+    with open(os.path.join(out, "comparison.json"), "w") as f:
+        json.dump(comparison, f, indent=1, sort_keys=True)
+    print(f"  {'compare':<8} {len(comparison['profiles'])} profiles")
+
 # The deployment manifest is the single source of truth for addresses.
 dep = os.path.join(os.path.dirname(out), "..", "..", "contracts",
                    "deployments", "10143.json")
