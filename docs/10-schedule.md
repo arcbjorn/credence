@@ -42,6 +42,17 @@ From here everything raises fidelity. **Later changes can still introduce regres
 
 | Decision | Due | Working default |
 |---|---|---|
+| Event environment and submission specifics | 13 Sep | Monad testnet prototype; submit 12 Oct. **Demos verified portable 13 Sep**: run against chain id 10143 with no code change, manifests keyed by chain |
+| Settlement and risky assets, venue, valuation | 14 Sep | **Settled 13 Sep** — working default taken; see [08 · Integrations](08-integrations.md#assets-venue-and-valuation--settled-13-september) |
+| Strategy economic purpose | 14 Sep | **Settled 13 Sep** — see [07 · Simulation](07-simulation.md#what-the-strategy-does-and-why-it-is-financed) |
+| CRE access and verification level | Access 13 Sep; level 25 Sep | **Available 13 Sep** — CRE supports `monad-testnet`, forwarder verified on chain. Access is self-service via `cre account access`; simulation needs no approval. Level stays development attestation until a workflow is deployed |
+| ERC-8004 deployment and feedback compatibility | 15 Sep | **Resolved 13 Sep** — registries live on Monad testnet, selectors verified against the standard; see [06 · Identity](06-identity-forecasts.md#registry-compatibility--resolved-13-september). **Reader rewritten 14 September**: `tools/reader/read_erc8004.py` reads the canonical registry |
+| Policy thresholds and pricing schedule | 17 Sep | Conservative named assumptions; no calibrated-PD claim |
+| Coverage definitions | 17 Sep | Marked vs stressed; closeout deducted in both |
+| Kuru feasibility | 15 Sep | Small isolated experiment |
+| Kuru implementation commitment | 25 Sep | Only after both gates |
+| Optional provider inclusion | 25 Sep | Only fields with measured coverage and visible product use |
+
 ### Slipped — the screen shell
 
 **Milestone one promised a first screen shell by 13 September. It does not
@@ -59,17 +70,6 @@ cannot collapse into a single green pill.
 Recorded here rather than left implicit: an unflagged slip on the most
 visible deliverable is the kind of gap a schedule exists to surface.
 Reported by review, 14 September.
-
-| Event environment and submission specifics | 13 Sep | Monad testnet prototype; submit 12 Oct. **Demos verified portable 13 Sep**: run against chain id 10143 with no code change, manifests keyed by chain |
-| Settlement and risky assets, venue, valuation | 14 Sep | **Settled 13 Sep** — working default taken; see [08 · Integrations](08-integrations.md#assets-venue-and-valuation--settled-13-september) |
-| Strategy economic purpose | 14 Sep | **Settled 13 Sep** — see [07 · Simulation](07-simulation.md#what-the-strategy-does-and-why-it-is-financed) |
-| CRE access and verification level | Access 13 Sep; level 25 Sep | **Available 13 Sep** — CRE supports `monad-testnet`, forwarder verified on chain. Access is self-service via `cre account access`; simulation needs no approval. Level stays development attestation until a workflow is deployed |
-| ERC-8004 deployment and feedback compatibility | 15 Sep | **Resolved 13 Sep** — registries live on Monad testnet, selectors verified against the standard; see [06 · Identity](06-identity-forecasts.md#registry-compatibility--resolved-13-september). Reader still targets the local adapter |
-| Policy thresholds and pricing schedule | 17 Sep | Conservative named assumptions; no calibrated-PD claim |
-| Coverage definitions | 17 Sep | Marked vs stressed; closeout deducted in both |
-| Kuru feasibility | 15 Sep | Small isolated experiment |
-| Kuru implementation commitment | 25 Sep | Only after both gates |
-| Optional provider inclusion | 25 Sep | Only fields with measured coverage and visible product use |
 
 ## First implementation tasks
 
