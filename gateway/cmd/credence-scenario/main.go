@@ -198,13 +198,13 @@ func run(
 		// issues ScenarioOnly assessments and executes them; signing
 		// PrototypeEligible against it would store no quote and surface
 		// later as NoQuote, naming the wrong cause.
-		Class: executableClass,
-		Sequence:         1,
-		ValidAfter:       now - 60,
-		ValidUntil:       now + 3600,
-		RequestID:        attest.KeccakText("request-1"),
-		IntentHash:       attest.KeccakText("intent-1"),
-		SettlementAsset:  settlementAddr,
+		Class:           executableClass,
+		Sequence:        1,
+		ValidAfter:      now - 60,
+		ValidUntil:      now + 3600,
+		RequestID:       attest.KeccakText("request-1"),
+		IntentHash:      attest.KeccakText("intent-1"),
+		SettlementAsset: settlementAddr,
 		// v0 grants the exact requested amount or denies (`docs/03`), so
 		// requested and approved must match.
 		RequestedPrincipal: new(big.Int).SetUint64(principal),

@@ -84,11 +84,11 @@ type assessmentDoc struct {
 	// Evidence the decision rested on, named so the envelope can commit
 	// to it rather than publishing a zero root.
 	OmittedEvidence []string `json:"omitted_evidence"`
-	Sequence     uint64 `json:"sequence"`
-	ValidAfter   uint64 `json:"valid_after"`
-	ValidUntil   uint64 `json:"valid_until"`
-	Class        string `json:"authorization_class"`
-	Outcome      struct {
+	Sequence        uint64   `json:"sequence"`
+	ValidAfter      uint64   `json:"valid_after"`
+	ValidUntil      uint64   `json:"valid_until"`
+	Class           string   `json:"authorization_class"`
+	Outcome         struct {
 		Decision string `json:"decision"`
 		LoanID   string `json:"loan_id"`
 	} `json:"outcome"`

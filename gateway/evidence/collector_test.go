@@ -16,12 +16,12 @@ type fakeChain struct {
 	// marked at. Zero means the deployment prices from policy, which has
 	// no observation time to age.
 	priceObservedAt uint64
-	block      evidence.BlockRef
-	blockErr   error
-	accountErr error
-	loanErr    error
-	seqErr     error
-	sequence   uint64
+	block           evidence.BlockRef
+	blockErr        error
+	accountErr      error
+	loanErr         error
+	seqErr          error
+	sequence        uint64
 	// Records the block each read was given, to prove they all match.
 	readBlocks []uint64
 }
@@ -369,7 +369,6 @@ func TestIntegerDerivedEvidenceIsPresent(t *testing.T) {
 		t.Fatalf("snapshot must hash: %v", err)
 	}
 }
-
 
 // A position marked at a price the feed published long ago must not enter
 // apparently fresh account evidence.

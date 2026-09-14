@@ -139,12 +139,12 @@ type Request struct {
 // result that claimed Allowed would be a contradiction, not a permissive
 // edge case.
 type Response struct {
-	Decision            string `json:"decision"`
-	Permission          string `json:"permission"`
-	Class               string `json:"class"`
-	ModelHash           string `json:"model_hash"`
-	InputHash           string `json:"input_hash"`
-	EvidenceRoot        string `json:"evidence_root"`
+	Decision     string `json:"decision"`
+	Permission   string `json:"permission"`
+	Class        string `json:"class"`
+	ModelHash    string `json:"model_hash"`
+	InputHash    string `json:"input_hash"`
+	EvidenceRoot string `json:"evidence_root"`
 	// AssessmentID identifies the assessment; AssessmentHash commits to
 	// its content. Two different facts: the id is derived from the
 	// snapshot's labels, the hash from the canonical output bytes.

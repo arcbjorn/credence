@@ -283,7 +283,7 @@ func TestShockLabelDoesNotStick(t *testing.T) {
 		StartPrice: 1_000_000, PriceScale: 6,
 		VolBpsPerStep:  10,
 		LiquidityDepth: 1_000_000_000,
-		Shocks: []sim.Shock{{AtDay: 5, PriceBps: -2_000, Label: "crash"}},
+		Shocks:         []sim.Shock{{AtDay: 5, PriceBps: -2_000, Label: "crash"}},
 	}
 	w, err := sim.Generate(cfg)
 	if err != nil {

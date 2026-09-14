@@ -336,7 +336,6 @@ func (w *World) Fingerprint() string {
 	return fmt.Sprintf("%016x", acc)
 }
 
-
 // MustWorld generates a world or fails the test.
 //
 // Exported for tests in other packages: an evaluation harness needs to
