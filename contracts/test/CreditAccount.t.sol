@@ -256,6 +256,9 @@ contract CreditAccountTest is Test {
         account.recover(address(adapter), abi.encodeCall(OkAdapter.act, ()));
 
         vm.startPrank(LOAN_MANAGER);
+        // A real deployment labels the unwind route before the loan goes
+        // live; recovery may only take entry points declared risk-reducing.
+        account.setDeRiskingAction(address(adapter), OkAdapter.act.selector, true);
         account.openDebt(
             KEY, BINDING_HASH, _actionHash(),
             uint64(block.timestamp + 1 hours), QUOTE_SEQ
@@ -266,6 +269,51 @@ contract CreditAccountTest is Test {
         vm.prank(KEEPER);
         account.recover(address(adapter), abi.encodeCall(OkAdapter.act, ()));
         assertEq(adapter.calls(), 1);
+    }
+
+    /// A keeper may not ACQUIRE through the route it was appointed to
+    /// liquidate.
+    ///
+    /// Recovery is an exception to the permission gate, not to the
+    /// direction of travel: a keeper reaching any allowlisted adapter could
+    /// spend the borrower's residual equity on a position nobody assessed.
+    /// Reported by review, 14 September.
+    function test_keeperCannotActThroughARiskIncreasingEntryPoint() public {
+        vm.startPrank(LOAN_MANAGER);
+        account.setDeRiskingAction(address(adapter), OkAdapter.act.selector, true);
+        account.openDebt(
+            KEY, BINDING_HASH, _actionHash(),
+            uint64(block.timestamp + 1 hours), QUOTE_SEQ
+        );
+        account.openRecovery(KEEPER);
+        vm.stopPrank();
+
+        // `other()` is on the SAME allowlisted adapter, and was never
+        // declared risk-reducing.
+        vm.prank(KEEPER);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                CreditAccount.NotRiskReducing.selector, address(adapter))
+        );
+        account.recover(address(adapter), abi.encodeCall(OkAdapter.other, ()));
+    }
+
+    /// Calldata too short to carry a selector names no entry point at all.
+    function test_keeperCannotRecoverWithoutASelector() public {
+        vm.startPrank(LOAN_MANAGER);
+        account.openDebt(
+            KEY, BINDING_HASH, _actionHash(),
+            uint64(block.timestamp + 1 hours), QUOTE_SEQ
+        );
+        account.openRecovery(KEEPER);
+        vm.stopPrank();
+
+        vm.prank(KEEPER);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                CreditAccount.NotRiskReducing.selector, address(adapter))
+        );
+        account.recover(address(adapter), hex"1122");
     }
 
     function test_nonKeeperCannotRecover() public {

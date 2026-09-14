@@ -103,6 +103,10 @@ contract CreditAccount {
     error NotOwnerOrAgent();
     error NotKeeper();
     error AdapterNotAllowed(address adapter);
+    /// @dev Recovery may only take entry points the operator declared
+    /// risk-reducing: a keeper that could acquire through an allowlisted
+    /// route would spend residual equity it was appointed to protect.
+    error NotRiskReducing(address adapter);
     error WithdrawalBlockedByDebt();
     error RecoveryNotOpen();
     error AdapterCallFailed();
@@ -306,9 +310,24 @@ contract CreditAccount {
     }
 
     /// @notice Recovery unwind, callable only by the bound keeper.
-    /// @dev Invariant 3's exception: recovery must be able to reduce risk even
-    /// when it cannot restore the normal threshold in one step, or the health
-    /// check itself would prevent liquidation (`docs/02`).
+    ///
+    /// @dev Invariant 3's exception: recovery must be able to reduce risk
+    /// even when it cannot restore the normal threshold in one step, or the
+    /// health check itself would prevent liquidation (`docs/02`).
+    ///
+    /// **An exception to the permission gate, not to the direction of
+    /// travel.** The keeper may act without a standing assessment because
+    /// the position is being closed, and only RISK-REDUCING entry points
+    /// qualify: a keeper reaching any allowlisted adapter could acquire
+    /// through the same route it was appointed to liquidate, spending the
+    /// borrower's residual equity on a position nobody assessed.
+    ///
+    /// The selector registry is the operator's, set before the loan went
+    /// live (`setAccountDeRiskingAction` refuses a new exemption while the
+    /// account owes), so the set of moves available during recovery is
+    /// fixed at the same time as everything else the borrower agreed to.
+    ///
+    /// Reported by review, 14 September.
     function recover(address adapter, bytes calldata data)
         external
         returns (bytes memory result)
@@ -316,6 +335,10 @@ contract CreditAccount {
         require(recoveryKeeper != address(0), RecoveryNotOpen());
         require(msg.sender == recoveryKeeper, NotKeeper());
         require(adapterAllowed[adapter], AdapterNotAllowed(adapter));
+        require(
+            data.length >= 4 && deRiskingAction[adapter][bytes4(data[:4])],
+            NotRiskReducing(adapter)
+        );
 
         // Before the call, as in `execute`. Recovery reaches the same
         // adapters, so it inherits the same reentrancy question.
