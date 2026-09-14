@@ -238,15 +238,50 @@ contract RiskOracle {
     /// mis-scoped attestations. Field-shape rules are enforced, not assumed:
     /// a grant on a denial or on any monitoring result is rejected outright.
     function accept(Assessment calldata a, bytes calldata signature) external {
-        require(a.deploymentId == deploymentId, WrongDeployment());
-
-        Route pinned = facilityRoute[a.binding.facilityId];
-        require(pinned != Route.Unset, RouteNotPinned(a.binding.facilityId));
-        require(a.route == pinned, WrongRoute(pinned, a.route));
+        Route pinned = _pinnedRoute(a);
 
         address signer = _recover(_hash(a), signature);
         require(routeSigner[pinned][signer], UnauthorizedSigner(signer));
 
+        _record(a);
+    }
+
+    /// @notice Accept an assessment authenticated by the CALLER rather than
+    /// by a signature.
+    ///
+    /// @dev For the CRE route, where a report arrives through the
+    /// KeystoneForwarder and carries no ECDSA signature to recover. The
+    /// DON's consensus is the authentication, and the receiver that
+    /// verified the forwarder is what this trusts -- so the caller must be
+    /// registered for the facility's pinned route exactly as a signer
+    /// would be.
+    ///
+    /// Every other check is shared with `accept`: this is deliberately not
+    /// a second implementation, because a CRE path that drifted from the
+    /// signed path would enforce a different set of rules than the one
+    /// `docs/05` describes.
+    ///
+    /// `docs/05` invariant 6: a CRE facility rejects development
+    /// attestations. That falls out of the same `routeSigner` check --
+    /// a development key is not registered under `Route.CRE`, and this
+    /// receiver is not registered under `Route.Development`.
+    function acceptFromRoute(Assessment calldata a) external {
+        Route pinned = _pinnedRoute(a);
+        require(routeSigner[pinned][msg.sender], UnauthorizedSigner(msg.sender));
+        _record(a);
+    }
+
+    function _pinnedRoute(Assessment calldata a) private view returns (Route) {
+        require(a.deploymentId == deploymentId, WrongDeployment());
+        Route pinned = facilityRoute[a.binding.facilityId];
+        require(pinned != Route.Unset, RouteNotPinned(a.binding.facilityId));
+        require(a.route == pinned, WrongRoute(pinned, a.route));
+        return pinned;
+    }
+
+    /// @dev Everything an accepted assessment does, independent of how it
+    /// was authenticated.
+    function _record(Assessment calldata a) private {
         require(block.timestamp >= a.validAfter, NotYetValid());
         require(block.timestamp < a.validUntil, Expired());
 
