@@ -44,6 +44,7 @@ python3 - "$OUT" "$REPAY_DB" "$MONITOR_DB" "$DEFAULT_DB" <<'PY'
 import json, os, sqlite3, sys
 
 out, *dbs = sys.argv[1:]
+REPO = os.path.abspath(os.path.join(out, "..", "..", ".."))
 names = ["repay", "monitor", "default"]
 
 def rows(db, sql):
@@ -113,13 +114,67 @@ for name, db in zip(names, dbs):
     manifest["generated_from"].append(db)
     print(f"  {name:<8} {len(assessments)} assessments, {len(by_input)} snapshots")
 
-# The engine policy the demos ran under, so a replay in the browser uses
-# the same one rather than a copy that can drift.
-with open(os.path.join(os.path.dirname(out), "..", "..", "config",
-                       "engine-policy.json")) as f:
-    policy = json.load(f)
-with open(os.path.join(out, "policy.json"), "w") as f:
-    json.dump(policy, f, indent=1, sort_keys=True)
+# The policy each run ACTUALLY hashed, emitted per run.
+#
+# This used to copy `config/engine-policy.json` unconditionally and call it
+# "the policy the demos ran under". It was not: `demo-monitor.sh` runs on a
+# gateway template whose `base_history_cap` is 10e9, while the shipped
+# policy is 6.2e9. The engine refuses a declared policy hash that is not
+# the content hash of the policy it was handed, so a browser replay of a
+# monitor assessment returned `Unavailable` -- a DIFFERENCE on a CLEAN
+# replay, which makes the whole screen vacuous.
+#
+# Each run's policy is written beside its data and checked against the
+# hash its own assessments declare. A mismatch fails this script rather
+# than shipping a replay screen that cannot match.
+# Reported by review, 14 September.
+for name, db in zip(names, dbs):
+    if not os.path.exists(db):
+        continue
+    run_path = os.path.join(out, f"{name}.json")
+    if not os.path.exists(run_path):
+        continue
+    with open(run_path) as f:
+        run = json.load(f)
+    if not run["assessments"]:
+        continue
+
+    declared = {a["policy_hash"] for a in run["assessments"]}
+
+    # The gateway config beside the database is what the run was given.
+    cfg_path = os.path.join(os.path.dirname(db), "gateway.json")
+    policy = None
+    if os.path.exists(cfg_path):
+        with open(cfg_path) as f:
+            policy = json.load(f).get("engine_policy")
+    if policy is None:
+        # Fall back to the shipped policy, but only if the run's own
+        # assessments agree with it -- checked below.
+        with open(os.path.join(REPO, "config", "engine-policy.json")) as f:
+            policy = json.load(f)
+
+    out_path = os.path.join(out, f"{name}-policy.json")
+    with open(out_path, "w") as f:
+        json.dump(policy, f, indent=1, sort_keys=True)
+
+    # VERIFY, do not assume. The engine hashes the policy it is handed and
+    # refuses a declared hash that does not match, so a policy that merely
+    # looks right produces `Unavailable` in the browser and a DIFFERENCE on
+    # a clean replay.
+    import subprocess
+    got = subprocess.run(
+        ["go", "run", "./cmd/credence-policyhash",
+         os.path.relpath(out_path, os.path.join(REPO, "gateway"))],
+        cwd=os.path.join(REPO, "gateway"),
+        capture_output=True, text=True).stdout.strip()
+    if got not in declared:
+        raise SystemExit(
+            f"{name}: emitted policy hashes to {got}, but its assessments "
+            f"declare {sorted(declared)}. The browser would replay this "
+            f"pair as a DIFFERENCE. Regenerate the run, or point this at "
+            f"the policy it was given.")
+    print(f"  {name:<8} policy -> {os.path.basename(out_path)}"
+          f" (hash {got[:12]}... verified)")
 
 # The deployment manifest is the single source of truth for addresses.
 dep = os.path.join(os.path.dirname(out), "..", "..", "contracts",
