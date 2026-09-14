@@ -378,19 +378,64 @@ split so signature and caller authentication share one recording path:
 `test_receiverDoesNotBypassDeploymentBinding` show the oracle still
 applies its own rules to a report that passed every receiver check.
 
+### A monitoring report cannot carry a grant
+
+`docs/05`: a monitoring result carries no request, grant, or terms and can
+never disburse. The workflow does not send an `Assessment`; it sends a
+`MonitoringReport`, which **has no field** for terms, a requested
+principal, or a request id. The receiver expands it, filling those with
+zero.
+
+That makes the rule structural rather than remembered. The oracle's
+`GrantOnMonitoring` check still runs and is still correct -- but a
+workflow could not violate it even if that check were removed.
+
+The same reasoning puts the **binding** in receiver storage rather than in
+the report. The workflow names a loan; the operator says what that loan
+IS. A compromised workflow can therefore withdraw permission or refuse it,
+but cannot invent an obligation or move one to an account nobody assessed.
+
+`accountStateVersion` is the exception and rides in the report on purpose:
+it is the portfolio the engine actually assessed, and `riskAllowedFor`
+compares it against the account's CURRENT version. Substituting a stored
+value would quietly defeat that check.
+
+### Cross-language encoding
+
+The workflow hand-encodes the payload, so it is checked against
+`cast abi-encode` -- an independent implementation -- rather than against
+its own decoder:
+
+```
+TestEncodingMatchesCast       Go bytes == cast bytes
+test_payloadIsThirteenStaticWords   13 words, no offset, no tail
+TestEnumValuesMatchSolidity   Decision/Permission/Class pinned to the enum order
+```
+
+Swapping two same-width fields is the dangerous failure here: it decodes
+cleanly into the wrong values, so nothing reverts. Reordering
+`sequence` and `accountStateVersion` fails `TestEncodingMatchesCast`.
+
 ### Simulator results
 
-Both paths observed, with `cre workflow simulate`:
+Run with `cre workflow simulate`, against the receiver deployed at
+`0xEc7A11Aa4da6482E4f7461ae535B9b3bB96CeF2c` on Monad testnet:
 
 ```
-engine reachable     -> {"Assessed":1,"Written":1,"Blocked":0}
-engine unreachable   -> {"Assessed":1,"Written":0,"Blocked":1,
-                         "Notes":["loan 1: ... no such host"]}
+engine reachable, loan enrolled   -> {"Assessed":1,"Written":1,"Blocked":0}
+engine unreachable                -> {"Assessed":1,"Written":0,"Blocked":1,
+                                      "Notes":["loan 1: ... no such host"]}
+loan not enrolled                 -> Blocked, "not enrolled on the receiver"
 ```
 
-Failing closed is the behaviour, not an error path: an assessment that
-cannot be produced leaves the standing permission to expire, and
-`docs/05` makes expired permission block risk increases on its own.
+The run reads `nextSequence(uint256)` from the live receiver, assesses,
+generates a DON-signed report and submits the write.
+
+**`Written: 1` means the write path executed and was accepted in
+simulation, not that a transaction landed.** The simulator performs a
+"chain write simulation" with its own key; `nextSequence` on the deployed
+receiver still reads 1 afterwards, which is how that was confirmed rather
+than assumed.
 
 ### What is NOT built
 
@@ -402,12 +447,13 @@ Stated plainly, because the workflow reads as complete otherwise:
   assembles that snapshot (`gateway/riskclient`), but the gateway is a set
   of CLI tools, not an HTTP service. The workflow was simulated against a
   stub returning a well-formed assessment.
-- **The workflow does not yet write to chain.** It reaches consensus on
-  the assessment and reports it; the EVM write to `CREReceiver` is the
-  next step and needs a deployed receiver address to target.
 - **No report has travelled the real path.** The receiver is tested
   against a stub forwarder, and the metadata layout against the live mock
-  one, but a DON-signed report has never reached it.
+  one, but a DON-signed report has never reached it. That needs deploy
+  access.
+- **The continuous-underwriting row still rests on the signed route.**
+  `scripts/demo-monitor.sh` is the evidence for it; the CRE route is an
+  alternative authorization path, not a second demonstration of that row.
 
 ## Operational measurement
 
