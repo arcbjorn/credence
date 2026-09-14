@@ -1,0 +1,14 @@
+{
+  "schedule": "0 */5 * * * *",
+  "riskServiceUrl": "http://127.0.0.1:18223",
+  "chainSelector": 2183018362218727504,
+  "receiverAddress": "0x0000000000000000000000000000000000000000",
+  "loans": [
+    {
+      "loanId": 1,
+      "facilityId": 1,
+      "agentId": 1830,
+      "creditAccount": "0x0000000000000000000000000000000000000000"
+    }
+  ]
+}
