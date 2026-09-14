@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"log"
 	"math/big"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -53,12 +54,16 @@ func main() {
 		"validate configuration and dependencies, then exit")
 	flag.Parse()
 
-	if err := run(*configPath, *addr, *loansFlag, *check); err != nil {
+	// The token is read from the environment, never a flag: a flag value
+	// is visible in `ps` to every other user on the host.
+	token := os.Getenv("CREDENCE_ASSESSD_TOKEN")
+
+	if err := run(*configPath, *addr, *loansFlag, token, *check); err != nil {
 		log.Fatalf("assessd: %v", err)
 	}
 }
 
-func run(configPath, addr, loansFlag string, checkOnly bool) error {
+func run(configPath, addr, loansFlag, authToken string, checkOnly bool) error {
 	ctx, stop := signal.NotifyContext(
 		context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -154,10 +159,28 @@ func run(configPath, addr, loansFlag string, checkOnly bool) error {
 				"cannot name an obligation this deployment does not monitor")
 	}
 
+	// A public listener without a credential is a permission oracle anyone
+	// can drive. Loopback is a real mitigation and the default, but it is
+	// not an access control, so anything else must present a token.
+	//
+	// Refused at startup rather than warned about: a warning in a log is
+	// exactly what nobody reads before leaving a service exposed.
+	if authToken == "" {
+		local, err := isLoopback(addr)
+		if err != nil {
+			return fmt.Errorf("parse -addr %q: %w", addr, err)
+		}
+		if !local {
+			return fmt.Errorf(
+				"refusing to serve on %s without authentication: set "+
+					"CREDENCE_ASSESSD_TOKEN, or bind to loopback", addr)
+		}
+	}
+
 	server := assessd.New(collector, risk, normalizer, bindings,
 		recorder{store: db, registry: store.NewRegistry(db),
 			schemaVersion: cfg.SchemaVersion},
-		assessd.Config{Policy: cfg.EnginePolicy})
+		assessd.Config{Policy: cfg.EnginePolicy, AuthToken: authToken})
 
 	// Prove every dependency is reachable before serving. Failing here is
 	// far cheaper than discovering it mid-request, when the caller's only
@@ -273,4 +296,31 @@ func (r recorder) RetainDecision(
 ) error {
 	return r.registry.Retain(ctx, bindingKey, r.schemaVersion,
 		inputHash, snapshot, assessment)
+}
+
+// isLoopback reports whether this listen address is reachable only from
+// the host.
+//
+// An empty or wildcard host ("", "0.0.0.0", "::") is NOT loopback: those
+// bind every interface, which is the case this check exists to catch.
+func isLoopback(addr string) (bool, error) {
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		return false, err
+	}
+	if host == "" {
+		// ":8090" binds every interface.
+		return false, nil
+	}
+	if host == "localhost" {
+		return true, nil
+	}
+	ip := net.ParseIP(host)
+	if ip == nil {
+		// A hostname that is not "localhost" could resolve anywhere.
+		// Treat it as public rather than resolving it here, since the
+		// answer could differ by the time the listener binds.
+		return false, nil
+	}
+	return ip.IsLoopback(), nil
 }
