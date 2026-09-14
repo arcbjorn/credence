@@ -124,14 +124,58 @@ def assert_registry_present(url: str, registry: str) -> None:
         )
 
 
+def rpc_chain_id(url: str) -> int:
+    payload = json.dumps({
+        "jsonrpc": "2.0", "id": 1, "method": "eth_chainId", "params": [],
+    }).encode()
+    req = urllib.request.Request(
+        url, data=payload, headers={"content-type": "application/json"})
+    with urllib.request.urlopen(req, timeout=15) as r:
+        return int(json.load(r)["result"], 16)
+
+
+def registry_publisher(url: str, registry: str) -> str:
+    """Who is permitted to write to this registry.
+
+    Records are only as trustworthy as their author. A reader that prints
+    them without naming the publisher cannot distinguish this registry
+    from any other contract exposing the same methods.
+    """
+    # cast sig "publisher()"
+    w = words(rpc_call(url, registry, "0x8c72c54e"))
+    if not w:
+        return "unknown"
+    return "0x" + f"{w[0]:040x}"
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--rpc", required=True, help="JSON-RPC endpoint")
     ap.add_argument("--registry", required=True, help="feedback registry address")
     ap.add_argument("--agent", type=int, required=True, help="agent id")
+    ap.add_argument("--expect-publisher", default=None,
+                    help="refuse records from any other publisher")
+    ap.add_argument("--expect-chain", type=int, default=None,
+                    help="refuse a registry on any other chain")
     args = ap.parse_args()
 
     assert_registry_present(args.rpc, args.registry)
+
+    # Provenance, as far as this registry allows. Reading records without
+    # establishing WHO wrote them and on WHICH chain is not independent
+    # verification -- anyone can deploy a contract with these methods.
+    chain_id = rpc_chain_id(args.rpc)
+    publisher = registry_publisher(args.rpc, args.registry)
+    print(f"chain id  {chain_id}")
+    print(f"publisher {publisher}")
+    if args.expect_chain is not None and chain_id != args.expect_chain:
+        raise SystemExit(
+            f"chain {chain_id} is not the expected {args.expect_chain}")
+    if args.expect_publisher is not None and \
+            publisher.lower() != args.expect_publisher.lower():
+        raise SystemExit(
+            f"publisher {publisher} is not the expected {args.expect_publisher}")
+    print()
 
     indices = agent_entries(args.rpc, args.registry, args.agent)
     if not indices:
@@ -170,6 +214,11 @@ def main() -> int:
     print(f"  interest paid={interest}  principal loss={loss}")
     print()
     print("  Read directly from chain. No Credence endpoint was contacted.")
+    print()
+    print("  Verified: the registry exists, its chain id, and the single")
+    print("  address permitted to write to it.")
+    print("  NOT verified: the referenced evidence payloads. This reader")
+    print("  prints evidence hashes; it does not resolve or check them.")
     return 0
 
 
