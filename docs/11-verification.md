@@ -172,16 +172,16 @@ loss are reported independently and never collapsed into a score.
 Deployed to **Monad testnet (chain 10143)** and verified by reading the
 chain back, not by trusting the deploy script's exit code:
 
-| Contract | Address |
-|---|---|
-| `RiskOracle` | `0xE53287EA0DD26DDCFd4a569Db64f8ceEC7A1A080` |
-| `CreditVault` | `0xC95cF75ee3F4f050fAeD698585A3423dDd225dDa` |
-| `LoanManager` | `0x7354894D550A26D1d367bF13016DaE1ffb2dEe47` |
-| settlement token | `0x5F99631697224476e01cE9A608FA589e362fB315` |
-| risky asset (*NOT ETH*) | `0x6BA7cfCC24Fd51A81adeA5059C0468126a349D89` |
-| venue | `0x62EEB5D74DC4aBA6A531da347d131Dc8e9cf74D5` |
-| price source | `0xf2DCcfd279cBFa9E6636026fF40aE46DdA40C2cB` |
-| adapter | `0xE3213CB09F2B09f99Fb303f2e786899605e67C2f` |
+**Addresses live in
+[`contracts/deployments/10143.json`](../contracts/deployments/10143.json)**,
+which is the only place they are recorded.
+
+This table used to repeat them and went stale the first time anything was
+redeployed — it named a `RiskOracle` three deployments old while the
+manifest named the live one, so a reader comparing the two documents found
+a contradiction rather than an address. That is the same failure the
+README already fixed by pointing here, and this document had not.
+Reported by review, 14 September.
 
 Three loans completed the full lifecycle on the public chain, and all
 seven deployment checks passed against it — including the one that
