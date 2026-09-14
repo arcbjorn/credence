@@ -29,6 +29,10 @@ Lender capital ──► CreditVault ──► CreditAccount ◄── agent equ
 1. **Whitelisted adapters only.** Registered adapters, fixed selectors. No arbitrary `call` or `delegatecall`.
 2. **No withdrawal while debt is active or recovering.** Binds the **owner**, not only the agent. This is the load-bearing rule and the one the demo shows failing.
 3. **Health maintained.** Normal adapter calls that would breach required coverage revert; the dedicated recovery path permits bounded risk reduction below normal thresholds.
+
+   **How, precisely.** `CreditAccount` computes no LTV and no coverage ratio. Those are the engine's, and they arrive as the oracle's permission bit: a risk-increasing call reverts when permission is absent, expired, or bound to a different account state version. So a breach surfaces at the next assessment rather than at the moment of the trade, and the window between them is the monitoring interval.
+
+   That is weaker than "the contract checks coverage", and the difference is worth stating: an agent can trade into a breach and only be stopped on the next cycle. What the contract does guarantee is that it cannot keep doing so. Corrected after review, 14 September.
 4. **Proceeds return to the account.** Adapters cannot redirect output.
 5. **Close-out ordering.** Principal, then accrued interest, then residual equity to the bound recipient.
 

@@ -29,8 +29,16 @@ interface IRiskOracle {
 ///   1. Whitelisted adapters only — no arbitrary call or delegatecall.
 ///   2. No withdrawal while debt is active or recovering. Binds the OWNER,
 ///      not only the agent. This is the load-bearing rule.
-///   3. Health maintained — normal adapter calls that would breach coverage
-///      revert; the recovery path may reduce risk below normal thresholds.
+///   3. Health maintained — but NOT by an on-chain coverage check.
+///      This contract computes no LTV and no coverage ratio; those are
+///      the engine's, and they reach here as the oracle's permission bit.
+///      A risk-increasing call reverts when permission is absent, expired,
+///      or bound to a different account state version -- which is how a
+///      breach surfaces, one assessment later rather than at the moment
+///      of the trade. The recovery path is exempt so a liquidation is
+///      never blocked by the very threshold it is closing.
+///      Corrected after review, 14 September: the earlier wording implied
+///      a coverage check this contract does not perform.
 ///   4. Proceeds return to this account.
 ///   5. Close-out ordering: principal, then accrued interest, then residual
 ///      equity to the bound recipient.

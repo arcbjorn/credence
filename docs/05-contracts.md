@@ -136,7 +136,11 @@ bumped state version — would let a stale quote fund.
 
 ## Invariants — must hold
 
-1. **Aggregate, not per-loan.** At origination, outstanding obligations plus the new principal and reserved full-term interest fit the pinned `facility_limit` and global debt budgets; principal also fits the account cap. Lower subsequent risk capacity blocks new risk without altering existing debt
+1. **Aggregate, not per-loan.** At origination, outstanding obligations plus the new principal and reserved full-term interest fit the **global debt budget** — the budget bounds what the loan will owe, not merely what it draws today. Lower subsequent risk capacity blocks new risk without altering existing debt.
+
+   **Split honestly:** `globalCap` is the only limit the contracts hold. `facility_limit`, the account cap, `max_ltv` and the coverage ratios are the ENGINE's, and they reach chain as an approved principal inside a signed envelope rather than as numbers the contracts re-derive. A quote that ignored them would be refused by the engine, not by `LoanManager`.
+
+   That is a deliberate prototype split — the engine judges, the contracts enforce custody and envelopes — but it means the contracts do not independently check the engine's arithmetic. An earlier version of this line implied they did. Corrected after review, 14 September.
 2. **Replay protection.** Nonce consumed once
 3. **Expiry.** `valid_until` enforced onchain
 4. **Configuration binding.** Reverts if either policy epoch/hash or configuration version/hash fails to match its pinned record

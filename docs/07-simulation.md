@@ -1,5 +1,21 @@
 # 07 · Simulation
 
+> **Status, 14 September: not built.** This document describes a design,
+> not something in the repository. There is no `gateway/sim`, no virtual
+> clock, no fixture pack, and no world generator separated from the
+> underwriter.
+>
+> What exists instead: the demo scripts advance an isolated local chain
+> with `evm_increaseTime`, and against a public chain they wait in real
+> time (`holdUntilChainTime`). That is enough to show a lifecycle, and it
+> is what `docs/11` reports. It is **not** the independent-population
+> evaluation this document describes, and no claim anywhere should present
+> it as one.
+>
+> Reported by review, 14 September. Kept rather than deleted because the
+> design is still the right one and the schedule may reach it; what was
+> wrong was reading as though it had been implemented.
+
 There is no independent borrower population or repayment history yet. The 32-day build cannot produce the multi-month arcs the thesis describes. **Build the synthetic population deliberately and say so.** A model-backed runner can make real proposals while operating on this synthetic economic evidence.
 
 Presented correctly — evaluating an underwriting model against a synthetic population, which is what a risk team actually does — this is more convincing than thin real data, because it exercises failure paths real data could not surface in time.
