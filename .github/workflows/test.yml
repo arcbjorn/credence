@@ -14,7 +14,7 @@ name: test
 
 on:
   push:
-    branches: [main]
+    branches: [master]
   pull_request:
 
 # A newer push supersedes an in-flight run for the same ref. The old
