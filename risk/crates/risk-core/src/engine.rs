@@ -462,7 +462,14 @@ pub fn evaluate(input: &RiskInput, policy: &Policy) -> RiskAssessment {
 
             // Step 8 — price. Runs after capacity, so a rate can never
             // manufacture eligibility.
-            let history_quality_ppm = history.weighted_repayments_ppm.min(1_000_000);
+            // EARNED, not reported -- the same figure capacity uses.
+            //
+            // Pricing read the raw weight while capacity read the earned
+            // one, so a borrower with defaults or unproven coverage kept
+            // the discount its unadjusted record claimed. History that
+            // does not count toward the limit must not cheapen the rate
+            // either. Reported by review, 14 September.
+            let history_quality_ppm = earned_ppm.min(1_000_000);
             let portfolio_risk_ppm = portfolio_risk(account, market);
             let breakdown =
                 pricing::price(&policy.pricing, history_quality_ppm, portfolio_risk_ppm);

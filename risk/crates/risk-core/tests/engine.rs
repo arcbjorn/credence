@@ -825,6 +825,51 @@ fn incomplete_history_does_not_earn_full_capacity() {
 
 /// Past defaults and policy breaches must bear on the decision.
 ///
+/// Defaults must cost the RATE too, not only the limit.
+///
+/// Capacity uses `earned_repayment_ppm` -- halved for incomplete
+/// coverage, reduced per adverse outcome -- while pricing read the raw
+/// weight. A borrower with five defaults therefore kept the discount its
+/// unadjusted record claimed, so history that should not count could
+/// still cheapen the rate.
+///
+/// Reported by review, 14 September.
+#[test]
+fn resolved_defaults_raise_the_rate() {
+    let mut p = policy();
+    p.forecast.min_outcomes = 0;
+    p.forecast.worst_brier_ppm = 1_000_000;
+
+    let mut clean = input(5_000_000_000, 5_000_000_000);
+    if let Some(h) = clean.history.value.as_mut() {
+        h.weighted_repayments_ppm = 1_000_000; // a flawless raw record
+        h.coverage_complete = true;
+    }
+    if let Some(f) = clean.forecasts.value.as_mut() {
+        f.comparable_resolved = 10;
+        f.mean_brier_ppm = 0;
+    }
+    clean.model_policy.policy_hash = hash_of(&p);
+
+    let mut scarred = clean.clone();
+    if let Some(h) = scarred.history.value.as_mut() {
+        h.resolved_defaults = 5;
+    }
+
+    let apr = |a: &risk_core::assessment::RiskAssessment| match &a.outcome {
+        Outcome::ApprovedOrigination { terms, .. } => terms.apr_bps,
+        other => panic!("expected approval, got {other:?}"),
+    };
+
+    let baseline = apr(&evaluate(&clean, &p));
+    let after = apr(&evaluate(&scarred, &p));
+
+    assert!(
+        after > baseline,
+        "five defaults must cost the rate: {baseline:?} -> {after:?}"
+    );
+}
+
 /// Reporting them and then ignoring them means the fields describe an
 /// agent the engine never actually considered.
 #[test]
