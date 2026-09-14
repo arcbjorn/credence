@@ -44,6 +44,7 @@ pub mod evidence;
 pub mod input;
 pub mod interest;
 pub mod pricing;
+pub mod replay;
 pub mod snapshot;
 pub mod stress;
 pub mod units;
