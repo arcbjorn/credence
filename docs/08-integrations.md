@@ -191,6 +191,13 @@ Being precise, because "CRE integration" reads broader than what holds:
   can record a full assessment. That is the trust model `docs/05` states,
   and it means a mistaken `setSigner(Route.CRE, eoa, true)` is a funding
   door.
+- **`credence-assessd` is credentialed but still a single source.**
+  Since 14 September it requires `Authorization: Bearer <token>`, and
+  refuses to start on a non-loopback listener without one; the workflow
+  reads that token from CRE's secret store rather than from its committed
+  config. That closes "anyone who can reach the port can drive the
+  permission oracle". It does not change the paragraph above it: N nodes
+  still agree on one project-controlled reply.
 - **The metadata layout was observed on the MOCK forwarder**, not the
   production Keystone one. If production metadata is not exactly 64 bytes
   with the owner at `[42:62]`, every report reverts — loudly, which is the
