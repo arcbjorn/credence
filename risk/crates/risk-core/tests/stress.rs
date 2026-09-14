@@ -605,3 +605,76 @@ fn omitted_deployment_share_defaults_to_everything() {
         "an omitted share must read as full deployment"
     );
 }
+
+/// Splitting one holding across rows must not make it cheaper to exit.
+///
+/// Market impact grows with the square root of size, so computing it per
+/// entry values two half-sized rows above one whole one -- the same book,
+/// worth more for being written down twice. An exit trades the whole
+/// holding into the same depth whatever the snapshot's row count.
+///
+/// Reported by review, 14 September.
+#[test]
+fn splitting_a_holding_does_not_raise_recoverable_value() {
+    let p = policy();
+    let depth = Amount(10_000_000_000);
+
+    let whole = recoverable_value(
+        Amount(0), &[eth(1_000_000)], Shock::Liquidity, Bps(3_000), depth, &p,
+    )
+    .unwrap();
+
+    let halves = recoverable_value(
+        Amount(0),
+        &[eth(500_000), eth(500_000)],
+        Shock::Liquidity,
+        Bps(3_000),
+        depth,
+        &p,
+    )
+    .unwrap();
+
+    assert_eq!(
+        whole, halves,
+        "the same exposure must value the same however it is split: \
+         whole {whole:?} vs halves {halves:?}"
+    );
+}
+
+/// Distinct assets still get their own impact: they trade in their own
+/// books, so aggregating across them would overstate the cost of exiting
+/// either one.
+#[test]
+fn distinct_assets_are_not_aggregated() {
+    let p = policy();
+    let depth = Amount(10_000_000_000);
+
+    let mut other = eth(500_000);
+    other.asset = "WBTC".into();
+
+    let mixed = recoverable_value(
+        Amount(0),
+        &[eth(500_000), other],
+        Shock::Liquidity,
+        Bps(3_000),
+        depth,
+        &p,
+    )
+    .unwrap();
+
+    let same_asset = recoverable_value(
+        Amount(0),
+        &[eth(500_000), eth(500_000)],
+        Shock::Liquidity,
+        Bps(3_000),
+        depth,
+        &p,
+    )
+    .unwrap();
+
+    assert!(
+        mixed > same_asset,
+        "two separate books must exit more cheaply than one concentrated \
+         holding of the same total size: mixed {mixed:?}, same {same_asset:?}"
+    );
+}

@@ -103,6 +103,24 @@ pub fn recoverable_value(
     // pays execution cost when it must be moved.
     let mut total = settlement_balance;
 
+    // Total marked exposure per ASSET, computed before anything is valued.
+    //
+    // Market impact grows with the square root of size, so computing it
+    // per entry makes two half-sized entries cheaper to exit than one
+    // whole one -- the same book, valued higher for being written down
+    // twice. The exit trades the whole holding into the same depth
+    // whatever the snapshot's row count, so the impact must come from the
+    // aggregate. Reported by review, 14 September.
+    let mut exposure: Vec<(&str, u128)> = Vec::new();
+    for p in positions {
+        let scale = 10u128.checked_pow(p.price_scale)?;
+        let marked = p.amount.0.checked_mul(p.price.0)? / scale;
+        match exposure.iter_mut().find(|(a, _)| *a == p.asset.as_str()) {
+            Some((_, total)) => *total = total.checked_add(marked)?,
+            None => exposure.push((p.asset.as_str(), marked)),
+        }
+    }
+
     for p in positions {
         // Mark to settlement units at the observed price.
         let scale = 10u128.checked_pow(p.price_scale)?;
@@ -121,10 +139,18 @@ pub fn recoverable_value(
         value = value.checked_mul(after_haircut)? / 10_000;
 
         if apply_liquidity {
-            // Scaled by how much of the market this position represents,
-            // rather than a flat rate: a concentrated book is the case
-            // the liquidity scenario exists to catch.
-            let impact = liquidity_impact_bps(marked, depth, policy.liquidity_haircut_bps);
+            // Scaled by how much of the market the WHOLE holding of this
+            // asset represents, rather than a flat rate or this row's
+            // share: a concentrated book is the case the liquidity
+            // scenario exists to catch, and splitting a holding across
+            // rows does not make it easier to sell.
+            let asset_total = exposure
+                .iter()
+                .find(|(a, _)| *a == p.asset.as_str())
+                .map(|(_, t)| *t)
+                .unwrap_or(marked);
+            let impact =
+                liquidity_impact_bps(asset_total, depth, policy.liquidity_haircut_bps);
             let after_liq = 10_000u128.checked_sub(impact.min(10_000))?;
             value = value.checked_mul(after_liq)? / 10_000;
         }
