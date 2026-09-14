@@ -73,7 +73,9 @@ func readPublished(
 			// revocation rather than correcting anything; `docs/06`
 			// records a correction as a NEW version, deliberately.
 			if id, ok := erc8004.ParseLoanTag(e.Tag2, chainID, manager); ok {
-				out[id] = true
+				// Per SIGNAL, not per loan. One entry does not mean the
+				// other three landed.
+				out.Mark(id, e.Tag1)
 			}
 		}
 	}
@@ -99,10 +101,6 @@ func publishStandard(
 	blockNumber uint64,
 ) (int, error) {
 	loanID := f.LoanID.Uint64()
-	if already[loanID] {
-		log.Printf("loan %d: already published", loanID)
-		return 0, nil
-	}
 
 	// The registry does NOT refuse feedback for an agent that was never
 	// registered: a giveFeedback call naming a nonexistent token id
@@ -137,7 +135,28 @@ func publishStandard(
 		return 0, err
 	}
 
+	// Resume at the first MISSING signal rather than skipping the loan.
+	//
+	// A run that wrote the outcome and then stopped used to leave the
+	// remaining three unwritten forever, because readback saw the outcome
+	// row and marked the whole loan done.
+	pending := entries[:0:0]
 	for _, e := range entries {
+		if already.Has(loanID, e.Tag1) {
+			continue
+		}
+		pending = append(pending, e)
+	}
+	if len(pending) == 0 {
+		log.Printf("loan %d: already published", loanID)
+		return 0, nil
+	}
+	if len(pending) < len(entries) {
+		log.Printf("loan %d: resuming, %d of %d signals missing",
+			loanID, len(pending), len(entries))
+	}
+
+	for _, e := range pending {
 		data, err := erc8004.EncodeGiveFeedback(e)
 		if err != nil {
 			return 0, err

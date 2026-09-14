@@ -47,9 +47,21 @@ func outcome(id uint64) LoanOutcome {
 // `docs/06` requires queued updates to be idempotent, and with no on-chain
 // guard that has to hold here.
 func TestPlanSkipsAlreadyPublished(t *testing.T) {
+	// Fully published: every signal of loans 1 and 3 is already present.
+	full := Published{}
+	for _, id := range []uint64{1, 3} {
+		entries, err := Signals(outcome(id))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, e := range entries {
+			full.Mark(id, e.Tag1)
+		}
+	}
+
 	plans, err := Plan(
 		[]LoanOutcome{outcome(1), outcome(2), outcome(3)},
-		Published{1: true, 3: true},
+		full,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -82,5 +94,59 @@ func TestPlanRefusesUnusableOutcome(t *testing.T) {
 	bad.Outcome = 42
 	if _, err := Plan([]LoanOutcome{bad}, Published{}); err == nil {
 		t.Fatal("expected refusal for an unknown outcome class")
+	}
+}
+
+// A partly published loan resumes at the missing signals.
+//
+// Each loan writes four independent transactions. Readback used to mark
+// the whole loan published on finding ANY of them, so a run that sent the
+// outcome and then stopped -- a failure, a kill, a restart -- left the
+// interest, loss and held-duration rows unwritten permanently. A reader
+// would then sum three of four facts and never know.
+//
+// Reported by review, 14 September.
+func TestPlanResumesAPartlyPublishedLoan(t *testing.T) {
+	entries, err := Signals(outcome(1))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) < 2 {
+		t.Fatalf("expected several signals, got %d", len(entries))
+	}
+
+	// Only the FIRST signal landed.
+	partial := Published{}
+	partial.Mark(1, entries[0].Tag1)
+
+	plans, err := Plan([]LoanOutcome{outcome(1)}, partial)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(plans) != 1 {
+		t.Fatalf("got %d plans, want the loan resumed", len(plans))
+	}
+	if got, want := len(plans[0].Entries), len(entries)-1; got != want {
+		t.Fatalf("planned %d entries, want the %d still missing", got, want)
+	}
+	for _, e := range plans[0].Entries {
+		if e.Tag1 == entries[0].Tag1 {
+			t.Fatalf("re-sent an already published signal %q", e.Tag1)
+		}
+	}
+}
+
+// A loan with no signals published yet still plans all of them.
+func TestPlanCarriesEverySignalWhenNothingPublished(t *testing.T) {
+	entries, err := Signals(outcome(1))
+	if err != nil {
+		t.Fatal(err)
+	}
+	plans, err := Plan([]LoanOutcome{outcome(1)}, Published{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(plans) != 1 || len(plans[0].Entries) != len(entries) {
+		t.Fatalf("expected all %d signals planned", len(entries))
 	}
 }

@@ -19,7 +19,33 @@ import (
 // place a reader can see it: neither readFeedback nor readAllFeedback
 // returns feedbackURI or feedbackHash, and recovering them from
 // NewFeedback logs is not something a public RPC serves cheaply.
-type Published map[uint64]bool
+// Keyed by loan AND signal. Keying by loan alone meant that finding any
+// one of a loan's four entries marked the whole loan done: if the outcome
+// landed and the process then stopped, the next run skipped the loan
+// entirely and its interest, loss and held-duration rows were never
+// written. The standard exposes feedback as individual indexed entries,
+// so reconciliation belongs at that granularity too.
+//
+// Reported by review, 14 September.
+type Published map[PublishedKey]bool
+
+// PublishedKey identifies one signal of one loan.
+type PublishedKey struct {
+	LoanID uint64
+	// Tag1 names the signal: `credence.outcome.<class>`, `credence.interest`,
+	// `credence.loss`, `credence.held`.
+	Tag1 string
+}
+
+// Has reports whether this exact signal was already published.
+func (p Published) Has(loanID uint64, tag1 string) bool {
+	return p[PublishedKey{LoanID: loanID, Tag1: tag1}]
+}
+
+// Mark records one published signal.
+func (p Published) Mark(loanID uint64, tag1 string) {
+	p[PublishedKey{LoanID: loanID, Tag1: tag1}] = true
+}
 
 // LoanURI is the canonical evidence locator for one loan.
 //
@@ -42,7 +68,12 @@ type PublishPlan struct {
 }
 
 // Plan expands resolved outcomes into the entries still to publish,
-// skipping any loan already present in the registry for this client.
+// skipping individual SIGNALS already present in the registry for this
+// client.
+//
+// Per signal rather than per loan: a loan whose outcome landed but whose
+// interest row did not is partly published, and skipping it wholesale
+// left the remainder unwritten permanently.
 func Plan(
 	outcomes []LoanOutcome,
 	already Published,
@@ -53,14 +84,21 @@ func Plan(
 			return nil, fmt.Errorf("loan id required")
 		}
 		id := o.LoanID.Uint64()
-		if already[id] {
-			continue
-		}
 		entries, err := Signals(o)
 		if err != nil {
 			return nil, err
 		}
-		plans = append(plans, PublishPlan{LoanID: id, Entries: entries})
+		pending := entries[:0:0]
+		for _, e := range entries {
+			if already.Has(id, e.Tag1) {
+				continue
+			}
+			pending = append(pending, e)
+		}
+		if len(pending) == 0 {
+			continue
+		}
+		plans = append(plans, PublishPlan{LoanID: id, Entries: pending})
 	}
 	return plans, nil
 }
