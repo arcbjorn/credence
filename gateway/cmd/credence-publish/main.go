@@ -70,6 +70,8 @@ func main() {
 		"agent id override; 0 derives it from the loan (preferred)")
 	standard := flag.Bool("erc8004", false,
 		"publish to the ERC-8004 reputation registry instead of the local adapter")
+	identityRegistry := flag.String("identity-registry", "",
+		"ERC-8004 identity registry; checked so feedback names a real agent")
 	evidenceBase := flag.String("evidence-base", "",
 		"base URL for evidence documents; empty uses a credence: locator")
 	fromLoan := flag.Uint64("from", 1, "first loan id to consider")
@@ -81,6 +83,7 @@ func main() {
 		rpcURL: *rpcURL, manager: *manager, registry: *registry,
 		agentID: *agentID, fromLoan: *fromLoan, toLoan: *toLoan,
 		chainID: *chainID, standard: *standard, evidenceBase: *evidenceBase,
+		identityRegistry: *identityRegistry,
 	}
 	if err := run(cfg); err != nil {
 		log.Fatalf("publish: %v", err)
@@ -94,6 +97,7 @@ type config struct {
 	chainID                   uint64
 	standard                  bool
 	evidenceBase              string
+	identityRegistry          string
 }
 
 func run(cfg config) error {
@@ -161,8 +165,9 @@ func run(cfg config) error {
 
 		if cfg.standard {
 			n, err := publishStandard(
-				ctx, w, reader, registry, entry, already,
-				chainID, manager, cfg.evidenceBase)
+				ctx, rpc, w, reader, registry, entry, already,
+				chainID, manager, cfg.evidenceBase, cfg.identityRegistry,
+				block.Number)
 			if err != nil {
 				return fmt.Errorf("loan %d: %w", id, err)
 			}
@@ -233,9 +238,12 @@ func readResolved(
 	if err != nil {
 		return f, false, fmt.Errorf("read loan: %w", err)
 	}
+	// Fourteen words since the loan began recording its agent. A shorter
+	// response is an older manager, whose loans carry no attribution.
 	if len(out) < 32*13 {
 		return f, false, fmt.Errorf("short loan struct: %d bytes", len(out))
 	}
+	hasAgent := len(out) >= 32*14
 
 	// Word layout matches LoanManager.Loan.
 	account := wordAt(out, 0)
@@ -273,8 +281,29 @@ func readResolved(
 	var acct attest.Address
 	copy(acct[:], account[12:])
 
+	// Attribution DERIVED from the chain (`docs/06`): the loan records
+	// the agent from the binding its quote was consumed under. An id
+	// supplied on the command line is a claim the chain never made --
+	// and a wrong one does not fail loudly, it publishes an outcome
+	// against whichever token id was passed.
+	//
+	// The flag remains only as an override for the local adapter, whose
+	// demo loans predate the recorded field and read back as zero.
+	agent := big.NewInt(0)
+	if hasAgent {
+		agent = new(big.Int).SetBytes(wordAt(out, 13))
+	}
+	if agent.Sign() == 0 {
+		if agentID == 0 {
+			return f, false, fmt.Errorf(
+				"loan %d records no agent and none was supplied; "+
+					"publishing would attribute it to agent 0", loanID)
+		}
+		agent = new(big.Int).SetUint64(agentID)
+	}
+
 	return feedback{
-		AgentID:       new(big.Int).SetUint64(agentID),
+		AgentID:       agent,
 		CreditAccount: acct,
 		LoanID:        id,
 		Outcome:       outcome,

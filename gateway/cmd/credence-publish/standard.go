@@ -87,18 +87,30 @@ func readPublished(
 // leaves a prefix rather than an arbitrary subset.
 func publishStandard(
 	ctx context.Context,
+	rpc *chain.RPC,
 	w *wallet.Wallet,
 	reader *chain.Reader,
 	registry string,
 	f feedback,
 	already erc8004.Published,
 	chainID uint64,
-	manager, evidenceBase string,
+	manager, evidenceBase, identityRegistry string,
+	blockNumber uint64,
 ) (int, error) {
 	loanID := f.LoanID.Uint64()
 	if already[loanID] {
 		log.Printf("loan %d: already published", loanID)
 		return 0, nil
+	}
+
+	// The registry does NOT refuse feedback for an agent that was never
+	// registered: a giveFeedback call naming a nonexistent token id
+	// returns receipt status 1 and writes a row attributed to nothing.
+	// Observed on Monad testnet, 14 September, when a derivation bug sent
+	// four signals to agent 0 and every transaction reported success.
+	// Checking ownership first turns that into a loud failure.
+	if err := requireRegistered(ctx, rpc, identityRegistry, f.AgentID, blockNumber); err != nil {
+		return 0, err
 	}
 
 	uri := erc8004.LoanURI(evidenceBase, chainID, manager, loanID)
@@ -134,7 +146,7 @@ func publishStandard(
 		if err := waitMined(ctx, reader, txHash); err != nil {
 			return 0, fmt.Errorf("%s: %w", e.Tag1, err)
 		}
-		log.Printf("loan %d: %-18s value=%s", loanID, e.Tag1, e.Value)
+		log.Printf("loan %d: %-18s value=%s tx=%s", loanID, e.Tag1, e.Value, txHash)
 	}
 	log.Printf("loan %d: published %s as %d signals, evidence %s",
 		loanID, outcomeName(f.Outcome), len(entries), uri)
@@ -154,11 +166,12 @@ func loanAgent(
 	data := append(selector("agentIdOf(uint256)"),
 		word(new(big.Int).SetUint64(loanID))...)
 	out, err := rpc.CallContract(ctx, manager, data, blockNumber)
-	if err != nil {
-		return 0, fmt.Errorf("loan %d: read agent: %w", loanID, err)
-	}
-	if len(out) < 32 {
-		return 0, fmt.Errorf("loan %d: short agent response", loanID)
+	if err != nil || len(out) < 32 {
+		// A manager deployed before loans recorded their agent has no
+		// such function. Reporting zero lets the caller fall back to an
+		// explicit id rather than failing the whole run; publishing
+		// still refuses agent 0, so nothing unattributed gets written.
+		return 0, nil
 	}
 	v := new(big.Int).SetBytes(out[:32])
 	if !v.IsUint64() {
@@ -190,4 +203,44 @@ func evidenceHash(
 			"principal=%s\ninterest=%s\nloss=%s\noriginated=%d\nresolved=%d",
 		chainID, strings.ToLower(manager), loanID, outcome,
 		principal, interest, loss, originatedAt, resolvedAt))
+}
+
+// requireRegistered refuses to publish about an agent the identity
+// registry does not know.
+//
+// `docs/06` requires published feedback to be ATTRIBUTABLE. An entry
+// naming an unregistered token id attributes an outcome to nobody, and
+// the reputation registry will accept it without complaint, so the check
+// has to happen here.
+func requireRegistered(
+	ctx context.Context,
+	rpc *chain.RPC,
+	identityRegistry string,
+	agentID *big.Int,
+	blockNumber uint64,
+) error {
+	if identityRegistry == "" {
+		return nil
+	}
+	if agentID == nil || agentID.Sign() == 0 {
+		return fmt.Errorf(
+			"refusing to publish for agent 0: an outcome must name a registered agent")
+	}
+	data, err := erc8004.EncodeOwnerOf(agentID)
+	if err != nil {
+		return err
+	}
+	out, err := rpc.CallContract(ctx, identityRegistry, data, blockNumber)
+	if err != nil {
+		return fmt.Errorf("agent %s is not registered: %w", agentID, err)
+	}
+	owner, err := erc8004.DecodeAddress(out)
+	if err != nil {
+		return err
+	}
+	var zero erc8004.Address
+	if owner == zero {
+		return fmt.Errorf("agent %s has no owner", agentID)
+	}
+	return nil
 }
