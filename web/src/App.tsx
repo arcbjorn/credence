@@ -2,15 +2,16 @@ import { NavLink, Route, Routes, Navigate } from "react-router";
 import { AgentOverview } from "./screens/AgentOverview";
 import { AssessmentDetail } from "./screens/AssessmentDetail";
 import { Enforcement } from "./screens/Enforcement";
+import { Lender } from "./screens/Lender";
 import { Lifecycle } from "./screens/Lifecycle";
 import { Replay } from "./screens/Replay";
 import "./styles/app.css";
 
 /**
- * `docs/09` specifies eight screens. Five are built here -- the ones that
+ * `docs/09` specifies eight screens. Six are built here -- the ones that
  * carry the thesis: what an agent can borrow and why (4b), the
  * constraints behind one decision, the loan lifecycle with its forecasts
- * (3, 4 and 7), the prohibited withdrawal (beat 6, which `docs/09` calls
+ * (3, 4 and 7), the lender's epoch ledgers, the prohibited withdrawal (beat 6, which `docs/09` calls
  * the single most convincing moment), and replay (beat 8).
  *
  * The rest are listed in `docs/09` and deliberately NOT stubbed with empty
@@ -26,6 +27,7 @@ export default function App() {
         <NavLink to="/agent">Agent overview</NavLink>
         <NavLink to="/assessment">Assessment detail</NavLink>
         <NavLink to="/lifecycle">Loan lifecycle</NavLink>
+        <NavLink to="/lender">Lender</NavLink>
         <NavLink to="/enforcement">Enforcement</NavLink>
         <NavLink to="/replay">Replay</NavLink>
       </nav>
@@ -35,6 +37,7 @@ export default function App() {
           <Route path="/agent" element={<AgentOverview />} />
           <Route path="/assessment" element={<AssessmentDetail />} />
           <Route path="/lifecycle" element={<Lifecycle />} />
+          <Route path="/lender" element={<Lender />} />
           <Route path="/enforcement" element={<Enforcement />} />
           <Route path="/replay" element={<Replay />} />
         </Routes>

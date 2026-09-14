@@ -50,3 +50,44 @@ describe.skipIf(!existsSync(REPAY))("beat 6, as recorded on chain", () => {
     expect(a).not.toBe(b);
   });
 });
+
+/**
+ * `docs/05` keeps the vault's ledgers separate, and `docs/09` asks the
+ * lender screen to show them that way.
+ *
+ * The rule that matters: **uncollected interest is never withdrawable
+ * cash.** A single "vault value" figure would merge a receivable with
+ * settled cash and overstate what a lender could actually take, which is
+ * the one direction an accounting error must never go.
+ */
+describe.skipIf(!existsSync(REPAY))("the lender ledgers", () => {
+  const checks = (): Check[] =>
+    JSON.parse(readFileSync(REPAY, "utf8")).checks ?? [];
+
+  it("records the epoch ledgers from chain", () => {
+    const ledger = checks().filter((c) => c.beat === "lender");
+    const names = ledger.map((c) => c.name).join(" ");
+    expect(names).toContain("idle cash");
+    expect(names).toContain("principal outstanding");
+    expect(names).toContain("realized loss");
+  });
+
+  it("reports each ledger as its own figure, never a total", () => {
+    const ledger = checks().filter((c) => c.beat === "lender");
+    const values = ledger.map((c) => c.detail);
+    // Each carries its own base-unit reading.
+    for (const v of values) {
+      expect(v).toMatch(/^\d+ base units$/);
+    }
+    // And they are distinct entries, not one merged number.
+    expect(new Set(ledger.map((c) => c.name)).size).toBe(ledger.length);
+  });
+
+  it("does not treat a zero realized loss as a failure", () => {
+    // Zero is the correct value for a clean epoch. Marking it failed
+    // would misreport a healthy run as a broken one.
+    const loss = checks().find((c) => c.name.includes("realized loss"));
+    expect(loss).toBeDefined();
+    expect(loss!.passed).toBe(true);
+  });
+});
