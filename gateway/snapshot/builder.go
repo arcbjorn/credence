@@ -296,3 +296,18 @@ func (in *Input) InputHash() (string, error) {
 	}
 	return canonical.HashHex(value)
 }
+
+// BindingStateVersion reads the account state version a binding declares.
+//
+// The snapshot's binding is the authority on what the engine assessed: it
+// is inside `input_hash`, so a caller that re-reads the chain instead can
+// sign a version the assessment never committed to.
+func BindingStateVersion(binding json.RawMessage) (uint64, error) {
+	var b struct {
+		AccountStateVersion uint64 `json:"account_state_version"`
+	}
+	if err := json.Unmarshal(binding, &b); err != nil {
+		return 0, fmt.Errorf("decode binding: %w", err)
+	}
+	return b.AccountStateVersion, nil
+}

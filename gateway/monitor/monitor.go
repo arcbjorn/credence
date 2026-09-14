@@ -43,8 +43,22 @@ type EvidenceSource interface {
 }
 
 // Publisher delivers an accepted assessment to the chain.
+//
+// `accountStateVersion` is the version the ASSESSMENT was computed
+// against, taken from the snapshot the engine hashed. It is passed rather
+// than re-read because the publisher used to pin a fresh chain read at
+// publish time: if the account executed between collect and publish, the
+// signed envelope bound permission to a portfolio the snapshot never saw.
+// A later execution must INVALIDATE the result, not silently relabel it.
+//
+// Reported by review, 14 September.
 type Publisher interface {
-	Publish(ctx context.Context, bindingKey string, assessment json.RawMessage) (txHash string, err error)
+	Publish(
+		ctx context.Context,
+		bindingKey string,
+		accountStateVersion uint64,
+		assessment json.RawMessage,
+	) (txHash string, err error)
 }
 
 // Recorder persists each cycle. Called for every outcome, including
@@ -210,7 +224,12 @@ func (m *Monitor) runTask(
 		cycle.Permission = PermissionAllowed
 	}
 
-	txHash, err := m.pub.Publish(ctx, task.BindingKey, raw)
+	// The version the snapshot carried, not a fresh read.
+	assessedVersion, err := snapshot.BindingStateVersion(input.Binding)
+	if err != nil {
+		return m.finish(ctx, cycle, fmt.Errorf("read assessed version: %w", err))
+	}
+	txHash, err := m.pub.Publish(ctx, task.BindingKey, assessedVersion, raw)
 	if err != nil {
 		// The assessment stands and is recorded; only delivery failed.
 		// Permission on chain keeps whatever it had until it expires,

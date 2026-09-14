@@ -211,7 +211,7 @@ func build(ctx context.Context, cfg *config.Config) (*deps, error) {
 		scheduler: sched,
 		risk:      risk,
 		monitor: monitor.New(sched, collector, risk,
-			publisherFunc{adapter: adapter, store: db, reader: reader},
+			publisherFunc{adapter: adapter, store: db},
 			recorder{
 				store:         db,
 				registry:      store.NewRegistry(db),
@@ -351,40 +351,33 @@ func (systemClock) Now() int64 { return time.Now().Unix() }
 type publisherFunc struct {
 	adapter *attestpub.Adapter
 	store   *store.Store
-	reader  *chain.Reader
 }
 
 func (p publisherFunc) Publish(
 	ctx context.Context,
 	bindingKey string,
+	accountStateVersion uint64,
 	assessment json.RawMessage,
 ) (string, error) {
-	account, err := gatewayrt.AccountFor(ctx, p.store, bindingKey)
-	if err != nil {
-		return "", err
-	}
-
-	// The LIVE account state version, read from chain moments after the
-	// collector read it for the snapshot.
+	// The ASSESSED version, supplied by the monitor from the snapshot the
+	// engine hashed.
 	//
-	// Three places compare this and they must agree: the engine refuses a
+	// This used to pin a fresh block and re-read the account here. Three
+	// places compare this number and they must agree: the engine refuses a
 	// snapshot whose binding and account evidence disagree, the oracle
 	// stores it as the version permission applies to, and
-	// `riskAllowedFor` compares that against the account's current
-	// version. Reading a stored value instead -- the version permission
-	// was last bound to -- is correct on the first cycle and deadlocks
-	// afterwards. Reported by review, 14 September.
-	block, err := p.reader.LatestBlock(ctx)
-	if err != nil {
-		return "", fmt.Errorf("pin block for state version: %w", err)
-	}
-	state, err := p.reader.AccountAt(ctx, account, block)
-	if err != nil {
-		return "", fmt.Errorf("read account state version: %w", err)
-	}
-
+	// `riskAllowedFor` compares that against the account's CURRENT
+	// version. A re-read at publish time meant that an account executing
+	// between collect and publish got permission bound to a portfolio the
+	// assessment never saw — and `riskAllowedFor` would then happily
+	// allow it.
+	//
+	// Signing the assessed version instead means a later execution
+	// invalidates the permission, which is the outcome `docs/05` wants:
+	// stale permission blocks, it does not silently update.
+	// Reported by review, 14 September.
 	binding, err := gatewayrt.LoadBinding(
-		ctx, p.store, bindingKey, state.StateVersion)
+		ctx, p.store, bindingKey, accountStateVersion)
 	if err != nil {
 		return "", err
 	}

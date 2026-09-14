@@ -62,10 +62,17 @@ type stubPublisher struct {
 	tx    string
 	err   error
 	calls int
+	// sawVersion records the account state version the monitor supplied,
+	// so a test can assert it is the ASSESSED one rather than a fresh
+	// chain read.
+	sawVersion uint64
 }
 
-func (p *stubPublisher) Publish(context.Context, string, json.RawMessage) (string, error) {
+func (p *stubPublisher) Publish(
+	_ context.Context, _ string, version uint64, _ json.RawMessage,
+) (string, error) {
 	p.calls++
+	p.sawVersion = version
 	return p.tx, p.err
 }
 
@@ -380,5 +387,38 @@ func TestUnretainableDecisionIsNotPublished(t *testing.T) {
 	}
 	if c.Permission != monitor.PermissionBlocked {
 		t.Fatalf("permission must fail closed, got %s", c.Permission)
+	}
+}
+
+// The publisher must be given the version the ASSESSMENT was computed
+// against, not a fresh read.
+//
+// `publisherFunc` used to pin a block and re-read the account at publish
+// time. If the account executed between collect and publish, the signed
+// envelope bound permission to a portfolio the snapshot never hashed --
+// and `riskAllowedFor`, which compares the signed version against the
+// account's current one, would then allow an action the engine never
+// assessed. A later execution must INVALIDATE the permission, not
+// silently relabel it.
+//
+// Reported by review, 14 September.
+func TestPublisherGetsTheAssessedStateVersion(t *testing.T) {
+	in := monitoringInput("loan-1")
+	// The version the engine hashes into input_hash.
+	in.Binding = json.RawMessage(`{"facility_id":"1","account_state_version":7}`)
+
+	pub := &stubPublisher{tx: "0xdead"}
+	m, _ := setup(t, stubEvidence{input: in},
+		engineReturning(t, "MonitoringAllowed"), pub)
+
+	tick(m)
+
+	if pub.calls == 0 {
+		t.Fatal("nothing was published, so nothing was tested")
+	}
+	if pub.sawVersion != 7 {
+		t.Fatalf(
+			"publisher was given version %d, want the assessed 7",
+			pub.sawVersion)
 	}
 }
