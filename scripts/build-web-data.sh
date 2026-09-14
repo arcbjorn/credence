@@ -105,6 +105,17 @@ for name, db in zip(names, dbs):
     with open(os.path.join(out, f"{name}.json"), "w") as f:
         json.dump(run, f, indent=1, sort_keys=True, default=str)
 
+    # The on-chain checks `credence-verify` ran against this deployment.
+    # `docs/09` beat 6 is "the single most convincing moment", and it was
+    # terminal-only: the interface can now show the two DIFFERENT revert
+    # selectors rather than a sentence about them.
+    checks_path = os.path.join(os.path.dirname(db), "checks.json")
+    if os.path.exists(checks_path):
+        with open(checks_path) as f:
+            run["checks"] = json.load(f)
+        with open(os.path.join(out, f"{name}.json"), "w") as f:
+            json.dump(run, f, indent=1, sort_keys=True, default=str)
+
     manifest["runs"].append({
         "name": name,
         "assessments": len(assessments),

@@ -114,9 +114,12 @@ go build -o credence-scenario ./cmd/credence-scenario
 # different claims. This asserts the second against real balances.
 echo "=== deployment verification ==="
 go build -o credence-verify ./cmd/credence-verify
+# `-json` records the checks beside the run's evidence, so the interface
+# can render beat 6 from what actually happened on chain rather than
+# retelling it (`docs/09`: demonstrated, not claimed).
 ./credence-verify -rpc "$RPC" -manager "$MANAGER" -account "$ACCOUNT" \
   -settlement "$SETTLEMENT" -owner "$(cast wallet address --private-key "0x$DEPLOYER")" \
-  -vault "$VAULT" -risky "$RISKY"
+  -vault "$VAULT" -risky "$RISKY" -json "$WORK/checks.json"
 
 echo "=== vault after repayment ==="
 for f in outstandingPrincipal collectedInterest realizedLoss idleCash; do
