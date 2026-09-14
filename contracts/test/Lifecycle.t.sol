@@ -16,6 +16,23 @@ contract NoopAdapter {
     function act() external {}
 }
 
+/// Minimal ERC-721 ownership, enough to model a transfer.
+contract MockIdentityRegistry {
+    mapping(uint256 => address) private owners;
+
+    function mint(uint256 tokenId, address to) external {
+        owners[tokenId] = to;
+    }
+
+    function transfer(uint256 tokenId, address to) external {
+        owners[tokenId] = to;
+    }
+
+    function ownerOf(uint256 tokenId) external view returns (address) {
+        return owners[tokenId];
+    }
+}
+
 contract LifecycleTest is Test {
     MockERC20 token;
     CreditVault vault;
@@ -981,5 +998,47 @@ contract LifecycleTest is Test {
             )
         );
         manager.openRecovery(loanId, KEEPER, forged);
+    }
+
+    /// A real ERC-721 transfer invalidates a standing quote.
+    ///
+    /// An ERC-721 transfer PRESERVES the token id and changes the owner,
+    /// so every binding field survives it unchanged — agent id included.
+    /// A test that changes the agent id is testing a different thing
+    /// entirely, and would pass while the actual transfer case stays
+    /// open. `docs/06`: freeze new credit on transfer.
+    address constant NEW_OWNER = address(0xBEEF);
+
+    function test_TransferredIdentityCannotDrawAnOldQuote() public {
+        MockIdentityRegistry registry = new MockIdentityRegistry();
+        registry.mint(184, OPERATOR);
+        vm.prank(OPERATOR);
+        manager.setIdentityRegistry(address(registry));
+
+        // A quote signed while OPERATOR owns the agent.
+        Binding memory b = _publish(oracle, account, 5_000e6, 1_200, 10 days);
+        assertEq(b.operator, OPERATOR, "the quote names its owner");
+
+        // The identity is sold. The token id does not change.
+        registry.transfer(184, NEW_OWNER);
+        assertEq(registry.ownerOf(184), NEW_OWNER);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(LoanManager.IdentityTransferred.selector, uint256(184))
+        );
+        manager.originate(b, 5_000e6);
+    }
+
+    /// Without a transfer the same quote still funds, so the check bounds
+    /// who may draw rather than blocking origination.
+    function test_UntransferredIdentityStillDraws() public {
+        MockIdentityRegistry registry = new MockIdentityRegistry();
+        registry.mint(184, OPERATOR);
+        vm.prank(OPERATOR);
+        manager.setIdentityRegistry(address(registry));
+
+        Binding memory b = _publish(oracle, account, 5_000e6, 1_200, 10 days);
+        uint256 loanId = manager.originate(b, 5_000e6);
+        assertEq(uint8(manager.status(loanId)), uint8(LoanManager.Status.Active));
     }
 }

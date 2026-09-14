@@ -4,6 +4,11 @@ pragma solidity 0.8.28;
 import {IERC20} from "./IERC20.sol";
 import {SafeTransfer} from "./SafeTransfer.sol";
 import {CreditAccount} from "./CreditAccount.sol";
+
+/// @dev The slice of an ERC-721 identity registry this contract needs.
+interface IIdentityRegistry {
+    function ownerOf(uint256 tokenId) external view returns (address);
+}
 import {CreditVault} from "./CreditVault.sol";
 import {RiskOracle} from "./RiskOracle.sol";
 import {Binding, Terms} from "./Assessment.sol";
@@ -67,6 +72,13 @@ contract LoanManager {
     RiskOracle public immutable oracle;
     address public immutable operator;
 
+    /// @dev ERC-721 identity registry, when one is configured. A draw
+    /// then requires the binding's `operator` to still own the agent
+    /// token: `docs/06` freezes new credit on transfer, and a binding
+    /// that names only the agent ID cannot notice one -- the ID survives
+    /// a transfer unchanged.
+    address public identityRegistry;
+
     uint256 public nextLoanId = 1;
     mapping(uint256 loanId => Loan) public loans;
     /// @dev One active loan per account (`docs/05`).
@@ -92,6 +104,7 @@ contract LoanManager {
     error CollateralUnresolved(address token);
     error LoanNotRecoverable(uint256 loanId);
     error BindingNotForLoan(uint256 loanId);
+    error IdentityTransferred(uint256 agentId);
     error Paused();
     error ZeroAmount();
     error NotKeeper();
@@ -104,6 +117,7 @@ contract LoanManager {
     event Collected(uint256 indexed loanId, uint256 principal, uint256 interest);
     event Recovered(uint256 indexed loanId);
     event CollateralAssetSet(address indexed token, bool isCollateral);
+    event IdentityRegistrySet(address indexed registry);
     event Defaulted(uint256 indexed loanId, uint256 principalLoss, uint256 unpaidInterest);
 
     modifier onlyOperator() {
@@ -116,6 +130,14 @@ contract LoanManager {
         vault = vault_;
         oracle = oracle_;
         operator = operator_;
+    }
+
+    /// @notice Point the manager at an ERC-721 identity registry.
+    /// @dev Empty disables the check, which is honest for a deployment
+    /// with no registry rather than a silent pass.
+    function setIdentityRegistry(address registry) external onlyOperator {
+        identityRegistry = registry;
+        emit IdentityRegistrySet(registry);
     }
 
     /// @notice Register a collateral asset recovery must resolve.
@@ -203,6 +225,19 @@ contract LoanManager {
             binding.accountStateVersion == account.stateVersion(),
             StaleAccountState(binding.accountStateVersion, account.stateVersion())
         );
+
+        // The agent must still be owned by the party the assessment was
+        // made for. An ERC-721 transfer preserves the token ID, so every
+        // binding field survives it unchanged -- without this an old
+        // quote stays drawable by whoever now controls the identity
+        // (`docs/06`: freeze new credit on transfer).
+        if (identityRegistry != address(0)) {
+            require(
+                IIdentityRegistry(identityRegistry).ownerOf(binding.agentId)
+                    == binding.operator,
+                IdentityTransferred(binding.agentId)
+            );
+        }
 
         // Consumes once, and only for this exact amount.
         (Terms memory terms, uint64 quoteValidUntil, uint64 quoteSequence) =
