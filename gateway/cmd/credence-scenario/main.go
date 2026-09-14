@@ -427,7 +427,8 @@ func run(
 		// be resolved against what happened. `docs/06` makes the sampling
 		// cadence part of the event definition: a sampled maximum
 		// drawdown does not claim to observe every intermediate price.
-		navPeak, navTrough := navSample(ctx, reader, rpc, account, settlement, riskyAsset)
+		navPeak, navTrough := navSample(
+			ctx, reader, rpc, account, settlement, riskyAsset, priceSource, manager)
 
 		if holdSeconds > 0 {
 			if err := advanceTime(ctx, rpc, holdSeconds); err != nil {
@@ -451,6 +452,7 @@ func run(
 			// across the horizon, so the peak and trough now bracket it.
 			if p, t := navSample(
 				ctx, reader, rpc, account, settlement, riskyAsset,
+				priceSource, manager,
 			); p > 0 {
 				if p > navPeak {
 					navPeak = p
@@ -625,18 +627,27 @@ func actionHash(adapter attest.Address, data []byte) attest.Hash {
 // 5% below the observed peak.
 const drawdownThresholdBps = 500
 
-// navSample marks the account's value once, returning it as both a
+// navSample marks the account's NAV once, returning it as both a
 // candidate peak and a candidate trough.
 //
-// Settlement plus the risky position at its observed price. Borrowed funds
-// add an asset and an equal liability, so debt is deliberately excluded
-// here: this measures the POSITION's drawdown, which is what the forecast
-// is about.
+// `docs/06` defines NAV as marked assets MINUS outstanding principal and
+// unpaid accrued interest. Borrowing adds an asset and an equal
+// liability and creates no profit, so sampling gross assets would report
+// a drawdown the agent never experienced -- every draw would look like a
+// gain and every repayment like a loss.
+//
+// The risky position is marked at the CONFIGURED PRICE SOURCE, not a
+// constant. A fixed mark cannot observe the event the forecast is about:
+// the price would never move, so the drawdown could never occur.
+//
+// Returns zero when anything cannot be read. A NAV that could not be
+// observed is not a NAV of zero, and the caller treats a zero peak as
+// "no observation" rather than as a total loss.
 func navSample(
 	ctx context.Context,
 	reader *chain.Reader,
 	rpc *chain.RPC,
-	account, settlement, riskyAsset string,
+	account, settlement, riskyAsset, priceSource, manager string,
 ) (uint64, uint64) {
 	at, err := rpc.LatestBlock(ctx)
 	if err != nil {
@@ -648,19 +659,63 @@ func navSample(
 	if err != nil {
 		return 0, 0
 	}
-	total := new(big.Int).Set(cash)
+	assets := new(big.Int).Set(cash)
 
 	if riskyAsset != "" {
 		risky, err := reader.TokenBalance(ctx, riskyAsset, account, ref)
-		if err == nil && risky.Sign() > 0 {
-			// 18-decimal units at a 6-decimal price, in settlement units.
-			marked := new(big.Int).Mul(risky, big.NewInt(2_000_000_000))
+		if err != nil {
+			return 0, 0
+		}
+		if risky.Sign() > 0 {
+			obs, err := reader.RiskyPriceAt(ctx, priceSource, at.Number)
+			if err != nil {
+				// The mark is unobservable, so the NAV is too.
+				return 0, 0
+			}
+			// Risky units at the source's price, expressed in settlement
+			// units: amount * price / 10^decimals.
+			marked := new(big.Int).Mul(risky, obs.Price)
 			marked.Div(marked, big.NewInt(1_000_000_000_000_000_000))
-			total.Add(total, marked)
+			assets.Add(assets, marked)
 		}
 	}
-	v := total.Uint64()
+
+	// Less what the account owes.
+	debt := big.NewInt(0)
+	if manager != "" {
+		if loanID, err := readActiveLoan(ctx, rpc, manager, account); err == nil && loanID != 0 {
+			if d, err := readDebtDue(ctx, rpc, manager, loanID, at.Number); err == nil {
+				debt = d
+			}
+		}
+	}
+	nav := new(big.Int).Sub(assets, debt)
+	if nav.Sign() < 0 {
+		nav = big.NewInt(0)
+	}
+
+	v := nav.Uint64()
 	return v, v
+}
+
+// readDebtDue reads what a loan currently owes, principal plus unpaid
+// accrued interest, at a pinned block.
+func readDebtDue(
+	ctx context.Context,
+	rpc *chain.RPC,
+	manager string,
+	loanID, blockNumber uint64,
+) (*big.Int, error) {
+	data := append(attest.Selector("debtDue(uint256)"),
+		attest.Word(new(big.Int).SetUint64(loanID))...)
+	out, err := rpc.CallContract(ctx, manager, data, blockNumber)
+	if err != nil {
+		return nil, err
+	}
+	if len(out) < 32 {
+		return nil, fmt.Errorf("short debtDue result")
+	}
+	return new(big.Int).SetBytes(out[:32]), nil
 }
 
 // bindEngineOutput replaces the envelope's placeholders with the engine's
