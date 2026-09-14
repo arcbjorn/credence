@@ -59,6 +59,19 @@ pub enum Reason {
     /// Recovery is in progress. The keeper owns the position until it
     /// resolves; permission to act would race the liquidation.
     LoanInRecovery,
+    /// One active loan per account, and a binding with an unresolved
+    /// default gets no new credit (`docs/05`).
+    ///
+    /// **Enforced on chain, not here.** The loan manager refuses a second
+    /// draw outright and the oracle refuses a defaulted binding; the
+    /// engine cannot, because `outstanding_debt` in its snapshot is
+    /// facility-wide rather than per account -- denying on it would refuse
+    /// every borrower whenever any other agent in the facility owed
+    /// anything.
+    ///
+    /// Kept in the vocabulary so a reader decoding an assessment knows
+    /// what the class means, and so the gap is stated rather than implied
+    /// by an unused name. Reported by review, 14 September.
     ActiveLoanPresent,
     UnresolvedDefault,
     /// Monitoring: the existing account no longer meets monitoring policy.

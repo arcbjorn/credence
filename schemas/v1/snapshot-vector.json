@@ -141,7 +141,7 @@
     },
     "model_policy": {
       "model_id": "m1",
-      "model_hash": "model-hash",
+      "model_hash": "eb1f28871b21718a9db5a3e65fcdca22fc1680e9f369d8adb25869966461a1a3",
       "policy_id": "p1",
       "policy_hash": "policy-hash"
     }

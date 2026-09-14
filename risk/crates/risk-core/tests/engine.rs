@@ -167,7 +167,7 @@ fn input(requested: u128, equity: u128) -> RiskInput {
         ),
         model_policy: ModelPolicy {
             model_id: "m1".into(),
-            model_hash: "model-hash".into(),
+            model_hash: risk_core::model_hash(),
             policy_id: "p1".into(),
             // The REAL content hash of policy(). An executable result
             // requires the declared label to be the hash of the policy
@@ -293,6 +293,36 @@ fn rate_above_borrower_maximum_denies() {
         Reason::PriceExceedsBorrowerMaximum { .. }
     ));
     assert!(a.outcome.terms().is_none());
+
+    // `RiskAssessment::stress_results` says the three scenarios are
+    // "present even on a denial, because the reader needs to see what
+    // bound the decision". A denial that dropped them left a UI unable to
+    // show "denied because of these three shocks". Reported by review,
+    // 14 September.
+    assert_eq!(
+        a.stress_results.len(),
+        3,
+        "a denial after stress ran must still report all three scenarios"
+    );
+}
+
+/// A denial raised BEFORE anything was stressed honestly reports none.
+///
+/// The claim is that a reader can see what bound the decision -- and when
+/// the decision was bound by a zero request, nothing was stressed. An
+/// empty list is the truthful answer there, not a gap.
+#[test]
+fn early_denial_reports_no_stress_results() {
+    let mut i = input(1_000_000_000, 5_000_000_000);
+    if let Context::Origination { request } = &mut i.context {
+        request.requested_principal = Amount::ZERO;
+    }
+    let a = evaluate(&i, &policy());
+    assert!(matches!(a.reasons[0], Reason::ZeroRequest));
+    assert!(
+        a.stress_results.is_empty(),
+        "nothing was stressed, so nothing should be reported"
+    );
 }
 
 // --- Unavailable paths ---

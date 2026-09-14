@@ -10,9 +10,10 @@ import (
 	"github.com/arcbjorn/credence/gateway/canonical"
 	"github.com/arcbjorn/credence/gateway/chain"
 	"github.com/arcbjorn/credence/gateway/evidence"
+	"github.com/arcbjorn/credence/gateway/gatewayrt"
 	"github.com/arcbjorn/credence/gateway/riskclient"
-	"github.com/arcbjorn/credence/gateway/store"
 	"github.com/arcbjorn/credence/gateway/snapshot"
+	"github.com/arcbjorn/credence/gateway/store"
 )
 
 // originationTerms asks the engine what this request is worth.
@@ -246,7 +247,7 @@ func modelPolicy(policy json.RawMessage) json.RawMessage {
 	}
 	raw, _ := json.Marshal(map[string]any{
 		"model_id":    "m1",
-		"model_hash":  "model-hash",
+		"model_hash":  gatewayrt.ModelHash,
 		"policy_id":   "p1",
 		"policy_hash": hash,
 	})
@@ -394,8 +395,8 @@ func commitForecast(
 	}
 
 	return reg.CommitForecast(ctx, store.Forecast{
-		ForecastID:      fmt.Sprintf("%s:forecast:%d", chainKey, loanIndex),
-		BindingKey:      chainKey,
+		ForecastID: fmt.Sprintf("%s:forecast:%d", chainKey, loanIndex),
+		BindingKey: chainKey,
 		// Derived from the horizon, never a second constant: a label
 		// claiming 20m beside a horizon of 30s would record an event
 		// the run never observed. `docs/06` calls 20m a demo horizon,

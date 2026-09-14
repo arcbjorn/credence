@@ -72,6 +72,27 @@ pub fn evaluate(input: &RiskInput, policy: &Policy) -> RiskAssessment {
     //
     // Comparison is on normalized hex, so `0x`-prefixed and bare forms of
     // the same bytes are the same commitment rather than a mismatch.
+    // The model identity must be THIS engine's.
+    //
+    // Same rule as the policy hash immediately below, and for the same
+    // reason: an assessment that names a model the engine did not run
+    // attests to provenance nobody can check. Reported by review, 14
+    // September -- it was the literal string "model-hash".
+    if normalize_hash(&input.model_policy.model_hash) != crate::model_hash() {
+        return unavailable(
+            input,
+            &identity,
+            vec![Reason::StructurallyInvalid(format!(
+                "model_hash {} is not this engine's",
+                input.model_policy.model_hash
+            ))],
+            vec![],
+            Class::ScenarioOnly,
+            false,
+            policy.max_evidence_age_seconds,
+        );
+    }
+
     match policy_content_hash(policy) {
         Some(actual) if normalize_hash(&input.model_policy.policy_hash) == actual => {}
         _ => {
@@ -300,6 +321,7 @@ pub fn evaluate(input: &RiskInput, policy: &Policy) -> RiskAssessment {
                     &identity,
                     Some(request.requested_principal),
                     None,
+                    vec![],
                     vec![Reason::AccountRestricted],
                     verdict.omitted,
                     class,
@@ -313,6 +335,7 @@ pub fn evaluate(input: &RiskInput, policy: &Policy) -> RiskAssessment {
                     &identity,
                     Some(Amount::ZERO),
                     None,
+                    vec![],
                     vec![Reason::ZeroRequest],
                     verdict.omitted,
                     class,
@@ -413,6 +436,7 @@ pub fn evaluate(input: &RiskInput, policy: &Policy) -> RiskAssessment {
                         &identity,
                         Some(request.requested_principal),
                         Some(view),
+                        results.clone(),
                         vec![Reason::CapacityExceeded { limiting, capacity }],
                         verdict.omitted,
                         class,
@@ -426,6 +450,7 @@ pub fn evaluate(input: &RiskInput, policy: &Policy) -> RiskAssessment {
                         &identity,
                         Some(Amount::ZERO),
                         Some(view),
+                        results.clone(),
                         vec![Reason::ZeroRequest],
                         verdict.omitted,
                         class,
@@ -452,6 +477,7 @@ pub fn evaluate(input: &RiskInput, policy: &Policy) -> RiskAssessment {
                     &identity,
                     Some(request.requested_principal),
                     Some(view),
+                    results.clone(),
                     vec![Reason::PriceExceedsBorrowerMaximum {
                         offered_bps,
                         maximum_bps,
@@ -481,6 +507,7 @@ pub fn evaluate(input: &RiskInput, policy: &Policy) -> RiskAssessment {
                     &identity,
                     Some(request.requested_principal),
                     Some(view),
+                    results.clone(),
                     vec![Reason::CapacityExceeded {
                         limiting: composed.agent_binding,
                         capacity: composed.agent_capacity,
@@ -703,6 +730,17 @@ fn denied(
     identity: &Identity,
     requested: Option<Amount>,
     capacity: Option<CapacityView>,
+    // The three scenarios, when the denial happened after they were run.
+    //
+    // `RiskAssessment::stress_results` documents them as "present even on
+    // a denial, because the reader needs to see what bound the decision"
+    // -- and a denial that dropped them made that false, leaving a UI
+    // unable to show "denied because of these three shocks". The early
+    // denials (restricted account, zero request) legitimately pass an
+    // empty vector: nothing had been stressed yet.
+    //
+    // Reported by review, 14 September.
+    stress_results: Vec<StressResult>,
     reasons: Vec<Reason>,
     omitted: Vec<String>,
     class: Class,
@@ -716,7 +754,7 @@ fn denied(
             requested_principal: requested,
             capacity,
         },
-        vec![],
+        stress_results,
         reasons,
         omitted,
         class,

@@ -29,6 +29,18 @@ import (
 	"github.com/arcbjorn/credence/gateway/store"
 )
 
+// ModelHash is the identity of the risk engine that produces assessments.
+//
+// Must equal `risk_core::model_hash()`, which the engine verifies: an
+// assessment naming a model the engine did not run attests to provenance
+// nobody can check. Previously the literal "model-hash", which committed
+// to nothing while the policy beside it was hashed for real.
+//
+//	cargo run -p risk-core --example model_hash
+//
+// Reported by review, 14 September.
+const ModelHash = "eb1f28871b21718a9db5a3e65fcdca22fc1680e9f369d8adb25869966461a1a3"
+
 // LoadBinding reads the on-chain identity an assessment binds to.
 func LoadBinding(
 	ctx context.Context,
@@ -245,7 +257,7 @@ func BindingLookup(
 		// RAN, and which policy record the binding is scoped to.
 		modelPolicy, err := json.Marshal(map[string]any{
 			"model_id":    "m1",
-			"model_hash":  "model-hash",
+			"model_hash":  ModelHash,
 			"policy_id":   fmt.Sprintf("epoch-%d", binding.PolicyEpoch),
 			"policy_hash": PolicyContentHash(cfg.EnginePolicy),
 		})

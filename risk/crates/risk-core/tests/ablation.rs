@@ -181,7 +181,7 @@ fn baseline() -> RiskInput {
         ),
         model_policy: ModelPolicy {
             model_id: "m1".into(),
-            model_hash: "model-hash".into(),
+            model_hash: risk_core::model_hash(),
             policy_id: "p1".into(),
             // The REAL content hash of policy(). An executable result
             // requires the declared label to be the hash of the policy
