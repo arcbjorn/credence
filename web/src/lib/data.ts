@@ -107,13 +107,39 @@ export interface ForecastOutcome {
   brier_ppm: number;
 }
 
+/** One evidence item as the engine received it (`docs/04`). */
+export interface Evidence {
+  evidence_id: string;
+  source: string;
+  origin: string;
+  requirement: string;
+  state: string;
+  coverage: string;
+  observed_at: number;
+  retrieved_at: number;
+  content_hash: string;
+  scenario_id: string | null;
+  value?: unknown;
+}
+
+/** The snapshot the engine hashed, item by item. */
+export interface Snapshot {
+  assessment_time: number;
+  account?: Evidence;
+  market?: Evidence;
+  history?: Evidence;
+  forecasts?: Evidence;
+  portfolio?: Evidence;
+  [k: string]: unknown;
+}
+
 export interface Run {
   name: string;
   /** Present when the run recorded on-chain checks. */
   checks?: Check[];
   assessments: Assessment[];
   /** Keyed by input_hash, so an assessment pairs with its exact snapshot. */
-  snapshots: Record<string, unknown>;
+  snapshots: Record<string, Snapshot>;
   outcomes: ForecastOutcome[];
   forecasts: Forecast[];
   chain_events: unknown[];

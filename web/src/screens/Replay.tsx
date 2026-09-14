@@ -43,15 +43,16 @@ export function Replay() {
     try {
       const engine = await loadEngine();
 
-      let input = snapshot;
+      let input: unknown = snapshot;
       if (tamper) {
         // One digit of the position's mark, exactly as the demo's control
         // does. Structured cloning keeps the retained snapshot pristine --
         // a tamper that mutated it would poison every later run.
-        const copy = structuredClone(snapshot) as {
-          account: { value: { positions: { price: string }[] } };
-        };
-        const pos = copy.account?.value?.positions?.[0];
+        const copy = structuredClone(snapshot);
+        const account = copy.account?.value as
+          | { positions?: { price: string }[] }
+          | undefined;
+        const pos = account?.positions?.[0];
         if (!pos) throw new Error("this snapshot holds no position to alter");
         pos.price = String(BigInt(pos.price) - 100000000n);
         input = copy;

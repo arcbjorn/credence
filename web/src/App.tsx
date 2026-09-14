@@ -3,13 +3,14 @@ import { AgentOverview } from "./screens/AgentOverview";
 import { AssessmentDetail } from "./screens/AssessmentDetail";
 import { Comparison_ } from "./screens/Comparison";
 import { Enforcement } from "./screens/Enforcement";
+import { EvidenceInspector } from "./screens/EvidenceInspector";
 import { Lender } from "./screens/Lender";
 import { Lifecycle } from "./screens/Lifecycle";
 import { Replay } from "./screens/Replay";
 import "./styles/app.css";
 
 /**
- * `docs/09` specifies eight screens. Seven are built here -- the ones that
+ * `docs/09` specifies eight screens. All eight are built here -- the ones that
  * carry the thesis: what an agent can borrow and why (4b), the
  * three-agent comparison (beats 1 and 5), the
  * constraints behind one decision, the loan lifecycle with its forecasts
@@ -30,6 +31,7 @@ export default function App() {
         <NavLink to="/compare">Three agents</NavLink>
         <NavLink to="/assessment">Assessment detail</NavLink>
         <NavLink to="/lifecycle">Loan lifecycle</NavLink>
+        <NavLink to="/evidence">Evidence</NavLink>
         <NavLink to="/lender">Lender</NavLink>
         <NavLink to="/enforcement">Enforcement</NavLink>
         <NavLink to="/replay">Replay</NavLink>
@@ -41,6 +43,7 @@ export default function App() {
           <Route path="/compare" element={<Comparison_ />} />
           <Route path="/assessment" element={<AssessmentDetail />} />
           <Route path="/lifecycle" element={<Lifecycle />} />
+          <Route path="/evidence" element={<EvidenceInspector />} />
           <Route path="/lender" element={<Lender />} />
           <Route path="/enforcement" element={<Enforcement />} />
           <Route path="/replay" element={<Replay />} />
