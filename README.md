@@ -1,7 +1,14 @@
 # Credence
 
-Autonomous credit markets for AI agents. Undercollateralized lending where
-a risk engine underwrites agent borrowers and contracts enforce the result.
+Autonomous credit markets for AI agents. A risk engine underwrites agent
+borrowers from their demonstrated behavior; contracts hold custody and
+enforce the result.
+
+**Not undercollateralized.** The account secures the loan — origination
+requires 1.20x stressed coverage. The claim is narrower and harder: the
+agent posts far less *equity* than it controls, and the multiplier and the
+price are set by what it has demonstrated rather than by what it posts.
+[`docs/12`](docs/12-claims-roadmap.md#adversarial-qa) states this precisely.
 
 Built for the Monad Metropolis hackathon, Onchain Finance & Trading.
 
@@ -26,19 +33,19 @@ Three languages, one job each:
 
 ## Live on Monad testnet
 
-Chain 10143. Every address below was read back from chain rather than
-trusted from a deploy log.
+Chain 10143. **The deployment manifest is
+[`contracts/deployments/10143.json`](contracts/deployments/10143.json)**,
+and it is the only place addresses are recorded — copies in prose go stale
+the first time anything is redeployed, and three of them did.
 
-| | |
-|---|---|
-| `RiskOracle` | `0x4deF904856f9146CCe1de202A736bB18D071ab7E` |
-| `LoanManager` | `0x07989623835ced1C57F2dBA61D99f157515e3192` |
-| `CreditVault` | `0xCdF849Bb9529202bb824e94cb900D9432398c32E` |
-| `CREReceiver` | `0xEc7A11Aa4da6482E4f7461ae535B9b3bB96CeF2c` |
+It carries the Credence contracts, the `CREReceiver`, the canonical
+ERC-8004 registries, and the registered agent id, which is what
+[`docs/06`](docs/06-identity-forecasts.md) requires of a release manifest.
 
 Agent `1830` is registered on the canonical ERC-8004 identity registry,
 and Credence publishes its loan outcomes to the canonical reputation
-registry.
+registry. The `CREReceiver` is deployed; **no DON-signed report has
+reached it**, because deploy access is still pending.
 
 ## Running it
 
