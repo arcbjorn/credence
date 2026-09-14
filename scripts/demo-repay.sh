@@ -44,6 +44,20 @@ HOLD_SECONDS=${HOLD_SECONDS:-$((5 * 86400))}
 credence_require_private_key "$SIGNER" "$CHAIN_ID" attestor CREDENCE_SIGNER_KEY
 credence_require_private_key "$DEPLOYER" "$CHAIN_ID" deployer CREDENCE_DEPLOYER_KEY
 
+# What a reviewer must know before reading any number below.
+#
+# `docs/11` requires modes to be labelled and `docs/08` requires claimed
+# capabilities to be backed by artifacts. Printed as text rather than a
+# status pill precisely so it cannot collapse into "green".
+cat <<NOTE
+--- mode ---
+  chain          $CHAIN_ID $(credence_is_local_chain "$CHAIN_ID" 2>/dev/null && echo "(local, time can be warped)" || echo "(public, real elapsed time)")
+  evidence       SCENARIO -- synthetic history, honestly labelled
+  authorization  Development route, one attestor key
+  assets         test tokens; the risky one is named NOT ETH on purpose
+  trust          the operator and attestor are TRUSTED, see docs/05
+NOTE
+
 cd "$ROOT/contracts"
 # Forge replays nonces from its own broadcast cache. A chain that has been
 # restarted -- or a different chain reusing the id -- resets those nonces,

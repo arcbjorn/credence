@@ -144,6 +144,23 @@ echo "=== price_move cycles ==="
 grep "trigger=price_move" "$WORK/gateway.log" || echo "NONE — beat 5b not demonstrated"
 echo "=== full log at $WORK/gateway.log ==="
 
+# Say this before a reviewer asks. `docs/02` invariant 3 reads as though
+# the account reverts on a coverage breach; it does not compute coverage
+# at all, and claiming otherwise is the kind of gap a reviewer finds.
+cat <<'NOTE'
+
+--- what "health" means here ---
+  CreditAccount computes no LTV and no coverage ratio. Those are the
+  engine's. What reaches chain is the oracle's permission bit, so a
+  risk-increasing call reverts when permission is absent, expired, or
+  bound to a different account state version.
+
+  A breach therefore surfaces at the NEXT assessment, not at the moment
+  of the trade -- the window between them is the monitoring interval you
+  just watched close. What the contract guarantees is that the account
+  cannot keep increasing risk, not that it was stopped mid-trade.
+NOTE
+
 # docs/09 beat 8: replay the decision that just reached chain.
 #
 # Replay is only meaningful if it can fail, so the retained pair is
