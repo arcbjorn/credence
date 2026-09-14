@@ -338,7 +338,7 @@ the request is reviewed, and per Chainlink's documentation that gates
 
 | Piece | State |
 |---|---|
-| `CREReceiver.sol` | 19 tests, `forge test --match-contract CREReceiver` |
+| `CREReceiver.sol` | 21 tests, `forge test --match-contract CREReceiver` |
 | `cre/underwrite` workflow | compiles to WASM, runs in the simulator |
 | Deploy to the workflow registry | **blocked on access** |
 

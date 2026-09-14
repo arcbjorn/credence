@@ -160,7 +160,7 @@ What exists:
 
 | Piece | State |
 |---|---|
-| `CREReceiver.sol` | Deployed on Monad testnet, 19 tests |
+| `CREReceiver.sol` | Deployed on Monad testnet, 21 tests |
 | `cre/underwrite` | Compiles to WASM, runs under `cre workflow simulate` |
 | `credence-assessd` | Serves the assessments the workflow reads |
 | CRE CLI v1.33.0 | Installed, authenticated |
