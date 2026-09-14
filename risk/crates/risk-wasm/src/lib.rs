@@ -49,8 +49,8 @@ pub struct DifferenceView {
 /// would risk a number losing precision on the way in.
 #[wasm_bindgen]
 pub fn evaluate(input_json: &str, policy_json: &str) -> Result<String, JsError> {
-    let input: RiskInput = serde_json::from_str(input_json)
-        .map_err(|e| JsError::new(&format!("parse input: {e}")))?;
+    let input: RiskInput =
+        serde_json::from_str(input_json).map_err(|e| JsError::new(&format!("parse input: {e}")))?;
     let policy: Policy = serde_json::from_str(policy_json)
         .map_err(|e| JsError::new(&format!("parse policy: {e}")))?;
 
@@ -72,13 +72,13 @@ pub fn replay(
 ) -> Result<JsValue, JsError> {
     let original: RiskAssessment = serde_json::from_str(assessment_json)
         .map_err(|e| JsError::new(&format!("parse assessment: {e}")))?;
-    let input: RiskInput = serde_json::from_str(input_json)
-        .map_err(|e| JsError::new(&format!("parse input: {e}")))?;
+    let input: RiskInput =
+        serde_json::from_str(input_json).map_err(|e| JsError::new(&format!("parse input: {e}")))?;
     let policy: Policy = serde_json::from_str(policy_json)
         .map_err(|e| JsError::new(&format!("parse policy: {e}")))?;
 
-    let result =
-        core_replay::replay(&original, &input, &policy).map_err(|e| JsError::new(&e.to_string()))?;
+    let result = core_replay::replay(&original, &input, &policy)
+        .map_err(|e| JsError::new(&e.to_string()))?;
 
     let report = ReplayReport {
         matched: result.is_match(),

@@ -123,8 +123,8 @@ fn cmd_replay(args: &[String]) -> Result<(), String> {
     // The comparison lives in `risk_core::replay`, shared with the browser
     // viewer. Two implementations of "did this reproduce?" is the drift a
     // replay exists to rule out.
-    let result = risk_core::replay::replay(&original, &input, &policy)
-        .map_err(|e| e.to_string())?;
+    let result =
+        risk_core::replay::replay(&original, &input, &policy).map_err(|e| e.to_string())?;
 
     if result.is_match() {
         println!("MATCH");

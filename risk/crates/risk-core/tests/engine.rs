@@ -34,10 +34,9 @@ fn shipped_policy() -> Policy {
         .nth(3)
         .expect("repo root")
         .join("config/engine-policy.json");
-    let raw = std::fs::read_to_string(&path)
-        .unwrap_or_else(|e| panic!("read {}: {e}", path.display()));
-    serde_json::from_str(&raw)
-        .unwrap_or_else(|e| panic!("parse {}: {e}", path.display()))
+    let raw =
+        std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("read {}: {e}", path.display()));
+    serde_json::from_str(&raw).unwrap_or_else(|e| panic!("parse {}: {e}", path.display()))
 }
 
 fn policy() -> Policy {
@@ -1115,10 +1114,10 @@ fn demo_third_loan_binds_on_stress_capacity() {
         .nth(3)
         .expect("repo root")
         .join("fixtures/demo/repay-loan3-origination.json");
-    let raw = std::fs::read_to_string(&path)
-        .unwrap_or_else(|e| panic!("read {}: {e}", path.display()));
-    let i: RiskInput = serde_json::from_str(&raw)
-        .unwrap_or_else(|e| panic!("parse {}: {e}", path.display()));
+    let raw =
+        std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("read {}: {e}", path.display()));
+    let i: RiskInput =
+        serde_json::from_str(&raw).unwrap_or_else(|e| panic!("parse {}: {e}", path.display()));
 
     // The snapshot carries the policy hash it was assessed under, and the
     // engine refuses an executable result when the declared label is not
