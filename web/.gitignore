@@ -1,0 +1,6 @@
+node_modules/
+dist/
+# Generated: `npm run wasm` compiles these from risk/crates/risk-wasm.
+src/engine/
+# Generated: `npm run data` emits these from the demos' retained SQLite.
+public/data/
