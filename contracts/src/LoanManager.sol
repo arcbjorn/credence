@@ -49,6 +49,13 @@ contract LoanManager {
         /// stamped its own clock would report the time it got around to
         /// publishing rather than when the obligation actually ended.
         uint64 resolvedAt;
+        /// @dev Principal written off at default, and interest never
+        /// collected. Recorded because the terminal state zeroes
+        /// `principalOutstanding`, so the loss cannot be recovered from it
+        /// afterwards -- and published feedback reports realized loss
+        /// (`docs/06`).
+        uint256 principalLoss;
+        uint256 unpaidInterest;
         Status status;
     }
 
@@ -227,6 +234,8 @@ contract LoanManager {
             recoveryStartedAt: 0,
             interestSnapshot: 0,
             resolvedAt: 0,
+            principalLoss: 0,
+            unpaidInterest: 0,
             status: Status.Active
         });
         activeLoan[acct] = loanId;
@@ -507,6 +516,9 @@ contract LoanManager {
 
         uint256 principalLoss = loan.principalOutstanding;
         uint256 unpaidInterest = loan.interestSnapshot - loan.interestCollected;
+        // Retained before the write-off clears principalOutstanding.
+        loan.principalLoss = principalLoss;
+        loan.unpaidInterest = unpaidInterest;
 
         loan.principalOutstanding = 0;
         loan.status = Status.Defaulted;

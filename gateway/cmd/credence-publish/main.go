@@ -28,6 +28,12 @@ import (
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
 )
 
+// alreadyPublishedSelector is FeedbackRegistry.AlreadyPublished(uint256).
+//
+// Matched specifically: it is the one revert that means the work was
+// already done. Every other revert is a failure to report.
+const alreadyPublishedSelector = "388c3267"
+
 // Outcome classes, matching FeedbackRegistry.Outcome.
 const (
 	outcomeRepaid    = 0
@@ -103,9 +109,13 @@ func run(rpcURL, manager, registry string, agentID, fromLoan, toLoan, chainID ui
 
 		txHash, err := w.Send(ctx, registry, encodePublish(entry))
 		if err != nil {
-			// The registry refuses a duplicate, which is the idempotency
-			// guarantee working rather than a failure to report.
-			if strings.Contains(err.Error(), "reverted") {
+			// ONLY the duplicate error is benign. Treating every revert
+			// as "already published" hides an authorization failure, an
+			// ABI mismatch, or a wrong registry address behind a
+			// successful-looking run reporting published=0 -- which is
+			// exactly what happens when this is pointed at a registry it
+			// has no right to write to.
+			if strings.Contains(err.Error(), alreadyPublishedSelector) {
 				log.Printf("loan %d: already published", id)
 				continue
 			}
@@ -158,7 +168,7 @@ func readResolved(
 	if err != nil {
 		return f, false, fmt.Errorf("read loan: %w", err)
 	}
-	if len(out) < 32*11 {
+	if len(out) < 32*13 {
 		return f, false, fmt.Errorf("short loan struct: %d bytes", len(out))
 	}
 
@@ -168,7 +178,13 @@ func readResolved(
 	interestCollected := new(big.Int).SetBytes(wordAt(out, 3))
 	originatedAt := new(big.Int).SetBytes(wordAt(out, 5)).Uint64()
 	resolvedAt := new(big.Int).SetBytes(wordAt(out, 9)).Uint64()
-	status := new(big.Int).SetBytes(wordAt(out, 10)).Uint64()
+	// The loss the CONTRACT recorded at write-off. Recomputing it here
+	// is not possible: the terminal state has already zeroed
+	// principalOutstanding, and principal minus interest is not a loss at
+	// all -- it subtracts one quantity from a different one and ignores
+	// principal that recovery actually returned.
+	recordedLoss := new(big.Int).SetBytes(wordAt(out, 10))
+	status := new(big.Int).SetBytes(wordAt(out, 12)).Uint64()
 
 	var outcome uint8
 	switch status {
@@ -182,13 +198,11 @@ func readResolved(
 		return f, false, nil
 	}
 
-	// A default's loss is principal that never came back.
+	// A default's loss is principal that never came back, as the vault
+	// recorded it.
 	loss := big.NewInt(0)
 	if outcome == outcomeDefaulted {
-		loss = new(big.Int).Sub(principal, interestCollected)
-		if loss.Sign() < 0 {
-			loss = big.NewInt(0)
-		}
+		loss = recordedLoss
 	}
 
 	var acct attest.Address
