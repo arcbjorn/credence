@@ -87,6 +87,26 @@ export interface Check {
   detail: string;
 }
 
+/** A probability committed BEFORE the loan was funded (`docs/06`). */
+export interface Forecast {
+  forecast_id: string;
+  binding_key: string;
+  committed_at: number;
+  event_definition: string;
+  horizon_seconds: number;
+  probability_ppm: number;
+  payload?: Record<string, unknown>;
+}
+
+/** How a forecast actually resolved. */
+export interface ForecastOutcome {
+  forecast_id: string;
+  outcome_id: string;
+  resolution: string;
+  resolved_at: number;
+  brier_ppm: number;
+}
+
 export interface Run {
   name: string;
   /** Present when the run recorded on-chain checks. */
@@ -94,8 +114,8 @@ export interface Run {
   assessments: Assessment[];
   /** Keyed by input_hash, so an assessment pairs with its exact snapshot. */
   snapshots: Record<string, unknown>;
-  outcomes: unknown[];
-  forecasts: unknown[];
+  outcomes: ForecastOutcome[];
+  forecasts: Forecast[];
   chain_events: unknown[];
 }
 
