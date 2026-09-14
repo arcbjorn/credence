@@ -10,7 +10,8 @@
 - Synthetic origin survives derived-feature transformations
 - Forecasts with unresolved outcomes receive no success credit
 - Capacity search agrees with a slow reference evaluator and respects every binding constraint
-- Amount, rate, and term arithmetic reconciles across Go, Rust, frontend, and Solidity
+- Amount, rate, and term arithmetic reconciles across Go, Rust, and Solidity
+  (the web interface renders retained figures; it computes none of them)
 - Capacity 5,000 plus a request for 1,000 grants exactly 1,000; a request for 6,000 is denied without terms
 - Changing only vault cash changes `drawable_capacity`, not `agent_capacity`, score, factor deltas, or contractual debt headroom
 - Missing required evidence returns `Unavailable`; missing optional enrichment is omitted; neither silently changes evidence origin

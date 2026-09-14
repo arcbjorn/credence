@@ -95,7 +95,7 @@ Kind-specific fields:
 
 | Kind | Additional fields | Permitted effect |
 |---|---|---|
-| `Origination` | `request_id`, `intent_hash`, `settlement_asset`, `requested_principal`; on approval only: `approved_principal`, `apr_bps`, `term_seconds`, `max_ltv`, `required_equity`, `permitted_action_hash` | An approved, eligible quote may be consumed once for the exact requested draw |
+| `Origination` | `request_id`, `intent_hash`, `settlement_asset`, `requested_principal`; on approval only: `approved_principal`, `apr_bps`, `term_seconds`, `required_equity`, `permitted_action_hash` | An approved, eligible quote may be consumed once for the exact requested draw |
 | `Monitoring` | `loan_id`, `settlement_asset`; no request, grant, proposed terms, or action authorization | Updates risk permission for the existing loan; can never disburse |
 
 `policy_epoch` identifies the immutable facility policy record, and `policy_hash` must equal that record's hash. `config_version` identifies the binding's configuration record, and `config_hash` must equal its canonical content hash. Both identifiers and hashes are signed and checked; neither pair is an alias for the other. Bind the original identity registry namespace and equity recipient in the loan record as described in [06 · Identity & Forecasts](06-identity-forecasts.md).
@@ -142,7 +142,7 @@ bumped state version — would let a stale quote fund.
 
 1. **Aggregate, not per-loan.** At origination, outstanding obligations plus the new principal and reserved full-term interest fit the **global debt budget** — the budget bounds what the loan will owe, not merely what it draws today. Lower subsequent risk capacity blocks new risk without altering existing debt.
 
-   **Split honestly:** `globalCap` is the only limit the contracts hold. `facility_limit`, the account cap, `max_ltv` and the coverage ratios are the ENGINE's, and they reach chain as an approved principal inside a signed envelope rather than as numbers the contracts re-derive. A quote that ignored them would be refused by the engine, not by `LoanManager`.
+   **Split honestly:** `globalCap` is the only limit the contracts hold. `facility_limit`, the account cap and the coverage ratios are the ENGINE's (there is no `max_ltv` field in `Terms`, on either side of the boundary), and they reach chain as an approved principal inside a signed envelope rather than as numbers the contracts re-derive. A quote that ignored them would be refused by the engine, not by `LoanManager`.
 
    That is a deliberate prototype split — the engine judges, the contracts enforce custody and envelopes — but it means the contracts do not independently check the engine's arithmetic. An earlier version of this line implied they did. Corrected after review, 14 September.
 2. **Replay protection.** Nonce consumed once

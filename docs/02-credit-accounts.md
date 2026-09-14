@@ -61,13 +61,27 @@ Closeout costs are **already deducted** from the numerator in both. Origination'
 
 ![Loan lifecycle](diagrams/loan-lifecycle.svg)
 
-| Trigger | Action |
-|---|---|
-| Marked coverage < 1.20 | New borrowing blocked |
-| Marked coverage < 1.15 | Warning; no risk-increasing action |
-| Marked coverage < 1.10 | Recovery eligible; bounded closeout cost is already deducted |
-| Maturity passed | Recovery triggers immediately; no discretionary grace |
-| Post-unwind shortfall | Loss allocated to vault, recorded against the original binding |
+| Trigger | Action | Enforced by |
+|---|---|---|
+| Marked coverage < 1.20 | New borrowing blocked | Engine, at assessment |
+| Marked coverage < 1.15 | Warning; no risk-increasing action | Engine, at assessment |
+| Marked coverage < 1.10 | Engine withholds permission; the oracle records the withdrawal | Engine, then oracle |
+| Permission explicitly withdrawn | Recovery opens immediately | `LoanManager.openRecovery` |
+| Maturity passed | Recovery opens immediately; no discretionary grace | `LoanManager.openRecovery` |
+| Permission lapsed 12h+ | Recovery opens; silence is a backstop, not a trigger | `recoveryGraceSeconds` |
+| Post-unwind shortfall | Loss allocated to vault, recorded against the original binding | `CreditVault.recordLoss` |
+
+> **Corrected 14 September.** The third row used to read "Recovery
+> eligible", which is not what the contracts do: **`LoanManager` never
+> reads a coverage ratio.** It recovers on maturity, on an explicitly
+> withdrawn permission, or after 12 hours of attestor silence. A low
+> coverage ratio reaches chain only by causing the engine to withhold
+> permission — which is then the second row's trigger, not a separate one.
+>
+> The distinction matters because it says who can seize an account. A
+> ratio in a document is not an on-chain condition, and a reader who
+> believed this table would expect liquidation at a threshold the
+> contracts cannot observe.
 
 These are **scenario-policy starting values**, to be checked against the actual asset and venue in milestone two (14–17 September). The separate minimum stressed origination coverage is also pinned in policy; passing current marked coverage alone cannot authorize a draw. These thresholds do not guarantee that a fast move cannot jump below solvency.
 
