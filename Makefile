@@ -33,16 +33,17 @@ test: ## Every suite, the way CI runs them
 	@echo "== docs ==" && bash scripts/check-docs.sh
 	@echo "== web ==" && cd web && pnpm test
 
-fmt: ## Format Rust and Go (the two CI gates on)
+fmt: ## Format every language (all three are CI gates)
 	@cd risk && cargo fmt
 	@gofmt -w gateway/ cre/
-	@echo "formatted rust and go"
-	@echo "solidity is NOT reformatted here: foundry.toml sets line_length"
-	@echo "100 while the contracts are hand-wrapped near 80, so 'forge fmt'"
-	@echo "rewrites 20 files. Run it deliberately, not as a side effect."
-
-fmt-sol: ## Reformat Solidity (rewrites ~20 files; see fmt)
 	@cd contracts && forge fmt
+	@echo "formatted rust, go and solidity"
+
+fmt-check: ## Check formatting without rewriting, as CI does
+	@cd risk && cargo fmt --check
+	@test -z "$$(gofmt -l gateway/ cre/)" || { gofmt -l gateway/ cre/; exit 1; }
+	@cd contracts && forge fmt --check
+	@echo "formatting matches on all three"
 
 clean: ## Remove generated artifacts and demo evidence
 	@rm -rf web/src/engine web/public/data web/dist
