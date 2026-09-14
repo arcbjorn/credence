@@ -1,0 +1,23 @@
+[package]
+name = "risk-wasm"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+# A cdylib, because this is loaded by a JS host rather than linked by Rust.
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[lints]
+workspace = true
+
+[dependencies]
+risk-core = { path = "../risk-core" }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order", "arbitrary_precision"] }
+wasm-bindgen = "0.2.128"
+serde-wasm-bindgen = "0.6"
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3"
+

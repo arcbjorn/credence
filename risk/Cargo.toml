@@ -1,6 +1,11 @@
 [workspace]
 resolver = "2"
-members = ["crates/risk-core", "crates/risk-cli", "crates/risk-service"]
+members = [
+    "crates/risk-core",
+    "crates/risk-cli",
+    "crates/risk-service",
+    "crates/risk-wasm",
+]
 
 [workspace.package]
 version = "0.1.0"
@@ -9,3 +14,17 @@ license = "MIT"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
+
+# The wasm artifact ships to a browser, so it is optimized for SIZE rather
+# than speed. Profiles are only honored at the workspace root, which is why
+# this lives here rather than beside `risk-wasm`.
+#
+# These apply to every release build in the workspace. That is acceptable:
+# the engine is pure integer work, and `opt-level = "z"` costs it little --
+# the browser replay measured single-digit milliseconds.
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
