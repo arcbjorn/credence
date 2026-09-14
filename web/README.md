@@ -51,25 +51,25 @@ verbatim rather than defaulting to `Observed`.
 ## Running it
 
 ```sh
-npm install
-npm run wasm     # compile risk-core to WebAssembly (needs wasm-bindgen-cli)
-npm run data     # generate the bundle from the demos' retained SQLite
-npm run dev
+pnpm install
+pnpm wasm     # compile risk-core to WebAssembly (needs wasm-bindgen-cli)
+pnpm data     # generate the bundle from the demos' retained SQLite
+pnpm dev
 ```
 
-`npm run wasm` needs the toolchain once:
+`pnpm wasm` needs the toolchain once:
 
 ```sh
 cargo install wasm-bindgen-cli --version 0.2.128
 rustup target add wasm32-unknown-unknown
 ```
 
-`npm run data` reads `/tmp/credence-{repay,monitor}` — run the demos
+`pnpm data` reads `/tmp/credence-{repay,monitor}` — run the demos
 first, or point `REPAY_DB` / `MONITOR_DB` elsewhere.
 
 ```sh
-npm test         # vitest, including the engine agreement tests
-npm run build    # -> dist/, a static folder
+pnpm test         # vitest, including the engine agreement tests
+pnpm build       # -> dist/, a static folder
 ```
 
 ## Stack

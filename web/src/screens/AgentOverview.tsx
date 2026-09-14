@@ -74,7 +74,7 @@ export function AgentOverview() {
       {originations.length === 0 && (
         <p className="lede">
           No originations in this run. Generate the bundle with{" "}
-          <code>npm run data</code> after <code>LOANS=3 scripts/demo-repay.sh</code>.
+          <code>pnpm data</code> after <code>LOANS=3 scripts/demo-repay.sh</code>.
         </p>
       )}
 
