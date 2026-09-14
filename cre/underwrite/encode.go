@@ -144,7 +144,6 @@ func parseHash32(s string) ([32]byte, error) {
 	return out, nil
 }
 
-
 // nextSequenceSelector is the four-byte selector for
 // `nextSequence(uint256)` on CREReceiver.
 //
