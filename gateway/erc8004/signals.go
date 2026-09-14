@@ -19,7 +19,31 @@ const (
 	OutcomeRecovered  = "recovered"
 	OutcomeDefaulted  = "defaulted"
 	settlementDecimal = 6
+
+	// loanTagPrefix namespaces the loan id held in tag2.
+	//
+	// The id has to live in a field a READER can see. feedbackURI and
+	// feedbackHash are write-only in practice: neither readFeedback nor
+	// readAllFeedback returns them, and they survive only in the
+	// NewFeedback event, which a public RPC will not scan cheaply. Tag2
+	// is returned by both views and is filterable, so the id goes there
+	// and idempotency stays a single call rather than a log crawl.
+	loanTagPrefix = "loan:"
 )
+
+// LoanTag is the tag2 value identifying one obligation.
+func LoanTag(loanID uint64) string {
+	return fmt.Sprintf("%s%d", loanTagPrefix, loanID)
+}
+
+// ParseLoanTag recovers a loan id from tag2, reporting false for a tag
+// this client did not write.
+func ParseLoanTag(tag2 string) (uint64, bool) {
+	if len(tag2) <= len(loanTagPrefix) || tag2[:len(loanTagPrefix)] != loanTagPrefix {
+		return 0, false
+	}
+	return parseUint(tag2[len(loanTagPrefix):])
+}
 
 // Outcome classes, matching the loan manager's terminal states.
 const (
@@ -59,7 +83,9 @@ type LoanOutcome struct {
 // number whose construction it would have to trust.
 //
 // Every entry carries the same feedbackURI and hash, so the four rows
-// resolve to one retained record rather than four disconnected claims.
+// resolve to one retained record rather than four disconnected claims --
+// and the same tag2 (`loan:N`), which is how a reader groups them and how
+// this client recognises what it has already published.
 func Signals(o LoanOutcome) ([]Feedback, error) {
 	if o.AgentID == nil || o.LoanID == nil {
 		return nil, fmt.Errorf("agent id and loan id required")
@@ -79,12 +105,13 @@ func Signals(o LoanOutcome) ([]Feedback, error) {
 	}
 
 	// The outcome class. Value is the principal, so a reader sees the
-	// size the class applies to; the class itself is in tag2, where it
+	// size the class applies to; the class itself rides in tag1, where it
 	// stays categorical rather than becoming a number on a scale nobody
-	// defined.
+	// defined, and stays filterable -- `credence.outcome.defaulted`
+	// selects every default in one call.
 	out := base
-	out.Tag1 = TagOutcome
-	out.Tag2 = outcome
+	out.Tag1 = TagOutcome + "." + outcome
+	out.Tag2 = LoanTag(o.LoanID.Uint64())
 	out.Value = new(big.Int).Set(o.Principal)
 	out.ValueDecimals = settlementDecimal
 
@@ -93,7 +120,7 @@ func Signals(o LoanOutcome) ([]Feedback, error) {
 	// interest -- collapsing them would hide which happened.
 	interest := base
 	interest.Tag1 = TagInterest
-	interest.Tag2 = outcome
+	interest.Tag2 = LoanTag(o.LoanID.Uint64())
 	interest.Value = new(big.Int).Set(o.InterestPaid)
 	interest.ValueDecimals = settlementDecimal
 
@@ -103,7 +130,7 @@ func Signals(o LoanOutcome) ([]Feedback, error) {
 	// figure that moves the right way.
 	loss := base
 	loss.Tag1 = TagLoss
-	loss.Tag2 = outcome
+	loss.Tag2 = LoanTag(o.LoanID.Uint64())
 	loss.Value = new(big.Int).Neg(o.PrincipalLoss)
 	loss.ValueDecimals = settlementDecimal
 
@@ -113,7 +140,7 @@ func Signals(o LoanOutcome) ([]Feedback, error) {
 	// than inferring it from timestamps it cannot see.
 	held := base
 	held.Tag1 = TagHeld
-	held.Tag2 = outcome
+	held.Tag2 = LoanTag(o.LoanID.Uint64())
 	held.Value = new(big.Int).SetUint64(o.HeldSeconds)
 	held.ValueDecimals = 0
 

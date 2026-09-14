@@ -63,12 +63,21 @@ func main() {
 		"loan term; keep it short on a chain with no time travel")
 	hold := flag.Uint64("hold-seconds", 5*86_400,
 		"seconds to hold each loan before repayment, so interest accrues")
+	// The identity the loans are bound to. Defaults keep the local demo
+	// self-contained; against a real ERC-8004 registry these must name an
+	// agent that actually exists, or the published feedback attributes an
+	// outcome to a token id nobody holds.
+	identityRegistry := flag.String("identity-registry",
+		"0x000000000000000000000000000000000000aec0",
+		"ERC-8004 identity registry the binding names")
+	agentID := flag.Uint64("agent-id", 184,
+		"registered agent id the loans are bound to")
 	flag.Parse()
 
 	if err := run(*rpcURL, *oracle, *manager, *account, *settlement,
 		*chainID, *deploymentID, *principal, *loans, *hold,
 		*adapter, *risky, *priceSource, *enroll, *vault, *riskURL, *policyPath,
-		*termSeconds, *deployBps); err != nil {
+		*termSeconds, *deployBps, *identityRegistry, *agentID); err != nil {
 		log.Fatalf("scenario: %v", err)
 	}
 }
@@ -80,6 +89,8 @@ func run(
 	holdSeconds uint64,
 	adapter, riskyAsset, priceSource, enrollDB, vault, riskURL, policyPath string,
 	termSeconds, deployBps uint64,
+	identityRegistry string,
+	agentID uint64,
 ) error {
 	ctx := context.Background()
 	rpc := chain.NewRPC(rpcURL, 15*time.Second)
@@ -154,8 +165,8 @@ func run(
 
 	binding := attest.Binding{
 		IdentityRegistryChainID: new(big.Int).SetUint64(chainID),
-		IdentityRegistry:        mustAddress("0x000000000000000000000000000000000000aec0"),
-		AgentID:                 big.NewInt(184),
+		IdentityRegistry:        mustAddress(identityRegistry),
+		AgentID:                 new(big.Int).SetUint64(agentID),
 		Operator:                mustAddress(w.Address()),
 		CreditAccount:           accountAddr,
 		FacilityID:              big.NewInt(1),

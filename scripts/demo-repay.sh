@@ -29,6 +29,13 @@ LOANS=${LOANS:-2}
 # public one cannot: the hold has to be a real wait, so both shrink to
 # seconds. Interest is then genuinely accrued over the elapsed term
 # rather than asserted over one that never passed.
+# The identity the loans are bound to. The defaults are a placeholder
+# registry and a made-up agent, which is honest for a local run: no
+# ERC-8004 registry exists there. Against a real one, name an agent that
+# is actually registered -- publishing feedback about a token id nobody
+# holds attributes an outcome to nothing.
+IDENTITY_REGISTRY=${IDENTITY_REGISTRY:-0x000000000000000000000000000000000000aec0}
+AGENT_ID=${AGENT_ID:-184}
 TERM_SECONDS=${TERM_SECONDS:-$((10 * 86400))}
 HOLD_SECONDS=${HOLD_SECONDS:-$((5 * 86400))}
 
@@ -81,6 +88,7 @@ go build -o credence-scenario ./cmd/credence-scenario
   -adapter "$ADAPTER" -risky "$RISKY" -price-source "$PRICE_SOURCE" \
   -chain-id "$CHAIN_ID" -deploy-bps 10000 -loans "$LOANS" \
   -term-seconds "$TERM_SECONDS" -hold-seconds "$HOLD_SECONDS" \
+  -identity-registry "$IDENTITY_REGISTRY" -agent-id "$AGENT_ID" \
   -enroll "$WORK/scenario.db" -vault "$VAULT" -risk http://127.0.0.1:18111 -policy "$ROOT/config/engine-policy.json"
 
 # `docs/11`: a passing unit test and a correctly wired deployment are

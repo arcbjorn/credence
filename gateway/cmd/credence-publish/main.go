@@ -7,8 +7,16 @@
 // loan manager rather than a local cache — a queue that trusted its own
 // record could publish an outcome the chain never had.
 //
-// Idempotent by construction: the registry refuses a second entry for the
-// same loan, so a retry after an ambiguous send cannot double-count.
+// Idempotency depends on which registry is targeted, and they differ:
+//
+//   - The LOCAL adapter refuses a second entry for the same loan on chain
+//     (`AlreadyPublished`), so a retry cannot double-count.
+//   - **ERC-8004 does not.** `feedbackIndex` auto-increments per
+//     (agentId, clientAddress), so the same outcome sent twice becomes two
+//     entries. With no on-chain guard, this command reads back what this
+//     client has already published and skips those loans before sending.
+//
+// `docs/06` requires queued updates to be idempotent either way.
 package main
 
 import (
@@ -24,6 +32,7 @@ import (
 
 	"github.com/arcbjorn/credence/gateway/attest"
 	"github.com/arcbjorn/credence/gateway/chain"
+	"github.com/arcbjorn/credence/gateway/erc8004"
 	"github.com/arcbjorn/credence/gateway/wallet"
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
 )
@@ -52,18 +61,46 @@ func main() {
 	rpcURL := flag.String("rpc", "http://127.0.0.1:8546", "chain rpc")
 	manager := flag.String("manager", "", "loan manager address")
 	registry := flag.String("registry", "", "feedback registry address")
-	agentID := flag.Uint64("agent", 184, "agent id the loans belong to")
+	// Attribution is DERIVED from the loan by default (`docs/06`): the
+	// loan records the agent from the binding its quote was consumed
+	// under. A flag value is a claim about the chain that the chain never
+	// made, so it is only a fallback for the local adapter, whose demo
+	// loans predate the recorded field.
+	agentID := flag.Uint64("agent", 0,
+		"agent id override; 0 derives it from the loan (preferred)")
+	standard := flag.Bool("erc8004", false,
+		"publish to the ERC-8004 reputation registry instead of the local adapter")
+	evidenceBase := flag.String("evidence-base", "",
+		"base URL for evidence documents; empty uses a credence: locator")
 	fromLoan := flag.Uint64("from", 1, "first loan id to consider")
 	toLoan := flag.Uint64("to", 0, "last loan id; 0 means read the manager's counter")
 	chainID := flag.Uint64("chain-id", 31337, "chain id")
 	flag.Parse()
 
-	if err := run(*rpcURL, *manager, *registry, *agentID, *fromLoan, *toLoan, *chainID); err != nil {
+	cfg := config{
+		rpcURL: *rpcURL, manager: *manager, registry: *registry,
+		agentID: *agentID, fromLoan: *fromLoan, toLoan: *toLoan,
+		chainID: *chainID, standard: *standard, evidenceBase: *evidenceBase,
+	}
+	if err := run(cfg); err != nil {
 		log.Fatalf("publish: %v", err)
 	}
 }
 
-func run(rpcURL, manager, registry string, agentID, fromLoan, toLoan, chainID uint64) error {
+type config struct {
+	rpcURL, manager, registry string
+	agentID                   uint64
+	fromLoan, toLoan          uint64
+	chainID                   uint64
+	standard                  bool
+	evidenceBase              string
+}
+
+func run(cfg config) error {
+	rpcURL, manager, registry := cfg.rpcURL, cfg.manager, cfg.registry
+	agentID, fromLoan, toLoan, chainID :=
+		cfg.agentID, cfg.fromLoan, cfg.toLoan, cfg.chainID
+
 	ctx := context.Background()
 	rpc := chain.NewRPC(rpcURL, 15*time.Second)
 	reader := chain.NewReader(rpc, chain.Addresses{LoanManager: manager})
@@ -94,16 +131,44 @@ func run(rpcURL, manager, registry string, agentID, fromLoan, toLoan, chainID ui
 		toLoan = next.Uint64() - 1
 	}
 
+	// What this client has already told the registry. Read BEFORE
+	// sending anything: ERC-8004 auto-increments feedbackIndex rather
+	// than refusing a duplicate, so a retry with no check would publish
+	// every outcome a second time.
+	var already erc8004.Published
+	if cfg.standard {
+		var err error
+		already, err = readPublished(
+			ctx, rpc, registry, w.Address(), manager,
+			fromLoan, toLoan, block.Number)
+		if err != nil {
+			return fmt.Errorf("read published: %w", err)
+		}
+	}
+
 	published := 0
 	for id := fromLoan; id <= toLoan; id++ {
 		entry, resolved, err := readResolved(
-			ctx, rpc, manager, id, agentID, block.Number)
+			ctx, rpc, manager, id, agentID, block.Number, chainID)
 		if err != nil {
 			return fmt.Errorf("loan %d: %w", id, err)
 		}
 		if !resolved {
 			// Still active or recovering. `docs/06` publishes resolved
 			// outcomes; an in-flight loan is not an outcome.
+			continue
+		}
+
+		if cfg.standard {
+			n, err := publishStandard(
+				ctx, w, reader, registry, entry, already,
+				chainID, manager, cfg.evidenceBase)
+			if err != nil {
+				return fmt.Errorf("loan %d: %w", id, err)
+			}
+			if n > 0 {
+				published++
+			}
 			continue
 		}
 
@@ -158,7 +223,7 @@ func readResolved(
 	ctx context.Context,
 	rpc *chain.RPC,
 	manager string,
-	loanID, agentID, blockNumber uint64,
+	loanID, agentID, blockNumber, chainID uint64,
 ) (feedback, bool, error) {
 	var f feedback
 
@@ -224,7 +289,14 @@ func readResolved(
 		ResolvedAt: resolvedAt,
 		// The retained assessment this outcome belongs to. Keyed by loan
 		// so a reader can demand the record rather than take the claim.
-		EvidenceRef: attest.KeccakText(fmt.Sprintf("loan-%d", loanID)),
+		// Commits to the deployment AND the reported facts, not just a
+		// loan number. `docs/06`: the old keccak("loan-N") "commits to
+		// nothing retrievable" -- the same number under a different
+		// manager produced the same reference, so it identified no
+		// particular obligation and matched no particular claim.
+		EvidenceRef: evidenceHash(chainID, manager, loanID,
+			outcome, principal, interestCollected, loss,
+			originatedAt, resolvedAt),
 	}, true, nil
 }
 

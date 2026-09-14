@@ -15,9 +15,10 @@ import (
 // updates to avoid. The registry cannot be asked "have I published loan
 // 3?", so the answer has to be reconstructed from what is already there.
 //
-// The loan id is carried in the feedbackURI rather than a tag, because
-// tags are the signal vocabulary a reader filters on and overloading them
-// with an identifier would make `credence.loss` mean two different things.
+// The loan id is carried in tag2 (`loan:N`), because that is the only
+// place a reader can see it: neither readFeedback nor readAllFeedback
+// returns feedbackURI or feedbackHash, and recovering them from
+// NewFeedback logs is not something a public RPC serves cheaply.
 type Published map[uint64]bool
 
 // LoanURI is the canonical evidence locator for one loan.
@@ -32,34 +33,6 @@ func LoanURI(base string, chainID uint64, manager string, loanID uint64) string 
 		return fmt.Sprintf("credence:%d:%s:loan:%d", chainID, manager, loanID)
 	}
 	return fmt.Sprintf("%s/%d/%s/loan/%d.json", base, chainID, manager, loanID)
-}
-
-// ParseLoanURI recovers the loan id from an evidence locator this client
-// wrote, reporting false for anything it did not write.
-//
-// Deliberately strict about the deployment: a URI naming a different chain
-// or manager describes a different obligation that happens to share a
-// number, and treating it as published here would skip a loan that was
-// never reported.
-func ParseLoanURI(uri string, chainID uint64, manager string) (uint64, bool) {
-	for _, form := range []string{
-		fmt.Sprintf("credence:%d:%s:loan:", chainID, manager),
-	} {
-		if len(uri) > len(form) && uri[:len(form)] == form {
-			return parseUint(uri[len(form):])
-		}
-	}
-	// Hosted form: <base>/<chain>/<manager>/loan/<id>.json
-	suffix := fmt.Sprintf("/%d/%s/loan/", chainID, manager)
-	i := indexOf(uri, suffix)
-	if i < 0 {
-		return 0, false
-	}
-	rest := uri[i+len(suffix):]
-	if len(rest) < 6 || rest[len(rest)-5:] != ".json" {
-		return 0, false
-	}
-	return parseUint(rest[:len(rest)-5])
 }
 
 // PublishPlan is the calldata for one loan's signals, in order.

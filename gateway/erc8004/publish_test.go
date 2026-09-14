@@ -10,55 +10,21 @@ const (
 	testManager = "0x7354894D550A26D1d367bF13016DaE1ffb2dEe47"
 )
 
-func TestLoanURIRoundTrips(t *testing.T) {
-	for _, base := range []string{"", "https://example.invalid/evidence"} {
-		uri := LoanURI(base, testChain, testManager, 3)
-		got, ok := ParseLoanURI(uri, testChain, testManager)
-		if !ok {
-			t.Fatalf("base %q: %q did not parse", base, uri)
-		}
-		if got != 3 {
-			t.Fatalf("base %q: got loan %d, want 3", base, got)
-		}
-	}
-}
-
-// `docs/06`: the old reference was not evidence because the same loan
-// number under a different manager produced the same value. A locator that
-// still collided across deployments would reintroduce that, and here it
-// would also mark a loan published that never was.
+// The evidence locator must still be specific to the deployment.
+// `docs/06` records that the old `keccak("loan-N")` reference was not
+// evidence because the same loan number under a different manager
+// produced the same value.
 func TestLoanURIIsSpecificToTheDeployment(t *testing.T) {
 	uri := LoanURI("", testChain, testManager, 3)
-
-	if _, ok := ParseLoanURI(uri, 31337, testManager); ok {
-		t.Error("a URI from another chain must not parse as ours")
-	}
 	other := "0x0000000000000000000000000000000000000001"
-	if _, ok := ParseLoanURI(uri, testChain, other); ok {
-		t.Error("a URI from another manager must not parse as ours")
-	}
 	if uri == LoanURI("", 31337, testManager, 3) {
 		t.Error("chain id must change the locator")
 	}
 	if uri == LoanURI("", testChain, other, 3) {
 		t.Error("manager must change the locator")
 	}
-}
-
-func TestParseLoanURIRejectsJunk(t *testing.T) {
-	for _, bad := range []string{
-		"",
-		"credence:10143:" + testManager + ":loan:",
-		"credence:10143:" + testManager + ":loan:abc",
-		"credence:10143:" + testManager + ":loan:-1",
-		"https://example.invalid/evidence/10143/" + testManager + "/loan/3.txt",
-		// Would overflow uint64 and wrap to a small id, marking the
-		// wrong loan published.
-		"credence:10143:" + testManager + ":loan:18446744073709551616",
-	} {
-		if id, ok := ParseLoanURI(bad, testChain, testManager); ok {
-			t.Errorf("%q parsed as loan %d, want refusal", bad, id)
-		}
+	if uri == LoanURI("", testChain, testManager, 4) {
+		t.Error("loan id must change the locator")
 	}
 }
 

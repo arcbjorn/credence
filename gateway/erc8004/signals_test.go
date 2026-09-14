@@ -37,7 +37,9 @@ func TestSignalsStaySeparate(t *testing.T) {
 		}
 		seen[f.Tag1] = true
 	}
-	for _, want := range []string{TagOutcome, TagInterest, TagLoss, TagHeld} {
+	for _, want := range []string{
+		TagOutcome + "." + OutcomeDefaulted, TagInterest, TagLoss, TagHeld,
+	} {
 		if !seen[want] {
 			t.Errorf("missing signal %s", want)
 		}
@@ -107,8 +109,8 @@ func TestRepaidStillPublishesZeroLoss(t *testing.T) {
 		if f.Value.Sign() != 0 {
 			t.Fatalf("repaid loan reports loss %s, want 0", f.Value)
 		}
-		if f.Tag2 != OutcomeRepaid {
-			t.Fatalf("loss tagged %q, want %q", f.Tag2, OutcomeRepaid)
+		if f.Tag2 != LoanTag(1) {
+			t.Fatalf("loss tagged %q, want %q", f.Tag2, LoanTag(1))
 		}
 	}
 	if !found {
@@ -132,5 +134,59 @@ func TestMissingAmountsRefused(t *testing.T) {
 	o.PrincipalLoss = nil
 	if _, err := Signals(o); err == nil {
 		t.Fatal("expected refusal when an amount is missing")
+	}
+}
+
+// The loan id must be recoverable from a field the registry RETURNS.
+// feedbackURI and feedbackHash are not: no view exposes them, so keying
+// idempotency on them would need a log scan a public RPC will not serve
+// cheaply. Every entry therefore carries `loan:N` in tag2.
+func TestEveryEntryCarriesTheLoanIDInTag2(t *testing.T) {
+	o := defaulted()
+	o.LoanID = big.NewInt(7)
+	got, err := Signals(o)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range got {
+		id, ok := ParseLoanTag(f.Tag2)
+		if !ok {
+			t.Fatalf("%s: tag2 %q does not identify a loan", f.Tag1, f.Tag2)
+		}
+		if id != 7 {
+			t.Fatalf("%s: tag2 names loan %d, want 7", f.Tag1, id)
+		}
+	}
+}
+
+// The outcome class rides in tag1 so `credence.outcome.defaulted` selects
+// every default in one filtered call.
+func TestOutcomeClassIsFilterable(t *testing.T) {
+	for _, c := range []struct {
+		outcome uint8
+		want    string
+	}{
+		{Repaid, TagOutcome + ".repaid"},
+		{Recovered, TagOutcome + ".recovered"},
+		{Defaulted, TagOutcome + ".defaulted"},
+	} {
+		o := defaulted()
+		o.Outcome = c.outcome
+		got, err := Signals(o)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got[0].Tag1 != c.want {
+			t.Errorf("outcome %d tagged %q, want %q", c.outcome, got[0].Tag1, c.want)
+		}
+	}
+}
+
+func TestParseLoanTagRejectsForeignTags(t *testing.T) {
+	for _, bad := range []string{"", "loan:", "loan:x", "crosscheck", "pass",
+		"loan:18446744073709551616"} {
+		if id, ok := ParseLoanTag(bad); ok {
+			t.Errorf("%q parsed as loan %d, want refusal", bad, id)
+		}
 	}
 }
