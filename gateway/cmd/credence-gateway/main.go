@@ -21,11 +21,10 @@ import (
 
 	"github.com/arcbjorn/credence/gateway/attest"
 	"github.com/arcbjorn/credence/gateway/attestpub"
-	"github.com/arcbjorn/credence/gateway/canonical"
 	"github.com/arcbjorn/credence/gateway/chain"
 	"github.com/arcbjorn/credence/gateway/config"
 	"github.com/arcbjorn/credence/gateway/evidence"
-	"github.com/arcbjorn/credence/gateway/market"
+	"github.com/arcbjorn/credence/gateway/gatewayrt"
 	"github.com/arcbjorn/credence/gateway/monitor"
 	"github.com/arcbjorn/credence/gateway/publisher"
 	"github.com/arcbjorn/credence/gateway/riskclient"
@@ -154,11 +153,11 @@ func build(ctx context.Context, cfg *config.Config) (*deps, error) {
 		})
 	pub := publisher.New(pubView, store.NewJournal(db))
 
-	evidencePolicyID, err := parseHash(cfg.EvidencePolicyID)
+	evidencePolicyID, err := gatewayrt.ParseHash(cfg.EvidencePolicyID)
 	if err != nil {
 		return nil, fmt.Errorf("evidence_policy_id: %w", err)
 	}
-	oracleAddr, err := parseAddress(cfg.Addresses.Oracle)
+	oracleAddr, err := gatewayrt.ParseAddress(cfg.Addresses.Oracle)
 	if err != nil {
 		return nil, fmt.Errorf("oracle address: %w", err)
 	}
@@ -169,7 +168,7 @@ func build(ctx context.Context, cfg *config.Config) (*deps, error) {
 		DeploymentID:      new(big.Int).SetUint64(cfg.DeploymentID),
 		EvidencePolicyID:  evidencePolicyID,
 		Route:             attest.RouteDevelopment,
-		PolicyContentHash: policyContentHash(cfg.EnginePolicy),
+		PolicyContentHash: gatewayrt.PolicyContentHash(cfg.EnginePolicy),
 	}, signer, pub)
 
 	sched := scheduler.New(scheduler.Policy{
@@ -185,7 +184,7 @@ func build(ctx context.Context, cfg *config.Config) (*deps, error) {
 		scenarioID = &id
 	}
 
-	marketReader, err := buildMarketReader(cfg, rpc)
+	marketReader, err := gatewayrt.BuildMarketReader(cfg, rpc)
 	if err != nil {
 		return nil, err
 	}
@@ -195,7 +194,7 @@ func build(ctx context.Context, cfg *config.Config) (*deps, error) {
 	)
 
 	collector := evidence.New(reader, marketReader, historyReader,
-		bindingLookup(db, cfg), evidence.Config{
+		gatewayrt.BindingLookup(db, cfg), evidence.Config{
 			SchemaVersion:   cfg.SchemaVersion,
 			FacilityPolicy:  cfg.FacilityPolicy,
 			RequestedClass:  cfg.RequestedClass,
@@ -359,81 +358,11 @@ func (p publisherFunc) Publish(
 	bindingKey string,
 	assessment json.RawMessage,
 ) (string, error) {
-	binding, err := loadBinding(ctx, p.store, bindingKey)
+	binding, err := gatewayrt.LoadBinding(ctx, p.store, bindingKey)
 	if err != nil {
 		return "", err
 	}
 	return p.adapter.Publish(ctx, bindingKey, binding, assessment)
-}
-
-// loadBinding reads the on-chain identity an assessment binds to.
-func loadBinding(
-	ctx context.Context,
-	db *store.Store,
-	bindingKey string,
-) (attest.Binding, error) {
-	var (
-		registryChainID            uint64
-		registry, agentID          string
-		operator, creditAccount    string
-		facilityID                 string
-		configVersion, policyEpoch uint64
-		configHash, policyHash     string
-	)
-	err := db.DB().QueryRowContext(ctx,
-		`SELECT a.identity_registry_chain_id, a.identity_registry, a.agent_id,
-		        b.operator, b.credit_account, b.facility_id,
-		        b.config_version, b.config_hash, b.policy_epoch, b.policy_hash
-		 FROM bindings b JOIN agents a ON a.agent_key = b.agent_key
-		 WHERE b.binding_key = ?`, bindingKey,
-	).Scan(&registryChainID, &registry, &agentID, &operator, &creditAccount,
-		&facilityID, &configVersion, &configHash, &policyEpoch, &policyHash)
-	if err != nil {
-		return attest.Binding{}, fmt.Errorf("unknown binding %q: %w", bindingKey, err)
-	}
-
-	registryAddr, err := parseAddress(registry)
-	if err != nil {
-		return attest.Binding{}, fmt.Errorf("binding registry address: %w", err)
-	}
-	operatorAddr, err := parseAddress(operator)
-	if err != nil {
-		return attest.Binding{}, fmt.Errorf("binding operator address: %w", err)
-	}
-	accountAddr, err := parseAddress(creditAccount)
-	if err != nil {
-		return attest.Binding{}, fmt.Errorf("binding credit account: %w", err)
-	}
-	cfgHash, err := parseHash(configHash)
-	if err != nil {
-		return attest.Binding{}, fmt.Errorf("binding config hash: %w", err)
-	}
-	polHash, err := parseHash(policyHash)
-	if err != nil {
-		return attest.Binding{}, fmt.Errorf("binding policy hash: %w", err)
-	}
-
-	agent, ok := new(big.Int).SetString(agentID, 10)
-	if !ok {
-		return attest.Binding{}, fmt.Errorf("agent id %q is not numeric", agentID)
-	}
-	facility, ok := new(big.Int).SetString(facilityID, 10)
-	if !ok {
-		return attest.Binding{}, fmt.Errorf("facility id %q is not numeric", facilityID)
-	}
-
-	return attest.Binding{
-		IdentityRegistryChainID: new(big.Int).SetUint64(registryChainID),
-		IdentityRegistry:        registryAddr,
-		AgentID:                 agent,
-		Operator:                operatorAddr,
-		CreditAccount:           accountAddr,
-		FacilityID:              facility,
-		ConfigVersion:           configVersion,
-		ConfigHash:              cfgHash,
-		PolicyEpoch:             policyEpoch,
-		PolicyHash:              polHash,
-	}, nil
 }
 
 // recorder persists each cycle so a blocked result is as retrievable as an
@@ -492,223 +421,4 @@ func mustJSON(v any) []byte {
 		return []byte("{}")
 	}
 	return raw
-}
-
-// buildMarketReader constructs the market source for this facility.
-//
-// A scenario facility may use a configured series, because synthetic
-// evidence is permitted there and the engine caps the result at
-// ScenarioOnly. An observed facility must have a real provider: falling
-// back to a static series would feed invented data into an executable
-// decision, which `docs/04` forbids outright.
-func buildMarketReader(cfg *config.Config, rpc *chain.RPC) (evidence.MarketReader, error) {
-	if cfg.Market.ProviderURL != "" {
-		provider := market.NewHTTPProvider(
-			cfg.Market.ProviderURL,
-			cfg.Market.ClosesField,
-			cfg.Market.TimeField,
-			cfg.RPCTimeout,
-		)
-		return market.NewReader(provider, cfg.Market.WindowSeconds,
-			cfg.Market.LiquidityDepth), nil
-	}
-
-	if cfg.FacilityPolicy != "Scenario" {
-		return nil, fmt.Errorf(
-			"config: market.provider_url is required for an Observed facility; " +
-				"a static series would be synthetic evidence in an executable decision")
-	}
-	// A scenario series is stamped with CHAIN time, not the gateway's
-	// clock. The collector measures skew against the pinned block, so a
-	// wall-clock stamp reads as stale by however far the two have drifted
-	// -- which a scenario that advances chain time guarantees.
-	return market.NewReader(
-		market.StaticProvider{
-			Closes: cfg.Market.StaticCloses,
-			ObservedAt: func() uint64 {
-				b, err := rpc.LatestBlock(context.Background())
-				if err != nil {
-					// Zero reads as maximally stale, which blocks. That is
-					// the right failure: an unreachable chain means the
-					// observation cannot be placed in time at all.
-					return 0
-				}
-				return b.Timestamp
-			},
-		},
-		cfg.Market.WindowSeconds, cfg.Market.LiquidityDepth), nil
-}
-
-// bindingLookup builds the binding the engine consumes.
-//
-// Every field comes from the registry. A placeholder would be hashed into
-// the snapshot and signed, binding a decision to an identity that does not
-// exist — so an incomplete record is a lookup failure, not a default.
-// policyContentHash is the canonical hash of the engine policy.
-//
-// The engine verifies a snapshot's declared policy_hash against the
-// policy it is handed, so this is what must be declared. An unhashable
-// policy yields an empty string, which the engine then refuses -- the
-// right failure, since it cannot commit to a policy it could not encode.
-func policyContentHash(policy json.RawMessage) string {
-	decoded, err := canonical.DecodeStrict(policy)
-	if err != nil {
-		return ""
-	}
-	h, err := canonical.HashHex(decoded)
-	if err != nil {
-		return ""
-	}
-	return h
-}
-
-func bindingLookup(
-	db *store.Store, cfg *config.Config,
-) func(string) (evidence.BindingInfo, bool) {
-	registry := store.NewRegistry(db)
-	return func(bindingKey string) (evidence.BindingInfo, bool) {
-		ctx := context.Background()
-
-		binding, err := registry.Binding(ctx, bindingKey)
-		if err != nil {
-			return evidence.BindingInfo{}, false
-		}
-
-		var (
-			registryChainID uint64
-			registryAddr    string
-			agentID         string
-		)
-		err = db.DB().QueryRowContext(ctx,
-			`SELECT identity_registry_chain_id, identity_registry, agent_id
-			 FROM agents WHERE agent_key = ?`, binding.AgentKey,
-		).Scan(&registryChainID, &registryAddr, &agentID)
-		if err != nil {
-			return evidence.BindingInfo{}, false
-		}
-
-		// The state version the permission is bound to. Read rather than
-		// defaulted: the engine compares it against the account's live
-		// version, so a placeholder zero blocks every cycle on an account
-		// that has executed even once.
-		stateVersion, err := registry.WatchedStateVersion(ctx, bindingKey)
-		if err != nil {
-			return evidence.BindingInfo{}, false
-		}
-
-		// The accepted sequence is read from chain at collection time, so
-		// it is left at zero here and the collector supplies the proposal.
-		raw, err := json.Marshal(map[string]any{
-			"agent": map[string]any{
-				"identity_registry_chain_id": registryChainID,
-				"identity_registry":          registryAddr,
-				"agent_id":                   agentID,
-			},
-			"operator":              binding.Operator,
-			"credit_account":        binding.CreditAccount,
-			"facility_id":           binding.FacilityID,
-			"account_state_version": stateVersion,
-			"config_version":        binding.ConfigVersion,
-			"config_hash":           binding.ConfigHash,
-			"policy_epoch":          binding.PolicyEpoch,
-			"policy_hash":           binding.PolicyHash,
-			"accepted_sequence":     0,
-		})
-		if err != nil {
-			return evidence.BindingInfo{}, false
-		}
-
-		// `policy_hash` is the CONTENT hash of the engine policy this
-		// deployment runs, not the binding's registry identifier. The
-		// engine verifies it against the policy it is handed and refuses
-		// an executable result on a mismatch, so a symbolic or
-		// registry-scoped value here would block every assessment.
-		//
-		// The binding's own policy identity is not lost: it travels in
-		// the signed envelope's binding, and `policy_id` names the epoch
-		// it belongs to. They answer different questions -- which policy
-		// RAN, and which policy record the binding is scoped to.
-		modelPolicy, err := json.Marshal(map[string]any{
-			"model_id":    "m1",
-			"model_hash":  "model-hash",
-			"policy_id":   fmt.Sprintf("epoch-%d", binding.PolicyEpoch),
-			"policy_hash": policyContentHash(cfg.EnginePolicy),
-		})
-		if err != nil {
-			return evidence.BindingInfo{}, false
-		}
-
-		// Derive the oracle's key from the same identity fields the
-		// contract uses. A local identifier would read an unrelated slot.
-		chainBinding, err := chainBindingFrom(
-			registryChainID, registryAddr, agentID, binding)
-		if err != nil {
-			return evidence.BindingInfo{}, false
-		}
-
-		return evidence.BindingInfo{
-			Raw:         raw,
-			ModelPolicy: modelPolicy,
-			Account:     binding.CreditAccount,
-			ChainKey:    attest.ChainKeyHex(chainBinding),
-		}, true
-	}
-}
-
-// chainBindingFrom assembles the fields the oracle keys on.
-func chainBindingFrom(
-	registryChainID uint64,
-	registryAddr, agentID string,
-	binding store.Binding,
-) (attest.Binding, error) {
-	registry, err := parseAddress(registryAddr)
-	if err != nil {
-		return attest.Binding{}, err
-	}
-	account, err := parseAddress(binding.CreditAccount)
-	if err != nil {
-		return attest.Binding{}, err
-	}
-	agent, ok := new(big.Int).SetString(agentID, 10)
-	if !ok {
-		return attest.Binding{}, fmt.Errorf("agent id %q is not numeric", agentID)
-	}
-	facility, ok := new(big.Int).SetString(binding.FacilityID, 10)
-	if !ok {
-		return attest.Binding{}, fmt.Errorf("facility id %q is not numeric", binding.FacilityID)
-	}
-	return attest.Binding{
-		IdentityRegistryChainID: new(big.Int).SetUint64(registryChainID),
-		IdentityRegistry:        registry,
-		AgentID:                 agent,
-		CreditAccount:           account,
-		FacilityID:              facility,
-	}, nil
-}
-
-func parseHash(s string) (attest.Hash, error) {
-	var h attest.Hash
-	b, err := hex.DecodeString(trim0x(s))
-	if err != nil || len(b) != 32 {
-		return h, fmt.Errorf("expected 32 hex bytes")
-	}
-	copy(h[:], b)
-	return h, nil
-}
-
-func parseAddress(s string) (attest.Address, error) {
-	var a attest.Address
-	b, err := hex.DecodeString(trim0x(s))
-	if err != nil || len(b) != 20 {
-		return a, fmt.Errorf("expected 20 hex bytes")
-	}
-	copy(a[:], b)
-	return a, nil
-}
-
-func trim0x(s string) string {
-	if len(s) >= 2 && s[:2] == "0x" {
-		return s[2:]
-	}
-	return s
 }
