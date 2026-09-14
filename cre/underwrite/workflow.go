@@ -78,6 +78,18 @@ type Config struct {
 	// before anything reaches the oracle.
 	ReceiverAddress string `json:"receiverAddress"`
 
+	// AuthSecretID names the CRE secret holding `credence-assessd`'s
+	// bearer token, sent as `Authorization: Bearer <token>`.
+	//
+	// A secret id rather than the token itself: this file is committed,
+	// and a credential in it would be a credential in the repository. The
+	// value is fetched per node at request time.
+	//
+	// Empty means the endpoint is unauthenticated, which `credence-assessd`
+	// permits only on a loopback listener. Anything reachable off the host
+	// must set this.
+	AuthSecretID string `json:"authSecretId,omitempty"`
+
 	// GasLimit for the write. Bounded so a pathological report cannot
 	// spend without limit.
 	GasLimit uint64 `json:"gasLimit"`
@@ -382,6 +394,30 @@ func assessLoan(
 	// from the deployment's own configuration, so this workflow cannot
 	// steer an assessment onto an account it does not underwrite -- and
 	// the endpoint refuses any other field rather than ignoring it.
+	// The bearer token, read once from CRE's secret store rather than from
+	// config: this workflow's config file is committed, and a credential
+	// in it would be a credential in the repository.
+	//
+	// Fetched OUTSIDE node mode, because secrets are a runtime facility
+	// and `NodeRuntime` has no access to them. Every node therefore sends
+	// the same header, which is what an identical-match consensus needs
+	// anyway.
+	//
+	// A failure here blocks rather than falling back to an
+	// unauthenticated call: a silent fallback works against a loopback
+	// deployment and silently stops working against a real one, which is
+	// the worst place to discover it.
+	var token string
+	if config.AuthSecretID != "" {
+		secret, err := runtime.GetSecret(
+			&cre.SecretRequest{Id: config.AuthSecretID}).Await()
+		if err != nil {
+			return nil, fmt.Errorf(
+				"read secret %q: %w", config.AuthSecretID, err)
+		}
+		token = secret.Value
+	}
+
 	body, err := json.Marshal(map[string]any{
 		"loan_id": loan.LoanID,
 	})
@@ -399,14 +435,19 @@ func assessLoan(
 		config,
 		runtime,
 		func(cfg *Config, node cre.NodeRuntime) (assessmentResponse, error) {
+			headers := map[string]string{
+				"Content-Type": "application/json",
+			}
+			if token != "" {
+				headers["Authorization"] = "Bearer " + token
+			}
+
 			client := &http.Client{}
 			resp, err := client.SendRequest(node, &http.Request{
-				Url:    cfg.RiskServiceURL + "/v1/assess",
-				Method: "POST",
-				Body:   body,
-				Headers: map[string]string{
-					"Content-Type": "application/json",
-				},
+				Url:     cfg.RiskServiceURL + "/v1/assess",
+				Method:  "POST",
+				Body:    body,
+				Headers: headers,
 			}).Await()
 			if err != nil {
 				return assessmentResponse{}, fmt.Errorf("risk service: %w", err)
@@ -459,7 +500,6 @@ func checkAssessment(out *assessmentResponse) error {
 	}
 	return nil
 }
-
 
 // nextSequence asks the receiver what sequence this loan's next report
 // must carry.
