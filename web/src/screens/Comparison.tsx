@@ -50,7 +50,10 @@ export function Comparison_() {
           const o = p.assessment.outcome;
           const approved = o.decision === "ApprovedOrigination";
           return (
-            <div className="card" key={p.name}>
+            <div
+              className={`card rail ${approved ? "rail-growth" : "rail-alarm"}`}
+              key={p.name}
+            >
               <h3>{p.name}</h3>
               <p className="lede" style={{ minHeight: "4.5em" }}>{p.blurb}</p>
               <table>

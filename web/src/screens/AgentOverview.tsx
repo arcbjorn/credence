@@ -13,6 +13,21 @@ import { ModeChip } from "../components/ModeChip";
  * capacity that stops rising is only explicable if the reader can see what
  * started limiting it.
  */
+/**
+ * Which register a binding constraint belongs to.
+ *
+ * `docs/09` requires the binding constraint beside the capacity, because
+ * a number without it cannot be interpreted. The colour carries the same
+ * distinction the word does: history GROWING the facility is a different
+ * kind of fact from a structural cap taking over, and the plateau in
+ * beat 4b is exactly that handover.
+ */
+function bindingRegister(binding: string | undefined): string {
+  if (binding === "HistoryGrowthCap") return "growth";
+  if (binding === undefined) return "";
+  return "machine";
+}
+
 export function AgentOverview() {
   const [run, setRun] = useState<Run | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -76,7 +91,9 @@ export function AgentOverview() {
                 <td className="num">{units(a.payload.outcome.requested_principal)}</td>
                 <td className="num">{units(a.payload.outcome.approved_principal)}</td>
                 <td className="num">{units(a.payload.outcome.capacity?.agent_capacity)}</td>
-                <td>{a.payload.outcome.capacity?.agent_binding ?? "-"}</td>
+                <td className={`bound-${bindingRegister(a.payload.outcome.capacity?.agent_binding)}`}>
+                  {a.payload.outcome.capacity?.agent_binding ?? "-"}
+                </td>
                 <td className="num">{units(a.payload.outcome.capacity?.drawable_capacity)}</td>
                 <td>{a.payload.outcome.capacity?.drawable_binding ?? "-"}</td>
                 <td className="num">{bps(a.payload.outcome.terms?.apr_bps)}</td>

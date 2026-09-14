@@ -53,6 +53,47 @@ the engine never returned.
 It also means the build is a **static folder** — no server to run during
 judging, nothing to fail.
 
+## The design
+
+The palette and typography come from
+[`arcbjorn.com`](https://arcbjorn.com): warm paper `#f9f5ef` against
+near-black `#1b1d1e`, teal and vermilion accents, IBM Plex Mono
+throughout with Cinzel for display. Two accents are darkened in the light
+theme — `#008080` and `#f15025` land at 4.08:1 and 3.02:1 on this paper,
+which is fine for a bordered chip and thin for a figure carrying realized
+loss.
+
+**A third register is added for this subject.** The interface reads in
+three:
+
+| Register | Hue | What it marks |
+|---|---|---|
+| Machine | teal | agents, identity, hashes, the CRE route |
+| Growth | moss | capacity, history, what compounds |
+| Alarm | vermilion | refusals, denials, realized loss |
+
+Moss is the one that is not inherited. This is credit *grown from
+demonstrated behaviour*, so a rising limit should read as cultivation
+rather than as one more machine readout — and the moment in beat 4b where
+history stops binding and a structural cap takes over is a handover
+between two registers, not a change in one number.
+
+Mono throughout is not a stylistic tic: every figure is an integer in
+base units, and columns of them have to align to be comparable. Tables get
+tabular numerals and a rule under the header rather than zebra fill —
+a ledger, not a dashboard.
+
+The **constraint rail** is the one invented device: a coloured leading
+edge on a card, carrying the binding constraint or the outcome, so the
+*reason* reads before the number does. `docs/09` requires the binding
+constraint beside the capacity, and a rail states it without spending a
+column.
+
+Every colour is a token defined in the bare `:root`, redefined for
+`prefers-color-scheme: dark` and for an explicit `data-theme="dark"`, so
+all three theme states resolve — including the un-stamped system default
+that a colour defined only inside a media query would break.
+
 ## Mode labels
 
 `docs/09` forbids collapsing environment and evidence modes into one green

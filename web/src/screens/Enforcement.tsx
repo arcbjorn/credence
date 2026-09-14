@@ -60,9 +60,9 @@ export function Enforcement() {
       </p>
 
       {held && (
-        <div className="card" style={{ marginBottom: 16 }}>
+        <div className="card rail rail-growth" style={{ marginBottom: 18 }}>
           <h3>What the account holds</h3>
-          <p className="num" style={{ fontSize: 22, margin: "4px 0" }}>
+          <p className="figure figure-growth">
             {units(held.detail.split(" ")[0], 18)}
           </p>
           <p className="lede" style={{ margin: 0 }}>
@@ -74,7 +74,7 @@ export function Enforcement() {
 
       <div className="grid">
         {ownerRefused && (
-          <div className="card">
+          <div className="card rail rail-alarm">
             <h3>The owner is refused</h3>
             <p>Debt is open, so the account will not release collateral.</p>
             <code className="hash">{ownerRefused.detail}</code>
@@ -85,7 +85,7 @@ export function Enforcement() {
           </div>
         )}
         {strangerRefused && (
-          <div className="card">
+          <div className="card rail rail-machine">
             <h3>A stranger is refused</h3>
             <p>Not the owner, so the call never reaches the debt check.</p>
             <code className="hash">{strangerRefused.detail}</code>

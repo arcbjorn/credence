@@ -58,42 +58,34 @@ export function Lender() {
       </p>
 
       <div className="grid">
-        <div className="card">
+        <div className="card rail rail-growth">
           <h3>Idle cash</h3>
-          <p className="num" style={{ fontSize: 22, margin: "4px 0" }}>
-            {amount(find("idle cash"))}
-          </p>
+          <p className="figure figure-growth">{amount(find("idle cash"))}</p>
           <p className="lede" style={{ margin: 0 }}>
             Available to lend, and the only figure that is settled cash.
           </p>
         </div>
 
-        <div className="card">
+        <div className="card rail rail-machine">
           <h3>Principal outstanding</h3>
-          <p className="num" style={{ fontSize: 22, margin: "4px 0" }}>
-            {amount(find("principal outstanding"))}
-          </p>
+          <p className="figure">{amount(find("principal outstanding"))}</p>
           <p className="lede" style={{ margin: 0 }}>
             Lent and not yet returned. Exposed to the borrower's book.
           </p>
         </div>
 
-        <div className="card">
+        <div className="card rail rail-growth">
           <h3>Interest collected</h3>
-          <p className="num" style={{ fontSize: 22, margin: "4px 0" }}>
-            {amount(interest)}
-          </p>
+          <p className="figure figure-growth">{amount(interest)}</p>
           <p className="lede" style={{ margin: 0 }}>
             Actually received. Accrued-but-unpaid interest is a receivable,
             not this number.
           </p>
         </div>
 
-        <div className="card">
+        <div className="card rail rail-alarm">
           <h3>Realized loss</h3>
-          <p className="num" style={{ fontSize: 22, margin: "4px 0" }}>
-            {amount(find("realized loss"))}
-          </p>
+          <p className="figure figure-alarm">{amount(find("realized loss"))}</p>
           <p className="lede" style={{ margin: 0 }}>
             Borne by the vault after a borrower's equity was exhausted.
             Zero is the correct value for a clean epoch.
