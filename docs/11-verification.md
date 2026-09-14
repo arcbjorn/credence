@@ -313,6 +313,102 @@ standard attributes feedback to a client address and expects consumers to
 choose which clients they trust. Claim "independently verifiable", never
 "adopted" -- sub-claim C still requires a second team.
 
+## CRE route — 14 September
+
+The CRE authorization route is built and tested; **deployment is the only
+part still gated.** `cre whoami` reports deploy access not enabled while
+the request is reviewed, and per Chainlink's documentation that gates
+`cre workflow deploy` alone -- `simulate` and `build` need nothing.
+
+| Piece | State |
+|---|---|
+| `CREReceiver.sol` | 13 tests, `forge test --match-contract CREReceiver` |
+| `cre/underwrite` workflow | compiles to WASM, runs in the simulator |
+| Deploy to the workflow registry | **blocked on access** |
+
+### Verified against the live chain, not documentation
+
+The Monad testnet forwarders are real and were probed:
+
+```
+monad-testnet   selector 2183018362218727504
+  forwarder       0xF8344CFd5c43616a4366C34E3EEE75af79a74482   8591 bytes
+  mock forwarder  0xB9F79d863261869B234c481D1f9A7af84AeAd192   4579 bytes
+```
+
+`onReport(bytes,bytes)` = `0x805f2132`, found in the deployed forwarder
+along with ERC-165, which the forwarder checks before it will deliver.
+
+**The metadata layout was established by observation.** A throwaway probe
+was deployed to Monad testnet and a report routed through the live mock
+forwarder into it. What arrived:
+
+```
+msg.sender      0xB9F79d86...      (the forwarder, so the gate works)
+metadata length 64                 (NOT the 62 bytes the packing implies)
+  [ 0:32] workflowId
+  [32:42] workflowName
+  [42:62] workflowOwner
+  [62:64] reportId
+```
+
+The 62/64 difference is the trap: the identity packs to 62 bytes and is
+delivered word-aligned as 64. A receiver that assumed 62 reads the owner
+two bytes early. `test_metadataLayoutMatchesTheForwarder` pins the
+observed layout, and shifting `_decodeMetadata` by one byte fails five
+tests.
+
+### What the receiver checks
+
+Each check exists because skipping it makes the route meaningless, and
+each fails closed -- a revert records no assessment, so no new risk is
+authorized:
+
+| # | Check | Why |
+|---|---|---|
+| 1 | `msg.sender` is the forwarder | Otherwise anyone calls `onReport` and the DON is decorative |
+| 2 | Workflow owner matches | One forwarder routes for every workflow on the chain |
+| 3 | Workflow id matches | An owner may run several workflows; one underwrites |
+| 4 | Route is `CRE` | `docs/05` invariant 6; a development route in a report is malformed |
+| 5 | Report not already seen | The forwarder retries a reverted delivery (`docs/05` invariant 2) |
+
+The receiver **authenticates, never permits**. `RiskOracle.accept` was
+split so signature and caller authentication share one recording path:
+`test_receiverDoesNotBypassOracleExpiry` and
+`test_receiverDoesNotBypassDeploymentBinding` show the oracle still
+applies its own rules to a report that passed every receiver check.
+
+### Simulator results
+
+Both paths observed, with `cre workflow simulate`:
+
+```
+engine reachable     -> {"Assessed":1,"Written":1,"Blocked":0}
+engine unreachable   -> {"Assessed":1,"Written":0,"Blocked":1,
+                         "Notes":["loan 1: ... no such host"]}
+```
+
+Failing closed is the behaviour, not an error path: an assessment that
+cannot be produced leaves the standing permission to expire, and
+`docs/05` makes expired permission block risk increases on its own.
+
+### What is NOT built
+
+Stated plainly, because the workflow reads as complete otherwise:
+
+- **The assessment endpoint does not exist.** `docs/01` keeps the engine
+  pure -- `POST /v1/assess` takes a whole `{input, policy}` snapshot and
+  performs no I/O, so it cannot look a loan up by id. The gateway
+  assembles that snapshot (`gateway/riskclient`), but the gateway is a set
+  of CLI tools, not an HTTP service. The workflow was simulated against a
+  stub returning a well-formed assessment.
+- **The workflow does not yet write to chain.** It reaches consensus on
+  the assessment and reports it; the EVM write to `CREReceiver` is the
+  next step and needs a deployed receiver address to target.
+- **No report has travelled the real path.** The receiver is tested
+  against a stub forwarder, and the metadata layout against the live mock
+  one, but a DON-signed report has never reached it.
+
 ## Operational measurement
 
 Engine runtime, input size, provider lag, event reconciliation lag, transaction status. One scripted command runs the offline scenario suite; another starts the demo environment. Document required credentials and optional integrations explicitly.
