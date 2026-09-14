@@ -207,20 +207,47 @@ const (
 )
 
 // errorSelector extracts the custom error selector from a revert message.
+//
+// Nodes disagree about where the revert data goes. Anvil writes it into
+// the message ("custom error 0xe9d4b4e2"); Monad returns a separate
+// `data:` field and additionally renders the bytes as text, so the
+// message reads `execution reverted: r<mojibake>3` with no usable hex.
+// Prefer the data field, which is the only place the selector is
+// reliably machine-readable, and fall back to scanning the message.
 func errorSelector(err error) string {
 	if err == nil {
 		return "none"
 	}
 	msg := err.Error()
-	i := strings.Index(msg, "0x")
+	if sel := hexAfter(msg, "data: \""); sel != "" {
+		return sel
+	}
+	if sel := hexAfter(msg, "custom error "); sel != "" {
+		return sel
+	}
+	// Last resort. Deliberately not the first "0x" in the message: an
+	// address in the text would be mistaken for a selector and compared
+	// against the expected one, reporting a confident wrong answer.
+	return "unknown"
+}
+
+// hexAfter reads a 4-byte hex selector immediately following marker.
+func hexAfter(msg, marker string) string {
+	i := strings.Index(msg, marker)
 	if i < 0 {
-		return "unknown"
+		return ""
 	}
-	end := i + 10
-	if end > len(msg) {
-		end = len(msg)
+	rest := msg[i+len(marker):]
+	if !strings.HasPrefix(rest, "0x") || len(rest) < 10 {
+		return ""
 	}
-	return msg[i:end]
+	sel := rest[:10]
+	for _, c := range sel[2:] {
+		if !strings.ContainsRune("0123456789abcdefABCDEF", c) {
+			return ""
+		}
+	}
+	return strings.ToLower(sel)
 }
 
 func revertDetail(err error) string {
@@ -228,6 +255,12 @@ func revertDetail(err error) string {
 		return "no revert"
 	}
 	msg := err.Error()
+	// Report the selector rather than the node's rendering of it: Monad
+	// decodes the revert bytes as text, so the raw message is mojibake
+	// that says nothing about which error fired.
+	if sel := errorSelector(err); sel != "unknown" && sel != "none" {
+		return "custom error " + sel
+	}
 	if i := strings.Index(msg, "custom error"); i >= 0 {
 		return msg[i:]
 	}
