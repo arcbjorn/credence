@@ -532,3 +532,179 @@ fn concentration_overrides_perfect_history() {
         "the same history without concentration must still earn capacity"
     );
 }
+
+// --- the comparison the demo opens on ---
+
+/// Emit three agent profiles assessed by the real engine.
+///
+/// `docs/09` beat 1: "Introduce three accounts and the financing problem —
+/// different histories and exposures, clear scenario labels." Beat 5 adds
+/// the sharpest of the three: an account with a GOOD record denied by its
+/// CURRENT portfolio, which is `docs/03`'s central claim.
+///
+/// That claim was proven here, in Rust, and nowhere a reader could see it.
+/// This writes the three assessments to a fixture the interface renders,
+/// so the comparison shows real engine output rather than a retelling.
+///
+/// Assessed under the SHIPPED policy, not this file's local one: the
+/// screen sits beside `docs/11`'s published figures, and a comparison
+/// computed under different parameters would invite exactly the
+/// apples-to-oranges reading the ablation discipline exists to prevent.
+///
+/// Regenerate with:
+///   cargo test --test ablation -- --ignored emit_comparison
+#[test]
+#[ignore]
+fn emit_comparison() {
+    let p = shipped_policy();
+    let declared = hash_of(&p);
+
+    // One variable at a time, from one baseline. That is the whole
+    // discipline: three accounts that differ in several ways at once
+    // would show a difference without attributing it.
+    let profile = |name: &str, blurb: &str, build: &dyn Fn(&mut RiskInput)| {
+        let mut input = baseline();
+        input.model_policy.policy_hash = declared.clone();
+        build(&mut input);
+        let assessment = evaluate(&input, &p);
+        serde_json::json!({
+            "name": name,
+            "blurb": blurb,
+            "input": input,
+            "assessment": assessment,
+        })
+    };
+
+    let profiles = vec![
+        profile(
+            "Unproven",
+            "No demonstrated record. Capacity is bounded by history, \
+             because there is none to lend against.",
+            &|i: &mut RiskInput| {
+                if let Some(h) = i.history.value.as_mut() {
+                    h.weighted_repayments_ppm = 0;
+                }
+            },
+        ),
+        profile(
+            "Proven",
+            "A strong repayment record against a clean book. History \
+             opens the facility.",
+            &|i: &mut RiskInput| {
+                if let Some(h) = i.history.value.as_mut() {
+                    h.weighted_repayments_ppm = 1_000_000;
+                }
+            },
+        ),
+        profile(
+            "Concentrated",
+            "The same flawless record, against a dangerous book: thin \
+             equity, already levered, the rest in one shocked asset. \
+             Stress overrides the record.",
+            &|i: &mut RiskInput| {
+                if let Some(h) = i.history.value.as_mut() {
+                    h.weighted_repayments_ppm = 1_000_000;
+                }
+                if let Some(a) = i.account.value.as_mut() {
+                    a.settlement_balance = Amount(50_000_000);
+                    a.outstanding_debt = Amount(9_000_000_000);
+                    a.positions = vec![Position {
+                        asset: "ETH".into(),
+                        amount: Amount(2_000_000),
+                        price: Amount(2_000_000_000),
+                        price_scale: 6,
+                        haircut_bps: Bps(500),
+                    }];
+                }
+                if let Context::Origination { request } = &mut i.context {
+                    request.requested_principal = Amount(8_000_000_000);
+                    request.intended_action = IntendedAction::Acquire {
+                        asset: "ETH".into(),
+                        price: Amount(2_000_000_000),
+                        price_scale: 6,
+                        deploy_bps: Bps(10_000),
+                        haircut_bps: Bps(500),
+                    };
+                }
+            },
+        ),
+    ];
+
+    let doc = serde_json::json!({
+        "_comment": "docs/09 beat 1 and 5. Three profiles from ONE baseline, \
+                     one variable at a time, assessed by the real engine under \
+                     config/engine-policy.json. Regenerate with: cargo test \
+                     --test ablation -- --ignored emit_comparison",
+        "policy_hash": declared,
+        "model_hash": risk_core::model_hash(),
+        "profiles": profiles,
+    });
+
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .ancestors()
+        .nth(3)
+        .expect("repo root")
+        .join("fixtures/demo/comparison.json");
+    std::fs::write(&path, serde_json::to_string_pretty(&doc).unwrap() + "\n")
+        .unwrap_or_else(|e| panic!("write {}: {e}", path.display()));
+}
+
+/// The policy the demos actually run, read from disk rather than mirrored.
+fn shipped_policy() -> Policy {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .ancestors()
+        .nth(3)
+        .expect("repo root")
+        .join("config/engine-policy.json");
+    let raw =
+        std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("read {}: {e}", path.display()));
+    serde_json::from_str(&raw).unwrap_or_else(|e| panic!("parse {}: {e}", path.display()))
+}
+
+/// The committed comparison fixture must still be what the engine says.
+///
+/// `docs/09` beat 1 opens the demo on these three profiles, and the
+/// interface renders the fixture rather than recomputing. A fixture that
+/// drifted from the engine would put figures on screen that the engine no
+/// longer produces — the precise failure the replay screen exists to rule
+/// out, one layer up.
+///
+/// Regenerate with: cargo test --test ablation -- --ignored emit_comparison
+#[test]
+fn comparison_fixture_matches_the_engine() {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .ancestors()
+        .nth(3)
+        .expect("repo root")
+        .join("fixtures/demo/comparison.json");
+    let raw = match std::fs::read_to_string(&path) {
+        Ok(r) => r,
+        // Not generated in this checkout: the emitter is ignored by
+        // default, so absence is not a failure.
+        Err(_) => return,
+    };
+    let doc: serde_json::Value = serde_json::from_str(&raw).expect("parse fixture");
+
+    let p = shipped_policy();
+    assert_eq!(
+        doc["policy_hash"].as_str().unwrap(),
+        hash_of(&p),
+        "fixture was emitted under a different policy; regenerate it"
+    );
+
+    for profile in doc["profiles"].as_array().expect("profiles") {
+        let input: RiskInput =
+            serde_json::from_value(profile["input"].clone()).expect("parse input");
+        let replayed = evaluate(&input, &p);
+        let retained: risk_core::assessment::RiskAssessment =
+            serde_json::from_value(profile["assessment"].clone()).expect("parse assessment");
+
+        let diffs = risk_core::replay::diff(&retained, &replayed);
+        assert!(
+            diffs.is_empty(),
+            "profile {} no longer reproduces: {:?}",
+            profile["name"],
+            diffs
+        );
+    }
+}

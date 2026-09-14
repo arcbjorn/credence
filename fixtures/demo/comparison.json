@@ -1,0 +1,671 @@
+{
+  "_comment": "docs/09 beat 1 and 5. Three profiles from ONE baseline, one variable at a time, assessed by the real engine under config/engine-policy.json. Regenerate with: cargo test --test ablation -- --ignored emit_comparison",
+  "policy_hash": "28431e5ee431e374f46aa904b2799b7da50ee68fff1753d04f61cc3127059090",
+  "model_hash": "eb1f28871b21718a9db5a3e65fcdca22fc1680e9f369d8adb25869966461a1a3",
+  "profiles": [
+    {
+      "name": "Unproven",
+      "blurb": "No demonstrated record. Capacity is bounded by history, because there is none to lend against.",
+      "input": {
+        "schema_version": "v1",
+        "facility_policy": "Observed",
+        "requested_class": "PrototypeEligible",
+        "assessment_time": 1000,
+        "scenario_id": null,
+        "proposal": {
+          "sequence": 5,
+          "valid_after": 900,
+          "valid_until": 4600
+        },
+        "binding": {
+          "agent": {
+            "identity_registry_chain_id": 31337,
+            "identity_registry": "0xreg",
+            "agent_id": "184"
+          },
+          "operator": "0xop",
+          "credit_account": "0xacct",
+          "facility_id": "1",
+          "account_state_version": 3,
+          "config_version": 1,
+          "config_hash": "cfg",
+          "policy_epoch": 1,
+          "policy_hash": "pol",
+          "accepted_sequence": 4
+        },
+        "context": {
+          "kind": "Origination",
+          "request": {
+            "request_id": "req",
+            "settlement_asset": "0xusd",
+            "requested_principal": "1000000000",
+            "term_seconds": 864000,
+            "max_accepted_apr": 2500,
+            "action_envelope_hash": "act",
+            "intent_hash": "intent",
+            "intended_action": "Hold"
+          }
+        },
+        "account": {
+          "value": {
+            "settlement_balance": "20000000000",
+            "positions": [],
+            "state_version": 3,
+            "outstanding_debt": "0",
+            "facility_limit": "50000000000",
+            "restricted": false
+          },
+          "state": "Present",
+          "origin": "Observed",
+          "requirement": "Required",
+          "source": "ablation",
+          "observed_at": 1000,
+          "retrieved_at": 1000,
+          "coverage": "Complete",
+          "evidence_id": "acct",
+          "content_hash": "h",
+          "parent_evidence_ids": [],
+          "scenario_id": null
+        },
+        "market": {
+          "value": {
+            "observed_at": 1000,
+            "realized_volatility_bps": 2000,
+            "volatility_window_seconds": 86400,
+            "liquidity_depth": "1000000000000"
+          },
+          "state": "Present",
+          "origin": "Observed",
+          "requirement": "Required",
+          "source": "ablation",
+          "observed_at": 1000,
+          "retrieved_at": 1000,
+          "coverage": "Complete",
+          "evidence_id": "mkt",
+          "content_hash": "h",
+          "parent_evidence_ids": [],
+          "scenario_id": null
+        },
+        "history": {
+          "value": {
+            "weighted_repayments_ppm": 0,
+            "resolved_defaults": 0,
+            "policy_breaches": 0,
+            "coverage_complete": true
+          },
+          "state": "Present",
+          "origin": "Observed",
+          "requirement": "Required",
+          "source": "ablation",
+          "observed_at": 1000,
+          "retrieved_at": 1000,
+          "coverage": "Complete",
+          "evidence_id": "hist",
+          "content_hash": "h",
+          "parent_evidence_ids": [],
+          "scenario_id": null
+        },
+        "forecasts": {
+          "value": {
+            "comparable_resolved": 10,
+            "mean_brier_ppm": 0,
+            "unresolved": 0,
+            "unobservable": 0
+          },
+          "state": "Present",
+          "origin": "Observed",
+          "requirement": "Required",
+          "source": "ablation",
+          "observed_at": 1000,
+          "retrieved_at": 1000,
+          "coverage": "Complete",
+          "evidence_id": "fc",
+          "content_hash": "h",
+          "parent_evidence_ids": [],
+          "scenario_id": null
+        },
+        "portfolio": {
+          "value": {
+            "strategy_id": "spot-v1",
+            "remaining_strategy_budget": "40000000000",
+            "remaining_vault_budget": "40000000000",
+            "available_cash": "40000000000"
+          },
+          "state": "Present",
+          "origin": "Observed",
+          "requirement": "Required",
+          "source": "ablation",
+          "observed_at": 1000,
+          "retrieved_at": 1000,
+          "coverage": "Complete",
+          "evidence_id": "pf",
+          "content_hash": "h",
+          "parent_evidence_ids": [],
+          "scenario_id": null
+        },
+        "model_policy": {
+          "model_id": "m1",
+          "model_hash": "eb1f28871b21718a9db5a3e65fcdca22fc1680e9f369d8adb25869966461a1a3",
+          "policy_id": "p1",
+          "policy_hash": "28431e5ee431e374f46aa904b2799b7da50ee68fff1753d04f61cc3127059090"
+        }
+      },
+      "assessment": {
+        "schema_version": "v1",
+        "assessment_id": "1ba59f0a8c12a4453958bf55fbe6667039335a1956cd9f56069249e9b43e04b0",
+        "input_hash": "eaef224d4cc1c18bcc22fae0e151e1b0306bc60a9b69a97fd8df06f5d1c0f221",
+        "model_hash": "eb1f28871b21718a9db5a3e65fcdca22fc1680e9f369d8adb25869966461a1a3",
+        "policy_hash": "28431e5ee431e374f46aa904b2799b7da50ee68fff1753d04f61cc3127059090",
+        "assessment_time": 1000,
+        "sequence": 5,
+        "valid_after": 900,
+        "valid_until": 4600,
+        "authorization_class": "PrototypeEligible",
+        "outcome": {
+          "decision": "ApprovedOrigination",
+          "requested_principal": "1000000000",
+          "approved_principal": "1000000000",
+          "terms": {
+            "approved_principal": "1000000000",
+            "apr_bps": 1200,
+            "term_seconds": 864000,
+            "required_equity": "20000000000",
+            "permitted_action_hash": "act",
+            "price_breakdown": {
+              "base_rate_bps": 1200,
+              "history_discount_bps": 0,
+              "portfolio_surcharge_bps": 0,
+              "apr_bps": 1200,
+              "clamped": false
+            },
+            "economics": {
+              "gross_interest": "3287672",
+              "funding_expense": "1232877",
+              "operating_expense": "273973",
+              "scenario_expected_loss": "4250000",
+              "assumed_pd_ppm": 17000,
+              "assumed_lgd_ppm": 250000
+            }
+          },
+          "capacity": {
+            "agent_capacity": "6200000000",
+            "drawable_capacity": "6200000000",
+            "agent_binding": "HistoryGrowthCap",
+            "drawable_binding": "HistoryGrowthCap",
+            "score": 610
+          }
+        },
+        "stress_results": [
+          {
+            "shock": "Price",
+            "applied_price_shock_bps": 3000,
+            "recoverable_value": "20790000000",
+            "debt_with_reserved_interest": "1003287672",
+            "passes": true
+          },
+          {
+            "shock": "Liquidity",
+            "applied_price_shock_bps": 3000,
+            "recoverable_value": "20790000000",
+            "debt_with_reserved_interest": "1003287672",
+            "passes": true
+          },
+          {
+            "shock": "Combined",
+            "applied_price_shock_bps": 3000,
+            "recoverable_value": "20790000000",
+            "debt_with_reserved_interest": "1003287672",
+            "passes": true
+          }
+        ],
+        "reasons": [
+          "Eligible"
+        ],
+        "omitted_evidence": [],
+        "synthetic_used": false
+      }
+    },
+    {
+      "name": "Proven",
+      "blurb": "A strong repayment record against a clean book. History opens the facility.",
+      "input": {
+        "schema_version": "v1",
+        "facility_policy": "Observed",
+        "requested_class": "PrototypeEligible",
+        "assessment_time": 1000,
+        "scenario_id": null,
+        "proposal": {
+          "sequence": 5,
+          "valid_after": 900,
+          "valid_until": 4600
+        },
+        "binding": {
+          "agent": {
+            "identity_registry_chain_id": 31337,
+            "identity_registry": "0xreg",
+            "agent_id": "184"
+          },
+          "operator": "0xop",
+          "credit_account": "0xacct",
+          "facility_id": "1",
+          "account_state_version": 3,
+          "config_version": 1,
+          "config_hash": "cfg",
+          "policy_epoch": 1,
+          "policy_hash": "pol",
+          "accepted_sequence": 4
+        },
+        "context": {
+          "kind": "Origination",
+          "request": {
+            "request_id": "req",
+            "settlement_asset": "0xusd",
+            "requested_principal": "1000000000",
+            "term_seconds": 864000,
+            "max_accepted_apr": 2500,
+            "action_envelope_hash": "act",
+            "intent_hash": "intent",
+            "intended_action": "Hold"
+          }
+        },
+        "account": {
+          "value": {
+            "settlement_balance": "20000000000",
+            "positions": [],
+            "state_version": 3,
+            "outstanding_debt": "0",
+            "facility_limit": "50000000000",
+            "restricted": false
+          },
+          "state": "Present",
+          "origin": "Observed",
+          "requirement": "Required",
+          "source": "ablation",
+          "observed_at": 1000,
+          "retrieved_at": 1000,
+          "coverage": "Complete",
+          "evidence_id": "acct",
+          "content_hash": "h",
+          "parent_evidence_ids": [],
+          "scenario_id": null
+        },
+        "market": {
+          "value": {
+            "observed_at": 1000,
+            "realized_volatility_bps": 2000,
+            "volatility_window_seconds": 86400,
+            "liquidity_depth": "1000000000000"
+          },
+          "state": "Present",
+          "origin": "Observed",
+          "requirement": "Required",
+          "source": "ablation",
+          "observed_at": 1000,
+          "retrieved_at": 1000,
+          "coverage": "Complete",
+          "evidence_id": "mkt",
+          "content_hash": "h",
+          "parent_evidence_ids": [],
+          "scenario_id": null
+        },
+        "history": {
+          "value": {
+            "weighted_repayments_ppm": 1000000,
+            "resolved_defaults": 0,
+            "policy_breaches": 0,
+            "coverage_complete": true
+          },
+          "state": "Present",
+          "origin": "Observed",
+          "requirement": "Required",
+          "source": "ablation",
+          "observed_at": 1000,
+          "retrieved_at": 1000,
+          "coverage": "Complete",
+          "evidence_id": "hist",
+          "content_hash": "h",
+          "parent_evidence_ids": [],
+          "scenario_id": null
+        },
+        "forecasts": {
+          "value": {
+            "comparable_resolved": 10,
+            "mean_brier_ppm": 0,
+            "unresolved": 0,
+            "unobservable": 0
+          },
+          "state": "Present",
+          "origin": "Observed",
+          "requirement": "Required",
+          "source": "ablation",
+          "observed_at": 1000,
+          "retrieved_at": 1000,
+          "coverage": "Complete",
+          "evidence_id": "fc",
+          "content_hash": "h",
+          "parent_evidence_ids": [],
+          "scenario_id": null
+        },
+        "portfolio": {
+          "value": {
+            "strategy_id": "spot-v1",
+            "remaining_strategy_budget": "40000000000",
+            "remaining_vault_budget": "40000000000",
+            "available_cash": "40000000000"
+          },
+          "state": "Present",
+          "origin": "Observed",
+          "requirement": "Required",
+          "source": "ablation",
+          "observed_at": 1000,
+          "retrieved_at": 1000,
+          "coverage": "Complete",
+          "evidence_id": "pf",
+          "content_hash": "h",
+          "parent_evidence_ids": [],
+          "scenario_id": null
+        },
+        "model_policy": {
+          "model_id": "m1",
+          "model_hash": "eb1f28871b21718a9db5a3e65fcdca22fc1680e9f369d8adb25869966461a1a3",
+          "policy_id": "p1",
+          "policy_hash": "28431e5ee431e374f46aa904b2799b7da50ee68fff1753d04f61cc3127059090"
+        }
+      },
+      "assessment": {
+        "schema_version": "v1",
+        "assessment_id": "ba724375fb9e940de475932de7c2ca0dc9986b35d2c79ffcc5b78ef289e7605f",
+        "input_hash": "3b1e914e20a980734dcdbcc4a1c6ea06dbf78de2e8bcbca1484889082b604dab",
+        "model_hash": "eb1f28871b21718a9db5a3e65fcdca22fc1680e9f369d8adb25869966461a1a3",
+        "policy_hash": "28431e5ee431e374f46aa904b2799b7da50ee68fff1753d04f61cc3127059090",
+        "assessment_time": 1000,
+        "sequence": 5,
+        "valid_after": 900,
+        "valid_until": 4600,
+        "authorization_class": "PrototypeEligible",
+        "outcome": {
+          "decision": "ApprovedOrigination",
+          "requested_principal": "1000000000",
+          "approved_principal": "1000000000",
+          "terms": {
+            "approved_principal": "1000000000",
+            "apr_bps": 800,
+            "term_seconds": 864000,
+            "required_equity": "20000000000",
+            "permitted_action_hash": "act",
+            "price_breakdown": {
+              "base_rate_bps": 1200,
+              "history_discount_bps": 400,
+              "portfolio_surcharge_bps": 0,
+              "apr_bps": 800,
+              "clamped": false
+            },
+            "economics": {
+              "gross_interest": "2191781",
+              "funding_expense": "1232877",
+              "operating_expense": "273973",
+              "scenario_expected_loss": "4250000",
+              "assumed_pd_ppm": 17000,
+              "assumed_lgd_ppm": 250000
+            }
+          },
+          "capacity": {
+            "agent_capacity": "12000000000",
+            "drawable_capacity": "12000000000",
+            "agent_binding": "AccountHardCap",
+            "drawable_binding": "AccountHardCap",
+            "score": 900
+          }
+        },
+        "stress_results": [
+          {
+            "shock": "Price",
+            "applied_price_shock_bps": 3000,
+            "recoverable_value": "20790000000",
+            "debt_with_reserved_interest": "1002191781",
+            "passes": true
+          },
+          {
+            "shock": "Liquidity",
+            "applied_price_shock_bps": 3000,
+            "recoverable_value": "20790000000",
+            "debt_with_reserved_interest": "1002191781",
+            "passes": true
+          },
+          {
+            "shock": "Combined",
+            "applied_price_shock_bps": 3000,
+            "recoverable_value": "20790000000",
+            "debt_with_reserved_interest": "1002191781",
+            "passes": true
+          }
+        ],
+        "reasons": [
+          "Eligible"
+        ],
+        "omitted_evidence": [],
+        "synthetic_used": false
+      }
+    },
+    {
+      "name": "Concentrated",
+      "blurb": "The same flawless record, against a dangerous book: thin equity, already levered, the rest in one shocked asset. Stress overrides the record.",
+      "input": {
+        "schema_version": "v1",
+        "facility_policy": "Observed",
+        "requested_class": "PrototypeEligible",
+        "assessment_time": 1000,
+        "scenario_id": null,
+        "proposal": {
+          "sequence": 5,
+          "valid_after": 900,
+          "valid_until": 4600
+        },
+        "binding": {
+          "agent": {
+            "identity_registry_chain_id": 31337,
+            "identity_registry": "0xreg",
+            "agent_id": "184"
+          },
+          "operator": "0xop",
+          "credit_account": "0xacct",
+          "facility_id": "1",
+          "account_state_version": 3,
+          "config_version": 1,
+          "config_hash": "cfg",
+          "policy_epoch": 1,
+          "policy_hash": "pol",
+          "accepted_sequence": 4
+        },
+        "context": {
+          "kind": "Origination",
+          "request": {
+            "request_id": "req",
+            "settlement_asset": "0xusd",
+            "requested_principal": "8000000000",
+            "term_seconds": 864000,
+            "max_accepted_apr": 2500,
+            "action_envelope_hash": "act",
+            "intent_hash": "intent",
+            "intended_action": {
+              "Acquire": {
+                "asset": "ETH",
+                "price": "2000000000",
+                "price_scale": 6,
+                "haircut_bps": 500,
+                "deploy_bps": 10000
+              }
+            }
+          }
+        },
+        "account": {
+          "value": {
+            "settlement_balance": "50000000",
+            "positions": [
+              {
+                "asset": "ETH",
+                "amount": "2000000",
+                "price": "2000000000",
+                "price_scale": 6,
+                "haircut_bps": 500
+              }
+            ],
+            "state_version": 3,
+            "outstanding_debt": "9000000000",
+            "facility_limit": "50000000000",
+            "restricted": false
+          },
+          "state": "Present",
+          "origin": "Observed",
+          "requirement": "Required",
+          "source": "ablation",
+          "observed_at": 1000,
+          "retrieved_at": 1000,
+          "coverage": "Complete",
+          "evidence_id": "acct",
+          "content_hash": "h",
+          "parent_evidence_ids": [],
+          "scenario_id": null
+        },
+        "market": {
+          "value": {
+            "observed_at": 1000,
+            "realized_volatility_bps": 2000,
+            "volatility_window_seconds": 86400,
+            "liquidity_depth": "1000000000000"
+          },
+          "state": "Present",
+          "origin": "Observed",
+          "requirement": "Required",
+          "source": "ablation",
+          "observed_at": 1000,
+          "retrieved_at": 1000,
+          "coverage": "Complete",
+          "evidence_id": "mkt",
+          "content_hash": "h",
+          "parent_evidence_ids": [],
+          "scenario_id": null
+        },
+        "history": {
+          "value": {
+            "weighted_repayments_ppm": 1000000,
+            "resolved_defaults": 0,
+            "policy_breaches": 0,
+            "coverage_complete": true
+          },
+          "state": "Present",
+          "origin": "Observed",
+          "requirement": "Required",
+          "source": "ablation",
+          "observed_at": 1000,
+          "retrieved_at": 1000,
+          "coverage": "Complete",
+          "evidence_id": "hist",
+          "content_hash": "h",
+          "parent_evidence_ids": [],
+          "scenario_id": null
+        },
+        "forecasts": {
+          "value": {
+            "comparable_resolved": 10,
+            "mean_brier_ppm": 0,
+            "unresolved": 0,
+            "unobservable": 0
+          },
+          "state": "Present",
+          "origin": "Observed",
+          "requirement": "Required",
+          "source": "ablation",
+          "observed_at": 1000,
+          "retrieved_at": 1000,
+          "coverage": "Complete",
+          "evidence_id": "fc",
+          "content_hash": "h",
+          "parent_evidence_ids": [],
+          "scenario_id": null
+        },
+        "portfolio": {
+          "value": {
+            "strategy_id": "spot-v1",
+            "remaining_strategy_budget": "40000000000",
+            "remaining_vault_budget": "40000000000",
+            "available_cash": "40000000000"
+          },
+          "state": "Present",
+          "origin": "Observed",
+          "requirement": "Required",
+          "source": "ablation",
+          "observed_at": 1000,
+          "retrieved_at": 1000,
+          "coverage": "Complete",
+          "evidence_id": "pf",
+          "content_hash": "h",
+          "parent_evidence_ids": [],
+          "scenario_id": null
+        },
+        "model_policy": {
+          "model_id": "m1",
+          "model_hash": "eb1f28871b21718a9db5a3e65fcdca22fc1680e9f369d8adb25869966461a1a3",
+          "policy_id": "p1",
+          "policy_hash": "28431e5ee431e374f46aa904b2799b7da50ee68fff1753d04f61cc3127059090"
+        }
+      },
+      "assessment": {
+        "schema_version": "v1",
+        "assessment_id": "140260b75f5bdbe817e8305824c45ce09451df69ad681f671d78d9c8035d4e60",
+        "input_hash": "1cec4e4867805041b7e326b879bb9a10c1152172321c1ecf04d6eef869034e82",
+        "model_hash": "eb1f28871b21718a9db5a3e65fcdca22fc1680e9f369d8adb25869966461a1a3",
+        "policy_hash": "28431e5ee431e374f46aa904b2799b7da50ee68fff1753d04f61cc3127059090",
+        "assessment_time": 1000,
+        "sequence": 5,
+        "valid_after": 900,
+        "valid_until": 4600,
+        "authorization_class": "PrototypeEligible",
+        "outcome": {
+          "decision": "Denied",
+          "requested_principal": "8000000000",
+          "capacity": {
+            "agent_capacity": "0",
+            "drawable_capacity": "0",
+            "agent_binding": "StressCapacity",
+            "drawable_binding": "StressCapacity",
+            "score": 300
+          }
+        },
+        "stress_results": [
+          {
+            "shock": "Price",
+            "applied_price_shock_bps": 3000,
+            "recoverable_value": "2682900000",
+            "debt_with_reserved_interest": "9000000000",
+            "passes": false
+          },
+          {
+            "shock": "Liquidity",
+            "applied_price_shock_bps": 3000,
+            "recoverable_value": "3764098800",
+            "debt_with_reserved_interest": "9000000000",
+            "passes": false
+          },
+          {
+            "shock": "Combined",
+            "applied_price_shock_bps": 3000,
+            "recoverable_value": "2649719160",
+            "debt_with_reserved_interest": "9000000000",
+            "passes": false
+          }
+        ],
+        "reasons": [
+          {
+            "CapacityExceeded": {
+              "limiting": "StressCapacity",
+              "capacity": "0"
+            }
+          }
+        ],
+        "omitted_evidence": [],
+        "synthetic_used": false
+      }
+    }
+  ]
+}
