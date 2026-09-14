@@ -8,6 +8,10 @@ export default defineConfig({
   // ~437KB and only the replay screen needs it, so it stays a separate
   // asset the browser fetches on demand.
   assetsInclude: ["**/*.wasm"],
+  // Relative asset paths, so the build works from a subdirectory or a
+  // file:// folder rather than only at an origin root. With the default
+  // "/" every asset 404s unless the site is served from the root.
+  base: "./",
   build: {
     target: "es2022",
     // A judge opens this from a folder or a static host. No server, no

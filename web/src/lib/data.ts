@@ -105,7 +105,7 @@ async function fetchJSON<T>(path: string): Promise<T> {
     // because the fix is to run the script rather than to debug the page.
     throw new Error(
       `${path} is not available (${res.status}). ` +
-        `Generate the bundle with: npm run data`,
+        `Generate the bundle with: pnpm data`,
     );
   }
   const body = (await res.json()) as T;
@@ -113,8 +113,8 @@ async function fetchJSON<T>(path: string): Promise<T> {
   return body;
 }
 
-export const loadManifest = () => fetchJSON<Manifest>("/data/manifest.json");
-export const loadRun = (name: string) => fetchJSON<Run>(`/data/${name}.json`);
+export const loadManifest = () => fetchJSON<Manifest>("data/manifest.json");
+export const loadRun = (name: string) => fetchJSON<Run>(`data/${name}.json`);
 /**
  * The policy a given run actually hashed.
  *
@@ -126,7 +126,7 @@ export const loadRun = (name: string) => fetchJSON<Run>(`/data/${name}.json`);
  * the replay screen prove the opposite of what it claims.
  */
 export const loadPolicy = (run: string) =>
-  fetchJSON<unknown>(`/data/${run}-policy.json`);
+  fetchJSON<unknown>(`data/${run}-policy.json`);
 
 /** Base units to a readable decimal. Never rounds a displayed amount. */
 export function units(raw: string | number | undefined, decimals = 6): string {
