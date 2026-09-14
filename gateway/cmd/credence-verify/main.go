@@ -12,6 +12,7 @@ package main
 import (
 	"context"
 	"encoding/hex"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"math/big"
@@ -39,12 +40,25 @@ func main() {
 	vault := flag.String("vault", "", "credit vault address")
 	risky := flag.String("risky", "",
 		"risky asset; checked when the account's settlement balance is zero")
+	// `docs/09` calls beat 6 "the single most convincing moment" -- a
+	// reverted withdrawal, demonstrated rather than claimed. It ran only
+	// in a terminal until 14 September; emitting the results lets the
+	// interface render the SAME on-chain evidence instead of retelling it.
+	jsonOut := flag.String("json", "",
+		"also write the checks to this file, for the web bundle")
 	flag.Parse()
 
 	checks, err := run(*rpcURL, *manager, *account, *settlement, *owner, *vault, *risky)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "verify: %v\n", err)
 		os.Exit(1)
+	}
+
+	if *jsonOut != "" {
+		if err := writeJSON(*jsonOut, checks); err != nil {
+			fmt.Fprintf(os.Stderr, "verify: %v\n", err)
+			os.Exit(1)
+		}
 	}
 
 	failed := 0
@@ -323,4 +337,31 @@ func toAddress(s string) (attest.Address, error) {
 	}
 	copy(a[:], b)
 	return a, nil
+}
+
+// writeJSON records the checks so the interface can show what actually
+// happened on chain.
+//
+// The detail string is carried verbatim -- it holds the revert selector,
+// and `docs/09` beat 6 turns on the two refusals being DIFFERENT:
+// `0xe9d4b4e2` (debt is open) versus `0x72cb8533` (not the owner). A
+// screen that collapsed them into "reverted" would lose the point.
+func writeJSON(path string, checks []check) error {
+	type row struct {
+		Beat   string `json:"beat"`
+		Name   string `json:"name"`
+		Passed bool   `json:"passed"`
+		Detail string `json:"detail"`
+	}
+	out := make([]row, 0, len(checks))
+	for _, c := range checks {
+		out = append(out, row{
+			Beat: c.beat, Name: c.name, Passed: c.passed, Detail: c.detail,
+		})
+	}
+	body, err := json.MarshalIndent(out, "", " ")
+	if err != nil {
+		return fmt.Errorf("encode checks: %w", err)
+	}
+	return os.WriteFile(path, append(body, '\n'), 0o644)
 }
