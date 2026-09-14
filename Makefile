@@ -33,9 +33,15 @@ test: ## Every suite, the way CI runs them
 	@echo "== docs ==" && bash scripts/check-docs.sh
 	@echo "== web ==" && cd web && pnpm test
 
-fmt: ## Format every language
+fmt: ## Format Rust and Go (the two CI gates on)
 	@cd risk && cargo fmt
 	@gofmt -w gateway/ cre/
+	@echo "formatted rust and go"
+	@echo "solidity is NOT reformatted here: foundry.toml sets line_length"
+	@echo "100 while the contracts are hand-wrapped near 80, so 'forge fmt'"
+	@echo "rewrites 20 files. Run it deliberately, not as a side effect."
+
+fmt-sol: ## Reformat Solidity (rewrites ~20 files; see fmt)
 	@cd contracts && forge fmt
 
 clean: ## Remove generated artifacts and demo evidence
