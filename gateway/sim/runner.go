@@ -60,6 +60,10 @@ type Runner struct {
 	outcome     Outcome
 	shocksSeen  map[string]bool
 	namedShocks map[string]bool
+
+	// The exit cost the POLICY declares, so the world charges what the
+	// model priced rather than a literal that can drift from it.
+	liquidityHaircutBps uint64
 }
 
 type loanState struct {
@@ -88,15 +92,16 @@ func NewRunner(cfg RunConfig, agent Agent, uw Underwriter) (*Runner, error) {
 		named[n] = true
 	}
 	return &Runner{
-		cfg:         cfg,
-		world:       world,
-		clock:       NewClock(cfg.World.StartTime),
-		queue:       NewQueue(),
-		agent:       agent,
-		uw:          uw,
-		equity:      cfg.StartingEquity,
-		shocksSeen:  map[string]bool{},
-		namedShocks: named,
+		cfg:                 cfg,
+		liquidityHaircutBps: haircutFromPolicy(cfg.Policy),
+		world:               world,
+		clock:               NewClock(cfg.World.StartTime),
+		queue:               NewQueue(),
+		agent:               agent,
+		uw:                  uw,
+		equity:              cfg.StartingEquity,
+		shocksSeen:          map[string]bool{},
+		namedShocks:         named,
 	}, nil
 }
 
@@ -301,7 +306,7 @@ func (r *Runner) settleAtMarket(obs Observation) {
 	// Mark the position, then charge the exit its liquidity impact: a
 	// position larger than the book does not sell at the screen price.
 	gross := loan.Units * obs.Price / pow10(obs.PriceScale)
-	proceeds := applyImpact(gross, obs.LiquidityDepth)
+	proceeds := applyImpact(gross, obs.LiquidityDepth, r.liquidityHaircutBps)
 
 	// `proceeds` is the WHOLE custody position -- principal and equity
 	// both -- so the debt is served from all of it before any loss
@@ -351,7 +356,13 @@ func (r *Runner) settleAtMarket(obs Observation) {
 // applyImpact reduces proceeds by the square-root market impact of exiting
 // into the available depth -- the same shape `risk-core::stress` uses, so
 // the world charges what the model priced.
-func applyImpact(gross, depth uint64) uint64 {
+//
+// The base haircut comes from the POLICY, not a literal. It was hardcoded
+// at 500bps against a shipped policy declaring 2000, so the world let
+// positions out at a quarter of the modelled cost -- flattering the
+// recovery figure this harness exists to measure. Reported by review,
+// 14 September.
+func applyImpact(gross, depth, baseBps uint64) uint64 {
 	if depth == 0 || gross == 0 {
 		return 0
 	}
@@ -359,7 +370,7 @@ func applyImpact(gross, depth uint64) uint64 {
 	if ratioBps > 10_000 {
 		ratioBps = 10_000
 	}
-	impactBps := isqrt(ratioBps*10_000) * 500 / 10_000
+	impactBps := isqrt(ratioBps*10_000) * baseBps / 10_000
 	if impactBps > 10_000 {
 		impactBps = 10_000
 	}
@@ -468,4 +479,33 @@ func (r *Runner) finalOutcome() Outcome {
 		out.ResidualEquity += r.openLoan.EquityAtRisk
 	}
 	return out
+}
+
+// liquidityHaircutBps reads the exit haircut the policy declares.
+//
+// Defaults to the engine's own fallback when the policy does not say, so
+// a malformed policy cannot silently produce a frictionless market -- the
+// direction that would overstate recovery.
+func haircutFromPolicy(policy json.RawMessage) uint64 {
+	var p struct {
+		Stress struct {
+			LiquidityHaircutBps uint64 `json:"liquidity_haircut_bps"`
+		} `json:"stress"`
+	}
+	if err := json.Unmarshal(policy, &p); err != nil {
+		return defaultLiquidityHaircutBps
+	}
+	if p.Stress.LiquidityHaircutBps == 0 {
+		return defaultLiquidityHaircutBps
+	}
+	return p.Stress.LiquidityHaircutBps
+}
+
+// defaultLiquidityHaircutBps matches `config/engine-policy.json`.
+const defaultLiquidityHaircutBps = 2_000
+
+// ApplyImpactForTest exposes the exit cost so a test can pin it against
+// the policy the engine runs.
+func ApplyImpactForTest(gross, depth uint64, policy json.RawMessage) uint64 {
+	return applyImpact(gross, depth, haircutFromPolicy(policy))
 }

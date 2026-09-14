@@ -55,24 +55,56 @@ edited one fails.
 | seed | `0xC0FFEE` | `0xBADBEEF` |
 | shocks | the three NAMED scenarios | two named, one **unnamed** |
 | originated | 12 | 3 |
-| declined | 0 | 653 |
-| principal recovered | 84% | **58%** |
-| principal lost | 8% | **41%** |
+| agent declines | 0 | 0 |
+| principal lent | 28.93e9 | 10.84e9 |
+| principal lost | **0** | **549.7e6** (5.1%) |
+| borrower equity left | 1.83e9 | **0** |
 
-**The unnamed shock cost five times more.** The model stresses to the
-scenarios it names -- price, liquidity, combined -- and
-`gap-through-the-exit` supplies a price fall and a liquidity collapse
-arriving together, through the level where a keeper would have exited.
-Realized loss went from 8% to 41% of principal.
+**Rewritten 14 September, twice.** The figures above replace an earlier
+table, and both corrections are worth recording because the first version
+supported a claim the packs did not.
 
-That is the difference this document asks to be demonstrated rather than
-asserted: **expected stress protection is not guaranteed recovery.**
+The earlier table reported 8% and 41% principal loss and concluded that
+**"the unnamed shock cost five times more."** Two defects produced those
+numbers:
 
-The 653 declines matter too. The agent must be able to refuse terms it
-cannot justify, and the demo must not force an approval to advance. In a
-market drifting against it, the agent mostly declined -- and the run
-records that as an outcome rather than retrying until something was
-approved.
+- The runner deployed only the BORROWED principal and left the agent's
+  equity in settlement, then recovered from the risky sale alone. Equity
+  absorbed nothing, so losses were charged to lenders that the borrower's
+  own capital should have taken first. Reverting the fix reproduced it: a
+  2.4e9 lender loss beside 10e9 of untouched equity.
+- The exit charged a hardcoded 500bps liquidity haircut while the shipped
+  policy declares 2000. The world let positions out at a quarter of the
+  modelled cost.
+
+#### What these packs do and do not show
+
+They show that **agent equity is the first loss layer, and it works**:
+the development set loses nothing and ends with 1.83e9 of borrower capital
+intact; the evaluation set's unnamed shock exhausts equity to zero and
+only then takes 5.1% of principal from lenders.
+
+They do **not** isolate the cost of the unnamed shock. The two sets differ
+in seed, volatility, book depth, drift and loan count as well as in shock
+schedule, so the difference between them is not attributable to the shock
+alone. A controlled ablation -- one world, one schedule, the unnamed shock
+present or absent -- is what would support that claim, and it has not been
+run. The earlier "five times more" sentence did not have it either.
+
+**There are no agent declines in either pack.** An earlier version of this
+document reported 653 and built a paragraph on the agent refusing terms it
+could not justify. That figure counted engine REFUSALS -- `Denied` on
+stress capacity, mostly after a book had already fallen -- not the agent
+exercising its own judgment. The agent's ability to decline is real and
+tested (`TestAgentDeclinesTermsItCannotJustify`), but these two sealed
+runs do not exercise it, and the table now says 0 because that is what
+happened.
+
+**There is no keeper.** An earlier sentence described the unnamed shock as
+arriving "through the level where a keeper would have exited". Nothing in
+this harness exits a position early: open loans are marked at maturity or
+at the world's end. What the evaluation shows is a mark-to-market loss,
+not a failed liquidation.
 
 **One placement error, kept in the record.** The evaluation's unnamed
 shock was first scheduled for day 62, by which point the agent had stopped
@@ -80,6 +112,17 @@ borrowing. The harness reported it as unexercised rather than counting it,
 which is how the mistake surfaced; it now falls at day 20. A shock nothing
 is exposed to tests nothing, and a harness that counted it would have
 overstated coverage.
+
+**Two generator defects, also corrected 14 September.** Both were found by
+review rather than by the harness:
+
+- `DriftBpsPerDay / stepsPerDay` was integer division, so 15 bps/day over
+  24 hourly steps truncated to **zero**. Both worlds had no drift at all,
+  while the evaluation set documented itself as "a market that drifts
+  against the agent". Drift is now carried as a remainder.
+- A shock's label stuck to every later observation, so a loan opened weeks
+  afterwards counted as having "exercised" it -- the same overcount
+  already fixed for idle accounts, one layer down.
 
 **Do not claim default-model validation from a small synthetic population.** Report what was exercised: failure-path coverage, monotonic constraints, response latency, replay equality, realized losses within declared scenarios.
 
@@ -94,6 +137,20 @@ One model-backed agent supplies a retained proposal and acceptance trace, shown 
 Use prerecorded decisions or a deterministic policy agent for regression runs, and **display replay mode explicitly.** A replayed trace demonstrates system behavior; it must not be presented as a fresh model decision.
 
 **The agent must be able to decline** when expected benefit, on the correct horizon after costs, does not justify the offered terms. **The demo must not force an approval to advance the script.**
+
+> **As built, 14 September.** There is **no model-backed agent**. The
+> section above is the specification; what exists is the deterministic
+> policy agent it permits for regression runs — `sim.MomentumAgent`, a
+> momentum rule with a lookback, a leverage fraction and a maximum
+> acceptable APR. No model identifier, no prompt hash, no tool-call trace,
+> because there is no model in the loop.
+>
+> It does decline, and `TestAgentDeclinesTermsItCannotJustify` pins that:
+> offered an absurd rate, it refuses rather than advancing the script.
+> Neither sealed pack happens to contain a decline — see the note above.
+>
+> A reader should take the paragraphs above as what a model-backed runner
+> would have to record, not as a description of this repository.
 
 ## What the strategy does, and why it is financed
 

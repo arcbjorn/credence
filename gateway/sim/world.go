@@ -149,13 +149,32 @@ func Generate(cfg Config) (*World, error) {
 	active := Shock{}
 	var recent []uint64
 
+	// Drift carried as a remainder rather than divided per step.
+	//
+	// `DriftBpsPerDay / stepsPerDay` is integer division: 15 bps/day over
+	// 24 hourly steps truncates to ZERO, and so does -5. Both shipped
+	// worlds therefore had no drift at all, while the evaluation set
+	// documented itself as "a market that drifts against the agent" -- the
+	// random walk is symmetric, so nothing else supplied the tilt.
+	//
+	// Accumulating the fractional part applies the full daily drift across
+	// a day's steps without ever needing a per-step value of less than one
+	// basis point. Reported by review, 14 September.
+	driftCarry := int64(0)
+
 	for i := 0; i < total; i++ {
 		if sh, ok := shockAt[i]; ok {
+			// A shock marks the step it struck, and only that step. The
+			// label used to be assigned to `active` and never cleared, so
+			// every later observation claimed the shock too -- and a loan
+			// opened weeks afterwards counted as having exercised it.
 			active = sh
 			price = applyBps(price, sh.PriceBps)
 			if sh.DepthBps > 0 {
 				depth = cfg.LiquidityDepth * sh.DepthBps / 10_000
 			}
+		} else {
+			active = Shock{}
 		}
 
 		// A bounded random walk plus drift. Bounded because an unbounded
@@ -163,7 +182,9 @@ func Generate(cfg Config) (*World, error) {
 		// cannot represent, and a generator that can overflow is a
 		// generator whose worlds are not reproducible.
 		step := int64(rng.next()%(2*cfg.VolBpsPerStep+1)) - int64(cfg.VolBpsPerStep)
-		driftPerStep := cfg.DriftBpsPerDay / stepsPerDay
+		driftCarry += cfg.DriftBpsPerDay
+		driftPerStep := driftCarry / stepsPerDay
+		driftCarry -= driftPerStep * stepsPerDay
 		price = applyBps(price, step+driftPerStep)
 		if price == 0 {
 			// A zero price is not a cheap asset, it is a broken world.

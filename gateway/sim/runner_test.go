@@ -409,3 +409,27 @@ func TestLenderLossRequiresEquityExhausted(t *testing.T) {
 			pack.Outcome.PrincipalLost, pack.Outcome.ResidualEquity)
 	}
 }
+
+// The world must charge the exit what the MODEL priced.
+//
+// `applyImpact` hardcoded a 500bps base haircut while the shipped policy
+// declares `liquidity_haircut_bps: 2000`. The formula is otherwise the
+// same shape as `risk_core::stress`, so the simulated world let positions
+// out at a quarter of the modelled cost -- flattering exactly the recovery
+// figure the harness exists to measure.
+//
+// Reported by review, 14 September.
+func TestExitImpactUsesThePolicyHaircut(t *testing.T) {
+	policy := json.RawMessage(`{"stress":{"liquidity_haircut_bps":2000}}`)
+
+	// A position equal to the whole book: ratio 10000bps, sqrt scaling
+	// gives the base haircut in full.
+	const gross, depth = 1_000_000, 1_000_000
+	got := sim.ApplyImpactForTest(gross, depth, policy)
+
+	// 2000bps off, not 500.
+	if want := uint64(800_000); got != want {
+		t.Fatalf("proceeds = %d, want %d (a 2000bps haircut, not 500)",
+			got, want)
+	}
+}

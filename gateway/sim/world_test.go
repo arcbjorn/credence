@@ -120,8 +120,20 @@ func TestShockMovesPriceAndDepth(t *testing.T) {
 		t.Fatalf("depth did not fall: %d -> %d",
 			before.LiquidityDepth, after.LiquidityDepth)
 	}
-	if after.ShockLabel != "crash" {
-		t.Fatalf("shock label = %q, want crash", after.ShockLabel)
+	// The label belongs to the step the shock STRUCK, not to every step
+	// after it. This assertion used to read `after` -- an hour later --
+	// and passed only because the label stuck to every later observation,
+	// which made loans opened weeks afterwards count as having exercised
+	// the shock. Corrected 14 September.
+	at, ok := w.At(dayTen)
+	if !ok {
+		t.Fatal("no observation at the shock")
+	}
+	if at.ShockLabel != "crash" {
+		t.Fatalf("shock label at the shock = %q, want crash", at.ShockLabel)
+	}
+	if after.ShockLabel != "" {
+		t.Fatalf("shock label persisted an hour later: %q", after.ShockLabel)
 	}
 }
 
@@ -191,5 +203,107 @@ func TestRealizedVolatilityRespondsToAShock(t *testing.T) {
 	if noisy.RealizedVolBps <= quiet.RealizedVolBps {
 		t.Fatalf("volatility did not respond: %d -> %d",
 			quiet.RealizedVolBps, noisy.RealizedVolBps)
+	}
+}
+
+// Drift must actually move the price.
+//
+// `driftPerStep := cfg.DriftBpsPerDay / stepsPerDay` is integer division:
+// 15 bps/day over 24 hourly steps truncates to 0, and so does the
+// evaluation set's -5. Both worlds therefore had NO drift at all, while
+// `credence-sim` documented the evaluation world as "a market that drifts
+// against the agent". The random walk is symmetric, so nothing else
+// supplied the tilt.
+//
+// Reported by review, 14 September.
+func TestDriftActuallyMovesThePrice(t *testing.T) {
+	cfg := sim.Config{
+		Seed: 1, StartTime: 0, Days: 60, StepSeconds: 3_600,
+		StartPrice: 1_000_000, PriceScale: 6,
+		// Small enough to truncate to zero per step under the old
+		// arithmetic, which is exactly the case that matters.
+		DriftBpsPerDay: -5,
+		VolBpsPerStep:  0, // no noise: drift is the only force
+		LiquidityDepth: 1_000_000_000,
+	}
+	w, err := sim.Generate(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	first, last := w.Span()
+	start, ok := w.At(first)
+	if !ok {
+		t.Fatal("no starting observation")
+	}
+	end, ok := w.At(last)
+	if !ok {
+		t.Fatal("no ending observation")
+	}
+	if end.Price >= start.Price {
+		t.Fatalf(
+			"a -5bps/day drift over 60 days left the price at %d, from %d "+
+				"-- drift truncated to zero", end.Price, start.Price)
+	}
+}
+
+// A positive drift must rise, for the same reason.
+func TestPositiveDriftRises(t *testing.T) {
+	cfg := sim.Config{
+		Seed: 2, StartTime: 0, Days: 60, StepSeconds: 3_600,
+		StartPrice: 1_000_000, PriceScale: 6,
+		DriftBpsPerDay: 15,
+		VolBpsPerStep:  0,
+		LiquidityDepth: 1_000_000_000,
+	}
+	w, err := sim.Generate(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	first, last := w.Span()
+	start, _ := w.At(first)
+	end, _ := w.At(last)
+	if end.Price <= start.Price {
+		t.Fatalf("a +15bps/day drift left the price at %d, from %d",
+			end.Price, start.Price)
+	}
+}
+
+// A shock's label must not stick to every later observation.
+//
+// `active` was assigned when a shock fired and never cleared, so a loan
+// opened weeks afterwards still read `ShockLabel` and counted as having
+// "exercised" it. That is the same overcount already fixed for idle
+// accounts, one layer down -- and the field's own comment says it is
+// "non-empty only while a shock is in effect".
+//
+// Reported by review, 14 September.
+func TestShockLabelDoesNotStick(t *testing.T) {
+	cfg := sim.Config{
+		Seed: 3, StartTime: 0, Days: 30, StepSeconds: 3_600,
+		StartPrice: 1_000_000, PriceScale: 6,
+		VolBpsPerStep:  10,
+		LiquidityDepth: 1_000_000_000,
+		Shocks: []sim.Shock{{AtDay: 5, PriceBps: -2_000, Label: "crash"}},
+	}
+	w, err := sim.Generate(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	labelled := 0
+	first, last := w.Span()
+	for ts := first; ts <= last; ts += cfg.StepSeconds {
+		o, ok := w.At(ts)
+		if !ok {
+			continue
+		}
+		if o.ShockLabel != "" {
+			labelled++
+		}
+	}
+	if labelled != 1 {
+		t.Fatalf(
+			"%d observations carry a shock label; one shock should mark "+
+				"exactly the step it struck", labelled)
 	}
 }
