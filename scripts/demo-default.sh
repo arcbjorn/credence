@@ -38,6 +38,12 @@ CRASH_BPS=${CRASH_BPS:-1000}
 PRINCIPAL=${PRINCIPAL:-4000000000}
 
 cd "$ROOT/contracts"
+# Forge replays nonces from its own broadcast cache. A chain that has been
+# restarted -- or a different chain reusing the id -- resets those nonces,
+# and forge then retries "nonce too low" with no useful output until it
+# gives up. Drop this chain's cache so a deploy starts from the node's
+# real nonce. Observed against a restarted anvil, 14 September.
+rm -rf broadcast/*/"$CHAIN_ID" cache/*.s.sol/"$CHAIN_ID"
 export DEPLOYER_KEY=0x$DEPLOYER
 export ATTESTOR_ADDRESS=$(cast wallet address --private-key "0x$SIGNER")
 export DEPLOYMENT_ID=7

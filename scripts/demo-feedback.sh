@@ -36,6 +36,12 @@ MANIFEST="$ROOT/contracts/deployments/$CHAIN_ID.json"
 MANAGER=$(python3 -c "import json;print(json.load(open('$MANIFEST'))['addresses']['loan_manager'])")
 
 cd "$ROOT/contracts"
+# Forge replays nonces from its own broadcast cache. A chain that has been
+# restarted -- or a different chain reusing the id -- resets those nonces,
+# and forge then retries "nonce too low" with no useful output until it
+# gives up. Drop this chain's cache so a deploy starts from the node's
+# real nonce. Observed against a restarted anvil, 14 September.
+rm -rf broadcast/*/"$CHAIN_ID" cache/*.s.sol/"$CHAIN_ID"
 REGISTRY=$(forge create src/FeedbackRegistry.sol:FeedbackRegistry \
   --rpc-url "$RPC" --private-key "0x$DEPLOYER" --broadcast \
   --constructor-args "$PUBLISHER" 2>&1 | grep "Deployed to:" | awk '{print $3}')
