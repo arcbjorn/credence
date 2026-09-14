@@ -1,0 +1,105 @@
+# Every suite, on every push and pull request.
+#
+# `docs/10` commits to re-running acceptance before every merge from 22
+# September. This starts that discipline early and mechanically: at the
+# rate this repository moves, a broken `main` between two commits is
+# otherwise invisible until someone clones it. Reported by review, 14
+# September -- `main` was observed transiently broken during the review
+# itself.
+#
+# The three languages run as separate jobs so a Rust failure does not
+# hide a Solidity one: the point is to see everything that broke, not the
+# first thing.
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A newer push supersedes an in-flight run for the same ref. The old
+# result describes code nobody has any more.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contracts:
+    name: solidity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
+      # forge-std is pinned rather than vendored, so a clean checkout
+      # cannot compile without fetching it. Same script a developer runs.
+      - name: fetch pinned dependencies
+        run: |
+          git clone --quiet --depth 1 --branch v1.16.2 \
+            https://github.com/foundry-rs/forge-std contracts/lib/forge-std
+          mkdir -p contracts/deployments
+      - name: forge build
+        run: forge build
+        working-directory: contracts
+      - name: forge test
+        run: forge test -vv
+        working-directory: contracts
+
+  engine:
+    name: rust
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: risk
+      - name: cargo fmt
+        run: cargo fmt --check
+        working-directory: risk
+      # Warnings fail here. The engine is the part whose output is
+      # hashed and signed, so an unused-result warning there is worth
+      # stopping for.
+      - name: cargo clippy
+        run: cargo clippy --all-targets -- -D warnings
+        working-directory: risk
+      - name: cargo test
+        run: cargo test
+        working-directory: risk
+
+  gateway:
+    name: go
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: gateway/go.mod
+          cache-dependency-path: gateway/go.sum
+      - name: go vet
+        run: go vet ./...
+        working-directory: gateway
+      # -race, because the gateway runs a scheduler loop beside a
+      # publisher and the store is shared between them.
+      - name: go test
+        run: go test -race ./...
+        working-directory: gateway
+
+  workflow:
+    name: cre workflow
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: cre/go.mod
+          cache-dependency-path: cre/go.sum
+      - name: go vet
+        run: go vet ./underwrite/
+        working-directory: cre
+      - name: go test
+        run: go test ./underwrite/
+        working-directory: cre
