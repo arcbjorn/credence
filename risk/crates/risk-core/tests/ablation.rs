@@ -375,6 +375,7 @@ fn portfolio_risk_overrides_perfect_behaviour() {
             asset: "ETH".into(),
             price: Amount(2_000_000_000),
             price_scale: 6,
+            deploy_bps: Bps(10_000),
             haircut_bps: Bps(500),
         };
     }
@@ -488,6 +489,7 @@ fn concentration_overrides_perfect_history() {
             asset: "ETH".into(),
             price: Amount(2_000_000_000),
             price_scale: 6,
+            deploy_bps: Bps(10_000),
             haircut_bps: Bps(500),
         };
     }

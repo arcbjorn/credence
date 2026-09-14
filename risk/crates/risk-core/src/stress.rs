@@ -241,17 +241,36 @@ pub fn evaluate_all(
     Some(out)
 }
 
+/// Default deployment share: the whole post-draw balance.
+///
+/// Chosen because it is the CONSERVATIVE reading -- more risk, not less --
+/// so an action that omits the field is assessed against the riskier
+/// portfolio rather than a safer one.
+fn full_deployment() -> Bps {
+    Bps(10_000)
+}
+
 /// The intended use of a draw, needed to build the post-action portfolio.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum IntendedAction {
     /// Principal stays as settlement tokens.
     Hold,
-    /// Principal buys the named asset at the given price.
+    /// Principal, and optionally existing settlement, buys the named
+    /// asset at the given price.
     Acquire {
         asset: String,
         price: Amount,
         price_scale: u32,
         haircut_bps: Bps,
+        /// Share of the account's post-draw settlement that is deployed,
+        /// in basis points. 10,000 deploys everything -- principal AND
+        /// pre-existing equity.
+        ///
+        /// Without this the action cannot describe a book that puts
+        /// equity at risk too, and the engine would size against a safer
+        /// portfolio than the one the draw actually creates.
+        #[serde(default = "full_deployment")]
+        deploy_bps: Bps,
     },
 }
 
@@ -296,12 +315,23 @@ pub fn project(
             price,
             price_scale,
             haircut_bps,
+            deploy_bps,
         } => {
             if price.0 == 0 {
                 return None;
             }
+            // Everything the account will hold once the principal lands,
+            // then the declared share of it converted. Deploying only the
+            // principal would leave equity as cash in the projection while
+            // the real action puts it at risk.
+            let available = account.settlement_balance.0.checked_add(principal.0)?;
+            let deployed = available
+                .checked_mul(deploy_bps.0 as u128)
+                .map(|v| v / 10_000)?;
+            let remaining = available.checked_sub(deployed)?;
+
             let scale = 10u128.checked_pow(*price_scale)?;
-            let units = principal.0.checked_mul(scale).map(|v| v / price.0)?;
+            let units = deployed.checked_mul(scale).map(|v| v / price.0)?;
             positions.push(Position {
                 asset: asset.clone(),
                 amount: Amount(units),
@@ -309,7 +339,7 @@ pub fn project(
                 price_scale: *price_scale,
                 haircut_bps: *haircut_bps,
             });
-            account.settlement_balance
+            Amount(remaining)
         }
     };
 

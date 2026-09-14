@@ -206,6 +206,7 @@ fn acquiring_risk_reduces_capacity_versus_holding() {
             asset: "ETH".into(),
             price: Amount(2_000_000_000),
             price_scale: 6,
+            deploy_bps: Bps(10_000),
             haircut_bps: Bps(500),
         },
         Bps(1_200),
@@ -233,6 +234,7 @@ fn no_equity_yields_no_capacity() {
             asset: "ETH".into(),
             price: Amount(2_000_000_000),
             price_scale: 6,
+            deploy_bps: Bps(10_000),
             haircut_bps: Bps(500),
         },
         Bps(1_200),
@@ -514,5 +516,92 @@ fn isqrt_is_exact_including_at_the_ceiling() {
         liq.recoverable_value,
         Amount(expected),
         "size == depth must take exactly the base haircut"
+    );
+}
+
+// --- The projection must match the action taken (docs/03) ---
+
+/// An acquisition that deploys equity as well as principal must be
+/// projected that way.
+///
+/// Converting only the principal leaves equity as cash in the projection
+/// while the real action puts it at risk. The engine then sizes against a
+/// safer portfolio than the one the draw creates, and approves a book
+/// that fails the same stress cases once deployed.
+#[test]
+fn acquire_projects_the_equity_it_actually_deploys() {
+    let p = policy();
+    let m = market(2_000);
+    let acct = account(5_000_000_000, vec![], 0);
+
+    let eth_at = |deploy_bps: u32| IntendedAction::Acquire {
+        asset: "ETH".into(),
+        price: Amount(2_000_000_000),
+        price_scale: 6,
+        haircut_bps: Bps(2_000),
+        deploy_bps: Bps(deploy_bps),
+    };
+
+    // Deploying only the principal leaves equity as a cash buffer.
+    let principal_only = project(
+        &acct, &eth_at(0), Amount(6_000_000_000), Bps(1_200), 10 * 86_400,
+    )
+    .expect("projection");
+    assert_eq!(
+        principal_only.settlement,
+        Amount(11_000_000_000),
+        "nothing deployed means the whole balance stays as cash"
+    );
+
+    // Deploying everything leaves none.
+    let everything = project(
+        &acct, &eth_at(10_000), Amount(6_000_000_000), Bps(1_200), 10 * 86_400,
+    )
+    .expect("projection");
+    assert_eq!(
+        everything.settlement,
+        Amount::ZERO,
+        "full deployment leaves no cash buffer"
+    );
+
+    // And the fully deployed book is genuinely riskier: the same stress
+    // cases recover less, because the haircut now applies to all of it.
+    let recoverable = |pp: &ProjectedPortfolio| {
+        evaluate_all(pp.settlement, &pp.positions, pp.debt, &m, &p)
+            .expect("results")
+            .iter()
+            .find(|r| r.shock == Shock::Combined)
+            .expect("combined case")
+            .recoverable_value
+    };
+    assert!(
+        recoverable(&everything) < recoverable(&principal_only),
+        "a fully deployed book must recover less: {:?} vs {:?}",
+        recoverable(&everything),
+        recoverable(&principal_only)
+    );
+}
+
+/// An action that omits the share is read as full deployment.
+///
+/// The conservative default: more risk, not less. An omitted field must
+/// not make the engine assess a safer portfolio than the one it might
+/// actually be authorizing.
+#[test]
+fn omitted_deployment_share_defaults_to_everything() {
+    let json = r#"{"Acquire":{"asset":"ETH","price":"2000000000",
+        "price_scale":6,"haircut_bps":2000}}"#;
+    let action: IntendedAction = serde_json::from_str(json).expect("parse action");
+
+    let acct = account(5_000_000_000, vec![], 0);
+    let projected = project(
+        &acct, &action, Amount(6_000_000_000), Bps(1_200), 10 * 86_400,
+    )
+    .expect("projection");
+
+    assert_eq!(
+        projected.settlement,
+        Amount::ZERO,
+        "an omitted share must read as full deployment"
     );
 }

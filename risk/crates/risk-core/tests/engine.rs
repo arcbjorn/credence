@@ -487,6 +487,7 @@ fn deploying_into_risk_makes_stress_bind() {
             asset: "ETH".into(),
             price: Amount(2_000_000_000),
             price_scale: 6,
+            deploy_bps: Bps(10_000),
             haircut_bps: Bps(500),
         };
     }
@@ -521,6 +522,7 @@ fn holding_yields_more_capacity_than_deploying() {
             asset: "ETH".into(),
             price: Amount(2_000_000_000),
             price_scale: 6,
+            deploy_bps: Bps(10_000),
             haircut_bps: Bps(500),
         };
     }
