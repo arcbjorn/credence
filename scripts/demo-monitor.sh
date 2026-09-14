@@ -30,6 +30,11 @@ MOVE_BPS=${MOVE_BPS:-7000}
 
 rm -rf "$WORK" && mkdir -p "$WORK"
 
+# A published key may sign nothing on a chain other people can reach.
+. "$ROOT/scripts/lib/keys.sh"
+credence_require_private_key "$SIGNER" "$CHAIN_ID" attestor CREDENCE_SIGNER_KEY
+credence_require_private_key "$DEPLOYER" "$CHAIN_ID" deployer CREDENCE_DEPLOYER_KEY
+
 cd "$ROOT/contracts"
 # Forge replays nonces from its own broadcast cache. A chain that has been
 # restarted -- or a different chain reusing the id -- resets those nonces,

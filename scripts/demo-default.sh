@@ -37,6 +37,11 @@ SIGNER=${CREDENCE_SIGNER_KEY:-5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3f
 CRASH_BPS=${CRASH_BPS:-1000}
 PRINCIPAL=${PRINCIPAL:-4000000000}
 
+# A published key may sign nothing on a chain other people can reach.
+. "$ROOT/scripts/lib/keys.sh"
+credence_require_private_key "$SIGNER" "$CHAIN_ID" attestor CREDENCE_SIGNER_KEY
+credence_require_private_key "$DEPLOYER" "$CHAIN_ID" deployer CREDENCE_DEPLOYER_KEY
+
 cd "$ROOT/contracts"
 # Forge replays nonces from its own broadcast cache. A chain that has been
 # restarted -- or a different chain reusing the id -- resets those nonces,
