@@ -187,7 +187,12 @@ impl EvidenceCheck {
         }
 
         if ev.requirement == Requirement::Optional {
-            if !ev.is_usable() {
+            // Freshness is COMPUTED, not read from a label. Evidence
+            // marked Present but observed long ago is expired enrichment,
+            // and consuming it would let an old reading improve terms
+            // while the engine reports nothing omitted (`docs/04`).
+            let expired = ev.is_stale(self.now, self.max_age_seconds);
+            if !ev.is_usable() || expired {
                 // Omitted, with no benefit awarded for the absence.
                 self.verdict.omitted.push(ev.evidence_id.clone());
             }

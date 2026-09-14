@@ -1064,3 +1064,59 @@ fn a_prefixed_policy_hash_is_equivalent() {
         out.outcome
     );
 }
+
+/// Optional evidence that is OLD earns nothing, even when labelled
+/// Present.
+///
+/// A provider can report a reading as Present while its observation time
+/// is long past. Freshness must be computed from that timestamp, not read
+/// from the label — otherwise expired enrichment lowers the APR while the
+/// engine reports nothing omitted, and the arithmetic and the explanation
+/// disagree.
+///
+/// Distinct from explicitly Stale evidence, which is already handled: the
+/// point here is that the STATE cannot be trusted to describe the age.
+#[test]
+fn old_optional_history_labelled_present_earns_nothing() {
+    let mut p = policy();
+    p.max_evidence_age_seconds = 60;
+
+    // Absent: the conservative baseline to compare against.
+    let mut absent = input(5_000_000_000, 5_000_000_000);
+    absent.model_policy.policy_hash = hash_of(&p);
+    absent.history.requirement = Requirement::Optional;
+    absent.history.state = State::Missing;
+    absent.history.value = None;
+    let baseline = evaluate(&absent, &p);
+
+    // Present, strong, and far older than the policy allows.
+    let mut old = input(5_000_000_000, 5_000_000_000);
+    old.model_policy.policy_hash = hash_of(&p);
+    old.history.requirement = Requirement::Optional;
+    old.history.state = State::Present;
+    old.history.observed_at = Some(1);
+    if let Some(h) = old.history.value.as_mut() {
+        h.weighted_repayments_ppm = 1_000_000;
+        h.coverage_complete = true;
+    }
+    let out = evaluate(&old, &p);
+
+    let apr = |a: &risk_core::assessment::RiskAssessment| match &a.outcome {
+        Outcome::ApprovedOrigination { terms, .. } => Some(terms.apr_bps),
+        _ => None,
+    };
+
+    match (apr(&baseline), apr(&out)) {
+        (Some(absent_apr), Some(old_apr)) => assert_eq!(
+            old_apr, absent_apr,
+            "expired enrichment must price exactly like absent enrichment"
+        ),
+        other => panic!("expected approvals on both, got {other:?}"),
+    }
+
+    assert!(
+        out.omitted_evidence.iter().any(|e| e == "hist"),
+        "and must be reported omitted, got {:?}",
+        out.omitted_evidence
+    );
+}

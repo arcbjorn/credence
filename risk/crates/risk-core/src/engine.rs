@@ -183,7 +183,10 @@ pub fn evaluate(input: &RiskInput, policy: &Policy) -> RiskAssessment {
     // value; using it while reporting it as omitted would make the
     // explanation and the arithmetic disagree, and would let an agent earn
     // a discount from a reading the engine has already disowned.
-    let history = usable_or(&input.history, &omitted_history);
+    let history = usable_or(
+        &input.history, &omitted_history,
+        input.assessment_time, policy.max_evidence_age_seconds,
+    );
 
     let omitted_forecasts = ForecastSummary {
         comparable_resolved: 0,
@@ -191,7 +194,10 @@ pub fn evaluate(input: &RiskInput, policy: &Policy) -> RiskAssessment {
         unresolved: 0,
         unobservable: 0,
     };
-    let forecasts = usable_or(&input.forecasts, &omitted_forecasts);
+    let forecasts = usable_or(
+        &input.forecasts, &omitted_forecasts,
+        input.assessment_time, policy.max_evidence_age_seconds,
+    );
 
     let omitted_portfolio = PortfolioContext {
         strategy_id: String::new(),
@@ -199,7 +205,10 @@ pub fn evaluate(input: &RiskInput, policy: &Policy) -> RiskAssessment {
         remaining_vault_budget: Amount::ZERO,
         available_cash: Amount::ZERO,
     };
-    let portfolio = usable_or(&input.portfolio, &omitted_portfolio);
+    let portfolio = usable_or(
+        &input.portfolio, &omitted_portfolio,
+        input.assessment_time, policy.max_evidence_age_seconds,
+    );
 
     match &input.context {
         Context::Monitoring { loan } => {
@@ -502,8 +511,17 @@ fn normalize_hash(s: &str) -> String {
 /// `docs/04`: omitted evidence earns no benefit for its absence. Evidence
 /// that is Stale or incompletely covered is omitted even when it still
 /// carries a value, so the check is usability rather than presence.
-fn usable_or<'a, T>(ev: &'a crate::evidence::Evidence<T>, fallback: &'a T) -> &'a T {
-    if ev.is_usable() {
+fn usable_or<'a, T>(
+    ev: &'a crate::evidence::Evidence<T>,
+    fallback: &'a T,
+    now: u64,
+    max_age_seconds: u64,
+) -> &'a T {
+    // Fresh as well as usable. A stale reading often retains its value,
+    // and consuming it would let expired enrichment improve terms while
+    // the verdict reports it omitted -- the arithmetic and the
+    // explanation must agree (`docs/04`).
+    if ev.is_usable() && !ev.is_stale(now, max_age_seconds) {
         ev.value.as_ref().unwrap_or(fallback)
     } else {
         fallback
