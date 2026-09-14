@@ -85,8 +85,15 @@ contract DeployTest is Test {
         vm.prank(holder);
         token.approve(address(this), type(uint256).max);
 
-        token.transferFrom(holder, address(this), 400e6);
+        // The return value is asserted rather than discarded: an ERC-20
+        // that signals failure by returning false, instead of reverting,
+        // would otherwise let this test pass on a transfer that never
+        // happened.
+        assertTrue(
+            token.transferFrom(holder, address(this), 400e6), "transferFrom reported failure"
+        );
         assertEq(token.allowance(holder, address(this)), type(uint256).max);
+        assertEq(token.balanceOf(address(this)), 400e6, "tokens did not move");
     }
 
     /// The deployment is usable end to end: a lender can fund the vault and
