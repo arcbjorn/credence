@@ -25,7 +25,7 @@ export function Replay() {
   const [ran, setRan] = useState<"clean" | "tampered" | null>(null);
 
   useEffect(() => {
-    Promise.all([loadRun("monitor"), loadPolicy()])
+    Promise.all([loadRun("monitor"), loadPolicy("monitor")])
       .then(([r, p]) => {
         setRun(r);
         setPolicy(p);

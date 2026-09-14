@@ -115,7 +115,18 @@ async function fetchJSON<T>(path: string): Promise<T> {
 
 export const loadManifest = () => fetchJSON<Manifest>("/data/manifest.json");
 export const loadRun = (name: string) => fetchJSON<Run>(`/data/${name}.json`);
-export const loadPolicy = () => fetchJSON<unknown>("/data/policy.json");
+/**
+ * The policy a given run actually hashed.
+ *
+ * Per run, not one shared file. `demo-monitor.sh` runs on a gateway
+ * template whose `base_history_cap` is 10e9 while the shipped policy is
+ * 6.2e9, and the engine refuses a declared policy hash that is not the
+ * content hash of the policy it was handed. Loading the wrong one made a
+ * CLEAN replay return `Unavailable` -- a DIFFERENCE, which would have made
+ * the replay screen prove the opposite of what it claims.
+ */
+export const loadPolicy = (run: string) =>
+  fetchJSON<unknown>(`/data/${run}-policy.json`);
 
 /** Base units to a readable decimal. Never rounds a displayed amount. */
 export function units(raw: string | number | undefined, decimals = 6): string {
