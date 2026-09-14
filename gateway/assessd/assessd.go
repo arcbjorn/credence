@@ -148,6 +148,17 @@ type Response struct {
 	AssessmentHash      string `json:"assessment_hash"`
 	AccountStateVersion uint64 `json:"account_state_version"`
 	LoanID              uint64 `json:"loan_id"`
+	// The engine's OWN validity bounds, carried rather than dropped.
+	//
+	// `docs/04`: permission may not outlive the evidence behind it, so an
+	// executable assessment is bounded by its oldest required observation.
+	// These fields were absent until 14 September, and the CRE workflow
+	// consequently built its own window from wall-clock plus a configured
+	// duration -- which meant an assessment that had already expired could
+	// become a fresh Allowed report. A bound discarded here cannot be
+	// recovered by any check on chain.
+	ValidAfter uint64 `json:"valid_after"`
+	ValidUntil uint64 `json:"valid_until"`
 }
 
 type errorBody struct {
@@ -322,6 +333,8 @@ func (s *Server) Assess(ctx context.Context, req Request) (*Response, int, error
 		InputHash:      hashHex(envelope.InputHash),
 		EvidenceRoot:   hashHex(envelope.EvidenceRoot),
 		AssessmentHash: hashHex(envelope.AssessmentHash),
+		ValidAfter:     envelope.ValidAfter,
+		ValidUntil:     envelope.ValidUntil,
 		// The version the COLLECTOR saw, read out of the snapshot that
 		// produced this decision rather than from the configured binding.
 		// The engine compares the two and refuses a mismatch, and the
