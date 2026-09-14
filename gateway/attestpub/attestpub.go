@@ -37,6 +37,15 @@ type Deployment struct {
 	// Route must match what the facility pinned, or the oracle rejects the
 	// envelope regardless of who signed it.
 	Route uint8
+	// PolicyContentHash is the canonical hash of the engine policy this
+	// deployment runs. The engine reports the policy it evaluated under,
+	// and the two must agree -- otherwise the gateway is about to attest
+	// that a decision came from a policy this deployment never ran.
+	//
+	// Distinct from the BINDING's policy hash, which identifies a pinned
+	// policy record rather than the content that was executed. Comparing
+	// against that one would reject every honest assessment.
+	PolicyContentHash string
 }
 
 // Adapter signs assessments and hands them to the publisher.
@@ -153,17 +162,17 @@ func (a *Adapter) envelope(
 	binding Binding,
 	contentHash string,
 ) (attest.Assessment, error) {
-	// The engine's policy must be the one this binding is signed under.
-	// A divergence means the gateway is about to attest that a decision
-	// was produced under a policy the engine never saw.
+	// The policy the engine reports must be the policy this deployment
+	// runs. A divergence means attesting that a decision came from a
+	// policy that was never executed here.
 	//
-	// The engine echoes whatever the snapshot declared, which may be a
-	// 32-byte hash or an opaque label, so compare both readings rather
-	// than assuming one encoding.
-	if doc.PolicyHash != "" && !policyMatches(doc.PolicyHash, binding.PolicyHash) {
+	// Compared on normalized hex, so `0x`-prefixed and bare spellings of
+	// the same bytes are the same commitment.
+	if a.deployment.PolicyContentHash != "" &&
+		normalizeHash(doc.PolicyHash) != normalizeHash(a.deployment.PolicyContentHash) {
 		return attest.Assessment{}, fmt.Errorf(
-			"policy hash divergence: engine %s, binding does not match",
-			doc.PolicyHash)
+			"policy divergence: engine reported %s, this deployment runs %s",
+			doc.PolicyHash, a.deployment.PolicyContentHash)
 	}
 
 	decision, permission, err := mapDecision(doc.Outcome.Decision)
@@ -227,14 +236,9 @@ func (a *Adapter) envelope(
 	}, nil
 }
 
-// policyMatches compares the engine's reported policy against the
-// binding's, accepting either a literal 32-byte hash or a label that
-// hashes to it.
-func policyMatches(reported string, bound attest.Hash) bool {
-	if parsed, err := parseHash(reported); err == nil {
-		return parsed == bound
-	}
-	return hashText(reported) == bound
+// normalizeHash renders a hash in one spelling: bare, lowercase hex.
+func normalizeHash(s string) string {
+	return strings.ToLower(strings.TrimPrefix(s, "0x"))
 }
 
 // evidenceRoot commits to the evidence set behind a decision.

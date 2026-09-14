@@ -74,6 +74,20 @@ func binding() attest.Binding {
 	}
 }
 
+func adapterWithPolicy(
+	t *testing.T, chain *chainStub, policyHash string,
+) *attestpub.Adapter {
+	t.Helper()
+	key, err := secp256k1.GeneratePrivateKey()
+	if err != nil {
+		t.Fatalf("keygen: %v", err)
+	}
+	pub := publisher.New(chain, &memJournal{entries: map[string]publisher.Attempt{}})
+	d := deployment()
+	d.PolicyContentHash = policyHash
+	return attestpub.New(d, key, pub)
+}
+
 func adapter(t *testing.T, chain *chainStub) *attestpub.Adapter {
 	t.Helper()
 	key, err := secp256k1.GeneratePrivateKey()
@@ -315,10 +329,12 @@ func TestChangedOutputChangesTheSignedEnvelope(t *testing.T) {
 	}
 }
 
-// The engine's reported policy must match the binding being signed.
+// The engine's reported policy must be the policy THIS DEPLOYMENT runs.
 //
-// Substituting the caller's policy hash silently signs an assessment as
-// though it were produced under a policy the engine never used.
+// Not the binding's policy hash: that identifies a pinned policy record,
+// while this is the content that was executed. Comparing against the
+// wrong one rejects every honest assessment; comparing against nothing
+// signs a decision produced under a policy never run here.
 func TestDivergentPolicyHashIsRefused(t *testing.T) {
 	doc := map[string]any{
 		"assessment_id":       validHash,
@@ -333,9 +349,58 @@ func TestDivergentPolicyHashIsRefused(t *testing.T) {
 	}
 	raw, _ := json.Marshal(doc)
 
-	_, err := adapter(t, &chainStub{}).Publish(context.Background(), "b1", binding(), raw)
-	if err == nil || !strings.Contains(err.Error(), "policy") {
-		t.Fatalf("a divergent policy hash must be refused, got %v", err)
+	// The deployment runs a known policy; the assessment claims another.
+	a := adapterWithPolicy(t, &chainStub{}, "deployment-policy-content-hash")
+	_, err := a.Publish(context.Background(), "b1", binding(), raw)
+	if err == nil || !strings.Contains(err.Error(), "policy divergence") {
+		t.Fatalf("a divergent policy must be refused, got %v", err)
+	}
+}
+
+// The matching case still publishes, so the check bounds which policy may
+// be attested rather than blocking attestation.
+func TestMatchingPolicyHashIsPublished(t *testing.T) {
+	const runHere = "deployment-policy-content-hash"
+	doc := map[string]any{
+		"assessment_id":       validHash,
+		"input_hash":          validHash,
+		"model_hash":          "model-v1",
+		"policy_hash":         runHere,
+		"sequence":            5,
+		"valid_after":         1000,
+		"valid_until":         4600,
+		"authorization_class": "PrototypeEligible",
+		"outcome":             map[string]any{"decision": "MonitoringAllowed", "loan_id": "loan-42"},
+	}
+	raw, _ := json.Marshal(doc)
+
+	if _, err := adapterWithPolicy(t, &chainStub{}, runHere).Publish(
+		context.Background(), "b1", binding(), raw,
+	); err != nil {
+		t.Fatalf("a matching policy must publish, got %v", err)
+	}
+}
+
+// A `0x`-prefixed hash denotes the same bytes as the bare form.
+func TestPrefixedPolicyHashIsEquivalent(t *testing.T) {
+	const bare = "2c3744f9aecea30351bf13f04f46cadfdb5a8a04e9533c7e35c392992564a882"
+	doc := map[string]any{
+		"assessment_id":       validHash,
+		"input_hash":          validHash,
+		"model_hash":          "model-v1",
+		"policy_hash":         "0x" + bare,
+		"sequence":            5,
+		"valid_after":         1000,
+		"valid_until":         4600,
+		"authorization_class": "PrototypeEligible",
+		"outcome":             map[string]any{"decision": "MonitoringAllowed", "loan_id": "loan-42"},
+	}
+	raw, _ := json.Marshal(doc)
+
+	if _, err := adapterWithPolicy(t, &chainStub{}, bare).Publish(
+		context.Background(), "b1", binding(), raw,
+	); err != nil {
+		t.Fatalf("a prefixed hash is the same commitment, got %v", err)
 	}
 }
 

@@ -60,7 +60,7 @@ func originationTerms(
 		AssessmentTime: block.Timestamp,
 		ScenarioID:     scenarioID(),
 		Binding:        bindingJSON,
-		ModelPolicy:    modelPolicy(),
+		ModelPolicy:    modelPolicy(policy),
 		Proposal: snapshot.Proposal{
 			Sequence:   sequence,
 			ValidAfter: block.Timestamp,
@@ -218,10 +218,31 @@ func scenarioID() *string {
 	return &s
 }
 
-func modelPolicy() json.RawMessage {
-	return json.RawMessage(
-		`{"model_id":"m1","model_hash":"model-hash",` +
-			`"policy_id":"p1","policy_hash":"policy-hash"}`)
+// modelPolicy declares the policy the engine must evaluate under.
+//
+// `policy_hash` is the CONTENT hash of the policy being sent, not a
+// label. The engine refuses an executable result whose declared hash does
+// not match what it was given -- a symbolic label proves nothing about
+// which policy ran, and the same label over a different pricing schedule
+// would produce different terms under an identical assessment id.
+//
+// An unhashable policy yields an empty string, which the engine then
+// refuses. That is the right failure: it cannot commit to a policy it
+// could not encode.
+func modelPolicy(policy json.RawMessage) json.RawMessage {
+	hash := ""
+	if decoded, err := canonical.DecodeStrict(policy); err == nil {
+		if h, err := canonical.HashHex(decoded); err == nil {
+			hash = h
+		}
+	}
+	raw, _ := json.Marshal(map[string]any{
+		"model_id":    "m1",
+		"model_hash":  "model-hash",
+		"policy_id":   "p1",
+		"policy_hash": hash,
+	})
+	return raw
 }
 
 // scenarioMarket is the declared market for a scenario facility. Depth is

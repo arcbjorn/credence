@@ -21,6 +21,7 @@ import (
 
 	"github.com/arcbjorn/credence/gateway/attest"
 	"github.com/arcbjorn/credence/gateway/attestpub"
+	"github.com/arcbjorn/credence/gateway/canonical"
 	"github.com/arcbjorn/credence/gateway/chain"
 	"github.com/arcbjorn/credence/gateway/config"
 	"github.com/arcbjorn/credence/gateway/evidence"
@@ -168,6 +169,7 @@ func build(ctx context.Context, cfg *config.Config) (*deps, error) {
 		DeploymentID:      new(big.Int).SetUint64(cfg.DeploymentID),
 		EvidencePolicyID:  evidencePolicyID,
 		Route:             attest.RouteDevelopment,
+		PolicyContentHash: policyContentHash(cfg.EnginePolicy),
 	}, signer, pub)
 
 	sched := scheduler.New(scheduler.Policy{
@@ -193,7 +195,7 @@ func build(ctx context.Context, cfg *config.Config) (*deps, error) {
 	)
 
 	collector := evidence.New(reader, marketReader, historyReader,
-		bindingLookup(db), evidence.Config{
+		bindingLookup(db, cfg), evidence.Config{
 			SchemaVersion:   cfg.SchemaVersion,
 			FacilityPolicy:  cfg.FacilityPolicy,
 			RequestedClass:  cfg.RequestedClass,
@@ -542,7 +544,27 @@ func buildMarketReader(cfg *config.Config, rpc *chain.RPC) (evidence.MarketReade
 // Every field comes from the registry. A placeholder would be hashed into
 // the snapshot and signed, binding a decision to an identity that does not
 // exist — so an incomplete record is a lookup failure, not a default.
-func bindingLookup(db *store.Store) func(string) (evidence.BindingInfo, bool) {
+// policyContentHash is the canonical hash of the engine policy.
+//
+// The engine verifies a snapshot's declared policy_hash against the
+// policy it is handed, so this is what must be declared. An unhashable
+// policy yields an empty string, which the engine then refuses -- the
+// right failure, since it cannot commit to a policy it could not encode.
+func policyContentHash(policy json.RawMessage) string {
+	decoded, err := canonical.DecodeStrict(policy)
+	if err != nil {
+		return ""
+	}
+	h, err := canonical.HashHex(decoded)
+	if err != nil {
+		return ""
+	}
+	return h
+}
+
+func bindingLookup(
+	db *store.Store, cfg *config.Config,
+) func(string) (evidence.BindingInfo, bool) {
 	registry := store.NewRegistry(db)
 	return func(bindingKey string) (evidence.BindingInfo, bool) {
 		ctx := context.Background()
@@ -596,16 +618,21 @@ func bindingLookup(db *store.Store) func(string) (evidence.BindingInfo, bool) {
 			return evidence.BindingInfo{}, false
 		}
 
-		// The policy the engine evaluates under must be the one the
-		// binding is signed against. A placeholder here means the
-		// assessment reports one policy identity while the envelope
-		// commits to another -- two policies for one decision, and
-		// neither verifiable against the other (`docs/04`).
+		// `policy_hash` is the CONTENT hash of the engine policy this
+		// deployment runs, not the binding's registry identifier. The
+		// engine verifies it against the policy it is handed and refuses
+		// an executable result on a mismatch, so a symbolic or
+		// registry-scoped value here would block every assessment.
+		//
+		// The binding's own policy identity is not lost: it travels in
+		// the signed envelope's binding, and `policy_id` names the epoch
+		// it belongs to. They answer different questions -- which policy
+		// RAN, and which policy record the binding is scoped to.
 		modelPolicy, err := json.Marshal(map[string]any{
 			"model_id":    "m1",
 			"model_hash":  "model-hash",
 			"policy_id":   fmt.Sprintf("epoch-%d", binding.PolicyEpoch),
-			"policy_hash": binding.PolicyHash,
+			"policy_hash": policyContentHash(cfg.EnginePolicy),
 		})
 		if err != nil {
 			return evidence.BindingInfo{}, false
