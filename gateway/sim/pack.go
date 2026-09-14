@@ -245,6 +245,19 @@ reconciles      %v
 		s += "\n  NOTE: no shock outside the model's named scenarios occurred.\n" +
 			"  This run shows expected stress protection, NOT guaranteed\n" +
 			"  recovery (`docs/07`).\n"
+	} else {
+		// The comparison `docs/07` exists to surface. Stated with the
+		// realized figure rather than left for a reader to compute, since
+		// the whole point is that it is easy to overlook.
+		if o.PrincipalLent > 0 {
+			lostPct := o.PrincipalLost * 100 / o.PrincipalLent
+			s += fmt.Sprintf(
+				"\n  A shock OUTSIDE the model's named scenarios occurred while\n"+
+					"  a loan was live, and %d%% of principal was lost against it.\n"+
+					"  The model stresses to the scenarios it names; this is what\n"+
+					"  it does when reality supplies one it does not (`docs/07`).\n",
+				lostPct)
+		}
 	}
 
 	s += "\nThis is a synthetic population. It reports what was exercised;\n" +

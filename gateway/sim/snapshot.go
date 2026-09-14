@@ -136,7 +136,15 @@ func (r *Runner) snapshot(obs Observation, p Proposal) (json.RawMessage, error) 
 		return nil, err
 	}
 
-	portfolio := map[string]any{"strategy_id": "sim-spot-v1"}
+	// The vault-wide context. Generous budgets on purpose: this
+	// evaluation is about the agent's own risk, and a vault cap that bound
+	// first would make every result a story about the cap.
+	portfolio := map[string]any{
+		"strategy_id":               "sim-spot-v1",
+		"remaining_strategy_budget": "100000000000",
+		"remaining_vault_budget":    "100000000000",
+		"available_cash":            "100000000000",
+	}
 	if in.Portfolio, err = snapshot.Present(
 		"portfolio", "sim", snapshot.OriginSynthetic, snapshot.Optional,
 		now, now, portfolio,

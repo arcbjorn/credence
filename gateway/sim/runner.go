@@ -396,7 +396,11 @@ func (r *Runner) assess(
 				TermSeconds       uint64 `json:"term_seconds"`
 			} `json:"terms"`
 		} `json:"outcome"`
-		Reasons []map[string]any `json:"reasons"`
+		// Reasons are a mixed vocabulary: some variants serialize as a
+		// bare string, others as an object. Decoded loosely because the
+		// runner only reports the first one -- interpreting them is the
+		// engine's job, not the harness's.
+		Reasons []json.RawMessage `json:"reasons"`
 	}
 	if err := json.Unmarshal(raw, &decoded); err != nil {
 		return Offer{}, fmt.Errorf("decode assessment: %w", err)
@@ -405,7 +409,7 @@ func (r *Runner) assess(
 	if decoded.Outcome.Decision != "ApprovedOrigination" || decoded.Outcome.Terms == nil {
 		refusal := decoded.Outcome.Decision
 		if len(decoded.Reasons) > 0 {
-			refusal = fmt.Sprintf("%s: %v", refusal, decoded.Reasons[0])
+			refusal = fmt.Sprintf("%s: %s", refusal, decoded.Reasons[0])
 		}
 		return Offer{Approved: false, Refusal: refusal}, nil
 	}
