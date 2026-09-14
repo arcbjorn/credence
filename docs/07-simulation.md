@@ -54,11 +54,11 @@ edited one fails.
 |---|---|---|
 | seed | `0xC0FFEE` | `0xBADBEEF` |
 | shocks | the three NAMED scenarios | two named, one **unnamed** |
-| originated | 12 | 3 |
+| originated | 13 | 3 |
 | agent declines | 0 | 0 |
-| principal lent | 28.93e9 | 10.84e9 |
-| principal lost | **0** | **549.7e6** (5.1%) |
-| borrower equity left | 1.83e9 | **0** |
+| principal lent | 18.76e9 | 9.03e9 |
+| principal lost | **0** | **421.1e6** (4.7%) |
+| borrower equity left | 469.3e6 | **0** |
 
 **Rewritten 14 September, twice.** The figures above replace an earlier
 table, and both corrections are worth recording because the first version
@@ -80,9 +80,9 @@ numbers:
 #### What these packs do and do not show
 
 They show that **agent equity is the first loss layer, and it works**:
-the development set loses nothing and ends with 1.83e9 of borrower capital
-intact; the evaluation set's unnamed shock exhausts equity to zero and
-only then takes 5.1% of principal from lenders.
+the development set loses nothing and ends with 469.3e6 of borrower
+capital intact; the evaluation set's unnamed shock exhausts equity to zero
+and only then takes 4.7% of principal from lenders.
 
 They do **not** isolate the cost of the unnamed shock. The two sets differ
 in seed, volatility, book depth, drift and loan count as well as in shock
