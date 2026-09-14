@@ -73,11 +73,38 @@ The reader applies the same rule: it refuses an address with no code,
 because an absent registry returns the same empty result as an agent with
 no history, and those must not look alike.
 
-The standard's shape differs from the local adapter: feedback is a signed
-`int128` value with decimals and two string tags, not the outcome struct
-`FeedbackRegistry.sol` uses. **Porting the reader is real work, not a
-config change** — its decoding is written against the local layout, and
-that claim stays untested until it runs against this registry.
+### What is NOT integrated
+
+The registries exist and respond. **Credence does not speak to them.**
+Stated plainly because the gap is easy to understate:
+
+| Piece | Local adapter | ERC-8004 |
+|---|---|---|
+| Publish | `publish((uint256,address,…))` — `0xb1e5ccd9` | `giveFeedback(uint256,int128,uint8,…)` — `0x3c036a7e` |
+| Read | `agentEntries(uint256)` — `0x4950dab9` | `readAllFeedback(uint256,address[],…)` — `0xd9d84224` |
+| Value | an outcome struct: principal, interest, loss | a signed `int128` with decimals and two string tags |
+| Attribution | a single publisher | per-client `clientAddress`, self-feedback refused |
+
+Different selectors in both directions, and a different value model. The
+reader's `agentEntries` call **reverts** against the live registry.
+Pointing either at a real address changes nothing: this is a rewrite, not
+a configuration.
+
+Two further gaps in what the local path publishes:
+
+- **Attribution is supplied, not derived.** The publisher takes an agent
+  id from its command line and applies it to every loan, without reading
+  the registry or checking the binding it came from.
+- **`evidenceRef` is not evidence.** It is the keccak of a loan-number
+  string, so the same loan number under different managers produces the
+  same reference. It commits to nothing retrievable.
+
+> **Sub-claims A and B are not met.** What exists is a local feedback
+> adapter with its own ABI and a reader for that ABI, which `docs/08`
+> permits for development and explicitly excludes from the release claim.
+> The reader's independence from Credence *code* is real and tested; its
+> ability to verify *provenance* is not — it checks no publisher, chain
+> id, or evidence payload.
 
 **Be precise about what it verifies:** registry provenance — that feedback was published by Credence's declared `clientAddress` — plus any application-level signature over the payload. The standard attributes feedback to a client address and requires consumers to *filter which sources they trust*. It does not make arbitrary registry feedback trustworthy.
 

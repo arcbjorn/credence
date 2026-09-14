@@ -149,6 +149,35 @@ above is what the receiver contract must validate `msg.sender` against.
 
 Run `scripts/probe-testnet.sh` to re-verify.
 
+### What is NOT integrated
+
+**`Route.CRE` is an enum value with a separate signer allowlist. There is
+no CRE integration.** What is missing, concretely:
+
+- No report receiver. `RiskOracle` implements neither `onReport` nor
+  ERC-165, which Chainlink's consumer contract interface requires
+- No forwarder authentication. Every route authenticates the same way —
+  `_recover` against an allowlist — so nothing distinguishes a DON
+  forwarder from an EOA
+- No workflow, and therefore none of the five checks this document
+  specifies
+- No CRE SDK dependency, and the CLI is not installed here
+
+The route separation that *does* work is narrow and worth stating
+exactly: a facility pinned to one route rejects the other route's
+attestations, and signer allowlists are route-scoped. That is real and
+tested. But an operator can allowlist a development key **for the CRE
+route**, and a locally signed EOA attestation is then accepted — the
+contract cannot tell it from a forwarder report, because it never looks.
+
+`test_CREFacilityAcceptsItsOwnRoute` signs with `vm.sign`. It proves a
+separately allowlisted key is accepted; it says nothing about Chainlink
+report delivery.
+
+> **Nothing here supports a CRE integration claim.** Reaching one needs an
+> authenticated receiver, a workflow implementing the five checks,
+> end-to-end simulation, and a deployed report — in that order.
+
 ## Kuru — gated extension
 
 **Feasibility experiment by 15 September:** bounded test of market creation for an existing token, settlement-token quote, fill, holder redemption. Produces an estimate; commits nothing.
