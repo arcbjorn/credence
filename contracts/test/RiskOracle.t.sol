@@ -578,4 +578,70 @@ contract RiskOracleTest is Test {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(key, digest);
         return abi.encodePacked(r, s, v);
     }
+
+    // --- A CRE facility admits no development substitute (docs/05) ---
+
+    /// A development attestation cannot originate in a CRE facility.
+    ///
+    /// `docs/05` calls this a hard gate, not a preference: a facility
+    /// claiming CRE verification requires its CRE path, and a development
+    /// key must not remain an equally powerful alternative.
+    function test_CREFacilityRejectsDevelopmentOrigination() public {
+        vm.prank(OPERATOR);
+        oracle.pinRoute(FACILITY, Route.CRE);
+
+        Assessment memory a = _origination(1, Decision.Approved);
+        // Presented honestly as Development, signed by a real dev key that
+        // IS allowlisted for its own route.
+        bytes memory sig = _sign(a, devKey);
+        vm.expectRevert(
+            abi.encodeWithSelector(RiskOracle.WrongRoute.selector, Route.CRE, Route.Development)
+        );
+        oracle.accept(a, sig);
+    }
+
+    /// And cannot monitor there either. Origination is the obvious half;
+    /// a development key that could still withdraw or grant permission
+    /// would leave the facility's verification claim hollow.
+    function test_CREFacilityRejectsDevelopmentMonitoring() public {
+        vm.prank(OPERATOR);
+        oracle.pinRoute(FACILITY, Route.CRE);
+
+        Assessment memory a = _monitoring(1, Permission.Allowed);
+        bytes memory sig = _sign(a, devKey);
+        vm.expectRevert(
+            abi.encodeWithSelector(RiskOracle.WrongRoute.selector, Route.CRE, Route.Development)
+        );
+        oracle.accept(a, sig);
+    }
+
+    /// A development signer allowlisted only for Development cannot be
+    /// laundered through by CLAIMING the CRE route.
+    function test_DevelopmentSignerCannotClaimTheCRERoute() public {
+        vm.prank(OPERATOR);
+        oracle.pinRoute(FACILITY, Route.CRE);
+
+        Assessment memory a = _origination(1, Decision.Approved);
+        a.route = Route.CRE;
+        bytes memory sig = _sign(a, devKey);
+        vm.expectRevert(
+            abi.encodeWithSelector(RiskOracle.UnauthorizedSigner.selector, devSigner)
+        );
+        oracle.accept(a, sig);
+    }
+
+    /// The CRE path itself still works, so the gate bounds who may
+    /// attest rather than blocking the facility.
+    function test_CREFacilityAcceptsItsOwnRoute() public {
+        vm.prank(OPERATOR);
+        oracle.pinRoute(FACILITY, Route.CRE);
+
+        Assessment memory a = _origination(1, Decision.Approved);
+        a.route = Route.CRE;
+        oracle.accept(a, _sign(a, creKey));
+
+        vm.prank(CONSUMER);
+        (Terms memory t, ) = oracle.consumeQuote(_binding(), 5_000e6);
+        assertEq(t.approvedPrincipal, 5_000e6, "the CRE path must still fund");
+    }
 }
