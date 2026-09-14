@@ -341,7 +341,7 @@
       "agent": "momentum-v1",
       "detail": {
         "price": 2018905210,
-        "units": 2476589
+        "units": 7429769
       }
     },
     {
@@ -2026,13 +2026,13 @@
     },
     {
       "at": 1700694800,
-      "kind": "default",
+      "kind": "repayment",
       "sequence": 198,
-      "id": "default:1700694800:198",
+      "id": "repayment:1700694800:198",
       "agent": "momentum-v1",
       "detail": {
-        "principal_lost": 155437143,
-        "proceeds": 4844562857
+        "interest": 11506849,
+        "proceeds": 14262424715
       }
     },
     {
@@ -2052,7 +2052,7 @@
       "id": "request:1700698400:200",
       "agent": "momentum-v1",
       "detail": {
-        "principal": 5000000000
+        "principal": 4625458933
       }
     },
     {
@@ -2063,7 +2063,7 @@
       "agent": "momentum-v1",
       "detail": {
         "approved": true,
-        "apr_bps": 1200,
+        "apr_bps": 800,
         "refusal": ""
       }
     },
@@ -2074,8 +2074,8 @@
       "id": "origination:1700698400:202",
       "agent": "momentum-v1",
       "detail": {
-        "apr_bps": 1200,
-        "principal": 5000000000
+        "apr_bps": 800,
+        "principal": 4625458933
       }
     },
     {
@@ -2086,7 +2086,7 @@
       "agent": "momentum-v1",
       "detail": {
         "price": 2007900502,
-        "units": 2490163
+        "units": 6910888
       }
     },
     {
@@ -3771,13 +3771,13 @@
     },
     {
       "at": 1701303200,
-      "kind": "default",
+      "kind": "repayment",
       "sequence": 372,
-      "id": "default:1701303200:372",
+      "id": "repayment:1701303200:372",
       "agent": "momentum-v1",
       "detail": {
-        "principal_lost": 86116465,
-        "proceeds": 4913883535
+        "interest": 7096594,
+        "proceeds": 13402397319
       }
     },
     {
@@ -4187,7 +4187,7 @@
       "id": "request:1701447200:413",
       "agent": "momentum-v1",
       "detail": {
-        "principal": 5000000000
+        "principal": 4384920896
       }
     },
     {
@@ -4198,7 +4198,7 @@
       "agent": "momentum-v1",
       "detail": {
         "approved": true,
-        "apr_bps": 1200,
+        "apr_bps": 800,
         "refusal": ""
       }
     },
@@ -4209,8 +4209,8 @@
       "id": "origination:1701447200:415",
       "agent": "momentum-v1",
       "detail": {
-        "apr_bps": 1200,
-        "principal": 5000000000
+        "apr_bps": 800,
+        "principal": 4384920896
       }
     },
     {
@@ -4221,7 +4221,7 @@
       "agent": "momentum-v1",
       "detail": {
         "price": 1999861637,
-        "units": 2500172
+        "units": 6577836
       }
     },
     {
@@ -5906,13 +5906,13 @@
     },
     {
       "at": 1702052000,
-      "kind": "default",
+      "kind": "repayment",
       "sequence": 585,
-      "id": "default:1702052000:585",
+      "id": "repayment:1702052000:585",
       "agent": "momentum-v1",
       "detail": {
-        "principal_lost": 1493897949,
-        "proceeds": 3506102051
+        "interest": 6727549,
+        "proceeds": 9100004561
       }
     },
     {
@@ -6012,7 +6012,7 @@
       "id": "request:1702084400:595",
       "agent": "momentum-v1",
       "detail": {
-        "principal": 5000000000
+        "principal": 2354178058
       }
     },
     {
@@ -6023,7 +6023,7 @@
       "agent": "momentum-v1",
       "detail": {
         "approved": true,
-        "apr_bps": 1200,
+        "apr_bps": 800,
         "refusal": ""
       }
     },
@@ -6034,8 +6034,8 @@
       "id": "origination:1702084400:597",
       "agent": "momentum-v1",
       "detail": {
-        "apr_bps": 1200,
-        "principal": 5000000000
+        "apr_bps": 800,
+        "principal": 2354178058
       }
     },
     {
@@ -6046,7 +6046,7 @@
       "agent": "momentum-v1",
       "detail": {
         "price": 1438861532,
-        "units": 3474969
+        "units": 4908418
       }
     },
     {
@@ -7731,13 +7731,13 @@
     },
     {
       "at": 1702689200,
-      "kind": "default",
+      "kind": "repayment",
       "sequence": 767,
-      "id": "default:1702689200:767",
+      "id": "repayment:1702689200:767",
       "agent": "momentum-v1",
       "detail": {
-        "principal_lost": 261381769,
-        "proceeds": 4738618231
+        "interest": 3611889,
+        "proceeds": 6661765527
       }
     },
     {
@@ -7757,7 +7757,7 @@
       "id": "request:1702692800:769",
       "agent": "momentum-v1",
       "detail": {
-        "principal": 5000000000
+        "principal": 2151987790
       }
     },
     {
@@ -7768,7 +7768,7 @@
       "agent": "momentum-v1",
       "detail": {
         "approved": true,
-        "apr_bps": 1200,
+        "apr_bps": 800,
         "refusal": ""
       }
     },
@@ -7779,8 +7779,8 @@
       "id": "origination:1702692800:771",
       "agent": "momentum-v1",
       "detail": {
-        "apr_bps": 1200,
-        "principal": 5000000000
+        "apr_bps": 800,
+        "principal": 2151987790
       }
     },
     {
@@ -7791,7 +7791,7 @@
       "agent": "momentum-v1",
       "detail": {
         "price": 1399852416,
-        "units": 3571805
+        "units": 4611888
       }
     },
     {
@@ -9476,13 +9476,13 @@
     },
     {
       "at": 1703297600,
-      "kind": "default",
+      "kind": "repayment",
       "sequence": 941,
-      "id": "default:1703297600:941",
+      "id": "repayment:1703297600:941",
       "agent": "momentum-v1",
       "detail": {
-        "principal_lost": 307010934,
-        "proceeds": 4692989066
+        "interest": 3301679,
+        "proceeds": 6039053768
       }
     },
     {
@@ -9592,7 +9592,7 @@
       "id": "request:1703333600:952",
       "agent": "momentum-v1",
       "detail": {
-        "principal": 5000000000
+        "principal": 1941882149
       }
     },
     {
@@ -9603,7 +9603,7 @@
       "agent": "momentum-v1",
       "detail": {
         "approved": true,
-        "apr_bps": 1200,
+        "apr_bps": 800,
         "refusal": ""
       }
     },
@@ -9614,8 +9614,8 @@
       "id": "origination:1703333600:954",
       "agent": "momentum-v1",
       "detail": {
-        "apr_bps": 1200,
-        "principal": 5000000000
+        "apr_bps": 800,
+        "principal": 1941882149
       }
     },
     {
@@ -9626,7 +9626,7 @@
       "agent": "momentum-v1",
       "detail": {
         "price": 1354274225,
-        "units": 3692014
+        "units": 4301674
       }
     },
     {
@@ -11311,13 +11311,13 @@
     },
     {
       "at": 1703938400,
-      "kind": "default",
+      "kind": "repayment",
       "sequence": 1124,
-      "id": "default:1703938400:1124",
+      "id": "repayment:1703938400:1124",
       "agent": "momentum-v1",
       "detail": {
-        "principal_lost": 264935604,
-        "proceeds": 4735064396
+        "interest": 2979326,
+        "proceeds": 5506216071
       }
     },
     {
@@ -12007,7 +12007,7 @@
       "id": "request:1704183200:1193",
       "agent": "momentum-v1",
       "detail": {
-        "principal": 5000000000
+        "principal": 1780677298
       }
     },
     {
@@ -12018,7 +12018,7 @@
       "agent": "momentum-v1",
       "detail": {
         "approved": true,
-        "apr_bps": 1200,
+        "apr_bps": 800,
         "refusal": ""
       }
     },
@@ -12029,8 +12029,8 @@
       "id": "origination:1704183200:1195",
       "agent": "momentum-v1",
       "detail": {
-        "apr_bps": 1200,
-        "principal": 5000000000
+        "apr_bps": 800,
+        "principal": 1780677298
       }
     },
     {
@@ -12041,7 +12041,7 @@
       "agent": "momentum-v1",
       "detail": {
         "price": 1319179711,
-        "units": 3790234
+        "units": 4049510
       }
     },
     {
@@ -13726,13 +13726,13 @@
     },
     {
       "at": 1704788000,
-      "kind": "default",
+      "kind": "repayment",
       "sequence": 1365,
-      "id": "default:1704788000:1365",
+      "id": "repayment:1704788000:1365",
       "agent": "momentum-v1",
       "detail": {
-        "principal_lost": 59258215,
-        "proceeds": 4940741785
+        "interest": 2731998,
+        "proceeds": 5269862889
       }
     },
     {
@@ -13752,7 +13752,7 @@
       "id": "request:1704791600:1367",
       "agent": "momentum-v1",
       "detail": {
-        "principal": 5000000000
+        "principal": 1743226796
       }
     },
     {
@@ -13763,7 +13763,7 @@
       "agent": "momentum-v1",
       "detail": {
         "approved": true,
-        "apr_bps": 1200,
+        "apr_bps": 800,
         "refusal": ""
       }
     },
@@ -13774,8 +13774,8 @@
       "id": "origination:1704791600:1369",
       "agent": "momentum-v1",
       "detail": {
-        "apr_bps": 1200,
-        "principal": 5000000000
+        "apr_bps": 800,
+        "principal": 1743226796
       }
     },
     {
@@ -13786,7 +13786,7 @@
       "agent": "momentum-v1",
       "detail": {
         "price": 1366015977,
-        "units": 3660279
+        "units": 3828418
       }
     },
     {
@@ -15471,13 +15471,13 @@
     },
     {
       "at": 1705396400,
-      "kind": "default",
+      "kind": "repayment",
       "sequence": 1539,
-      "id": "default:1705396400:1539",
+      "id": "repayment:1705396400:1539",
       "agent": "momentum-v1",
       "detail": {
-        "principal_lost": 299365654,
-        "proceeds": 4700634346
+        "interest": 2674539,
+        "proceeds": 4910898986
       }
     },
     {
@@ -15647,7 +15647,7 @@
       "id": "request:1705454000:1556",
       "agent": "momentum-v1",
       "detail": {
-        "principal": 5000000000
+        "principal": 1582498825
       }
     },
     {
@@ -15658,7 +15658,7 @@
       "agent": "momentum-v1",
       "detail": {
         "approved": true,
-        "apr_bps": 1200,
+        "apr_bps": 800,
         "refusal": ""
       }
     },
@@ -15669,8 +15669,8 @@
       "id": "origination:1705454000:1558",
       "agent": "momentum-v1",
       "detail": {
-        "apr_bps": 1200,
-        "principal": 5000000000
+        "apr_bps": 800,
+        "principal": 1582498825
       }
     },
     {
@@ -15681,7 +15681,7 @@
       "agent": "momentum-v1",
       "detail": {
         "price": 1351443272,
-        "units": 3699748
+        "units": 3512908
       }
     },
     {
@@ -17366,13 +17366,13 @@
     },
     {
       "at": 1706058800,
-      "kind": "default",
+      "kind": "repayment",
       "sequence": 1728,
-      "id": "default:1706058800:1728",
+      "id": "repayment:1706058800:1728",
       "agent": "momentum-v1",
       "detail": {
-        "principal_lost": 248345493,
-        "proceeds": 4751654507
+        "interest": 2427943,
+        "proceeds": 4517364565
       }
     },
     {
@@ -17412,7 +17412,7 @@
       "id": "request:1706069600:1732",
       "agent": "momentum-v1",
       "detail": {
-        "principal": 5000000000
+        "principal": 1466218898
       }
     },
     {
@@ -17423,7 +17423,7 @@
       "agent": "momentum-v1",
       "detail": {
         "approved": true,
-        "apr_bps": 1200,
+        "apr_bps": 800,
         "refusal": ""
       }
     },
@@ -17434,8 +17434,8 @@
       "id": "origination:1706069600:1734",
       "agent": "momentum-v1",
       "detail": {
-        "apr_bps": 1200,
-        "principal": 5000000000
+        "apr_bps": 800,
+        "principal": 1466218898
       }
     },
     {
@@ -17446,7 +17446,7 @@
       "agent": "momentum-v1",
       "detail": {
         "price": 1344849246,
-        "units": 3717888
+        "units": 3270743
       }
     },
     {
@@ -19131,13 +19131,13 @@
     },
     {
       "at": 1706674400,
-      "kind": "default",
+      "kind": "repayment",
       "sequence": 1904,
-      "id": "default:1706674400:1904",
+      "id": "repayment:1706674400:1904",
       "agent": "momentum-v1",
       "detail": {
-        "principal_lost": 1211213764,
-        "proceeds": 3788786236
+        "interest": 2249541,
+        "proceeds": 3340713218
       }
     },
     {
@@ -19157,7 +19157,7 @@
       "id": "request:1706678000:1906",
       "agent": "momentum-v1",
       "detail": {
-        "principal": 5000000000
+        "principal": 936122389
       }
     },
     {
@@ -19168,7 +19168,7 @@
       "agent": "momentum-v1",
       "detail": {
         "approved": true,
-        "apr_bps": 1200,
+        "apr_bps": 800,
         "refusal": ""
       }
     },
@@ -19179,8 +19179,8 @@
       "id": "origination:1706678000:1908",
       "agent": "momentum-v1",
       "detail": {
-        "apr_bps": 1200,
-        "principal": 5000000000
+        "apr_bps": 800,
+        "principal": 936122389
       }
     },
     {
@@ -19191,7 +19191,7 @@
       "agent": "momentum-v1",
       "detail": {
         "price": 1059832272,
-        "units": 4717727
+        "units": 2649822
       }
     },
     {
@@ -20881,8 +20881,8 @@
       "id": "repayment:1707282800:2078",
       "agent": "momentum-v1",
       "detail": {
-        "interest": 11506849,
-        "proceeds": 5052154325
+        "interest": 1436242,
+        "proceeds": 2867826808
       }
     },
     {
@@ -20902,7 +20902,7 @@
       "id": "request:1707286400:2080",
       "agent": "momentum-v1",
       "detail": {
-        "principal": 5020323738
+        "principal": 965134088
       }
     },
     {
@@ -20913,7 +20913,7 @@
       "agent": "momentum-v1",
       "detail": {
         "approved": true,
-        "apr_bps": 1200,
+        "apr_bps": 800,
         "refusal": ""
       }
     },
@@ -20924,8 +20924,8 @@
       "id": "origination:1707286400:2082",
       "agent": "momentum-v1",
       "detail": {
-        "apr_bps": 1200,
-        "principal": 5020323738
+        "apr_bps": 800,
+        "principal": 965134088
       }
     },
     {
@@ -20936,7 +20936,7 @@
       "agent": "momentum-v1",
       "detail": {
         "price": 1120330126,
-        "units": 4481111
+        "units": 2584418
       }
     },
     {
@@ -22291,27 +22291,28 @@
     },
     {
       "at": 1707772400,
-      "kind": "default",
+      "kind": "repayment",
       "sequence": 2219,
-      "id": "default:1707772400:2219",
+      "id": "repayment:1707772400:2219",
       "agent": "momentum-v1",
       "detail": {
-        "principal_lost": 222380422,
-        "proceeds": 4797943316
+        "interest": 1189891,
+        "proceeds": 2794515567
       }
     }
   ],
   "outcome": {
     "originated": 12,
-    "repaid": 1,
+    "repaid": 12,
     "recovered": 0,
-    "defaulted": 11,
+    "defaulted": 0,
     "declined": 0,
-    "principal_lent": 60020323738,
-    "principal_repaid": 5000000000,
-    "principal_recovered": 50410980326,
-    "principal_lost": 4609343412,
-    "interest_collected": 11506849,
+    "principal_lent": 28932306120,
+    "principal_repaid": 28932306120,
+    "principal_recovered": 0,
+    "principal_lost": 0,
+    "interest_collected": 47934040,
+    "residual_equity": 1828191588,
     "shocks_exercised": [
       "price",
       "liquidity",
@@ -22319,5 +22320,5 @@
     ],
     "unnamed_shock_exercised": false
   },
-  "digest": "c120315d8191f5f993f29c560aad29d6b1c4756c6f8749eb895915ab3b59728a"
+  "digest": "d9f989e136505dd937b74b56da8826d09978c47326d8dccac108497a456c6f2e"
 }
