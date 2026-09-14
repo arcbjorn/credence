@@ -106,3 +106,40 @@ jobs:
       - name: go test
         run: go test -count=1 ./underwrite/
         working-directory: cre
+
+  web:
+    name: web
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      # The engine is a build artifact of risk/crates/risk-wasm, not a
+      # committed file: a second copy could fall behind the first.
+      - name: install wasm-bindgen
+        run: cargo install wasm-bindgen-cli --version 0.2.128 --locked
+      - name: build the engine
+        run: bash scripts/build-wasm.sh
+
+      - name: install
+        run: pnpm install --frozen-lockfile
+        working-directory: web
+      - name: typecheck
+        run: pnpm exec tsc -b --noEmit
+        working-directory: web
+      - name: test
+        run: pnpm test
+        working-directory: web
+      - name: build
+        run: pnpm build
+        working-directory: web
