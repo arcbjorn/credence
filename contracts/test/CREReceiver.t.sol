@@ -116,6 +116,62 @@ contract CREReceiverTest is Test {
         );
     }
 
+    // --- replay ---
+
+    /// A report id reused with a DIFFERENT assessment must not be blocked,
+    /// and the same assessment must not be applied twice.
+    ///
+    /// The replay key is `(workflowId, reportId, assessmentId)` and does
+    /// not name the sequence, which review flagged as a gap. It is not
+    /// one, but only because `assessmentId` is derived from the engine's
+    /// `input_hash`, which covers `proposal.sequence` -- two cycles of the
+    /// same loan therefore carry different assessment ids.
+    ///
+    /// This test fixes that reasoning in place from the receiver's side,
+    /// where the derivation cannot be checked: if a future change ever let
+    /// one assessment id stand for two sequences, the oracle's own
+    /// monotonic sequence rule is what still refuses the second, and that
+    /// is asserted here rather than assumed.
+    ///
+    /// Reported by review, 14 September.
+    function test_sameAssessmentAtNewSequenceIsRefused() public {
+        MonitoringReport memory first = _report(1);
+        _deliver(first, 0x0001);
+
+        // The same assessment id, advanced a sequence -- what a replayer
+        // would construct to get a second effect from one assessment.
+        MonitoringReport memory second = _report(2);
+        second.assessmentId = first.assessmentId;
+
+        // The receiver's key does not catch this: a different sequence
+        // with the same assessment id yields the same key only if the
+        // report id also repeats.
+        vm.expectRevert();
+        _deliver(second, 0x0001);
+
+        Binding memory b = _binding();
+        assertEq(
+            oracle.lastSequence(oracle.bindingKey(b)),
+            1,
+            "no second effect was recorded"
+        );
+    }
+
+    /// Distinct assessments at distinct sequences both land. The replay
+    /// guard must not be so broad it refuses the normal monitoring
+    /// cadence, which is the failure the key's shape exists to avoid.
+    function test_consecutiveReportsBothApply() public {
+        _deliver(_report(1), 0x0001);
+        _deliver(_report(2), 0x0002);
+
+        Binding memory b = _binding();
+        assertEq(
+            oracle.lastSequence(oracle.bindingKey(b)),
+            2,
+            "the second monitoring cycle applied"
+        );
+    }
+
     // --- the happy path ---
 
     /// A well-formed report from the expected forwarder and workflow
