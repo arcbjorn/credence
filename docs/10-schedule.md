@@ -56,15 +56,20 @@ From here everything raises fidelity. **Later changes can still introduce regres
 ### Slipped — the screen shell
 
 **Milestone one promised a first screen shell by 13 September. It slipped**,
-and was built on 14 September: React 19 on Vite 8, with six of
-`docs/09`'s eight screens — agent overview (beat 4b), assessment detail,
-loan lifecycle with its forecasts (3, 4 and 7), lender epoch ledgers,
-enforcement (beat 6), and replay (beat 8). The demo remains `scripts/`: bash driving forge and
+and was built on 14 September: React 19 on Vite 8. **All eight of
+`docs/09`'s screens now exist** — agent overview (beat 4b), the
+three-agent comparison (beats 1 and 5), assessment detail, the evidence
+inspector, loan lifecycle with its forecasts (3, 4 and 7), lender epoch
+ledgers, enforcement (beat 6), and replay (beat 8). The optional note view
+is not built, and is marked optional in `docs/09`. The demo remains `scripts/`: bash driving forge and
 the gateway binaries, printing what each beat proves. The interface reads
 what those scripts retained rather than driving them.
 
-Two screens are still unbuilt: the three-agent comparison and the
-evidence inspector, plus the optional note view.
+Every figure on every screen comes from a retained fixture or a
+transaction-derived record, as `docs/09` requires. The comparison is
+assessed by the real engine and pinned by
+`comparison_fixture_matches_the_engine`; the enforcement and lender
+screens render what `credence-verify` read from chain.
 
 The scripts alone were enough to record a technical walkthrough, and the
 verification rows they produce are real. They were **not** enough for a
@@ -73,11 +78,10 @@ accounts, the binding constraint named beside capacity and APR, a
 reverted withdrawal, and replay MATCH against a tampered mismatch — with
 mode labels that cannot collapse into a single green pill.
 
-Of those, the built screens cover the binding constraint beside capacity
-and APR, replay with its tamper control, and the reverted withdrawal —
-which `credence-verify` records as JSON so the screen shows the two
-DIFFERENT revert selectors rather than a sentence about them. The
-three-account comparison is still script-only.
+All of those are now on screen: the three-agent comparison, capacity
+beside its binding constraint, the reverted withdrawal showing the two
+DIFFERENT revert selectors, replay with its tamper control, and per-item
+evidence labels that `modes.test.ts` refuses to let collapse.
 
 Recorded here rather than left implicit: an unflagged slip on the most
 visible deliverable is the kind of gap a schedule exists to surface.

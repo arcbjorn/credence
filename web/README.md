@@ -1,13 +1,15 @@
 # `web` — the interface
 
-The eight screens `docs/09` specifies. Three are built: the ones that
-carry the thesis.
+The eight screens `docs/09` specifies, all built. The optional note view
+is not, and `docs/09` marks it optional.
 
 | Screen | `docs/09` beat |
 |---|---|
 | Agent overview | 4b — the limit rises, the APR falls, the constraint switches |
+| Three agents | 1 and 5 — a flawless record denied by its own book |
 | Assessment detail | which constraints bound one decision, and why |
 | Loan lifecycle | 3, 4, 7 — what was borrowed, and how its forecast scored |
+| Evidence | per item: origin, freshness, coverage, content hash |
 | Lender | the epoch's ledgers, kept separate |
 | Enforcement | 6 — the prohibited withdrawal, reverted on chain |
 | Replay | 8 — does retained input reproduce the assessment? |
