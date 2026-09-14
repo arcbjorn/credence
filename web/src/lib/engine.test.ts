@@ -1,4 +1,5 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import init, { evaluate, replay, model_hash } from "../engine/risk_wasm.js";
 
@@ -15,7 +16,10 @@ import init, { evaluate, replay, model_hash } from "../engine/risk_wasm.js";
  * `demo_third_loan_binds_on_stress_capacity` pins them natively. If these
  * ever disagree, one of the two engines has drifted.
  */
-const ROOT = "/Users/arc/projects/credence";
+// Derived, not hardcoded. An absolute path to one laptop passes here and
+// fails on CI and on every other machine. Vitest runs from `web/`, so the
+// repository root is its parent.
+const ROOT = resolve(process.cwd(), "..");
 const read = (p: string) => readFileSync(`${ROOT}/${p}`, "utf8");
 
 async function engine() {
