@@ -314,3 +314,17 @@ func (w *World) Fingerprint() string {
 	}
 	return fmt.Sprintf("%016x", acc)
 }
+
+
+// MustWorld generates a world or fails the test.
+//
+// Exported for tests in other packages: an evaluation harness needs to
+// assert against the world the runner saw, and reaching into the runner
+// for it would couple the two.
+func MustWorld(t interface{ Fatal(...any) }, cfg Config) *World {
+	w, err := Generate(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return w
+}
