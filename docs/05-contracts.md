@@ -173,3 +173,31 @@ Agents and their proposed actions are untrusted. External venues, tokens, and ad
 Pin adapters and risk limits for the active epoch. An administrator may pause new risk but **must not replace an adapter or weaken valuation rules around an outstanding loan.** Materially changed policies deploy in a new epoch after existing obligations resolve.
 
 **Increasing the number of independently authorized signers does not automatically strengthen verification.**
+
+### What the operator can do — stated for borrowers
+
+One key pins the facility's route, allowlists signers, pauses new risk,
+appoints recovery keepers, and configures the price source. That is a
+prototype trade-off, not a design for production, and the concentration
+matters most where it meets the recovery trigger.
+
+**An explicit `Blocked` assessment opens recovery immediately.** That is
+the instrument working: a risk decision was made and acted on.
+
+**Silence does not, for `recoveryGraceSeconds` (12 hours).** An earlier
+version treated a merely-lapsed permission the same as a withdrawn one,
+which meant an operator who also controlled the attestor could seize a
+healthy, unmatured position by withholding updates — making the real
+covenant "keep the attestor answering" rather than "stay solvent". The
+two are now distinguished on chain by `permissionWithdrawn`.
+
+Past the grace window a lapse still opens recovery: an obligation nobody
+is assessing cannot stay open indefinitely. So the honest statement of
+the borrower's covenant is:
+
+> Stay solvent, and expect recovery if the attestor either denies you or
+> stops assessing you for twelve hours.
+
+The second clause is a real obligation on the *lender's* side of the
+arrangement, and a borrower should read it before drawing. Reported by
+review, 14 September.
