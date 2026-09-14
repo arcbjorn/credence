@@ -269,8 +269,18 @@ func run(
 		// forecast record, so a commitment made after assessment could
 		// not have informed the decision it is supposed to inform.
 		if enrollDB != "" {
+			// The horizon must close before the loan resolves, or the
+			// forecast is scored on a window that never elapsed. On a
+			// warpable chain the demo's 20 minutes cost nothing; on a
+			// real one the hold is the only time that actually passes,
+			// so the horizon follows it.
+			horizon := uint64(1_200)
+			if !warpable && holdSeconds < horizon {
+				horizon = holdSeconds
+			}
 			if err := commitForecast(
 				ctx, enrollDB, binding, chainKey, i, block.Timestamp,
+				horizon,
 			); err != nil {
 				return fmt.Errorf("loan %d: commit forecast: %w", i, err)
 			}
@@ -431,7 +441,20 @@ func run(
 			ctx, reader, rpc, account, settlement, riskyAsset, priceSource, manager)
 
 		if holdSeconds > 0 {
-			if err := advanceTime(ctx, rpc, holdSeconds); err != nil {
+			if !warpable {
+				// Real time is the only clock this chain has. Sleeping
+				// is not a workaround for the missing RPC: it is the
+				// honest version of the same hold, so the interest the
+				// loan repays is interest that genuinely accrued.
+				//
+				// The contract reads block.timestamp, not wall clock, so
+				// the hold is measured against the chain and confirmed
+				// by a block that actually carries the later timestamp.
+				log.Printf("loan %d: holding %ds in real time", i, holdSeconds)
+				if err := holdUntilChainTime(ctx, rpc, holdSeconds); err != nil {
+					return fmt.Errorf("loan %d: %w", i, err)
+				}
+			} else if err := advanceTime(ctx, rpc, holdSeconds); err != nil {
 				// A public chain exposes no evm_increaseTime, and real
 				// time passes far too slowly to hold a multi-day loan.
 				// Refusing is the honest answer: continuing would repay
@@ -1059,6 +1082,44 @@ func readActiveLoan(
 // Only works against a node that exposes evm_increaseTime, which is the
 // point: a scenario that silently skipped this on a real chain would
 // misreport interest, so the caller is told when it fails.
+// holdUntilChainTime waits until the chain's own clock has advanced by
+// seconds. A public chain has no evm_increaseTime, and wall-clock sleep
+// alone proves nothing: block.timestamp is what the contract charges
+// interest against, and it only moves when a block is produced.
+func holdUntilChainTime(ctx context.Context, rpc *chain.RPC, seconds uint64) error {
+	start, err := rpc.LatestBlock(ctx)
+	if err != nil {
+		return fmt.Errorf("read chain time: %w", err)
+	}
+	deadline := start.Timestamp + seconds
+	// Generous relative to the hold: a chain that cannot produce a block
+	// carrying a later timestamp within this window is not one the loan
+	// can be honestly held on, and repaying anyway would report interest
+	// for time that never passed.
+	limit := time.Now().Add(time.Duration(seconds)*time.Second + 5*time.Minute)
+	for {
+		now, err := rpc.LatestBlock(ctx)
+		if err != nil {
+			return fmt.Errorf("read chain time: %w", err)
+		}
+		if now.Timestamp >= deadline {
+			log.Printf("chain time advanced %ds over %d blocks",
+				now.Timestamp-start.Timestamp, now.Number-start.Number)
+			return nil
+		}
+		if time.Now().After(limit) {
+			return fmt.Errorf(
+				"chain time advanced only %ds of %ds required",
+				now.Timestamp-start.Timestamp, seconds)
+		}
+		select {
+		case <-time.After(2 * time.Second):
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+}
+
 func advanceTime(ctx context.Context, rpc *chain.RPC, seconds uint64) error {
 	if err := rpc.Call(ctx, "evm_increaseTime", []any{seconds}, nil); err != nil {
 		return err

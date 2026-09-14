@@ -357,6 +357,7 @@ func commitForecast(
 	chainKey string,
 	loanIndex int,
 	committedAt uint64,
+	horizonSeconds uint64,
 ) error {
 	db, err := store.Open(ctx, dbPath)
 	if err != nil {
@@ -375,11 +376,15 @@ func commitForecast(
 		probability = 300_000 / uint64(loanIndex)
 	}
 
+	// The payload is the retrievable evidence `docs/06` requires, so the
+	// window it describes must be the window actually used -- in the
+	// prose as well as the field, since a reader may only see the prose.
 	payload, err := json.Marshal(map[string]any{
-		"event": "cash-flow-adjusted marked account NAV falls more than 5% " +
-			"below its observed peak during the next 20 minutes",
+		"event": fmt.Sprintf("cash-flow-adjusted marked account NAV falls "+
+			"more than 5%% below its observed peak during the next %d seconds",
+			horizonSeconds),
 		"probability_ppm":  probability,
-		"horizon_seconds":  1_200,
+		"horizon_seconds":  horizonSeconds,
 		"observation":      "supported account, named price source, fixed cadence",
 		"early_exit_rule":  "scored on close; final unitized equity carries the horizon",
 		"committed_before": "disbursement",
@@ -391,9 +396,14 @@ func commitForecast(
 	return reg.CommitForecast(ctx, store.Forecast{
 		ForecastID:      fmt.Sprintf("%s:forecast:%d", chainKey, loanIndex),
 		BindingKey:      chainKey,
-		EventDefinition: "nav_drawdown_5pct_20m",
+		// Derived from the horizon, never a second constant: a label
+		// claiming 20m beside a horizon of 30s would record an event
+		// the run never observed. `docs/06` calls 20m a demo horizon,
+		// and a chain that cannot warp needs a shorter one -- but the
+		// definition has to say which was actually used.
+		EventDefinition: fmt.Sprintf("nav_drawdown_5pct_%ds", horizonSeconds),
 		ProbabilityPPM:  probability,
-		HorizonSeconds:  1_200,
+		HorizonSeconds:  horizonSeconds,
 		CommittedAt:     int64(committedAt),
 		Payload:         payload,
 	})

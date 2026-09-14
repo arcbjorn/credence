@@ -25,6 +25,12 @@ PRINCIPAL=${PRINCIPAL:-4000000000}
 # Two loans: the first closes and repays, the second is left open so the
 # monitoring beats have a live position to assess.
 LOANS=${LOANS:-2}
+# A local chain warps time, so a 10-day term costs nothing to observe. A
+# public one cannot: the hold has to be a real wait, so both shrink to
+# seconds. Interest is then genuinely accrued over the elapsed term
+# rather than asserted over one that never passed.
+TERM_SECONDS=${TERM_SECONDS:-$((10 * 86400))}
+HOLD_SECONDS=${HOLD_SECONDS:-$((5 * 86400))}
 
 cd "$ROOT/contracts"
 export DEPLOYER_KEY=0x$DEPLOYER
@@ -68,6 +74,7 @@ go build -o credence-scenario ./cmd/credence-scenario
   -account "$ACCOUNT" -settlement "$SETTLEMENT" -principal "$PRINCIPAL" \
   -adapter "$ADAPTER" -risky "$RISKY" -price-source "$PRICE_SOURCE" \
   -chain-id "$CHAIN_ID" -deploy-bps 10000 -loans "$LOANS" \
+  -term-seconds "$TERM_SECONDS" -hold-seconds "$HOLD_SECONDS" \
   -enroll "$WORK/scenario.db" -vault "$VAULT" -risk http://127.0.0.1:18111 -policy "$ROOT/config/engine-policy.json"
 
 # `docs/11`: a passing unit test and a correctly wired deployment are
