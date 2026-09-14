@@ -33,12 +33,18 @@
 # ==========================================================================
 staging-settings:
   rpcs:
-    - chain-name: ethereum-testnet-sepolia
-      url: https://ethereum-sepolia-rpc.publicnode.com
+    # Monad testnet, where Credence's contracts and the CRE forwarder both
+    # live. Selector 2183018362218727504; forwarder
+    # 0xF8344CFd5c43616a4366C34E3EEE75af79a74482.
+    - chain-name: monad-testnet
+      url: https://testnet-rpc.monad.xyz
 
 # ==========================================================================
 production-settings:
   rpcs:
-    - chain-name: ethereum-testnet-sepolia
-      url: https://ethereum-sepolia-rpc.publicnode.com
+    # Monad testnet, where Credence's contracts and the CRE forwarder both
+    # live. Selector 2183018362218727504; forwarder
+    # 0xF8344CFd5c43616a4366C34E3EEE75af79a74482.
+    - chain-name: monad-testnet
+      url: https://testnet-rpc.monad.xyz
 

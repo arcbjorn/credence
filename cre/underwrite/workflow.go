@@ -25,7 +25,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"math/big"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/evm"
 	"github.com/smartcontractkit/cre-sdk-go/capabilities/networking/http"
 	"github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron"
 	"github.com/smartcontractkit/cre-sdk-go/cre"
@@ -68,6 +71,16 @@ type Config struct {
 	// before anything reaches the oracle.
 	ReceiverAddress string `json:"receiverAddress"`
 
+	// GasLimit for the write. Bounded so a pathological report cannot
+	// spend without limit.
+	GasLimit uint64 `json:"gasLimit"`
+
+	// ValiditySeconds is how long a monitoring permission stands. It
+	// should be comfortably longer than the schedule interval, or
+	// permission lapses between runs and blocks risk increases on a
+	// healthy account (`docs/05`).
+	ValiditySeconds uint64 `json:"validitySeconds"`
+
 	// Loans to reassess. A workflow that discovered them itself would
 	// need to trust its own view of which obligations exist; the engine's
 	// answer is scoped to a binding either way.
@@ -102,6 +115,11 @@ type assessmentResponse struct {
 	InputHash  string `json:"input_hash"`
 	Evidence   string `json:"evidence_root"`
 	Assessment string `json:"assessment_hash"`
+	// AccountStateVersion is the portfolio the engine actually assessed.
+	// It rides in the report rather than being supplied by the receiver:
+	// `riskAllowedFor` compares it against the account's CURRENT version,
+	// so permission issued against a stale view is void by construction.
+	AccountStateVersion uint64 `json:"account_state_version"`
 }
 
 func InitWorkflow(
@@ -162,10 +180,159 @@ func onSchedule(
 			"permission", assessment.Permission,
 			"class", assessment.Class,
 		)
+
+		seq, err := nextSequence(config, runtime, loan)
+		if err != nil {
+			logger.Warn("could not read the next sequence",
+				"loanId", loan.LoanID, "error", err.Error())
+			result.Blocked++
+			result.Notes = append(result.Notes,
+				fmt.Sprintf("loan %d: sequence: %v", loan.LoanID, err))
+			continue
+		}
+
+		if err := writeAssessment(config, runtime, loan, assessment, seq); err != nil {
+			// A write that failed recorded nothing, so the previous
+			// permission stands until it expires. Reporting it as
+			// written would claim an update reached chain that did not.
+			logger.Warn("write failed; assessment did not reach chain",
+				"loanId", loan.LoanID, "error", err.Error())
+			result.Blocked++
+			result.Notes = append(result.Notes,
+				fmt.Sprintf("loan %d: write: %v", loan.LoanID, err))
+			continue
+		}
 		result.Written++
 	}
 
 	return result, nil
+}
+
+// writeAssessment generates a DON-signed report and submits it.
+//
+// The DON signs the encoded payload, the forwarder verifies those
+// signatures, and only then does CREReceiver see it. That chain is what
+// the CRE route buys over a development key: no single party can produce
+// a report the receiver will accept.
+func writeAssessment(
+	config *Config,
+	runtime cre.Runtime,
+	loan LoanRef,
+	a *assessmentResponse,
+	sequence uint64,
+) error {
+	report, err := buildReport(loan, a, sequence, runtime.Now().Unix(),
+		config.ValiditySeconds)
+	if err != nil {
+		return err
+	}
+
+	signed, err := runtime.GenerateReport(&cre.ReportRequest{
+		EncodedPayload: encodeMonitoringReport(report),
+		EncoderName:    "evm",
+		SigningAlgo:    "ecdsa",
+		HashingAlgo:    "keccak256",
+	}).Await()
+	if err != nil {
+		return fmt.Errorf("generate report: %w", err)
+	}
+
+	client := &evm.Client{ChainSelector: config.ChainSelector}
+	resp, err := client.WriteReport(runtime, &evm.WriteCreReportRequest{
+		Receiver:  common.HexToAddress(config.ReceiverAddress).Bytes(),
+		Report:    signed,
+		GasConfig: &evm.GasConfig{GasLimit: config.GasLimit},
+	}).Await()
+	if err != nil {
+		return fmt.Errorf("submit: %w", err)
+	}
+
+	// Two statuses, and both matter. A transaction can succeed while the
+	// receiver reverts -- which is exactly what happens when one of the
+	// five checks refuses the report -- so treating TX_STATUS_SUCCESS as
+	// "recorded" would report a blocked assessment as a written one.
+	if resp.TxStatus != evm.TxStatus_TX_STATUS_SUCCESS {
+		msg := "unknown error"
+		if resp.ErrorMessage != nil {
+			msg = *resp.ErrorMessage
+		}
+		return fmt.Errorf("transaction failed: %s", msg)
+	}
+	if resp.ReceiverContractExecutionStatus != nil &&
+		*resp.ReceiverContractExecutionStatus !=
+			evm.ReceiverContractExecutionStatus_RECEIVER_CONTRACT_EXECUTION_STATUS_SUCCESS {
+		return fmt.Errorf("receiver rejected the report")
+	}
+	return nil
+}
+
+// buildReport turns the engine's answer into the payload the receiver
+// decodes.
+//
+// Separated from the write so it is testable without a chain: these are
+// the field mappings, and a mapping that only runs against a live DON is
+// one nobody checks.
+func buildReport(
+	loan LoanRef,
+	a *assessmentResponse,
+	sequence uint64,
+	now int64,
+	validitySeconds uint64,
+) (monitoringReport, error) {
+	var r monitoringReport
+
+	decision, err := decodeDecision(a.Decision)
+	if err != nil {
+		return r, err
+	}
+	permission, err := decodePermission(a.Permission)
+	if err != nil {
+		return r, err
+	}
+	class, err := decodeClass(a.Class)
+	if err != nil {
+		return r, err
+	}
+	assessmentID, err := parseHash32(a.Assessment)
+	if err != nil {
+		return r, fmt.Errorf("assessment hash: %w", err)
+	}
+	modelHash, err := parseHash32(a.ModelHash)
+	if err != nil {
+		return r, fmt.Errorf("model hash: %w", err)
+	}
+	inputHash, err := parseHash32(a.InputHash)
+	if err != nil {
+		return r, fmt.Errorf("input hash: %w", err)
+	}
+	evidenceRoot, err := parseHash32(a.Evidence)
+	if err != nil {
+		return r, fmt.Errorf("evidence root: %w", err)
+	}
+
+	if validitySeconds == 0 {
+		return r, fmt.Errorf("validitySeconds must be set")
+	}
+
+	return monitoringReport{
+		loanID:              loan.LoanID,
+		accountStateVersion: a.AccountStateVersion,
+		sequence:            sequence,
+		// Chain time, not wall clock: the oracle compares these against
+		// block.timestamp, and a validity window anchored to the node's
+		// own clock would expire early or late by whatever the two
+		// disagree by.
+		validAfter:     uint64(now),
+		validUntil:     uint64(now) + validitySeconds,
+		decision:       decision,
+		permission:     permission,
+		class:          class,
+		assessmentID:   assessmentID,
+		assessmentHash: assessmentID,
+		modelHash:      modelHash,
+		inputHash:      inputHash,
+		evidenceRoot:   evidenceRoot,
+	}, nil
 }
 
 // assessLoan asks the engine about one loan and reaches consensus on the
@@ -261,4 +428,49 @@ func checkAssessment(out *assessmentResponse) error {
 		return fmt.Errorf("assessment carries no evidence class")
 	}
 	return nil
+}
+
+
+// nextSequence asks the receiver what sequence this loan's next report
+// must carry.
+//
+// `docs/05` requires a single strictly increasing sequence per binding
+// across BOTH assessment kinds, so a workflow cannot count its own runs:
+// an origination on the signed path advances the same counter. Reading it
+// means asking the authority rather than guessing, and a guess that
+// collided would have its update rejected and the permission left to
+// expire.
+func nextSequence(
+	config *Config,
+	runtime cre.Runtime,
+	loan LoanRef,
+) (uint64, error) {
+	sel := nextSequenceSelector()
+	data := append(sel[:], uintWord(loan.LoanID)...)
+
+	client := &evm.Client{ChainSelector: config.ChainSelector}
+	resp, err := client.CallContract(runtime, &evm.CallContractRequest{
+		Call: &evm.CallMsg{
+			To:   common.HexToAddress(config.ReceiverAddress).Bytes(),
+			Data: data,
+		},
+	}).Await()
+	if err != nil {
+		return 0, fmt.Errorf("read sequence: %w", err)
+	}
+	if len(resp.Data) < 32 {
+		return 0, fmt.Errorf("short sequence response: %d bytes", len(resp.Data))
+	}
+
+	seq := new(big.Int).SetBytes(resp.Data[:32])
+	if !seq.IsUint64() {
+		return 0, fmt.Errorf("sequence does not fit uint64")
+	}
+	// Zero means the receiver does not have this loan enrolled, so a
+	// report would be refused anyway. Saying so here attributes the
+	// failure to enrolment rather than to a rejected write.
+	if seq.Uint64() == 0 {
+		return 0, fmt.Errorf("loan %d is not enrolled on the receiver", loan.LoanID)
+	}
+	return seq.Uint64(), nil
 }
