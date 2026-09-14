@@ -18,8 +18,13 @@ RPC=${RPC:-http://127.0.0.1:8546}
 # deployment when pointed at a testnet.
 CHAIN_ID=${CHAIN_ID:-$(cast chain-id --rpc-url "$RPC")}
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
-DEPLOYER=ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
-PUBLISHER=0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+# Anvil account #0 by default. On a public chain, export a funded key:
+# this one is published in the anvil banner and anyone can drain it.
+DEPLOYER=${CREDENCE_DEPLOYER_KEY:-ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80}
+# The adapter only accepts this address, and the gateway publishes with
+# DEPLOYER. Derive it so overriding the key cannot authorize one address
+# while publishing from another.
+PUBLISHER=$(cast wallet address --private-key "0x$DEPLOYER")
 AGENT=${AGENT:-184}
 
 # A run to publish outcomes from. Loans must have RESOLVED: an in-flight

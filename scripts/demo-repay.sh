@@ -17,7 +17,9 @@ WORK=${WORK:-/tmp/credence-repay}
 # from a previous chain, which would credit the agent for loans this run
 # never made.
 rm -rf "$WORK" && mkdir -p "$WORK"
-DEPLOYER=ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+# Anvil account #0 by default. On a public chain, export a funded key:
+# this one is published in the anvil banner and anyone can drain it.
+DEPLOYER=${CREDENCE_DEPLOYER_KEY:-ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80}
 SIGNER=${CREDENCE_SIGNER_KEY:-5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a}
 PRINCIPAL=${PRINCIPAL:-4000000000}
 # Two loans: the first closes and repays, the second is left open so the
@@ -36,7 +38,10 @@ MANAGER=$(addr loan_manager);      SETTLEMENT=$(addr settlement)
 RISKY=$(addr risky);               ADAPTER=$(addr adapter)
 PRICE_SOURCE=$(addr price_source)
 
-export AGENT_ADDRESS=0x70997970C51812dc3A010C7d01b50e0d17dc79C8
+# The bound operator. It signs nothing in this demo, so it needs no gas,
+# but it follows CREDENCE_AGENT_KEY so every demo binds the same operator.
+export AGENT_ADDRESS=$(cast wallet address --private-key \
+  "0x${CREDENCE_AGENT_KEY:-59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d}")
 export SETTLEMENT_TOKEN=$SETTLEMENT VAULT_ADDRESS=$VAULT
 export LOAN_MANAGER_ADDRESS=$MANAGER RISKY_ASSET=$RISKY STRATEGY_ADAPTER=$ADAPTER
 ACCOUNT=$(forge script script/Scenario.s.sol --rpc-url "$RPC" --broadcast 2>&1 \

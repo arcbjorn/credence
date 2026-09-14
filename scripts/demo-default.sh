@@ -18,8 +18,10 @@ RPC=${RPC:-http://127.0.0.1:8546}
 CHAIN_ID=${CHAIN_ID:-$(cast chain-id --rpc-url "$RPC")}
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 # anvil #0 owns the deployment and acts as keeper; #1 is the agent.
-DEPLOYER=ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
-AGENT=59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d
+# Anvil account #0 by default. On a public chain, export a funded key:
+# this one is published in the anvil banner and anyone can drain it.
+DEPLOYER=${CREDENCE_DEPLOYER_KEY:-ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80}
+AGENT=${CREDENCE_AGENT_KEY:-59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d}
 # The oracle only accepts assessments signed by the attestor it was
 # deployed with, so derive that address from the signing key rather than
 # pinning it: a literal here would silently drift and every publish would
@@ -47,7 +49,9 @@ MANAGER=$(addr loan_manager); SETTLEMENT=$(addr settlement)
 RISKY=$(addr risky);          VENUE=$(addr venue)
 PRICE_SOURCE=$(addr price_source); ADAPTER=$(addr adapter)
 
-export AGENT_ADDRESS=0x70997970C51812dc3A010C7d01b50e0d17dc79C8
+# Derived, never a second constant: the account's bound operator is the
+# key that signs its actions, so a mismatched pair fails at execute time.
+export AGENT_ADDRESS=$(cast wallet address --private-key "0x$AGENT")
 export SETTLEMENT_TOKEN=$SETTLEMENT VAULT_ADDRESS=$VAULT
 export LOAN_MANAGER_ADDRESS=$MANAGER RISKY_ASSET=$RISKY STRATEGY_ADAPTER=$ADAPTER
 ACCOUNT=$(forge script script/Scenario.s.sol --rpc-url "$RPC" --broadcast 2>&1 \
