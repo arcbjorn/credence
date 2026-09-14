@@ -126,6 +126,29 @@ Contracts retain their own exposure, epoch, state, and expiry checks because sta
 
 Request deployment access during milestone one. Preserve the distinction between local simulation and a deployed workflow.
 
+### Availability — resolved 13 September
+
+**CRE supports Monad testnet.** Verified on chain, not from documentation:
+
+| Item | Value |
+|---|---|
+| Chain name | `monad-testnet` |
+| KeystoneForwarder | `0xF8344CFd5c43616a4366C34E3EEE75af79a74482` — 8,592 bytes deployed |
+| MockKeystoneForwarder | `0xB9F79d863261869B234c481D1f9A7af84AeAd192` (simulation only) |
+
+Access is **gated but self-service**: `cre account access` from the CLI
+submits a request with a one-line use-case description, answered by email.
+Simulation needs no approval — `cre workflow simulate` runs immediately,
+and only `cre workflow deploy` waits on it.
+
+That matters for the claim ceiling. This document already distinguishes a
+**CRE policy-checked report** from a **recomputed assessment**; the further
+distinction is between a *simulated* workflow and a *deployed* one. Only a
+deployed workflow supports an integration claim, and the forwarder address
+above is what the receiver contract must validate `msg.sender` against.
+
+Run `scripts/probe-testnet.sh` to re-verify.
+
 ## Kuru — gated extension
 
 **Feasibility experiment by 15 September:** bounded test of market creation for an existing token, settlement-token quote, fill, holder redemption. Produces an estimate; commits nothing.

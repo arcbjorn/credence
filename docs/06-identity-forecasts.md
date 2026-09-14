@@ -49,6 +49,29 @@ Demonstrate A and B with a standalone script printing an agent's obligation hist
 
 **A and B are release requirements against the selected network's ERC-8004-compatible registry**, with its address and compatibility evidence in the deployment manifest. A local adapter may unblock development, but does not satisfy these acceptance rows or justify an ERC-8004 integration claim. Resolve registry compatibility by the 15 September gate and complete publication and independent reading by 25 September.
 
+### Registry compatibility — resolved 13 September
+
+**ERC-8004 is deployed on Monad testnet.** Verified on chain by
+`scripts/probe-testnet.sh`, which is the compatibility evidence this gate
+asks for rather than a documentation citation:
+
+| Registry | Address | Evidence |
+|---|---|---|
+| Identity | `0x8004A818BFB912233c491871b3d84c89A494BD9e` | ERC-721 reporting `AgentIdentity` / `AGENT` |
+| Reputation | `0x8004B663056A597Dffe9eCcC1965A193B7388713` | `giveFeedback`, `readFeedback`, `readAllFeedback` selectors present in the deployed implementation |
+| Validation | not deployed | Out of scope; this release publishes feedback, not validation |
+
+> **Use the testnet addresses.** The widely cited `0x8004A169…` and
+> `0x8004BAa1…` pair is **mainnet** and holds no code on Monad testnet.
+> Both registries are proxies, so compatibility is checked against the
+> implementation behind the EIP-1967 slot, not the proxy itself.
+
+The standard's shape differs from the local adapter: feedback is a signed
+`int128` value with decimals and two string tags, not the outcome struct
+`FeedbackRegistry.sol` uses. **Porting the reader is real work, not a
+config change** — its decoding is written against the local layout, and
+that claim stays untested until it runs against this registry.
+
 **Be precise about what it verifies:** registry provenance — that feedback was published by Credence's declared `clientAddress` — plus any application-level signature over the payload. The standard attributes feedback to a client address and requires consumers to *filter which sources they trust*. It does not make arbitrary registry feedback trustworthy.
 
 The reader demonstrates **attributable, filterable provenance**, not that the content is true. Claim "independently verifiable", never "adopted".
