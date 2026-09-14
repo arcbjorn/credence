@@ -157,6 +157,39 @@ func (a *Adapter) Publish(
 	return a.pub.Publish(ctx, attest.ChainKeyHex(binding), doc.Sequence, calldata, signature)
 }
 
+// Envelope normalizes an engine assessment into the typed fields the
+// oracle reads, WITHOUT signing it.
+//
+// The development route signs here and publishes; the CRE route does not.
+// There a DON signs the report and the forwarder verifies it, so what the
+// gateway owes the workflow is the normalization -- the decision mapping,
+// the policy-divergence check, the hash parsing -- and nothing else.
+//
+// Shared with `Publish` deliberately. Two normalizations would be two
+// places for the engine's vocabulary to drift from the chain's, and
+// `docs/05` requires the CRE receiver to produce "the same typed fields"
+// a development signer would have.
+func (a *Adapter) Envelope(
+	binding Binding,
+	assessment json.RawMessage,
+) (attest.Assessment, error) {
+	var doc assessmentDoc
+	if err := json.Unmarshal(assessment, &doc); err != nil {
+		return attest.Assessment{}, fmt.Errorf("decode assessment: %w", err)
+	}
+
+	decoded, err := canonical.DecodeStrict(assessment)
+	if err != nil {
+		return attest.Assessment{}, fmt.Errorf("canonicalize assessment: %w", err)
+	}
+	contentHash, err := canonical.HashHex(decoded)
+	if err != nil {
+		return attest.Assessment{}, fmt.Errorf("hash assessment: %w", err)
+	}
+
+	return a.envelope(doc, binding, contentHash)
+}
+
 func (a *Adapter) envelope(
 	doc assessmentDoc,
 	binding Binding,
