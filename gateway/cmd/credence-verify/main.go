@@ -184,6 +184,35 @@ func run(rpcURL, manager, account, settlement, owner, vault, risky string) ([]ch
 		})
 	}
 
+	// Beat "lender": the epoch's ledger, read from the vault.
+	//
+	// `docs/09` asks what cash is available, what principal is exposed,
+	// and what was realized. These are recorded rather than only printed
+	// so the interface can show the LENDER's side from chain state --
+	// otherwise the demo only ever tells the borrower's story.
+	//
+	// Reported as separate ledgers on purpose: `docs/05` keeps idle cash,
+	// outstanding principal, collected interest and realized loss apart,
+	// and uncollected interest is never withdrawable cash.
+	for _, ledger := range []struct{ call, name string }{
+		{"idleCash()", "vault idle cash"},
+		{"outstandingPrincipal()", "vault principal outstanding"},
+		{"realizedLoss()", "vault realized loss"},
+	} {
+		v, err := callUint(ctx, rpc, vault, ledger.call, block.Number)
+		if err != nil {
+			continue
+		}
+		checks = append(checks, check{
+			beat: "lender", name: ledger.name,
+			// A ledger read is evidence, not a pass/fail assertion: zero
+			// realized loss is the correct value for a clean run, and
+			// marking it failed would be a lie about a healthy epoch.
+			passed: true,
+			detail: fmt.Sprintf("%s base units", v),
+		})
+	}
+
 	return checks, nil
 }
 
