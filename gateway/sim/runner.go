@@ -72,6 +72,10 @@ type loanState struct {
 	// told via IntendedAction::Acquire.
 	EntryPrice uint64
 	Units      uint64
+	// EquityAtRisk is the borrower's own capital deployed alongside the
+	// principal. Tracked so settlement can apply it to the debt BEFORE
+	// allocating any loss to lenders.
+	EquityAtRisk uint64
 }
 
 func NewRunner(cfg RunConfig, agent Agent, uw Underwriter) (*Runner, error) {
@@ -160,7 +164,7 @@ func (r *Runner) Run(ctx context.Context) (Pack, error) {
 		PolicyHash:       r.cfg.PolicyHash,
 		AgentConfig:      agentCfg,
 		Events:           r.queue.Drain(),
-		Outcome:          r.outcome,
+		Outcome:          r.finalOutcome(),
 	}
 	return pack.Seal()
 }
@@ -219,9 +223,18 @@ func (r *Runner) maybeBorrow(ctx context.Context, obs Observation) error {
 		return nil
 	}
 
-	// The whole principal goes into the risky asset, which is what the
-	// engine was told the action would be.
-	units := offer.ApprovedPrincipal * pow10(obs.PriceScale) / obs.Price
+	// The WHOLE post-draw balance goes into the risky asset -- equity as
+	// well as principal -- because that is what the snapshot declared via
+	// `deploy_bps: 10000`.
+	//
+	// Until 14 September this bought units with the borrowed principal
+	// alone and left equity sitting in settlement. The evaluated book was
+	// then not the assessed book: equity absorbed nothing, and a fall
+	// could book a lender loss while the borrower still held cash the
+	// recovery never touched. `docs/09` makes agent equity the first loss
+	// layer, so it has to be at risk. Reported by review, 14 September.
+	deployed := r.equity + offer.ApprovedPrincipal
+	units := deployed * pow10(obs.PriceScale) / obs.Price
 	r.openLoan = &loanState{
 		Principal:   offer.ApprovedPrincipal,
 		AprBps:      offer.AprBps,
@@ -229,7 +242,12 @@ func (r *Runner) maybeBorrow(ctx context.Context, obs Observation) error {
 		OpenedAt:    obs.At,
 		EntryPrice:  obs.Price,
 		Units:       units,
+		// The equity that went in with it, so settlement can return what
+		// is left after the debt is served.
+		EquityAtRisk: r.equity,
 	}
+	// It is deployed, not idle. Settlement returns the residual.
+	r.equity = 0
 	r.outcome.Originated++
 	r.outcome.PrincipalLent += offer.ApprovedPrincipal
 
@@ -285,6 +303,10 @@ func (r *Runner) settleAtMarket(obs Observation) {
 	gross := loan.Units * obs.Price / pow10(obs.PriceScale)
 	proceeds := applyImpact(gross, obs.LiquidityDepth)
 
+	// `proceeds` is the WHOLE custody position -- principal and equity
+	// both -- so the debt is served from all of it before any loss
+	// reaches lenders. That is what makes equity the first loss layer
+	// rather than a number quoted beside one.
 	owed := loan.Principal + interest
 	switch {
 	case proceeds >= owed:
@@ -432,4 +454,18 @@ func parseAmount(s string) uint64 {
 		v = v*10 + uint64(s[i]-'0')
 	}
 	return v
+}
+
+// finalOutcome stamps the borrower's remaining capital onto the result.
+//
+// Reported so the first-loss rule is checkable: principal lost while
+// equity remains is an accounting error, not a risk result.
+func (r *Runner) finalOutcome() Outcome {
+	out := r.outcome
+	out.ResidualEquity = r.equity
+	if r.openLoan != nil {
+		// A loan still open at the end holds its equity in the position.
+		out.ResidualEquity += r.openLoan.EquityAtRisk
+	}
+	return out
 }

@@ -84,6 +84,18 @@ type Outcome struct {
 	PrincipalLost      uint64 `json:"principal_lost"`
 	InterestCollected  uint64 `json:"interest_collected"`
 
+	// ResidualEquity is the borrower's own capital still held at the end
+	// of the run.
+	//
+	// Reported so the first-loss rule is checkable rather than asserted:
+	// `docs/09` says lenders only lose once a fall exceeds the agent's
+	// capital, so principal lost while equity remains is an accounting
+	// error. Until 14 September the runner deployed only the borrowed
+	// principal, left equity in settlement, and recovered from the risky
+	// sale alone -- which could book a lender loss beside untouched
+	// borrower cash.
+	ResidualEquity uint64 `json:"residual_equity"`
+
 	// ShocksExercised names the shocks that actually occurred during a
 	// live loan. A shock scheduled while nothing was outstanding tested
 	// nothing, and counting it would overstate coverage.

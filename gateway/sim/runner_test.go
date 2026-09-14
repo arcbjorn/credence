@@ -301,7 +301,14 @@ func TestEditedPackFailsVerification(t *testing.T) {
 	}
 
 	edited := pack
-	edited.Outcome.Defaulted = 0 // the edit someone would actually make
+	// An edit that ALWAYS changes something.
+	//
+	// This used to set `Defaulted = 0`. Once equity became the first loss
+	// layer the base world stopped producing defaults, so that "edit" was
+	// a no-op and the pack verified correctly -- the test failed for the
+	// right reason, but it was testing nothing. Incrementing guarantees a
+	// difference regardless of the run's outcome.
+	edited.Outcome.Defaulted = pack.Outcome.Defaulted + 1
 	if err := edited.Verify(); err == nil {
 		t.Fatal("an edited pack verified; immutability is not enforced")
 	}
@@ -356,5 +363,49 @@ func TestLoadVerifiesOnTheWayIn(t *testing.T) {
 
 	if _, err := sim.Load(path); err == nil {
 		t.Fatal("a tampered pack loaded without complaint")
+	}
+}
+
+// Lender loss requires the borrower's equity to be exhausted first.
+//
+// `docs/09`: "Agent equity is the first loss layer, and the demo must
+// respect it. Lenders only lose once a fall exceeds the agent's own
+// capital."
+//
+// The simulator told the engine `deploy_bps: 10000` -- deploy the whole
+// post-draw settlement balance, equity included -- and then bought risky
+// units with the BORROWED principal only, leaving equity in settlement.
+// At settlement it recovered from the risky sale alone, so a fall could
+// book a lender loss while the borrower still held custodied cash that
+// was never applied. The evaluated book was not the assessed book.
+//
+// Reported by review, 14 September.
+func TestLenderLossRequiresEquityExhausted(t *testing.T) {
+	cfg := base()
+	// Deep enough to break the risky leg, shallow enough that the whole
+	// custody position -- equity included -- still covers the debt.
+	cfg.Shocks = []sim.Shock{{
+		AtDay: 6, PriceBps: -4_000, Label: "equity-absorbs-it",
+	}}
+
+	uw := &stubUnderwriter{approve: true, aprBps: 1_200, term: 14 * 86_400}
+	r, err := sim.NewRunner(
+		runCfg("firstloss", sim.KindEvaluation, cfg), agent(), uw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pack, err := r.Run(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pack.Outcome.Originated == 0 {
+		t.Skip("no loan was live for the shock, so it exercised nothing")
+	}
+
+	// Whenever principal was lost, the borrower's equity must be gone.
+	if pack.Outcome.PrincipalLost > 0 && pack.Outcome.ResidualEquity > 0 {
+		t.Fatalf(
+			"lenders lost %d while the borrower still held %d of equity",
+			pack.Outcome.PrincipalLost, pack.Outcome.ResidualEquity)
 	}
 }
