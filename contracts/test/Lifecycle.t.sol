@@ -380,6 +380,42 @@ contract LifecycleTest is Test {
         );
     }
 
+    /// `docs/05` invariant 8: **only the appointed keeper** collects.
+    ///
+    /// `collect` also accepted the operator, while the comment directly
+    /// above the check said "Only the appointed keeper collects" -- a
+    /// contradiction inside one statement, and a widening of the operator
+    /// powers `docs/05` enumerates. It grants nothing the operator cannot
+    /// already reach, since the operator appoints the keeper in
+    /// `openRecovery`; it just makes the documented invariant false and
+    /// removes the appointment step from the audit trail.
+    ///
+    /// Reported by review, 14 September.
+    function test_OperatorCannotCollectWithoutBeingKeeper() public {
+        uint256 loanId = _originate(account, 5_000e6, 1_200, 10 days);
+        vm.warp(block.timestamp + 11 days); // matured
+
+        Binding memory rb = _bindingFor(account, account.stateVersion());
+        vm.prank(OPERATOR);
+        manager.openRecovery(loanId, KEEPER, rb);
+
+        // The operator appointed KEEPER and is not itself the keeper.
+        assertEq(
+            account.recoveryKeeper(),
+            KEEPER,
+            "the keeper is who openRecovery appointed"
+        );
+
+        vm.prank(OPERATOR);
+        vm.expectRevert(LoanManager.NotKeeper.selector);
+        manager.collect(loanId, 1_000e6);
+
+        // The appointed keeper still can, so this narrows authority
+        // rather than breaking recovery.
+        vm.prank(KEEPER);
+        manager.collect(loanId, 1_000e6);
+    }
+
     /// docs/05: collection accounting is idempotent across several calls.
     function test_recoveryCollectsInStages() public {
         uint256 loanId = _originate(account, 5_000e6, 1_200, 10 days);

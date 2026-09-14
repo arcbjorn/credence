@@ -588,9 +588,17 @@ contract LoanManager {
         require(amount > 0, ZeroAmount());
         // Only the appointed keeper collects. An open recovery would
         // otherwise let any caller move the account's balance.
+        //
+        // The operator is deliberately NOT admitted here, though it was
+        // until 14 September. It grants nothing -- the operator appoints
+        // the keeper in `openRecovery` and can appoint itself -- but it
+        // made `docs/05` invariant 8 ("only the appointed keeper takes
+        // it") false as written, and let proceeds move without the
+        // appointment appearing in the record. Authority that is only
+        // reachable by an on-chain appointment is auditable; authority
+        // that is implicit is not.
         require(
-            msg.sender == CreditAccount(loan.account).recoveryKeeper()
-                || msg.sender == operator,
+            msg.sender == CreditAccount(loan.account).recoveryKeeper(),
             NotKeeper()
         );
 
