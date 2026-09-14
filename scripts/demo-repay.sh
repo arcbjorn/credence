@@ -96,7 +96,7 @@ go build -o credence-scenario ./cmd/credence-scenario
 echo "=== deployment verification ==="
 go build -o credence-verify ./cmd/credence-verify
 ./credence-verify -rpc "$RPC" -manager "$MANAGER" -account "$ACCOUNT" \
-  -settlement "$SETTLEMENT" -owner 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 \
+  -settlement "$SETTLEMENT" -owner "$(cast wallet address --private-key "0x$DEPLOYER")" \
   -vault "$VAULT" -risky "$RISKY"
 
 echo "=== vault after repayment ==="
