@@ -161,12 +161,22 @@ Verified against the deployed registry on Monad testnet, 14 September:
   owned registered identity** -- Credence cannot report on an agent it
   owns.
 
-> **Sub-claims A and B are not met.** What exists is a local feedback
-> adapter with its own ABI and a reader for that ABI, which `docs/08`
-> permits for development and explicitly excludes from the release claim.
-> The reader's independence from Credence *code* is real and tested; its
-> ability to verify *provenance* is not — it checks no publisher, chain
-> id, or evidence payload.
+> **Sub-claims A and B are met as of 14 September**, against the canonical
+> registries rather than the local adapter: `scripts/demo-erc8004.sh`
+> publishes a resolved obligation to
+> `0x8004B663056A597Dffe9eCcC1965A193B7388713` on Monad testnet and
+> `tools/reader/read_erc8004.py` reads it back from the chain alone. The
+> evidence is recorded in
+> [11 · Verification](11-verification.md#independent-reader--erc-8004-14-september).
+>
+> The local adapter and its reader remain in the tree as the development
+> path `docs/08` permits, and `scripts/demo-feedback.sh` still exercises
+> them. They do not carry the release claim.
+>
+> **What the reader still cannot verify is the evidence payload.**
+> ERC-8004 returns neither `feedbackURI` nor `feedbackHash` through any
+> view, so a consumer cannot retrieve — or even see — the record an entry
+> refers to. Provenance is checked; content is not.
 
 **Be precise about what it verifies:** registry provenance — that feedback was published by Credence's declared `clientAddress` — plus any application-level signature over the payload. The standard attributes feedback to a client address and requires consumers to *filter which sources they trust*. It does not make arbitrary registry feedback trustworthy.
 

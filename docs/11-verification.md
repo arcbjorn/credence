@@ -92,7 +92,7 @@ assumed; a green suite is not evidence for a behavioural claim.
 | Default handling | evidence | `scripts/demo-default.sh` |
 | Replay | evidence | `scripts/demo-monitor.sh` (beat 8, with its tampering control) |
 | Missing / stale data | evidence | `forge test --match-test ExecuteRequiresStandingPermission`; engine blocks on stale required evidence |
-| **Independent reputation reader** | **not met** | `scripts/demo-feedback.sh` exercises a LOCAL adapter whose ABI is incompatible with ERC-8004 in both directions. Porting is a rewrite, not a config change; see [06 · Identity](06-identity-forecasts.md#what-is-not-integrated) |
+| **Independent reputation reader** | evidence | `scripts/demo-erc8004.sh` against the canonical ERC-8004 registries on Monad testnet; see [Independent reader](#independent-reader--erc-8004-14-september) |
 | Integration honesty | evidence | scenario facility and test assets labelled; `TestRiskyAsset` is named *NOT ETH* |
 | Reproducibility | evidence | the three scripts run from a clean chain |
 
@@ -240,6 +240,78 @@ A public chain cannot warp time, and holding three loans for five days
 each is not a demo. **The row's evidence therefore remains the local
 run**, where the elapsed term is real within the chain's own clock. The
 testnet run demonstrates portability and enforcement, not repricing.
+
+## Independent reader — ERC-8004, 14 September
+
+Sub-claims A and B of `docs/06` are met against the **canonical ERC-8004
+registries on Monad testnet**, not a local adapter:
+
+| Registry | Address |
+|---|---|
+| Identity | `0x8004A818BFB912233c491871b3d84c89A494BD9e` |
+| Reputation | `0x8004B663056A597Dffe9eCcC1965A193B7388713` |
+| Agent | `1830`, owned by `0x2a442c45BbB5B2E97981B8fC8855bb5437F52754` |
+| Credence client | `0xCaE2590420EAb07eDF737B6069891F36e2e14A34` |
+
+Reproduce with `scripts/demo-erc8004.sh`. With no registry set it deploys
+a local double whose selectors match the deployed contract exactly, so the
+path runs without a funded key; pointed at the canonical addresses it uses
+the real thing.
+
+Observed on the live registry:
+
+```
+loan 1: credence.outcome.repaid value=4000000000
+loan 1: credence.interest       value=746
+loan 1: credence.loss           value=0
+loan 1: credence.held           value=49
+republish -> already published, published=0
+
+agent 1830: repaid   principal=4000000000 interest=746 loss=0 held=49s
+```
+
+`tools/reader/read_erc8004.py` produced that last line from the chain
+alone, run from a directory outside the repository, importing only the
+Python standard library.
+
+### What the standard forced
+
+- **One entry per signal.** ERC-8004 stores a single `int128` per entry,
+  and `docs/06` forbids merging a repayment, a realised loss, interest and
+  duration into one fact. A composite score would fit the field and break
+  the rule, so four tagged entries carry one fact each. The loss is
+  published **negative**: the value is signed for that purpose, and an
+  unsigned loss reads as a gain of the same size.
+- **Credence is a client, never the agent.** Self-feedback reverts
+  `"Self-feedback not allowed"`, so the borrowing agent must be a
+  separately owned registered identity.
+- **Idempotency is the client's job.** `feedbackIndex` auto-increments;
+  the registry accepts a duplicate without complaint. The publisher reads
+  back what it already wrote and skips those loans.
+- **The loan id lives in `tag2`.** `feedbackURI` and `feedbackHash` are
+  write-only in practice -- no view returns them, and they survive only in
+  the `NewFeedback` event, which a public RPC will not scan cheaply over
+  any useful range.
+- **Tags are scoped to the deployment** (`loan:<sha256(chain:manager)>:N`).
+  Loan ids restart at 1 per manager, and because idempotency keys on this
+  tag, an unscoped collision would make a second deployment's loan 1
+  permanently unpublishable -- the same defect `docs/06` records against
+  the old `keccak("loan-N")` reference. The reader recomputes the digest
+  with `hashlib`, so sha256 rather than keccak keeps it stdlib-only.
+
+### What is still NOT verified
+
+The reader checks the registry exists, its chain id, that the agent is
+registered and owned by someone other than the client, and that every
+record shown was written by the named client. It does **not** check the
+referenced evidence: ERC-8004 returns neither `feedbackURI` nor
+`feedbackHash` through any view, so the reader cannot show them, let alone
+resolve them.
+
+**Attributable and filterable, not proof the content is true.** The
+standard attributes feedback to a client address and expects consumers to
+choose which clients they trust. Claim "independently verifiable", never
+"adopted" -- sub-claim C still requires a second team.
 
 ## Operational measurement
 
