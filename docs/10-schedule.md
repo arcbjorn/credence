@@ -55,17 +55,26 @@ From here everything raises fidelity. **Later changes can still introduce regres
 
 ### Slipped — the screen shell
 
-**Milestone one promised a first screen shell by 13 September. It does not
-exist**, and no part of `docs/09`'s eight screens has been started. The
-demo is `scripts/`: bash driving forge and the gateway binaries, printing
-what each beat proves.
+**Milestone one promised a first screen shell by 13 September. It slipped**,
+and was built on 14 September: React 19 on Vite 8, with three of
+`docs/09`'s eight screens — agent overview (beat 4b), assessment detail,
+and replay (beat 8). The demo remains `scripts/`: bash driving forge and
+the gateway binaries, printing what each beat proves. The interface reads
+what those scripts retained rather than driving them.
 
-That is enough to record a technical walkthrough, and the verification
-rows it produces are real. It is **not** enough for a finance-track
-judging session, where a reviewer expects to see three accounts, the
-binding constraint named beside capacity and APR, a reverted withdrawal,
-and replay MATCH against a tampered mismatch — with mode labels that
-cannot collapse into a single green pill.
+Five screens are still unbuilt: three-agent comparison, evidence
+inspector, loan lifecycle, lender/epoch, and the optional note view.
+
+The scripts alone were enough to record a technical walkthrough, and the
+verification rows they produce are real. They were **not** enough for a
+finance-track judging session, where a reviewer expects to see three
+accounts, the binding constraint named beside capacity and APR, a
+reverted withdrawal, and replay MATCH against a tampered mismatch — with
+mode labels that cannot collapse into a single green pill.
+
+Of those, the built screens cover the binding constraint beside capacity
+and APR, and replay with its tamper control. The reverted withdrawal and
+the three-account comparison are still script-only.
 
 Recorded here rather than left implicit: an unflagged slip on the most
 visible deliverable is the kind of gap a schedule exists to surface.
