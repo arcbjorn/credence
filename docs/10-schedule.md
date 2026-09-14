@@ -4,7 +4,7 @@
 
 | Dates | Work | Completion evidence |
 |---|---|---|
-| **11–13 Sep · milestone one** | Demo script; freeze v0 conventions; specify custody and accounting; confirm event rules and CRE access | Example snapshots, state diagrams, capability checklist, first screen shell |
+| **11–13 Sep · milestone one** | Demo script; freeze v0 conventions; specify custody and accounting; confirm event rules and CRE access | Example snapshots, state diagrams, capability checklist, ~~first screen shell~~ **slipped** |
 | **14–17 Sep · milestone two** | risk-core skeleton, virtual clock, vault/account/loan lifecycle on local chain; probe venue, registry, and Kuru | Deterministic scenario plus borrow, trade, repay, prohibited withdrawal, loss-accounting tests |
 | **18–22 Sep · baseline milestone** | Connect gateway, contracts, interface; deploy prototype network | One complete performer path and one failure path with retained evidence and transaction references |
 | **23–25 Sep** | Other two scenarios, forecast scoring, identity continuity, registry publication and independent reader, event reconciliation | Same engine handles all agents; release identity evidence complete; Kuru gate decision |
@@ -42,6 +42,24 @@ From here everything raises fidelity. **Later changes can still introduce regres
 
 | Decision | Due | Working default |
 |---|---|---|
+### Slipped — the screen shell
+
+**Milestone one promised a first screen shell by 13 September. It does not
+exist**, and no part of `docs/09`'s eight screens has been started. The
+demo is `scripts/`: bash driving forge and the gateway binaries, printing
+what each beat proves.
+
+That is enough to record a technical walkthrough, and the verification
+rows it produces are real. It is **not** enough for a finance-track
+judging session, where a reviewer expects to see three accounts, the
+binding constraint named beside capacity and APR, a reverted withdrawal,
+and replay MATCH against a tampered mismatch — with mode labels that
+cannot collapse into a single green pill.
+
+Recorded here rather than left implicit: an unflagged slip on the most
+visible deliverable is the kind of gap a schedule exists to surface.
+Reported by review, 14 September.
+
 | Event environment and submission specifics | 13 Sep | Monad testnet prototype; submit 12 Oct. **Demos verified portable 13 Sep**: run against chain id 10143 with no code change, manifests keyed by chain |
 | Settlement and risky assets, venue, valuation | 14 Sep | **Settled 13 Sep** — working default taken; see [08 · Integrations](08-integrations.md#assets-venue-and-valuation--settled-13-september) |
 | Strategy economic purpose | 14 Sep | **Settled 13 Sep** — see [07 · Simulation](07-simulation.md#what-the-strategy-does-and-why-it-is-financed) |
