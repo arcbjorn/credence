@@ -17,6 +17,7 @@ package publisher
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -91,8 +92,15 @@ var (
 //
 // Derived from the binding and sequence rather than allocated, so a retry
 // after a crash computes the same key without consulting anything.
-func IdempotencyKey(bindingKey string, sequence uint64) string {
-	return fmt.Sprintf("%s:%d", bindingKey, sequence)
+func IdempotencyKey(bindingKey string, sequence uint64, payload []byte) string {
+	// The PAYLOAD is part of the identity, not just the slot it occupies.
+	// Two different assessments can propose the same sequence -- an
+	// approval submitted, then a denial prepared while it is still
+	// pending. Keyed on binding and sequence alone, the denial looks like
+	// a retry of the approval and is reported as delivered when nothing
+	// of it ever reached chain.
+	sum := sha256.Sum256(payload)
+	return fmt.Sprintf("%s:%d:%x", bindingKey, sequence, sum[:8])
 }
 
 // Publish delivers one assessment, reconciling before it sends.
@@ -108,7 +116,7 @@ func (p *Publisher) Publish(
 	payload []byte,
 	signature []byte,
 ) (string, error) {
-	key := IdempotencyKey(bindingKey, sequence)
+	key := IdempotencyKey(bindingKey, sequence, payload)
 
 	// 1. Has this exact delivery been attempted before?
 	if prior, found, err := p.journal.Lookup(ctx, key); err != nil {
@@ -136,8 +144,11 @@ func (p *Publisher) Publish(
 	}
 	if accepted >= sequence {
 		// The oracle requires strictly increasing sequences, so this can
-		// never be accepted now. Distinguishing this from a failure matters:
-		// it is the expected outcome when evidence outpaces delivery.
+		// never be accepted now -- whether the occupant is this exact
+		// assessment or a different one that won the slot. Either way
+		// THIS payload will not reach chain, and saying so is the point:
+		// reporting it as delivered would claim a decision landed that
+		// never did.
 		status := StatusSuperseded
 		detail := fmt.Sprintf("chain accepted %d, this is %d", accepted, sequence)
 		_ = p.journal.Record(ctx, Attempt{

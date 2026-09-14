@@ -25,7 +25,7 @@ func TestRecordAndLookup(t *testing.T) {
 
 	a := publisher.Attempt{
 		BindingKey: "b1", Sequence: 5,
-		IdempotencyKey: publisher.IdempotencyKey("b1", 5),
+		IdempotencyKey: publisher.IdempotencyKey("b1", 5, []byte("p")),
 		TxHash:         "0xabc", Status: publisher.StatusConfirmed,
 	}
 	if err := j.Record(ctx, a); err != nil {
@@ -57,7 +57,7 @@ func TestLookupMissingKeyIsNotAnError(t *testing.T) {
 func TestUpdatePreservesTxHash(t *testing.T) {
 	j, _ := journal(t)
 	ctx := context.Background()
-	key := publisher.IdempotencyKey("b1", 5)
+	key := publisher.IdempotencyKey("b1", 5, []byte("p"))
 
 	_ = j.Record(ctx, publisher.Attempt{
 		BindingKey: "b1", Sequence: 5, IdempotencyKey: key,
@@ -84,7 +84,7 @@ func TestSupersededStatusIsAccepted(t *testing.T) {
 	j, _ := journal(t)
 	err := j.Record(context.Background(), publisher.Attempt{
 		BindingKey: "b1", Sequence: 5,
-		IdempotencyKey: publisher.IdempotencyKey("b1", 5),
+		IdempotencyKey: publisher.IdempotencyKey("b1", 5, []byte("p")),
 		Status:         publisher.StatusSuperseded,
 	})
 	if err != nil {
@@ -116,7 +116,7 @@ func TestPendingSurvivesReopen(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open: %v", err)
 	}
-	key := publisher.IdempotencyKey("b1", 7)
+	key := publisher.IdempotencyKey("b1", 7, []byte("p"))
 	_ = store.NewJournal(s1).Record(ctx, publisher.Attempt{
 		BindingKey: "b1", Sequence: 7, IdempotencyKey: key,
 		TxHash: "0xinflight", Status: publisher.StatusPending,
@@ -167,7 +167,7 @@ func TestPendingAttemptsListsOnlyPending(t *testing.T) {
 func TestAttemptsAccumulate(t *testing.T) {
 	j, s := journal(t)
 	ctx := context.Background()
-	key := publisher.IdempotencyKey("b1", 5)
+	key := publisher.IdempotencyKey("b1", 5, []byte("p"))
 
 	for i := 0; i < 3; i++ {
 		_ = j.Record(ctx, publisher.Attempt{

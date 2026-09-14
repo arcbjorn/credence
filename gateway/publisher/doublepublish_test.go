@@ -35,7 +35,7 @@ func TestNoDoublePublishAcrossFailureModes(t *testing.T) {
 	for _, s := range scenarios {
 		t.Run(s.name, func(t *testing.T) {
 			j := newJournal()
-			key := publisher.IdempotencyKey("b1", seq)
+			key := publisher.IdempotencyKey("b1", seq, []byte("p"))
 			j.entries[key] = publisher.Attempt{
 				BindingKey: "b1", Sequence: seq, IdempotencyKey: key,
 				TxHash: s.priorTx, Status: s.priorStatus,
@@ -62,7 +62,7 @@ func TestNoDoublePublishAcrossFailureModes(t *testing.T) {
 // resubmit.
 func TestResubmissionRequiresCertaintyOfFailure(t *testing.T) {
 	j := newJournal()
-	key := publisher.IdempotencyKey("b1", 5)
+	key := publisher.IdempotencyKey("b1", 5, []byte("p"))
 	j.entries[key] = publisher.Attempt{
 		BindingKey: "b1", Sequence: 5, IdempotencyKey: key,
 		Status: publisher.StatusFailed,
@@ -90,5 +90,44 @@ func TestLostJournalStillReconcilesFromChain(t *testing.T) {
 	}
 	if chain.submits != 0 {
 		t.Fatal("must not submit when the chain already accepted this sequence")
+	}
+}
+
+// A different assessment at the same sequence is not a retry.
+//
+// An approval is submitted and lands. Meanwhile a denial is prepared at
+// the same proposed sequence. Reconciling on binding and sequence alone
+// reports the DENIAL as delivered — returning the approval's transaction
+// hash — when nothing of the denial ever reached chain. The permission it
+// was meant to withdraw would keep standing.
+func TestDifferentDecisionAtOneSequenceIsNotDelivered(t *testing.T) {
+	j := newJournal()
+
+	approval := []byte(`{"decision":"MonitoringAllowed"}`)
+	denial := []byte(`{"decision":"MonitoringBlocked"}`)
+
+	// The approval was delivered at sequence 5.
+	approvalKey := publisher.IdempotencyKey("b1", 5, approval)
+	j.entries[approvalKey] = publisher.Attempt{
+		BindingKey: "b1", Sequence: 5, IdempotencyKey: approvalKey,
+		TxHash: "0xapproval", Status: publisher.StatusConfirmed,
+	}
+
+	// The chain has accepted sequence 5 — by the approval.
+	chain := &fakeChain{accepted: 5, txHash: "0xdenial", receipt: publisher.StatusConfirmed}
+	p := publisher.New(chain, j)
+
+	tx, err := p.Publish(ctx(), "b1", 5, denial, []byte("s"))
+	if err == nil {
+		t.Fatalf("a denial that never reached chain must not report success (tx %s)", tx)
+	}
+	if tx == "0xapproval" {
+		t.Fatal("the approval's transaction must not be reported as the denial's")
+	}
+	if !errors.Is(err, publisher.ErrSuperseded) {
+		t.Fatalf("an occupied sequence must read as superseded, got %v", err)
+	}
+	if chain.submits != 0 {
+		t.Fatal("and must not submit into an occupied sequence")
 	}
 }

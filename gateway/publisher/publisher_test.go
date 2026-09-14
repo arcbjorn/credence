@@ -115,7 +115,7 @@ func TestConfirmedPublishIsIdempotent(t *testing.T) {
 // knows the truth.
 func TestPendingReconcilesFromChainState(t *testing.T) {
 	j := newJournal()
-	key := publisher.IdempotencyKey("b1", 5)
+	key := publisher.IdempotencyKey("b1", 5, []byte("p"))
 	j.entries[key] = publisher.Attempt{
 		BindingKey: "b1", Sequence: 5, IdempotencyKey: key,
 		TxHash: "0xearlier", Status: publisher.StatusPending,
@@ -142,7 +142,7 @@ func TestPendingReconcilesFromChainState(t *testing.T) {
 // A pending attempt whose transaction is still unmined must not resubmit.
 func TestPendingWithUnminedTxDoesNotResubmit(t *testing.T) {
 	j := newJournal()
-	key := publisher.IdempotencyKey("b1", 5)
+	key := publisher.IdempotencyKey("b1", 5, []byte("p"))
 	j.entries[key] = publisher.Attempt{
 		BindingKey: "b1", Sequence: 5, IdempotencyKey: key,
 		TxHash: "0xinflight", Status: publisher.StatusPending,
@@ -199,7 +199,7 @@ func TestSubmitErrorRecordsPendingNotFailed(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected an error")
 	}
-	got := j.entries[publisher.IdempotencyKey("b1", 5)]
+	got := j.entries[publisher.IdempotencyKey("b1", 5, []byte("p"))]
 	if got.Status != publisher.StatusPending {
 		t.Fatalf("status = %s, want Pending — an ambiguous send is not a failure", got.Status)
 	}
@@ -247,7 +247,7 @@ func TestRevertedTransactionFails(t *testing.T) {
 // A failed attempt is safe to retry, unlike a pending one.
 func TestFailedAttemptMayBeRetried(t *testing.T) {
 	j := newJournal()
-	key := publisher.IdempotencyKey("b1", 5)
+	key := publisher.IdempotencyKey("b1", 5, []byte("p"))
 	j.entries[key] = publisher.Attempt{
 		BindingKey: "b1", Sequence: 5, IdempotencyKey: key,
 		Status: publisher.StatusFailed,
@@ -278,12 +278,19 @@ func TestUnreadableChainAbortsBeforeSubmitting(t *testing.T) {
 }
 
 func TestIdempotencyKeyIsDerivedNotAllocated(t *testing.T) {
-	a := publisher.IdempotencyKey("b1", 5)
-	b := publisher.IdempotencyKey("b1", 5)
+	a := publisher.IdempotencyKey("b1", 5, []byte("p"))
+	b := publisher.IdempotencyKey("b1", 5, []byte("p"))
 	if a != b {
-		t.Fatal("the same binding and sequence must derive the same key")
+		t.Fatal("the same binding, sequence and payload must derive the same key")
 	}
-	if a == publisher.IdempotencyKey("b1", 6) {
+	if a == publisher.IdempotencyKey("b1", 6, []byte("p")) {
 		t.Fatal("different sequences must derive different keys")
+	}
+	// The payload is part of the identity. Two assessments can propose
+	// the same sequence -- an approval in flight and a denial prepared
+	// behind it -- and treating them as one delivery reports the denial
+	// as landed when only the approval did.
+	if a == publisher.IdempotencyKey("b1", 5, []byte("different")) {
+		t.Fatal("different payloads at one sequence must derive different keys")
 	}
 }

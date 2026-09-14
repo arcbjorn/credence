@@ -77,7 +77,7 @@ func TestPublisherIsIdempotentAcrossRestart(t *testing.T) {
 func TestCrashedSubmissionReconcilesAfterRestart(t *testing.T) {
 	ctx := context.Background()
 	path := filepath.Join(t.TempDir(), "crash.db")
-	key := publisher.IdempotencyKey("b1", 5)
+	key := publisher.IdempotencyKey("b1", 5, []byte("p"))
 
 	// Simulate the crash: intent recorded, outcome never written.
 	s1, _ := store.Open(ctx, path)
