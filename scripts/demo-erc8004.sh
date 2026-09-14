@@ -32,6 +32,12 @@ echo "client    $CLIENT   (publishes)"
 echo "agent own $AGENT_OWNER   (owns the identity)"
 echo
 
+# A published key may sign nothing on a chain other people can reach.
+. "$ROOT/scripts/lib/keys.sh"
+credence_require_private_key "$DEPLOYER" "$CHAIN_ID" deployer CREDENCE_DEPLOYER_KEY
+credence_require_private_key "$AGENT_OWNER_KEY" "$CHAIN_ID" \
+  "agent owner" CREDENCE_AGENT_KEY
+
 cd "$ROOT/contracts"
 rm -rf broadcast/*/"$CHAIN_ID" cache/*.s.sol/"$CHAIN_ID"
 

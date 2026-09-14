@@ -22,6 +22,12 @@ fi
 
 ADDR=$(cast wallet address --private-key "0x$DEPLOYER")
 CHAIN_ID=$(cast chain-id --rpc-url "$RPC")
+
+# A published key may deploy nothing on a chain other people can reach.
+. "$ROOT/scripts/lib/keys.sh"
+credence_require_private_key "$DEPLOYER" "$CHAIN_ID" deployer CREDENCE_DEPLOYER_KEY
+credence_require_private_key "${CREDENCE_SIGNER_KEY:-5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a}" \
+  "$CHAIN_ID" attestor CREDENCE_SIGNER_KEY
 GAS_PRICE=$(cast gas-price --rpc-url "$RPC")
 BALANCE=$(cast balance "$ADDR" --rpc-url "$RPC")
 
