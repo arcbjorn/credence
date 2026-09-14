@@ -202,10 +202,7 @@ contract CreditAccount {
     /// @dev Invariant 1. `call` targets only registered adapters with the
     /// account as `msg.sender`; there is no delegatecall path, so an adapter
     /// can never execute in this contract's storage context.
-    function execute(address adapter, bytes calldata data)
-        external
-        returns (bytes memory result)
-    {
+    function execute(address adapter, bytes calldata data) external returns (bytes memory result) {
         return _execute(msg.sender, adapter, data);
     }
 
@@ -255,10 +252,7 @@ contract CreditAccount {
 
         if (debtOutstanding && !deRisking) {
             bytes32 action = keccak256(abi.encode(adapter, data));
-            require(
-                action == permittedActionHash,
-                ActionNotPermitted(permittedActionHash, action)
-            );
+            require(action == permittedActionHash, ActionNotPermitted(permittedActionHash, action));
 
             // The origination assessment authorized this exact action, so
             // performing it once needs no separate monitoring result --
@@ -276,17 +270,15 @@ contract CreditAccount {
             // (`docs/05`), so a Blocked monitoring result arriving before
             // expiry must revoke this coverage -- otherwise a borrower
             // reads the revocation and executes anyway.
-            bool superseded = IRiskOracle(riskOracle).lastSequence(boundBindingKey)
-                > permittedActionSequence;
-            bool coveredByQuote = !actionConsumed
-                && block.timestamp < permittedActionValidUntil
-                && !superseded;
+            bool superseded =
+                IRiskOracle(riskOracle).lastSequence(boundBindingKey) > permittedActionSequence;
+            bool coveredByQuote =
+                !actionConsumed && block.timestamp < permittedActionValidUntil && !superseded;
 
             if (!coveredByQuote) {
                 require(
-                    IRiskOracle(riskOracle).riskAllowedFor(
-                        boundBindingKey, boundBindingHash, stateVersion
-                    ),
+                    IRiskOracle(riskOracle)
+                        .riskAllowedFor(boundBindingKey, boundBindingHash, stateVersion),
                     RiskNotPermitted()
                 );
             }
@@ -353,16 +345,12 @@ contract CreditAccount {
     /// fixed at the same time as everything else the borrower agreed to.
     ///
     /// Reported by review, 14 September.
-    function recover(address adapter, bytes calldata data)
-        external
-        returns (bytes memory result)
-    {
+    function recover(address adapter, bytes calldata data) external returns (bytes memory result) {
         require(recoveryKeeper != address(0), RecoveryNotOpen());
         require(msg.sender == recoveryKeeper, NotKeeper());
         require(adapterAllowed[adapter], AdapterNotAllowed(adapter));
         require(
-            data.length >= 4 && deRiskingAction[adapter][bytes4(data[:4])],
-            NotRiskReducing(adapter)
+            data.length >= 4 && deRiskingAction[adapter][bytes4(data[:4])], NotRiskReducing(adapter)
         );
 
         // Before the call, as in `execute`. Recovery reaches the same

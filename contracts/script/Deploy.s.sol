@@ -75,8 +75,7 @@ contract Deploy is Script {
         // A scenario deployment: its evidence is honestly synthetic, so
         // ScenarioOnly is the class it issues and the class it may act on
         // (`docs/04`). A production deployment pins PrototypeEligible.
-        RiskOracle oracle =
-            new RiskOracle(operator, deploymentId, Class.ScenarioOnly);
+        RiskOracle oracle = new RiskOracle(operator, deploymentId, Class.ScenarioOnly);
         CreditVault vault = new CreditVault(IERC20(settlement), operator, GLOBAL_CAP);
         LoanManager manager = new LoanManager(IERC20(settlement), vault, oracle, operator);
 
@@ -88,14 +87,18 @@ contract Deploy is Script {
         // adapter. Without it a credit account cannot deploy principal,
         // which makes a loan indistinguishable from a deposit.
         SpotVenue venue = new SpotVenue(
-            IERC20(settlement), IERC20(risky),
-            RISKY_PRICE, PRICE_SCALE, RISKY_DECIMALS, operator);
-        FixedPriceSource priceSource =
-            new FixedPriceSource(RISKY_PRICE, PRICE_SCALE, operator);
+            IERC20(settlement), IERC20(risky), RISKY_PRICE, PRICE_SCALE, RISKY_DECIMALS, operator
+        );
+        FixedPriceSource priceSource = new FixedPriceSource(RISKY_PRICE, PRICE_SCALE, operator);
         StrategyAdapter adapter = new StrategyAdapter(
-            IERC20(settlement), IERC20(risky), venue,
+            IERC20(settlement),
+            IERC20(risky),
+            venue,
             IPriceSource(address(priceSource)),
-            MAX_SLIPPAGE_BPS, MAX_PRICE_AGE_SECONDS, RISKY_DECIMALS);
+            MAX_SLIPPAGE_BPS,
+            MAX_PRICE_AGE_SECONDS,
+            RISKY_DECIMALS
+        );
 
         // Seed the venue so trades can settle. A venue with no inventory
         // would fail for a reason unrelated to the protocol.
@@ -142,39 +145,61 @@ contract Deploy is Script {
         address adapter;
     }
 
-    function _writeManifest(
-        Deployed memory d,
-        address attestor,
-        uint256 deploymentId
-    ) private {
+    function _writeManifest(Deployed memory d, address attestor, uint256 deploymentId) private {
         string memory addresses = string.concat(
             '  "addresses": {\n',
-            '    "oracle": "', vm.toString(d.oracle), '",\n',
-            '    "vault": "', vm.toString(d.vault), '",\n',
-            '    "loan_manager": "', vm.toString(d.manager), '",\n',
-            '    "settlement": "', vm.toString(d.settlement), '",\n',
-            '    "risky": "', vm.toString(d.risky), '",\n',
-            '    "venue": "', vm.toString(d.venue), '",\n',
-            '    "price_source": "', vm.toString(d.priceSource), '",\n',
-            '    "adapter": "', vm.toString(d.adapter), '"\n',
+            '    "oracle": "',
+            vm.toString(d.oracle),
+            '",\n',
+            '    "vault": "',
+            vm.toString(d.vault),
+            '",\n',
+            '    "loan_manager": "',
+            vm.toString(d.manager),
+            '",\n',
+            '    "settlement": "',
+            vm.toString(d.settlement),
+            '",\n',
+            '    "risky": "',
+            vm.toString(d.risky),
+            '",\n',
+            '    "venue": "',
+            vm.toString(d.venue),
+            '",\n',
+            '    "price_source": "',
+            vm.toString(d.priceSource),
+            '",\n',
+            '    "adapter": "',
+            vm.toString(d.adapter),
+            '"\n',
             "  },\n"
         );
 
         string memory manifest = string.concat(
             "{\n",
-            '  "chain_id": ', vm.toString(block.chainid), ",\n",
-            '  "deployment_id": ', vm.toString(deploymentId), ",\n",
-            '  "facility_id": ', vm.toString(FACILITY_ID), ",\n",
-            '  "global_cap": "', vm.toString(GLOBAL_CAP), '",\n',
-            '  "risky_price": "', vm.toString(RISKY_PRICE), '",\n',
+            '  "chain_id": ',
+            vm.toString(block.chainid),
+            ",\n",
+            '  "deployment_id": ',
+            vm.toString(deploymentId),
+            ",\n",
+            '  "facility_id": ',
+            vm.toString(FACILITY_ID),
+            ",\n",
+            '  "global_cap": "',
+            vm.toString(GLOBAL_CAP),
+            '",\n',
+            '  "risky_price": "',
+            vm.toString(RISKY_PRICE),
+            '",\n',
             addresses,
-            '  "attestor": "', vm.toString(attestor), '"\n',
+            '  "attestor": "',
+            vm.toString(attestor),
+            '"\n',
             "}\n"
         );
 
-        string memory path = string.concat(
-            "deployments/", vm.toString(block.chainid), ".json"
-        );
+        string memory path = string.concat("deployments/", vm.toString(block.chainid), ".json");
         vm.writeFile(path, manifest);
 
         console2.log("oracle      ", d.oracle);

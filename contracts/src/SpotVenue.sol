@@ -63,8 +63,9 @@ contract SpotVenue {
 
     function quoteBuy(uint256 settlementIn) public view returns (uint256) {
         // settlementIn / price, expressed in risky decimals.
-        return (settlementIn * (10 ** priceScale) * (10 ** riskyDecimals))
-            / (price * (10 ** priceScale));
+        return
+            (settlementIn * (10 ** priceScale) * (10 ** riskyDecimals))
+                / (price * (10 ** priceScale));
     }
 
     function quoteSell(uint256 riskyIn) public view returns (uint256) {

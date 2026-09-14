@@ -57,15 +57,17 @@ contract ReentrantToken {
         // settling. If ordering is wrong this sees a live loan.
         if (collectMode) {
             try target.collect(loanId, collectAmount) {
-                // Recorded as a success so the test can assert on it.
-            } catch (bytes memory reason) {
+            // Recorded as a success so the test can assert on it.
+            }
+            catch (bytes memory reason) {
                 lastRevert = reason;
             }
             return;
         }
         try target.repay(loanId) {
-            // Recorded as a success so the test can assert on it.
-        } catch (bytes memory reason) {
+        // Recorded as a success so the test can assert on it.
+        }
+        catch (bytes memory reason) {
             lastRevert = reason;
         }
     }
@@ -113,9 +115,7 @@ contract OriginatingToken {
         balanceOf[to] += amount;
     }
 
-    function arm(LoanManager target_, Binding calldata b, uint256 principal_)
-        external
-    {
+    function arm(LoanManager target_, Binding calldata b, uint256 principal_) external {
         target = target_;
         binding = b;
         principal = principal_;
@@ -139,10 +139,7 @@ contract OriginatingToken {
         return true;
     }
 
-    function transferFrom(address from, address to, uint256 value)
-        external
-        returns (bool)
-    {
+    function transferFrom(address from, address to, uint256 value) external returns (bool) {
         allowance[from][msg.sender] -= value;
         balanceOf[from] -= value;
         balanceOf[to] += value;
@@ -200,13 +197,19 @@ contract ReentrancyTest is Test {
     }
 
     function _originate(uint256 principal) internal returns (uint256) {
-        Binding memory b =
-            OracleHarness.binding(address(account), account.stateVersion(), FACILITY);
+        Binding memory b = OracleHarness.binding(address(account), account.stateVersion(), FACILITY);
         // Build ONCE: signing a second, separately built assessment would
         // sign a different struct and the signature would not verify.
         Assessment memory a = OracleHarness.approvedQuote(
-            b, ++seq, principal, 1_200, 10 days, 0, address(token),
-            DEPLOYMENT, uint64(block.timestamp)
+            b,
+            ++seq,
+            principal,
+            1_200,
+            10 days,
+            0,
+            address(token),
+            DEPLOYMENT,
+            uint64(block.timestamp)
         );
         oracle.accept(a, OracleHarness.sign(oracle, a, SIGNER_KEY));
         return manager.originate(b, principal);
@@ -236,8 +239,7 @@ contract ReentrancyTest is Test {
         o.setSigner(Route.Development, vm.addr(SIGNER_KEY), true);
         vm.stopPrank();
 
-        CreditAccount acct =
-            new CreditAccount(address(m), OWNER, AGENT, address(o));
+        CreditAccount acct = new CreditAccount(address(m), OWNER, AGENT, address(o));
 
         attacker.mint(LENDER, 50_000e6);
         vm.startPrank(LENDER);
@@ -250,20 +252,34 @@ contract ReentrancyTest is Test {
         attacker.mint(address(acct), 10_000e6);
 
         // Loan 1, drawn normally.
-        Binding memory b1 =
-            OracleHarness.binding(address(acct), acct.stateVersion(), FACILITY);
+        Binding memory b1 = OracleHarness.binding(address(acct), acct.stateVersion(), FACILITY);
         Assessment memory a1 = OracleHarness.approvedQuote(
-            b1, ++seq, 1_000e6, 1_200, 10 days, 0, address(attacker),
-            DEPLOYMENT, uint64(block.timestamp));
+            b1,
+            ++seq,
+            1_000e6,
+            1_200,
+            10 days,
+            0,
+            address(attacker),
+            DEPLOYMENT,
+            uint64(block.timestamp)
+        );
         o.accept(a1, OracleHarness.sign(o, a1, SIGNER_KEY));
         uint256 loan1 = m.originate(b1, 1_000e6);
 
         // A second standing quote, ready for the callback to consume.
-        Binding memory b2 =
-            OracleHarness.binding(address(acct), acct.stateVersion(), FACILITY);
+        Binding memory b2 = OracleHarness.binding(address(acct), acct.stateVersion(), FACILITY);
         Assessment memory a2 = OracleHarness.approvedQuote(
-            b2, ++seq, 1_000e6, 1_200, 10 days, 0, address(attacker),
-            DEPLOYMENT, uint64(block.timestamp));
+            b2,
+            ++seq,
+            1_000e6,
+            1_200,
+            10 days,
+            0,
+            address(attacker),
+            DEPLOYMENT,
+            uint64(block.timestamp)
+        );
         o.accept(a2, OracleHarness.sign(o, a2, SIGNER_KEY));
 
         attacker.arm(m, b2, 1_000e6);
@@ -278,14 +294,8 @@ contract ReentrancyTest is Test {
         }
 
         // A second loan exists, so the account must still be locked.
-        assertEq(
-            uint8(m.status(loan2)), uint8(LoanManager.Status.Active),
-            "loan 2 is live"
-        );
-        assertTrue(
-            acct.debtOutstanding(),
-            "repaying loan 1 must not release loan 2's custody lock"
-        );
+        assertEq(uint8(m.status(loan2)), uint8(LoanManager.Status.Active), "loan 2 is live");
+        assertTrue(acct.debtOutstanding(), "repaying loan 1 must not release loan 2's custody lock");
     }
 
     /// A token that reenters during repayment cannot repay twice.
@@ -346,8 +356,7 @@ contract ReentrancyTest is Test {
         uint256 loanId = _originate(5_000e6);
         vm.warp(block.timestamp + 10 days);
 
-        Binding memory b =
-            OracleHarness.binding(address(account), account.stateVersion(), FACILITY);
+        Binding memory b = OracleHarness.binding(address(account), account.stateVersion(), FACILITY);
         vm.prank(OPERATOR);
         manager.openRecovery(loanId, OPERATOR, b);
 

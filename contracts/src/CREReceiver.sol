@@ -2,7 +2,14 @@
 pragma solidity 0.8.28;
 
 import {
-    Assessment, Binding, Terms, Route, Kind, Decision, Permission, Class
+    Assessment,
+    Binding,
+    Terms,
+    Route,
+    Kind,
+    Decision,
+    Permission,
+    Class
 } from "./Assessment.sol";
 import {RiskOracle} from "./RiskOracle.sol";
 
@@ -97,9 +104,7 @@ contract CREReceiver is IReceiver {
 
     event LoanEnrolled(uint256 indexed loanId, uint256 indexed facilityId);
     event LoanRetired(uint256 indexed loanId);
-    event ReportAccepted(
-        bytes32 indexed reportKey, uint256 indexed loanId, uint64 sequence
-    );
+    event ReportAccepted(bytes32 indexed reportKey, uint256 indexed loanId, uint64 sequence);
 
     /// @notice The only address permitted to deliver reports.
     address public immutable forwarder;
@@ -156,10 +161,7 @@ contract CREReceiver is IReceiver {
     /// IS. Splitting it this way means a compromised workflow can withdraw
     /// permission or refuse it, but cannot invent an obligation or move an
     /// existing one to a different account.
-    function enrol(uint256 loanId, Binding calldata binding)
-        external
-        onlyOperator
-    {
+    function enrol(uint256 loanId, Binding calldata binding) external onlyOperator {
         enrolled[loanId] = binding;
         isEnrolled[loanId] = true;
         emit LoanEnrolled(loanId, binding.facilityId);
@@ -196,26 +198,17 @@ contract CREReceiver is IReceiver {
     }
 
     /// @inheritdoc IReceiver
-    function onReport(bytes calldata metadata, bytes calldata report)
-        external
-    {
+    function onReport(bytes calldata metadata, bytes calldata report) external {
         // 1. Only the forwarder. Checked first and cheaply: everything
         // after this trusts the caller to have run DON consensus.
         require(msg.sender == forwarder, UnexpectedSender(msg.sender, forwarder));
 
-        (bytes32 reportWorkflowId, address reportOwner, bytes2 reportId) =
-            _decodeMetadata(metadata);
+        (bytes32 reportWorkflowId, address reportOwner, bytes2 reportId) = _decodeMetadata(metadata);
 
         // 2 and 3. The forwarder routes for every workflow on the chain, so
         // it attests that SOME workflow produced this, not which one.
-        require(
-            reportOwner == workflowOwner,
-            UnexpectedWorkflowOwner(reportOwner, workflowOwner)
-        );
-        require(
-            reportWorkflowId == workflowId,
-            UnexpectedWorkflow(reportWorkflowId, workflowId)
-        );
+        require(reportOwner == workflowOwner, UnexpectedWorkflowOwner(reportOwner, workflowOwner));
+        require(reportWorkflowId == workflowId, UnexpectedWorkflow(reportWorkflowId, workflowId));
 
         MonitoringReport memory r = abi.decode(report, (MonitoringReport));
 
@@ -226,8 +219,7 @@ contract CREReceiver is IReceiver {
         // repeats across workflows, so the key commits to the workflow and
         // the assessment as well -- a receiver keyed on reportId alone
         // would refuse an unrelated later report that happened to reuse it.
-        bytes32 reportKey =
-            keccak256(abi.encode(reportWorkflowId, reportId, r.assessmentId));
+        bytes32 reportKey = keccak256(abi.encode(reportWorkflowId, reportId, r.assessmentId));
         require(!consumed[reportKey], ReportAlreadySeen(reportKey));
         consumed[reportKey] = true;
 
@@ -240,13 +232,8 @@ contract CREReceiver is IReceiver {
     }
 
     /// @inheritdoc IERC165
-    function supportsInterface(bytes4 interfaceId)
-        external
-        pure
-        returns (bool)
-    {
-        return interfaceId == RECEIVER_INTERFACE_ID
-            || interfaceId == ERC165_INTERFACE_ID;
+    function supportsInterface(bytes4 interfaceId) external pure returns (bool) {
+        return interfaceId == RECEIVER_INTERFACE_ID || interfaceId == ERC165_INTERFACE_ID;
     }
 
     /// @dev Expand a monitoring report into the assessment the oracle reads.
@@ -255,11 +242,7 @@ contract CREReceiver is IReceiver {
     /// put them -- `docs/05` forbids them, and the oracle rejects them, but
     /// the reason they are absent here is that `MonitoringReport` has no
     /// field to carry one.
-    function _normalize(MonitoringReport memory r)
-        private
-        view
-        returns (Assessment memory a)
-    {
+    function _normalize(MonitoringReport memory r) private view returns (Assessment memory a) {
         Binding memory b = enrolled[r.loanId];
         // The version the ENGINE assessed, not one this contract stored.
         // A stale version would be compared against the account's current
@@ -312,10 +295,7 @@ contract CREReceiver is IReceiver {
         pure
         returns (bytes32 id, address owner, bytes2 reportId)
     {
-        require(
-            metadata.length == METADATA_LENGTH,
-            MalformedMetadata(metadata.length)
-        );
+        require(metadata.length == METADATA_LENGTH, MalformedMetadata(metadata.length));
         id = bytes32(metadata[0:32]);
         // workflowName occupies [32:42] and is not used: the id already
         // identifies the workflow, and the name is mutable.

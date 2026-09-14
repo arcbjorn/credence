@@ -186,8 +186,7 @@ contract CreditVault {
         require(principal > 0, ZeroAmount());
         require(principal <= idleCash, InsufficientIdleCash());
         require(
-            outstandingPrincipal + reservedObligation + principal + reservedInterest
-                <= globalCap,
+            outstandingPrincipal + reservedObligation + principal + reservedInterest <= globalCap,
             ExceedsGlobalCap()
         );
 
@@ -201,19 +200,13 @@ contract CreditVault {
     /// @notice Record returned principal. Tokens must already be held here.
     /// @dev Split from interest so the ledgers never blur: principal reduces
     /// exposure, interest is income. Callers transfer first, then record.
-    function recordPrincipalRepaid(address account, uint256 principal)
-        external
-        onlyLoanManager
-    {
+    function recordPrincipalRepaid(address account, uint256 principal) external onlyLoanManager {
         outstandingPrincipal -= principal;
         idleCash += principal;
         emit PrincipalRepaid(account, principal);
     }
 
-    function recordInterestCollected(address account, uint256 interest)
-        external
-        onlyLoanManager
-    {
+    function recordInterestCollected(address account, uint256 interest) external onlyLoanManager {
         collectedInterest += interest;
         idleCash += interest;
         emit InterestCollected(account, interest);

@@ -106,10 +106,7 @@ contract MockReputationRegistry {
         // The real registry refuses this, and Credence's whole client
         // topology follows from it: the borrowing agent must be owned by
         // someone other than the publisher.
-        require(
-            identity.ownerOf(agentId) != msg.sender,
-            "Self-feedback not allowed"
-        );
+        require(identity.ownerOf(agentId) != msg.sender, "Self-feedback not allowed");
 
         uint64 index = ++counts[agentId][msg.sender];
         entries[agentId].push(
@@ -125,8 +122,17 @@ contract MockReputationRegistry {
         );
 
         emit NewFeedback(
-            agentId, msg.sender, index, value, valueDecimals,
-            tag1, tag1, tag2, endpoint, feedbackURI, feedbackHash
+            agentId,
+            msg.sender,
+            index,
+            value,
+            valueDecimals,
+            tag1,
+            tag1,
+            tag2,
+            endpoint,
+            feedbackURI,
+            feedbackHash
         );
     }
 
@@ -210,11 +216,7 @@ contract MockReputationRegistry {
         return true;
     }
 
-    function _eq(string storage a, string calldata b)
-        private
-        pure
-        returns (bool)
-    {
+    function _eq(string storage a, string calldata b) private pure returns (bool) {
         return keccak256(bytes(a)) == keccak256(bytes(b));
     }
 }

@@ -4,7 +4,14 @@ pragma solidity 0.8.28;
 import {Test} from "forge-std/Test.sol";
 import {RiskOracle} from "../src/RiskOracle.sol";
 import {
-    Assessment, Binding, Class, Decision, Kind, Permission, Route, Terms
+    Assessment,
+    Binding,
+    Class,
+    Decision,
+    Kind,
+    Permission,
+    Route,
+    Terms
 } from "../src/Assessment.sol";
 
 contract RiskOracleTest is Test {
@@ -107,9 +114,7 @@ contract RiskOracleTest is Test {
     /// Recomputes the EIP-712 digest through the oracle's own view path so the
     /// test cannot drift from the contract's encoding.
     function _digest(Assessment memory a) internal view returns (bytes32) {
-        return keccak256(
-            abi.encodePacked("\x19\x01", oracle.domainSeparator(), _structHash(a))
-        );
+        return keccak256(abi.encodePacked("\x19\x01", oracle.domainSeparator(), _structHash(a)));
     }
 
     function _structHash(Assessment memory a) internal pure returns (bytes32) {
@@ -190,7 +195,7 @@ contract RiskOracleTest is Test {
         assertEq(approved, 5_000e6, "terms stored with quote");
 
         vm.prank(CONSUMER);
-        (Terms memory t, , ) = oracle.consumeQuote(b, 5_000e6);
+        (Terms memory t,,) = oracle.consumeQuote(b, 5_000e6);
         assertEq(t.aprBps, 1_200);
     }
 
@@ -227,9 +232,7 @@ contract RiskOracleTest is Test {
 
         Assessment memory replay = _origination(5, Decision.Approved);
         bytes memory sig = _sign(replay, devKey);
-        vm.expectRevert(
-            abi.encodeWithSelector(RiskOracle.SequenceNotIncreasing.selector, 5, 5)
-        );
+        vm.expectRevert(abi.encodeWithSelector(RiskOracle.SequenceNotIncreasing.selector, 5, 5));
         oracle.accept(replay, sig);
     }
 
@@ -271,9 +274,7 @@ contract RiskOracleTest is Test {
         a.route = Route.CRE;
         // Signed by the allowlisted DEVELOPMENT key, not the CRE key.
         bytes memory sig = _sign(a, devKey);
-        vm.expectRevert(
-            abi.encodeWithSelector(RiskOracle.UnauthorizedSigner.selector, devSigner)
-        );
+        vm.expectRevert(abi.encodeWithSelector(RiskOracle.UnauthorizedSigner.selector, devSigner));
         oracle.accept(a, sig);
     }
 
@@ -420,7 +421,7 @@ contract RiskOracleTest is Test {
         vm.warp(block.timestamp + 30 minutes);
 
         vm.prank(CONSUMER);
-        (Terms memory t, , ) = oracle.consumeQuote(_binding(), 5_000e6);
+        (Terms memory t,,) = oracle.consumeQuote(_binding(), 5_000e6);
         assertEq(t.approvedPrincipal, 5_000e6, "a live quote must still fund");
     }
 
@@ -436,9 +437,7 @@ contract RiskOracleTest is Test {
         // Signed before the expectation: _sign makes a view call of its
         // own, which would otherwise consume it.
         bytes memory sig = _sign(a, devKey);
-        vm.expectRevert(
-            abi.encodeWithSelector(RiskOracle.GrantMismatch.selector, 1_000e6, 5_000e6)
-        );
+        vm.expectRevert(abi.encodeWithSelector(RiskOracle.GrantMismatch.selector, 1_000e6, 5_000e6));
         oracle.accept(a, sig);
     }
 
@@ -490,8 +489,7 @@ contract RiskOracleTest is Test {
         oracle.accept(deny, _sign(deny, devKey));
 
         assertFalse(
-            oracle.riskAllowed(_binding()),
-            "a newer denial must revoke the standing permission"
+            oracle.riskAllowed(_binding()), "a newer denial must revoke the standing permission"
         );
     }
 
@@ -528,7 +526,7 @@ contract RiskOracleTest is Test {
         scenario.accept(a, _signFor(scenario, a, devKey));
 
         vm.prank(CONSUMER);
-        (Terms memory t, , ) = scenario.consumeQuote(_binding(), 5_000e6);
+        (Terms memory t,,) = scenario.consumeQuote(_binding(), 5_000e6);
         assertEq(t.approvedPrincipal, 5_000e6, "a scenario quote must fund here");
     }
 
@@ -572,9 +570,8 @@ contract RiskOracleTest is Test {
         view
         returns (bytes memory)
     {
-        bytes32 digest = keccak256(
-            abi.encodePacked("\x19\x01", o.domainSeparator(), _structHash(a))
-        );
+        bytes32 digest =
+            keccak256(abi.encodePacked("\x19\x01", o.domainSeparator(), _structHash(a)));
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(key, digest);
         return abi.encodePacked(r, s, v);
     }
@@ -623,7 +620,8 @@ contract RiskOracleTest is Test {
         Binding memory rewritten = a.binding;
         rewritten.configVersion = a.binding.configVersion + 1;
         assertEq(
-            oracle.bindingKey(rewritten), oracle.bindingKey(a.binding),
+            oracle.bindingKey(rewritten),
+            oracle.bindingKey(a.binding),
             "the key is unchanged -- which is why the commitment matters"
         );
         assertFalse(
@@ -633,10 +631,7 @@ contract RiskOracleTest is Test {
 
         Binding memory reoperated = a.binding;
         reoperated.operator = address(0xBAD);
-        assertFalse(
-            oracle.riskAllowed(reoperated),
-            "nor a rewritten operator"
-        );
+        assertFalse(oracle.riskAllowed(reoperated), "nor a rewritten operator");
     }
 
     function test_LoanManagerIsWiredOnce() public {
@@ -676,16 +671,12 @@ contract RiskOracleTest is Test {
             sVal := mload(add(sig, 64))
             v := byte(0, mload(add(sig, 96)))
         }
-        uint256 n =
-            0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141;
+        uint256 n = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141;
         bytes32 flipped = bytes32(n - uint256(sVal));
         uint8 flippedV = v == 27 ? 28 : 27;
         bytes memory malleable = abi.encodePacked(r, flipped, flippedV);
 
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                RiskOracle.UnauthorizedSigner.selector, address(0))
-        );
+        vm.expectRevert(abi.encodeWithSelector(RiskOracle.UnauthorizedSigner.selector, address(0)));
         oracle.accept(a, malleable);
     }
 
@@ -727,9 +718,7 @@ contract RiskOracleTest is Test {
         Assessment memory a = _origination(1, Decision.Approved);
         a.route = Route.CRE;
         bytes memory sig = _sign(a, devKey);
-        vm.expectRevert(
-            abi.encodeWithSelector(RiskOracle.UnauthorizedSigner.selector, devSigner)
-        );
+        vm.expectRevert(abi.encodeWithSelector(RiskOracle.UnauthorizedSigner.selector, devSigner));
         oracle.accept(a, sig);
     }
 
@@ -744,7 +733,7 @@ contract RiskOracleTest is Test {
         oracle.accept(a, _sign(a, creKey));
 
         vm.prank(CONSUMER);
-        (Terms memory t, , ) = oracle.consumeQuote(_binding(), 5_000e6);
+        (Terms memory t,,) = oracle.consumeQuote(_binding(), 5_000e6);
         assertEq(t.approvedPrincipal, 5_000e6, "the CRE path must still fund");
     }
 }

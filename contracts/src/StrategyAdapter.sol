@@ -110,7 +110,7 @@ contract StrategyAdapter {
     }
 
     function _requireFairSell(uint256 riskyIn, uint256 settlementOut) private view {
-        (uint256 price, ) = _freshPrice();
+        (uint256 price,) = _freshPrice();
         uint256 expected = (riskyIn * price) / (10 ** riskyDecimals);
         _requireWithinTolerance(expected, settlementOut);
     }

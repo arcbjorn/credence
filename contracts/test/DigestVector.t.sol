@@ -5,7 +5,16 @@ import {Test} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
 import {RiskOracle} from "../src/RiskOracle.sol";
 import {OracleHarness} from "./OracleHarness.sol";
-import {Assessment, Binding, Class, Decision, Kind, Permission, Route, Terms} from "../src/Assessment.sol";
+import {
+    Assessment,
+    Binding,
+    Class,
+    Decision,
+    Kind,
+    Permission,
+    Route,
+    Terms
+} from "../src/Assessment.sol";
 
 /// Emits the digest Solidity computes for a fixed assessment, so the Go
 /// signer can be pinned against it. If the two encoders ever diverge, the
@@ -16,9 +25,8 @@ contract DigestVectorTest is Test {
         RiskOracle oracle = new RiskOracle(address(0xA1), 7, Class.PrototypeEligible);
 
         Binding memory b = OracleHarness.binding(address(0xACC7), 3, 1);
-        Assessment memory a = OracleHarness.approvedQuote(
-            b, 5, 0, 0, 0, 0, address(0x05D0), 7, 1000
-        );
+        Assessment memory a =
+            OracleHarness.approvedQuote(b, 5, 0, 0, 0, 0, address(0x05D0), 7, 1000);
         // Shape it as a monitoring result: no request, no grant.
         a.kind = Kind.Monitoring;
         a.decision = Decision.Approved;

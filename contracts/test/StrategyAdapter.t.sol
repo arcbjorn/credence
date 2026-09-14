@@ -33,14 +33,22 @@ contract StrategyAdapterTest is Test {
         settlement = new TestSettlementToken();
         risky = new TestRiskyAsset();
 
-        venue = new SpotVenue(IERC20(address(settlement)), IERC20(address(risky)),
-            PRICE, PRICE_SCALE, RISKY_DECIMALS, OPERATOR);
+        venue = new SpotVenue(
+            IERC20(address(settlement)),
+            IERC20(address(risky)),
+            PRICE,
+            PRICE_SCALE,
+            RISKY_DECIMALS,
+            OPERATOR
+        );
         priceSource = new FixedPriceSource(PRICE, PRICE_SCALE, OPERATOR);
 
         adapter = new StrategyAdapter(
-            IERC20(address(settlement)), IERC20(address(risky)),
-            venue, IPriceSource(address(priceSource)),
-            200,   // 2% tolerance
+            IERC20(address(settlement)),
+            IERC20(address(risky)),
+            venue,
+            IPriceSource(address(priceSource)),
+            200, // 2% tolerance
             3_600, // one hour
             RISKY_DECIMALS
         );
@@ -70,8 +78,7 @@ contract StrategyAdapterTest is Test {
         _approveAdapter(address(settlement), 4_000e6);
 
         vm.prank(AGENT);
-        account.execute(address(adapter),
-            abi.encodeCall(StrategyAdapter.acquire, (4_000e6)));
+        account.execute(address(adapter), abi.encodeCall(StrategyAdapter.acquire, (4_000e6)));
 
         assertEq(settlement.balanceOf(address(account)), 6_000e6, "settlement spent");
         assertEq(risky.balanceOf(address(account)), 2e18, "risky received by the account");
@@ -107,8 +114,7 @@ contract StrategyAdapterTest is Test {
 
         vm.prank(AGENT);
         vm.expectRevert(CreditAccount.AdapterCallFailed.selector);
-        account.execute(address(adapter),
-            abi.encodeCall(StrategyAdapter.acquire, (4_000e6)));
+        account.execute(address(adapter), abi.encodeCall(StrategyAdapter.acquire, (4_000e6)));
 
         // Nothing moved: the account keeps its settlement.
         assertEq(settlement.balanceOf(address(account)), 10_000e6);
@@ -121,8 +127,7 @@ contract StrategyAdapterTest is Test {
         settlement.approve(address(adapter), 4_000e6);
         vm.expectRevert(
             abi.encodeWithSelector(
-                StrategyAdapter.SlippageExceeded.selector,
-                uint256(2e18), uint256(1e18), uint32(200)
+                StrategyAdapter.SlippageExceeded.selector, uint256(2e18), uint256(1e18), uint32(200)
             )
         );
         adapter.acquire(4_000e6);
@@ -163,8 +168,7 @@ contract StrategyAdapterTest is Test {
         _approveAdapter(address(settlement), 4_000e6);
         vm.prank(AGENT);
         vm.expectRevert(CreditAccount.AdapterCallFailed.selector);
-        account.execute(address(adapter),
-            abi.encodeCall(StrategyAdapter.acquire, (4_000e6)));
+        account.execute(address(adapter), abi.encodeCall(StrategyAdapter.acquire, (4_000e6)));
     }
 
     // --- Custody ---
@@ -175,8 +179,11 @@ contract StrategyAdapterTest is Test {
         vm.prank(AGENT);
         account.execute(address(adapter), abi.encodeCall(StrategyAdapter.acquire, (4_000e6)));
 
-        assertEq(settlement.allowance(address(adapter), address(venue)), 0,
-            "approval must be cleared after the trade");
+        assertEq(
+            settlement.allowance(address(adapter), address(venue)),
+            0,
+            "approval must be cleared after the trade"
+        );
     }
 
     /// Execution advances the account's state version, invalidating any
@@ -193,12 +200,19 @@ contract StrategyAdapterTest is Test {
     /// An unregistered adapter cannot be called, whatever it claims to do.
     function test_unregisteredAdapterIsRejected() public {
         StrategyAdapter rogue = new StrategyAdapter(
-            IERC20(address(settlement)), IERC20(address(risky)),
-            venue, IPriceSource(address(priceSource)), 200, 3_600, RISKY_DECIMALS);
+            IERC20(address(settlement)),
+            IERC20(address(risky)),
+            venue,
+            IPriceSource(address(priceSource)),
+            200,
+            3_600,
+            RISKY_DECIMALS
+        );
 
         vm.prank(AGENT);
         vm.expectRevert(
-            abi.encodeWithSelector(CreditAccount.AdapterNotAllowed.selector, address(rogue)));
+            abi.encodeWithSelector(CreditAccount.AdapterNotAllowed.selector, address(rogue))
+        );
         account.execute(address(rogue), abi.encodeCall(StrategyAdapter.acquire, (1e6)));
     }
 }
@@ -227,8 +241,7 @@ contract AdapterApprovalTest is Test {
     /// used to hand an arbitrary address a claim on the account.
     function test_cannotApproveUnregisteredSpender() public {
         vm.prank(AGENT);
-        vm.expectRevert(
-            abi.encodeWithSelector(CreditAccount.AdapterNotAllowed.selector, ATTACKER));
+        vm.expectRevert(abi.encodeWithSelector(CreditAccount.AdapterNotAllowed.selector, ATTACKER));
         account.approveAdapter(address(settlement), ATTACKER, type(uint256).max);
     }
 
@@ -248,13 +261,19 @@ contract AdapterApprovalTest is Test {
 
         vm.prank(LOAN_MANAGER);
         account.setAdapter(ADAPTER, false);
-        assertEq(settlement.allowance(address(account), ADAPTER), 5_000e6,
-            "revocation alone does not clear the allowance");
+        assertEq(
+            settlement.allowance(address(account), ADAPTER),
+            5_000e6,
+            "revocation alone does not clear the allowance"
+        );
 
         vm.prank(AGENT);
         account.approveAdapter(address(settlement), ADAPTER, 0);
-        assertEq(settlement.allowance(address(account), ADAPTER), 0,
-            "zeroing must work even after revocation");
+        assertEq(
+            settlement.allowance(address(account), ADAPTER),
+            0,
+            "zeroing must work even after revocation"
+        );
     }
 
     /// But a revoked adapter cannot be granted a NEW allowance.
@@ -263,8 +282,7 @@ contract AdapterApprovalTest is Test {
         account.setAdapter(ADAPTER, false);
 
         vm.prank(AGENT);
-        vm.expectRevert(
-            abi.encodeWithSelector(CreditAccount.AdapterNotAllowed.selector, ADAPTER));
+        vm.expectRevert(abi.encodeWithSelector(CreditAccount.AdapterNotAllowed.selector, ADAPTER));
         account.approveAdapter(address(settlement), ADAPTER, 1e6);
     }
 }

@@ -2,9 +2,7 @@
 pragma solidity 0.8.28;
 
 import {Test} from "forge-std/Test.sol";
-import {
-    MockIdentityRegistry, MockReputationRegistry
-} from "../src/MockERC8004.sol";
+import {MockIdentityRegistry, MockReputationRegistry} from "../src/MockERC8004.sol";
 
 /// A test double is only useful if it fails where the real contract
 /// fails. These pin the three behaviours Credence's design depends on,
@@ -28,16 +26,14 @@ contract MockERC8004Test is Test {
     /// passes here lands nowhere against the real one.
     function test_selectorsMatchTheDeployedRegistry() public pure {
         assertEq(
-            bytes4(keccak256(
-                "giveFeedback(uint256,int128,uint8,string,string,string,string,bytes32)"
-            )),
+            bytes4(
+                keccak256("giveFeedback(uint256,int128,uint8,string,string,string,string,bytes32)")
+            ),
             bytes4(0x3c036a7e),
             "giveFeedback selector"
         );
         assertEq(
-            bytes4(keccak256(
-                "readAllFeedback(uint256,address[],string,string,bool)"
-            )),
+            bytes4(keccak256("readAllFeedback(uint256,address[],string,string,bool)")),
             bytes4(0xd9d84224),
             "readAllFeedback selector"
         );
@@ -49,22 +45,19 @@ contract MockERC8004Test is Test {
     function test_selfFeedbackIsRefused() public {
         vm.prank(AGENT_OWNER);
         vm.expectRevert("Self-feedback not allowed");
-        reputation.giveFeedback(
-            AGENT_ID, 1, 0, "credence.interest", "loan:1", "", "", bytes32(0));
+        reputation.giveFeedback(AGENT_ID, 1, 0, "credence.interest", "loan:1", "", "", bytes32(0));
     }
 
     /// The registry does NOT dedupe. Sending the same outcome twice
     /// yields two entries, so idempotency has to happen before the send.
     function test_duplicateSendsAreNotRefused() public {
         vm.startPrank(CLIENT);
-        reputation.giveFeedback(
-            AGENT_ID, 1, 0, "credence.interest", "loan:1", "", "", bytes32(0));
-        reputation.giveFeedback(
-            AGENT_ID, 1, 0, "credence.interest", "loan:1", "", "", bytes32(0));
+        reputation.giveFeedback(AGENT_ID, 1, 0, "credence.interest", "loan:1", "", "", bytes32(0));
+        reputation.giveFeedback(AGENT_ID, 1, 0, "credence.interest", "loan:1", "", "", bytes32(0));
         vm.stopPrank();
 
-        (, uint64[] memory indexes,,,,,) = reputation.readAllFeedback(
-            AGENT_ID, new address[](0), "", "", true);
+        (, uint64[] memory indexes,,,,,) =
+            reputation.readAllFeedback(AGENT_ID, new address[](0), "", "", true);
         assertEq(indexes.length, 2, "the registry kept both");
         assertEq(indexes[0], 1, "1-indexed");
         assertEq(indexes[1], 2, "and auto-incrementing");
@@ -75,11 +68,11 @@ contract MockERC8004Test is Test {
     function test_negativeValueRoundTrips() public {
         vm.prank(CLIENT);
         reputation.giveFeedback(
-            AGENT_ID, -2_600_000_000, 6, "credence.loss", "loan:1",
-            "", "", bytes32(0));
+            AGENT_ID, -2_600_000_000, 6, "credence.loss", "loan:1", "", "", bytes32(0)
+        );
 
-        (,, int128[] memory values,,,,) = reputation.readAllFeedback(
-            AGENT_ID, new address[](0), "", "", true);
+        (,, int128[] memory values,,,,) =
+            reputation.readAllFeedback(AGENT_ID, new address[](0), "", "", true);
         assertEq(values[0], -2_600_000_000, "loss stays negative");
     }
 
@@ -88,20 +81,18 @@ contract MockERC8004Test is Test {
     function test_tagsFilter() public {
         vm.startPrank(CLIENT);
         reputation.giveFeedback(
-            AGENT_ID, 4_000_000_000, 6, "credence.outcome.repaid", "loan:1",
-            "", "", bytes32(0));
-        reputation.giveFeedback(
-            AGENT_ID, 0, 6, "credence.loss", "loan:1", "", "", bytes32(0));
-        reputation.giveFeedback(
-            AGENT_ID, 7, 6, "credence.loss", "loan:2", "", "", bytes32(0));
+            AGENT_ID, 4_000_000_000, 6, "credence.outcome.repaid", "loan:1", "", "", bytes32(0)
+        );
+        reputation.giveFeedback(AGENT_ID, 0, 6, "credence.loss", "loan:1", "", "", bytes32(0));
+        reputation.giveFeedback(AGENT_ID, 7, 6, "credence.loss", "loan:2", "", "", bytes32(0));
         vm.stopPrank();
 
-        (,, int128[] memory losses,,,,) = reputation.readAllFeedback(
-            AGENT_ID, new address[](0), "credence.loss", "", true);
+        (,, int128[] memory losses,,,,) =
+            reputation.readAllFeedback(AGENT_ID, new address[](0), "credence.loss", "", true);
         assertEq(losses.length, 2, "tag1 selects both losses");
 
-        (,, int128[] memory loan2,,,,) = reputation.readAllFeedback(
-            AGENT_ID, new address[](0), "credence.loss", "loan:2", true);
+        (,, int128[] memory loan2,,,,) =
+            reputation.readAllFeedback(AGENT_ID, new address[](0), "credence.loss", "loan:2", true);
         assertEq(loan2.length, 1, "tag1+tag2 selects one obligation");
         assertEq(loan2[0], 7, "and the right one");
     }
@@ -112,9 +103,9 @@ contract MockERC8004Test is Test {
         vm.prank(CLIENT);
         vm.expectRevert(
             abi.encodeWithSelector(
-                MockIdentityRegistry.ERC721NonexistentToken.selector, uint256(999))
+                MockIdentityRegistry.ERC721NonexistentToken.selector, uint256(999)
+            )
         );
-        reputation.giveFeedback(
-            999, 1, 0, "credence.interest", "loan:1", "", "", bytes32(0));
+        reputation.giveFeedback(999, 1, 0, "credence.interest", "loan:1", "", "", bytes32(0));
     }
 }

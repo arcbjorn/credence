@@ -1,7 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import {Assessment, Binding, Class, Decision, Kind, Permission, Route, Terms} from "./Assessment.sol";
+import {
+    Assessment,
+    Binding,
+    Class,
+    Decision,
+    Kind,
+    Permission,
+    Route,
+    Terms
+} from "./Assessment.sol";
 
 /// @title RiskOracle
 /// @notice Accepts signed assessments and holds the one quote or permission
@@ -134,7 +143,9 @@ contract RiskOracle {
 
     event RoutePinned(uint256 indexed facilityId, Route route);
     event SignerSet(Route indexed route, address indexed signer, bool allowed);
-    event Accepted(bytes32 indexed bindingKey, bytes32 indexed assessmentId, Kind kind, uint64 sequence);
+    event Accepted(
+        bytes32 indexed bindingKey, bytes32 indexed assessmentId, Kind kind, uint64 sequence
+    );
     event QuoteConsumedEvent(bytes32 indexed bindingKey, bytes32 indexed assessmentId);
 
     modifier onlyOperator() {
@@ -148,11 +159,7 @@ contract RiskOracle {
         executableClass = executableClass_;
         domainSeparator = keccak256(
             abi.encode(
-                DOMAIN_TYPEHASH,
-                keccak256("Credence"),
-                keccak256("1"),
-                block.chainid,
-                address(this)
+                DOMAIN_TYPEHASH, keccak256("Credence"), keccak256("1"), block.chainid, address(this)
             )
         );
     }
@@ -364,8 +371,7 @@ contract RiskOracle {
             // that cannot grant permission must still revoke whatever
             // stood before, or a stale Allowed survives the very update
             // that was meant to withdraw it.
-            bool grants = a.decision == Decision.Approved
-                && a.permission == Permission.Allowed
+            bool grants = a.decision == Decision.Approved && a.permission == Permission.Allowed
                 && _isExecutable(a.class_);
 
             if (grants) {
@@ -522,15 +528,12 @@ contract RiskOracle {
     /// A lapse still blocks new risk -- `riskAllowed` is unchanged, and
     /// `docs/05` requires expired permission to prevent risk increases.
     /// It just is not, by itself, grounds to seize.
-    function permissionWithdrawn(Binding calldata b)
-        external
-        view
-        returns (bool)
-    {
+    function permissionWithdrawn(Binding calldata b) external view returns (bool) {
         bytes32 key = bindingKey(b);
-        if (riskPermission[key] == Permission.Allowed
-            && permissionValidUntil[key] > block.timestamp
-            && permissionStateVersion[key] == b.accountStateVersion) {
+        if (
+            riskPermission[key] == Permission.Allowed && permissionValidUntil[key] > block.timestamp
+                && permissionStateVersion[key] == b.accountStateVersion
+        ) {
             // Currently allowed: nothing was withdrawn.
             return false;
         }
@@ -550,11 +553,7 @@ contract RiskOracle {
     /// @notice When the standing permission for this binding lapses.
     /// @dev Zero when none stands. Read by the loan manager so a lapse can
     /// be given a grace period rather than treated as a withdrawal.
-    function permissionExpiry(Binding calldata b)
-        external
-        view
-        returns (uint64)
-    {
+    function permissionExpiry(Binding calldata b) external view returns (uint64) {
         return permissionValidUntil[bindingKey(b)];
     }
 

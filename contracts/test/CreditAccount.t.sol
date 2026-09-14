@@ -8,10 +8,16 @@ import {MockERC20} from "./MockERC20.sol";
 /// Adapter that does nothing but succeed — stands in for a strategy route.
 contract OkAdapter {
     uint256 public calls;
-    function act() external { calls++; }
+
+    function act() external {
+        calls++;
+    }
+
     /// A second entry point, so a test can present a call the assessment
     /// never authorized through an adapter that IS allowlisted.
-    function other() external { calls++; }
+    function other() external {
+        calls++;
+    }
 }
 
 /// Adapter that calls back into `execute` during its own call.
@@ -36,11 +42,11 @@ contract ReentrantAdapter {
         if (account == address(0) || reentered) return;
         reentered = true;
         versionSeenOnReentry = CreditAccount(account).stateVersion();
-        try CreditAccount(account).execute(
-            address(this), abi.encodeWithSelector(this.act.selector)
-        ) {
-            // Recorded so the test can assert on it.
-        } catch {
+        try CreditAccount(account)
+            .execute(address(this), abi.encodeWithSelector(this.act.selector)) {
+        // Recorded so the test can assert on it.
+        }
+        catch {
             reentryReverted = true;
         }
     }
@@ -125,8 +131,7 @@ contract CreditAccountTest is Test {
     function test_withdrawBlockedWhileDebtOutstanding() public {
         vm.prank(LOAN_MANAGER);
         account.openDebt(
-            KEY, BINDING_HASH, _actionHash(),
-            uint64(block.timestamp + 1 hours), QUOTE_SEQ
+            KEY, BINDING_HASH, _actionHash(), uint64(block.timestamp + 1 hours), QUOTE_SEQ
         );
 
         vm.prank(OWNER);
@@ -141,14 +146,16 @@ contract CreditAccountTest is Test {
         // this test reaches the laundering defence itself rather than
         // stopping at the authorization gate in front of it.
         DrainAdapter drain = new DrainAdapter();
-        bytes memory drainCall = abi.encodeCall(
-            DrainAdapter.drain, (address(token), address(account), OUTSIDER, 1e6)
-        );
+        bytes memory drainCall =
+            abi.encodeCall(DrainAdapter.drain, (address(token), address(account), OUTSIDER, 1e6));
 
         vm.startPrank(LOAN_MANAGER);
         account.openDebt(
-            KEY, BINDING_HASH, keccak256(abi.encode(address(drain), drainCall)),
-            uint64(block.timestamp + 1 hours), QUOTE_SEQ
+            KEY,
+            BINDING_HASH,
+            keccak256(abi.encode(address(drain), drainCall)),
+            uint64(block.timestamp + 1 hours),
+            QUOTE_SEQ
         );
         account.setAdapter(address(drain), true);
         vm.stopPrank();
@@ -168,8 +175,7 @@ contract CreditAccountTest is Test {
     function test_withdrawAllowedAfterDebtClosed() public {
         vm.startPrank(LOAN_MANAGER);
         account.openDebt(
-            KEY, BINDING_HASH, _actionHash(),
-            uint64(block.timestamp + 1 hours), QUOTE_SEQ
+            KEY, BINDING_HASH, _actionHash(), uint64(block.timestamp + 1 hours), QUOTE_SEQ
         );
         account.closeDebt();
         vm.stopPrank();
@@ -241,7 +247,8 @@ contract CreditAccountTest is Test {
 
         assertTrue(bad.reentered(), "the adapter did try to reenter");
         assertGt(
-            bad.versionSeenOnReentry(), before,
+            bad.versionSeenOnReentry(),
+            before,
             "the reentrant call must see a version the first call invalidated"
         );
     }
@@ -260,8 +267,7 @@ contract CreditAccountTest is Test {
         // live; recovery may only take entry points declared risk-reducing.
         account.setDeRiskingAction(address(adapter), OkAdapter.act.selector, true);
         account.openDebt(
-            KEY, BINDING_HASH, _actionHash(),
-            uint64(block.timestamp + 1 hours), QUOTE_SEQ
+            KEY, BINDING_HASH, _actionHash(), uint64(block.timestamp + 1 hours), QUOTE_SEQ
         );
         account.openRecovery(KEEPER);
         vm.stopPrank();
@@ -282,8 +288,7 @@ contract CreditAccountTest is Test {
         vm.startPrank(LOAN_MANAGER);
         account.setDeRiskingAction(address(adapter), OkAdapter.act.selector, true);
         account.openDebt(
-            KEY, BINDING_HASH, _actionHash(),
-            uint64(block.timestamp + 1 hours), QUOTE_SEQ
+            KEY, BINDING_HASH, _actionHash(), uint64(block.timestamp + 1 hours), QUOTE_SEQ
         );
         account.openRecovery(KEEPER);
         vm.stopPrank();
@@ -292,8 +297,7 @@ contract CreditAccountTest is Test {
         // declared risk-reducing.
         vm.prank(KEEPER);
         vm.expectRevert(
-            abi.encodeWithSelector(
-                CreditAccount.NotRiskReducing.selector, address(adapter))
+            abi.encodeWithSelector(CreditAccount.NotRiskReducing.selector, address(adapter))
         );
         account.recover(address(adapter), abi.encodeCall(OkAdapter.other, ()));
     }
@@ -302,16 +306,14 @@ contract CreditAccountTest is Test {
     function test_keeperCannotRecoverWithoutASelector() public {
         vm.startPrank(LOAN_MANAGER);
         account.openDebt(
-            KEY, BINDING_HASH, _actionHash(),
-            uint64(block.timestamp + 1 hours), QUOTE_SEQ
+            KEY, BINDING_HASH, _actionHash(), uint64(block.timestamp + 1 hours), QUOTE_SEQ
         );
         account.openRecovery(KEEPER);
         vm.stopPrank();
 
         vm.prank(KEEPER);
         vm.expectRevert(
-            abi.encodeWithSelector(
-                CreditAccount.NotRiskReducing.selector, address(adapter))
+            abi.encodeWithSelector(CreditAccount.NotRiskReducing.selector, address(adapter))
         );
         account.recover(address(adapter), hex"1122");
     }
@@ -319,8 +321,7 @@ contract CreditAccountTest is Test {
     function test_nonKeeperCannotRecover() public {
         vm.startPrank(LOAN_MANAGER);
         account.openDebt(
-            KEY, BINDING_HASH, _actionHash(),
-            uint64(block.timestamp + 1 hours), QUOTE_SEQ
+            KEY, BINDING_HASH, _actionHash(), uint64(block.timestamp + 1 hours), QUOTE_SEQ
         );
         account.openRecovery(KEEPER);
         vm.stopPrank();
@@ -335,8 +336,7 @@ contract CreditAccountTest is Test {
     function test_loanManagerSweepsDuringRecovery() public {
         vm.startPrank(LOAN_MANAGER);
         account.openDebt(
-            KEY, BINDING_HASH, _actionHash(),
-            uint64(block.timestamp + 1 hours), QUOTE_SEQ
+            KEY, BINDING_HASH, _actionHash(), uint64(block.timestamp + 1 hours), QUOTE_SEQ
         );
         account.openRecovery(KEEPER);
         account.sweepTo(address(token), LOAN_MANAGER, 5_000e6);
@@ -360,8 +360,7 @@ contract CreditAccountTest is Test {
     function test_ExecuteRequiresStandingPermission() public {
         vm.prank(LOAN_MANAGER);
         account.openDebt(
-            KEY, BINDING_HASH, _actionHash(),
-            uint64(block.timestamp + 1 hours), QUOTE_SEQ
+            KEY, BINDING_HASH, _actionHash(), uint64(block.timestamp + 1 hours), QUOTE_SEQ
         );
 
         // The first action is the one origination authorized, so it runs
@@ -373,8 +372,7 @@ contract CreditAccountTest is Test {
         // action isolates the permission gate from the action gate.
         vm.prank(LOAN_MANAGER);
         account.openDebt(
-            KEY, BINDING_HASH, _actionHash(),
-            uint64(block.timestamp + 1 hours), QUOTE_SEQ
+            KEY, BINDING_HASH, _actionHash(), uint64(block.timestamp + 1 hours), QUOTE_SEQ
         );
         vm.prank(AGENT);
         account.execute(address(adapter), abi.encodeCall(OkAdapter.act, ()));
@@ -390,8 +388,7 @@ contract CreditAccountTest is Test {
     function test_PermittedActionIsSingleUse() public {
         vm.prank(LOAN_MANAGER);
         account.openDebt(
-            KEY, BINDING_HASH, _actionHash(),
-            uint64(block.timestamp + 1 hours), QUOTE_SEQ
+            KEY, BINDING_HASH, _actionHash(), uint64(block.timestamp + 1 hours), QUOTE_SEQ
         );
 
         vm.prank(AGENT);
@@ -408,8 +405,7 @@ contract CreditAccountTest is Test {
     function test_ExecuteRefusesAnUnassessedAction() public {
         vm.prank(LOAN_MANAGER);
         account.openDebt(
-            KEY, BINDING_HASH, _actionHash(),
-            uint64(block.timestamp + 1 hours), QUOTE_SEQ
+            KEY, BINDING_HASH, _actionHash(), uint64(block.timestamp + 1 hours), QUOTE_SEQ
         );
 
         // Same adapter, different call.
@@ -429,8 +425,7 @@ contract CreditAccountTest is Test {
     function test_ExecutePermitsTheAssessedAction() public {
         vm.prank(LOAN_MANAGER);
         account.openDebt(
-            KEY, BINDING_HASH, _actionHash(),
-            uint64(block.timestamp + 1 hours), QUOTE_SEQ
+            KEY, BINDING_HASH, _actionHash(), uint64(block.timestamp + 1 hours), QUOTE_SEQ
         );
 
         vm.prank(AGENT);
@@ -455,8 +450,7 @@ contract CreditAccountTest is Test {
     function test_ExecuteBlockedDuringRecovery() public {
         vm.startPrank(LOAN_MANAGER);
         account.openDebt(
-            KEY, BINDING_HASH, _actionHash(),
-            uint64(block.timestamp + 1 hours), QUOTE_SEQ
+            KEY, BINDING_HASH, _actionHash(), uint64(block.timestamp + 1 hours), QUOTE_SEQ
         );
         account.openRecovery(KEEPER);
         vm.stopPrank();
@@ -476,8 +470,8 @@ contract CreditAccountTest is Test {
     function test_FreshMonitoringAuthorizesTheNextAction() public {
         vm.prank(LOAN_MANAGER);
         account.openDebt(
-            KEY, BINDING_HASH, _actionHash(),
-            uint64(block.timestamp + 1 hours), QUOTE_SEQ);
+            KEY, BINDING_HASH, _actionHash(), uint64(block.timestamp + 1 hours), QUOTE_SEQ
+        );
 
         // First action runs on the origination quote.
         vm.prank(AGENT);
@@ -492,8 +486,8 @@ contract CreditAccountTest is Test {
 
         vm.prank(LOAN_MANAGER);
         account.openDebt(
-            KEY, BINDING_HASH, _actionHash(),
-            uint64(block.timestamp + 1 hours), QUOTE_SEQ);
+            KEY, BINDING_HASH, _actionHash(), uint64(block.timestamp + 1 hours), QUOTE_SEQ
+        );
         vm.prank(AGENT);
         account.execute(address(adapter), abi.encodeCall(OkAdapter.act, ()));
         assertEq(adapter.calls(), 2, "a fresh permission must allow the next action");
@@ -508,8 +502,8 @@ contract CreditAccountTest is Test {
     function test_FirstActionDoesNotSurviveQuoteExpiry() public {
         vm.prank(LOAN_MANAGER);
         account.openDebt(
-            KEY, BINDING_HASH, _actionHash(),
-            uint64(block.timestamp + 1 hours), QUOTE_SEQ);
+            KEY, BINDING_HASH, _actionHash(), uint64(block.timestamp + 1 hours), QUOTE_SEQ
+        );
 
         // The quote lapses, and monitoring explicitly blocks.
         vm.warp(block.timestamp + 2 hours);
@@ -526,8 +520,8 @@ contract CreditAccountTest is Test {
     function test_FirstActionRunsInsideTheQuoteWindow() public {
         vm.prank(LOAN_MANAGER);
         account.openDebt(
-            KEY, BINDING_HASH, _actionHash(),
-            uint64(block.timestamp + 1 hours), QUOTE_SEQ);
+            KEY, BINDING_HASH, _actionHash(), uint64(block.timestamp + 1 hours), QUOTE_SEQ
+        );
 
         oracle.setAllowed(false);
         vm.prank(AGENT);
@@ -545,8 +539,8 @@ contract CreditAccountTest is Test {
     function test_NewerBlockRevokesQuoteCoverageBeforeExpiry() public {
         vm.prank(LOAN_MANAGER);
         account.openDebt(
-            KEY, BINDING_HASH, _actionHash(),
-            uint64(block.timestamp + 1 hours), QUOTE_SEQ);
+            KEY, BINDING_HASH, _actionHash(), uint64(block.timestamp + 1 hours), QUOTE_SEQ
+        );
 
         // Well inside the window, so expiry is not what stops this.
         vm.warp(block.timestamp + 10 minutes);
@@ -565,8 +559,8 @@ contract CreditAccountTest is Test {
     function test_NewerAllowRevokesCoverageButPermits() public {
         vm.prank(LOAN_MANAGER);
         account.openDebt(
-            KEY, BINDING_HASH, _actionHash(),
-            uint64(block.timestamp + 1 hours), QUOTE_SEQ);
+            KEY, BINDING_HASH, _actionHash(), uint64(block.timestamp + 1 hours), QUOTE_SEQ
+        );
 
         vm.warp(block.timestamp + 10 minutes);
         oracle.setAccepted(QUOTE_SEQ + 1);
@@ -582,8 +576,8 @@ contract CreditAccountTest is Test {
     function test_QuoteStillCoversWhenNothingIsNewer() public {
         vm.prank(LOAN_MANAGER);
         account.openDebt(
-            KEY, BINDING_HASH, _actionHash(),
-            uint64(block.timestamp + 1 hours), QUOTE_SEQ);
+            KEY, BINDING_HASH, _actionHash(), uint64(block.timestamp + 1 hours), QUOTE_SEQ
+        );
 
         oracle.setAccepted(QUOTE_SEQ);
         oracle.setAllowed(false);

@@ -4,7 +4,14 @@ pragma solidity 0.8.28;
 import {Vm} from "forge-std/Vm.sol";
 import {RiskOracle} from "../src/RiskOracle.sol";
 import {
-    Assessment, Binding, Class, Decision, Kind, Permission, Route, Terms
+    Assessment,
+    Binding,
+    Class,
+    Decision,
+    Kind,
+    Permission,
+    Route,
+    Terms
 } from "../src/Assessment.sol";
 
 /// @notice Builds and signs assessments for tests.
@@ -113,8 +120,16 @@ library OracleHarness {
         uint64 nowTs
     ) internal pure returns (Assessment memory a) {
         return approvedQuote(
-            b, sequence, principal, aprBps, termSeconds, requiredEquity,
-            settlementAsset, deploymentId, nowTs, bytes32(0)
+            b,
+            sequence,
+            principal,
+            aprBps,
+            termSeconds,
+            requiredEquity,
+            settlementAsset,
+            deploymentId,
+            nowTs,
+            bytes32(0)
         );
     }
 

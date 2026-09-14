@@ -2,22 +2,16 @@
 pragma solidity 0.8.28;
 
 import {Test} from "forge-std/Test.sol";
-import {
-    CREReceiver, IReceiver, MonitoringReport
-} from "../src/CREReceiver.sol";
+import {CREReceiver, IReceiver, MonitoringReport} from "../src/CREReceiver.sol";
 import {RiskOracle} from "../src/RiskOracle.sol";
-import {
-    Binding, Route, Decision, Permission, Class
-} from "../src/Assessment.sol";
+import {Binding, Route, Decision, Permission, Class} from "../src/Assessment.sol";
 
 /// Stands in for the KeystoneForwarder, which only needs to be an address
 /// the receiver trusts. The real forwarder's job -- DON signature
 /// verification -- happens before it ever calls a consumer, so reproducing
 /// it here would test Chainlink's contract rather than ours.
 contract StubForwarder {
-    function deliver(address receiver, bytes calldata metadata, bytes calldata report)
-        external
-    {
+    function deliver(address receiver, bytes calldata metadata, bytes calldata report) external {
         IReceiver(receiver).onReport(metadata, report);
     }
 }
@@ -42,8 +36,13 @@ contract CREReceiverTest is Test {
         oracle = new RiskOracle(OPERATOR, DEPLOYMENT, Class.PrototypeEligible);
         forwarder = new StubForwarder();
         receiver = new CREReceiver(
-            address(forwarder), WORKFLOW_OWNER, WORKFLOW_ID, oracle,
-            OPERATOR, DEPLOYMENT, EVIDENCE_POLICY
+            address(forwarder),
+            WORKFLOW_OWNER,
+            WORKFLOW_ID,
+            oracle,
+            OPERATOR,
+            DEPLOYMENT,
+            EVIDENCE_POLICY
         );
 
         vm.startPrank(OPERATOR);
@@ -110,9 +109,7 @@ contract CREReceiverTest is Test {
 
     function _deliver(MonitoringReport memory r, bytes2 reportId) internal {
         forwarder.deliver(
-            address(receiver),
-            _metadata(WORKFLOW_ID, WORKFLOW_OWNER, reportId),
-            abi.encode(r)
+            address(receiver), _metadata(WORKFLOW_ID, WORKFLOW_OWNER, reportId), abi.encode(r)
         );
     }
 
@@ -150,11 +147,7 @@ contract CREReceiverTest is Test {
         _deliver(second, 0x0001);
 
         Binding memory b = _binding();
-        assertEq(
-            oracle.lastSequence(oracle.bindingKey(b)),
-            1,
-            "no second effect was recorded"
-        );
+        assertEq(oracle.lastSequence(oracle.bindingKey(b)), 1, "no second effect was recorded");
     }
 
     /// Distinct assessments at distinct sequences both land. The replay
@@ -166,9 +159,7 @@ contract CREReceiverTest is Test {
 
         Binding memory b = _binding();
         assertEq(
-            oracle.lastSequence(oracle.bindingKey(b)),
-            2,
-            "the second monitoring cycle applied"
+            oracle.lastSequence(oracle.bindingKey(b)), 2, "the second monitoring cycle applied"
         );
     }
 
@@ -184,8 +175,7 @@ contract CREReceiverTest is Test {
         bytes32 key = oracle.bindingKey(b);
         assertEq(oracle.lastSequence(key), 1, "the oracle recorded it");
         assertTrue(
-            oracle.riskAllowedFor(
-                key, oracle.bindingConfigHash(b), b.accountStateVersion),
+            oracle.riskAllowedFor(key, oracle.bindingConfigHash(b), b.accountStateVersion),
             "permission stands"
         );
     }
@@ -203,8 +193,7 @@ contract CREReceiverTest is Test {
         Binding memory b = _binding();
         bytes32 key = oracle.bindingKey(b);
         assertFalse(
-            oracle.riskAllowedFor(
-                key, oracle.bindingConfigHash(b), b.accountStateVersion),
+            oracle.riskAllowedFor(key, oracle.bindingConfigHash(b), b.accountStateVersion),
             "permission was withdrawn"
         );
     }
@@ -216,13 +205,10 @@ contract CREReceiverTest is Test {
     function test_onlyTheForwarderMayDeliver() public {
         vm.expectRevert(
             abi.encodeWithSelector(
-                CREReceiver.UnexpectedSender.selector,
-                address(this), address(forwarder))
+                CREReceiver.UnexpectedSender.selector, address(this), address(forwarder)
+            )
         );
-        receiver.onReport(
-            _metadata(WORKFLOW_ID, WORKFLOW_OWNER, 0x0001),
-            abi.encode(_report(1))
-        );
+        receiver.onReport(_metadata(WORKFLOW_ID, WORKFLOW_OWNER, 0x0001), abi.encode(_report(1)));
     }
 
     // --- check 2: the workflow owner ---
@@ -233,13 +219,11 @@ contract CREReceiverTest is Test {
         address intruder = address(0xBAD);
         vm.expectRevert(
             abi.encodeWithSelector(
-                CREReceiver.UnexpectedWorkflowOwner.selector,
-                intruder, WORKFLOW_OWNER)
+                CREReceiver.UnexpectedWorkflowOwner.selector, intruder, WORKFLOW_OWNER
+            )
         );
         forwarder.deliver(
-            address(receiver),
-            _metadata(WORKFLOW_ID, intruder, 0x0001),
-            abi.encode(_report(1))
+            address(receiver), _metadata(WORKFLOW_ID, intruder, 0x0001), abi.encode(_report(1))
         );
     }
 
@@ -250,13 +234,10 @@ contract CREReceiverTest is Test {
     function test_foreignWorkflowIdIsRefused() public {
         bytes32 other = bytes32(uint256(0xDEAD));
         vm.expectRevert(
-            abi.encodeWithSelector(
-                CREReceiver.UnexpectedWorkflow.selector, other, WORKFLOW_ID)
+            abi.encodeWithSelector(CREReceiver.UnexpectedWorkflow.selector, other, WORKFLOW_ID)
         );
         forwarder.deliver(
-            address(receiver),
-            _metadata(other, WORKFLOW_OWNER, 0x0001),
-            abi.encode(_report(1))
+            address(receiver), _metadata(other, WORKFLOW_OWNER, 0x0001), abi.encode(_report(1))
         );
     }
 
@@ -268,9 +249,7 @@ contract CREReceiverTest is Test {
     function test_unenrolledLoanIsRefused() public {
         MonitoringReport memory r = _report(1);
         r.loanId = 99;
-        vm.expectRevert(
-            abi.encodeWithSelector(CREReceiver.LoanNotEnrolled.selector, uint256(99))
-        );
+        vm.expectRevert(abi.encodeWithSelector(CREReceiver.LoanNotEnrolled.selector, uint256(99)));
         _deliver(r, 0x0001);
     }
 
@@ -281,9 +260,7 @@ contract CREReceiverTest is Test {
         vm.prank(OPERATOR);
         receiver.retire(LOAN);
 
-        vm.expectRevert(
-            abi.encodeWithSelector(CREReceiver.LoanNotEnrolled.selector, LOAN)
-        );
+        vm.expectRevert(abi.encodeWithSelector(CREReceiver.LoanNotEnrolled.selector, LOAN));
         _deliver(_report(1), 0x0001);
     }
 
@@ -311,8 +288,7 @@ contract CREReceiverTest is Test {
         _deliver(_report(2), 0x0001);
 
         assertEq(
-            oracle.lastSequence(oracle.bindingKey(_binding())), 2,
-            "the second report was recorded"
+            oracle.lastSequence(oracle.bindingKey(_binding())), 2, "the second report was recorded"
         );
     }
 
@@ -327,7 +303,8 @@ contract CREReceiverTest is Test {
         // What reached the oracle carries no grant: if it did,
         // _checkFieldShape would have reverted with GrantOnMonitoring.
         assertEq(
-            oracle.lastSequence(oracle.bindingKey(_binding())), 1,
+            oracle.lastSequence(oracle.bindingKey(_binding())),
+            1,
             "accepted, so the field shape was clean"
         );
     }
@@ -346,8 +323,7 @@ contract CREReceiverTest is Test {
             "permission stands for the version assessed"
         );
         assertFalse(
-            oracle.riskAllowedFor(key, oracle.bindingConfigHash(b), 6),
-            "and not for a later one"
+            oracle.riskAllowedFor(key, oracle.bindingConfigHash(b), 6), "and not for a later one"
         );
     }
 
@@ -372,16 +348,11 @@ contract CREReceiverTest is Test {
     /// calldata -- it reads whatever follows -- so a truncated delivery
     /// could otherwise produce a workflow owner that happens to match.
     function test_shortMetadataIsRefused() public {
-        bytes memory truncated =
-            abi.encodePacked(WORKFLOW_ID, WORKFLOW_NAME, WORKFLOW_OWNER);
+        bytes memory truncated = abi.encodePacked(WORKFLOW_ID, WORKFLOW_NAME, WORKFLOW_OWNER);
         assertEq(truncated.length, 62, "the packed identity is 62 bytes");
 
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                CREReceiver.MalformedMetadata.selector, uint256(62))
-        );
-        forwarder.deliver(
-            address(receiver), truncated, abi.encode(_report(1)));
+        vm.expectRevert(abi.encodeWithSelector(CREReceiver.MalformedMetadata.selector, uint256(62)));
+        forwarder.deliver(address(receiver), truncated, abi.encode(_report(1)));
     }
 
     /// The layout observed on chain, pinned so a decoder change that shifts
@@ -390,10 +361,7 @@ contract CREReceiverTest is Test {
         bytes memory m = _metadata(WORKFLOW_ID, WORKFLOW_OWNER, 0xBEEF);
         assertEq(m.length, 64, "the forwarder delivers 64 bytes");
         assertEq(bytes32(_slice(m, 0, 32)), WORKFLOW_ID, "workflowId at 0");
-        assertEq(
-            address(bytes20(_slice(m, 42, 20))), WORKFLOW_OWNER,
-            "workflowOwner at 42"
-        );
+        assertEq(address(bytes20(_slice(m, 42, 20))), WORKFLOW_OWNER, "workflowOwner at 42");
         assertEq(bytes2(_slice(m, 62, 2)), bytes2(0xBEEF), "reportId at 62");
     }
 
@@ -402,8 +370,7 @@ contract CREReceiverTest is Test {
     /// The forwarder checks this before delivering; a receiver that failed
     /// it would simply never be called.
     function test_supportsTheReceiverInterface() public view {
-        assertTrue(
-            receiver.supportsInterface(IReceiver.onReport.selector), "IReceiver");
+        assertTrue(receiver.supportsInterface(IReceiver.onReport.selector), "IReceiver");
         assertTrue(receiver.supportsInterface(0x01ffc9a7), "ERC-165");
         assertFalse(receiver.supportsInterface(0xffffffff), "not a wildcard");
     }
@@ -426,8 +393,7 @@ contract CREReceiverTest is Test {
         _deliver(_report(2), 0x0001);
 
         vm.expectRevert(
-            abi.encodeWithSelector(
-                RiskOracle.SequenceNotIncreasing.selector, uint64(2), uint64(1))
+            abi.encodeWithSelector(RiskOracle.SequenceNotIncreasing.selector, uint64(2), uint64(1))
         );
         _deliver(_report(1), 0x0002);
     }
@@ -436,20 +402,22 @@ contract CREReceiverTest is Test {
     /// anything, however well-formed its report.
     function test_unregisteredReceiverIsRefused() public {
         CREReceiver rogue = new CREReceiver(
-            address(forwarder), WORKFLOW_OWNER, WORKFLOW_ID, oracle,
-            OPERATOR, DEPLOYMENT, EVIDENCE_POLICY
+            address(forwarder),
+            WORKFLOW_OWNER,
+            WORKFLOW_ID,
+            oracle,
+            OPERATOR,
+            DEPLOYMENT,
+            EVIDENCE_POLICY
         );
         vm.prank(OPERATOR);
         rogue.enrol(LOAN, _binding());
 
         vm.expectRevert(
-            abi.encodeWithSelector(
-                RiskOracle.UnauthorizedSigner.selector, address(rogue))
+            abi.encodeWithSelector(RiskOracle.UnauthorizedSigner.selector, address(rogue))
         );
         forwarder.deliver(
-            address(rogue),
-            _metadata(WORKFLOW_ID, WORKFLOW_OWNER, 0x0001),
-            abi.encode(_report(1))
+            address(rogue), _metadata(WORKFLOW_ID, WORKFLOW_OWNER, 0x0001), abi.encode(_report(1))
         );
     }
 

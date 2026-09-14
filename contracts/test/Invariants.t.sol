@@ -6,7 +6,16 @@ import {CreditAccount} from "../src/CreditAccount.sol";
 import {CreditVault} from "../src/CreditVault.sol";
 import {LoanManager} from "../src/LoanManager.sol";
 import {RiskOracle} from "../src/RiskOracle.sol";
-import {Assessment, Binding, Class, Decision, Kind, Permission, Route, Terms} from "../src/Assessment.sol";
+import {
+    Assessment,
+    Binding,
+    Class,
+    Decision,
+    Kind,
+    Permission,
+    Route,
+    Terms
+} from "../src/Assessment.sol";
 import {IERC20} from "../src/IERC20.sol";
 import {MockERC20} from "./MockERC20.sol";
 import {OracleHarness} from "./OracleHarness.sol";
@@ -53,10 +62,16 @@ contract LifecycleHandler is Test {
         principal = bound(principal, 1e6, 10_000e6);
         if (principal > vault.idleCash()) return;
 
-        Binding memory b =
-            OracleHarness.binding(address(account), account.stateVersion(), FACILITY);
+        Binding memory b = OracleHarness.binding(address(account), account.stateVersion(), FACILITY);
         Assessment memory a = OracleHarness.approvedQuote(
-            b, ++seq, principal, 1_200, 10 days, 0, address(token), DEPLOYMENT,
+            b,
+            ++seq,
+            principal,
+            1_200,
+            10 days,
+            0,
+            address(token),
+            DEPLOYMENT,
             uint64(block.timestamp)
         );
         oracle.accept(a, OracleHarness.sign(oracle, a, SIGNER_KEY));

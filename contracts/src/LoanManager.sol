@@ -194,10 +194,7 @@ contract LoanManager {
         external
         onlyOperator
     {
-        require(
-            !allowed || activeLoan[address(account)] == 0,
-            AccountHasActiveLoan()
-        );
+        require(!allowed || activeLoan[address(account)] == 0, AccountHasActiveLoan());
         account.setAdapter(adapter, allowed);
     }
 
@@ -222,10 +219,7 @@ contract LoanManager {
         bytes4 selector,
         bool isDeRisking
     ) external onlyOperator {
-        require(
-            !isDeRisking || activeLoan[address(account)] == 0,
-            AccountHasActiveLoan()
-        );
+        require(!isDeRisking || activeLoan[address(account)] == 0, AccountHasActiveLoan());
         account.setDeRiskingAction(adapter, selector, isDeRisking);
     }
 
@@ -307,8 +301,7 @@ contract LoanManager {
         // (`docs/06`: freeze new credit on transfer).
         if (identityRegistry != address(0)) {
             require(
-                IIdentityRegistry(identityRegistry).ownerOf(binding.agentId)
-                    == binding.operator,
+                IIdentityRegistry(identityRegistry).ownerOf(binding.agentId) == binding.operator,
                 IdentityTransferred(binding.agentId)
             );
         }
@@ -326,10 +319,7 @@ contract LoanManager {
         // is no first loss layer without it.
         uint256 held = account.balanceOf(address(asset));
         require(held > 0, InsufficientEquity(1, 0));
-        require(
-            held >= terms.requiredEquity,
-            InsufficientEquity(terms.requiredEquity, held)
-        );
+        require(held >= terms.requiredEquity, InsufficientEquity(terms.requiredEquity, held));
 
         loanId = nextLoanId++;
         loans[loanId] = Loan({
@@ -410,9 +400,7 @@ contract LoanManager {
         // Reverting here unwinds the draw with it: the vault's lend, the
         // debt record, and the account's lock all roll back together, so a
         // failed action leaves no funded loan behind.
-        result = CreditAccount(loans[loanId].account).executeFor(
-            msg.sender, adapter, action
-        );
+        result = CreditAccount(loans[loanId].account).executeFor(msg.sender, adapter, action);
     }
 
     // --- Interest ---
@@ -586,13 +574,9 @@ contract LoanManager {
         // Anchoring to origination gives the borrower the same protection
         // and the lender the same backstop in both cases.
         uint256 silenceSince = expiry != 0 ? uint256(expiry) : loan.originatedAt;
-        bool lapsedBeyondGrace =
-            block.timestamp >= silenceSince + recoveryGraceSeconds;
+        bool lapsedBeyondGrace = block.timestamp >= silenceSince + recoveryGraceSeconds;
 
-        require(
-            matured || withdrawn || lapsedBeyondGrace,
-            LoanNotRecoverable(loanId)
-        );
+        require(matured || withdrawn || lapsedBeyondGrace, LoanNotRecoverable(loanId));
 
         loan.interestSnapshot = _accruedAt(loan, uint64(block.timestamp));
         loan.recoveryStartedAt = uint64(block.timestamp);
@@ -617,8 +601,7 @@ contract LoanManager {
     function collect(uint256 loanId, uint256 amount) external {
         Loan storage loan = loans[loanId];
         require(
-            loan.status == Status.RecoveryPending,
-            WrongStatus(Status.RecoveryPending, loan.status)
+            loan.status == Status.RecoveryPending, WrongStatus(Status.RecoveryPending, loan.status)
         );
         require(amount > 0, ZeroAmount());
         // Only the appointed keeper collects. An open recovery would
@@ -632,10 +615,7 @@ contract LoanManager {
         // appointment appearing in the record. Authority that is only
         // reachable by an on-chain appointment is auditable; authority
         // that is implicit is not.
-        require(
-            msg.sender == CreditAccount(loan.account).recoveryKeeper(),
-            NotKeeper()
-        );
+        require(msg.sender == CreditAccount(loan.account).recoveryKeeper(), NotKeeper());
 
         // Never take more than the loan is owed. The surplus is the
         // borrower's residual equity (`docs/02`), and sweeping it would
@@ -646,9 +626,8 @@ contract LoanManager {
         }
         require(amount > 0, ZeroAmount());
 
-        uint256 toPrincipal = amount > loan.principalOutstanding
-            ? loan.principalOutstanding
-            : amount;
+        uint256 toPrincipal =
+            amount > loan.principalOutstanding ? loan.principalOutstanding : amount;
         uint256 toInterest = amount - toPrincipal;
 
         // Effects before the transfer, for the same reason repay() orders
@@ -688,8 +667,7 @@ contract LoanManager {
     function declareDefault(uint256 loanId) external onlyOperator {
         Loan storage loan = loans[loanId];
         require(
-            loan.status == Status.RecoveryPending,
-            WrongStatus(Status.RecoveryPending, loan.status)
+            loan.status == Status.RecoveryPending, WrongStatus(Status.RecoveryPending, loan.status)
         );
         // Every asset must actually be exhausted, not merely the
         // settlement token. Declaring default while collateral remains
@@ -699,10 +677,7 @@ contract LoanManager {
         for (uint256 i = 0; i < collateralAssets.length; i++) {
             address token = collateralAssets[i];
             if (!collateralAsset[token]) continue;
-            require(
-                CreditAccount(loan.account).balanceOf(token) == 0,
-                CollateralUnresolved(token)
-            );
+            require(CreditAccount(loan.account).balanceOf(token) == 0, CollateralUnresolved(token));
         }
 
         uint256 principalLoss = loan.principalOutstanding;

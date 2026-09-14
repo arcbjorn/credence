@@ -6,7 +6,16 @@ import {CreditAccount} from "../src/CreditAccount.sol";
 import {CreditVault} from "../src/CreditVault.sol";
 import {LoanManager} from "../src/LoanManager.sol";
 import {RiskOracle} from "../src/RiskOracle.sol";
-import {Assessment, Binding, Class, Decision, Kind, Permission, Route, Terms} from "../src/Assessment.sol";
+import {
+    Assessment,
+    Binding,
+    Class,
+    Decision,
+    Kind,
+    Permission,
+    Route,
+    Terms
+} from "../src/Assessment.sol";
 import {IERC20} from "../src/IERC20.sol";
 import {MockERC20} from "./MockERC20.sol";
 import {OracleHarness} from "./OracleHarness.sol";
@@ -20,6 +29,7 @@ contract NoopAdapter {
 /// filled. `docs/05`: revert everything if post-action checks fail.
 contract FailingAdapter {
     error CannotFill();
+
     function act() external pure {
         revert CannotFill();
     }
@@ -89,7 +99,6 @@ contract LifecycleTest is Test {
         token.mint(address(account), 5_000e6);
     }
 
-
     /// Publishes a signed quote for `acct` and originates against it, which
     /// is now the only way a loan can exist (`docs/05` step 6-8).
     function _originate(CreditAccount acct, uint256 principal, uint32 aprBps, uint64 term)
@@ -133,8 +142,16 @@ contract LifecycleTest is Test {
     ) internal returns (Binding memory b) {
         b = OracleHarness.binding(address(acct), acct.stateVersion(), FACILITY);
         Assessment memory a = OracleHarness.approvedQuote(
-            b, ++seq, principal, aprBps, term, 0, address(token), DEPLOYMENT,
-            uint64(block.timestamp), actionHash
+            b,
+            ++seq,
+            principal,
+            aprBps,
+            term,
+            0,
+            address(token),
+            DEPLOYMENT,
+            uint64(block.timestamp),
+            actionHash
         );
         orc.accept(a, OracleHarness.sign(orc, a, SIGNER_KEY));
     }
@@ -147,8 +164,7 @@ contract LifecycleTest is Test {
         uint32 aprBps,
         uint64 term
     ) internal returns (uint256 loanId) {
-        Binding memory b =
-            OracleHarness.binding(address(acct), acct.stateVersion(), FACILITY);
+        Binding memory b = OracleHarness.binding(address(acct), acct.stateVersion(), FACILITY);
         Assessment memory a = OracleHarness.approvedQuote(
             b,
             ++seq,
@@ -283,9 +299,7 @@ contract LifecycleTest is Test {
         );
 
         vm.prank(OPERATOR);
-        vm.expectRevert(
-            abi.encodeWithSelector(LoanManager.LoanNotRecoverable.selector, loanId)
-        );
+        vm.expectRevert(abi.encodeWithSelector(LoanManager.LoanNotRecoverable.selector, loanId));
         manager.openRecovery(loanId, KEEPER, rb);
     }
 
@@ -332,18 +346,14 @@ contract LifecycleTest is Test {
         // No monitoring assessment is ever accepted. This is the state of
         // every loan between origination and its first monitoring cycle.
         Binding memory rb = _bindingFor(account, account.stateVersion());
-        assertEq(
-            oracle.permissionExpiry(rb), 0, "nothing was ever granted"
-        );
+        assertEq(oracle.permissionExpiry(rb), 0, "nothing was ever granted");
         assertFalse(
             oracle.permissionWithdrawn(rb),
             "nothing was ever withdrawn either -- nothing was ever said"
         );
 
         vm.prank(OPERATOR);
-        vm.expectRevert(
-            abi.encodeWithSelector(LoanManager.LoanNotRecoverable.selector, loanId)
-        );
+        vm.expectRevert(abi.encodeWithSelector(LoanManager.LoanNotRecoverable.selector, loanId));
         manager.openRecovery(loanId, KEEPER, rb);
     }
 
@@ -376,17 +386,11 @@ contract LifecycleTest is Test {
             OracleHarness.monitoringBlocked(rb, 99, DEPLOYMENT, uint64(block.timestamp));
         oracle.accept(blocked, OracleHarness.sign(oracle, blocked, SIGNER_KEY));
 
-        assertTrue(
-            oracle.permissionWithdrawn(rb),
-            "a denial is a statement, not silence"
-        );
+        assertTrue(oracle.permissionWithdrawn(rb), "a denial is a statement, not silence");
 
         vm.prank(OPERATOR);
         manager.openRecovery(loanId, KEEPER, rb);
-        assertEq(
-            uint8(manager.status(loanId)),
-            uint8(LoanManager.Status.RecoveryPending)
-        );
+        assertEq(uint8(manager.status(loanId)), uint8(LoanManager.Status.RecoveryPending));
     }
 
     /// `docs/05` invariant 8: **only the appointed keeper** collects.
@@ -409,11 +413,7 @@ contract LifecycleTest is Test {
         manager.openRecovery(loanId, KEEPER, rb);
 
         // The operator appointed KEEPER and is not itself the keeper.
-        assertEq(
-            account.recoveryKeeper(),
-            KEEPER,
-            "the keeper is who openRecovery appointed"
-        );
+        assertEq(account.recoveryKeeper(), KEEPER, "the keeper is who openRecovery appointed");
 
         vm.prank(OPERATOR);
         vm.expectRevert(LoanManager.NotKeeper.selector);
@@ -508,9 +508,7 @@ contract LifecycleTest is Test {
 
         vm.startPrank(OPERATOR);
         vault.beginResolving();
-        vm.expectRevert(
-            abi.encodeWithSelector(CreditVault.ReceivablesUnresolved.selector, 5_000e6)
-        );
+        vm.expectRevert(abi.encodeWithSelector(CreditVault.ReceivablesUnresolved.selector, 5_000e6));
         vault.settle();
         vm.stopPrank();
 
@@ -592,8 +590,7 @@ contract LifecycleTest is Test {
     /// Without a standing quote there is no loan. The operator cannot
     /// originate on trust alone.
     function test_originationRequiresQuote() public {
-        Binding memory b =
-            OracleHarness.binding(address(account), account.stateVersion(), FACILITY);
+        Binding memory b = OracleHarness.binding(address(account), account.stateVersion(), FACILITY);
         vm.expectRevert(RiskOracle.NoQuote.selector);
         manager.originate(b, 5_000e6);
     }
@@ -632,22 +629,23 @@ contract LifecycleTest is Test {
         manager.setAccountAdapter(account, address(noop), true);
 
         Binding memory b = _publish(
-            oracle, account, 1_000e6, 1_200, 10 days,
+            oracle,
+            account,
+            1_000e6,
+            1_200,
+            10 days,
             keccak256(abi.encode(address(noop), abi.encodeCall(NoopAdapter.act, ())))
         );
 
         vm.prank(AGENT);
         (uint256 loanId,) = manager.originateAndExecute(
-            b, 1_000e6, address(noop), abi.encodeCall(NoopAdapter.act, ()));
+            b, 1_000e6, address(noop), abi.encodeCall(NoopAdapter.act, ())
+        );
 
         assertEq(
-            uint8(manager.status(loanId)), uint8(LoanManager.Status.Active),
-            "the loan is live"
+            uint8(manager.status(loanId)), uint8(LoanManager.Status.Active), "the loan is live"
         );
-        assertEq(
-            account.stateVersion(), 1,
-            "and the action ran inside the same transaction"
-        );
+        assertEq(account.stateVersion(), 1, "and the action ran inside the same transaction");
     }
 
     /// A trade that cannot be filled unwinds the draw with it.
@@ -661,7 +659,11 @@ contract LifecycleTest is Test {
         manager.setAccountAdapter(account, address(bad), true);
 
         Binding memory b = _publish(
-            oracle, account, 1_000e6, 1_200, 10 days,
+            oracle,
+            account,
+            1_000e6,
+            1_200,
+            10 days,
             keccak256(abi.encode(address(bad), abi.encodeCall(FailingAdapter.act, ())))
         );
 
@@ -670,12 +672,10 @@ contract LifecycleTest is Test {
         vm.prank(AGENT);
         vm.expectRevert(CreditAccount.AdapterCallFailed.selector);
         manager.originateAndExecute(
-            b, 1_000e6, address(bad), abi.encodeCall(FailingAdapter.act, ()));
-
-        assertEq(
-            manager.activeLoan(address(account)), 0,
-            "no loan survives a failed action"
+            b, 1_000e6, address(bad), abi.encodeCall(FailingAdapter.act, ())
         );
+
+        assertEq(manager.activeLoan(address(account)), 0, "no loan survives a failed action");
         assertEq(vault.idleCash(), cashBefore, "and no cash left the vault");
         assertFalse(account.debtOutstanding(), "nor any custody lock");
     }
@@ -704,7 +704,11 @@ contract LifecycleTest is Test {
         manager.setAccountAdapter(account, address(bad), true);
 
         Binding memory b = _publish(
-            oracle, account, 1_000e6, 1_200, 10 days,
+            oracle,
+            account,
+            1_000e6,
+            1_200,
+            10 days,
             keccak256(abi.encode(address(bad), abi.encodeCall(FailingAdapter.act, ())))
         );
 
@@ -712,7 +716,8 @@ contract LifecycleTest is Test {
         vm.prank(AGENT);
         vm.expectRevert(CreditAccount.AdapterCallFailed.selector);
         manager.originateAndExecute(
-            b, 1_000e6, address(bad), abi.encodeCall(FailingAdapter.act, ()));
+            b, 1_000e6, address(bad), abi.encodeCall(FailingAdapter.act, ())
+        );
 
         // So the borrower takes the other door. It must be shut.
         vm.prank(AGENT);
@@ -720,7 +725,8 @@ contract LifecycleTest is Test {
         manager.originate(b, 1_000e6);
 
         assertEq(
-            manager.activeLoan(address(account)), 0,
+            manager.activeLoan(address(account)),
+            0,
             "an action-bound quote funded nothing without its action"
         );
     }
@@ -731,14 +737,14 @@ contract LifecycleTest is Test {
     /// when there is no approved action to perform, there is nothing to
     /// perform atomically.
     function test_HoldOnlyQuoteOriginatesDirectly() public {
-        Binding memory b = _publish(
-            oracle, account, 1_000e6, 1_200, 10 days, bytes32(0));
+        Binding memory b = _publish(oracle, account, 1_000e6, 1_200, 10 days, bytes32(0));
 
         vm.prank(AGENT);
         uint256 loanId = manager.originate(b, 1_000e6);
 
         assertEq(
-            manager.activeLoan(address(account)), loanId,
+            manager.activeLoan(address(account)),
+            loanId,
             "a hold-only quote funds without an action"
         );
     }
@@ -758,8 +764,7 @@ contract LifecycleTest is Test {
 
         vm.prank(OPERATOR);
         vm.expectRevert(LoanManager.AccountHasActiveLoan.selector);
-        manager.setAccountDeRiskingAction(
-            account, address(noop), NoopAdapter.act.selector, true);
+        manager.setAccountDeRiskingAction(account, address(noop), NoopAdapter.act.selector, true);
     }
 
     /// Withdrawing one stays open. Taking an exemption away only ever
@@ -767,14 +772,12 @@ contract LifecycleTest is Test {
     /// the same asymmetry revocation has for adapters.
     function test_DeRiskingLabelCanAlwaysBeWithdrawn() public {
         vm.prank(OPERATOR);
-        manager.setAccountDeRiskingAction(
-            account, address(noop), NoopAdapter.act.selector, true);
+        manager.setAccountDeRiskingAction(account, address(noop), NoopAdapter.act.selector, true);
 
         _originate(account, 5_000e6, 1_200, 10 days);
 
         vm.prank(OPERATOR);
-        manager.setAccountDeRiskingAction(
-            account, address(noop), NoopAdapter.act.selector, false);
+        manager.setAccountDeRiskingAction(account, address(noop), NoopAdapter.act.selector, false);
         assertFalse(
             account.deRiskingAction(address(noop), NoopAdapter.act.selector),
             "revocation is always permitted"
@@ -792,9 +795,7 @@ contract LifecycleTest is Test {
         vm.prank(AGENT);
         account.execute(address(noop), abi.encodeCall(NoopAdapter.act, ()));
 
-        vm.expectRevert(
-            abi.encodeWithSelector(LoanManager.StaleAccountState.selector, 0, 1)
-        );
+        vm.expectRevert(abi.encodeWithSelector(LoanManager.StaleAccountState.selector, 0, 1));
         manager.originate(b, 1_000e6);
     }
 
@@ -804,10 +805,16 @@ contract LifecycleTest is Test {
         // Some equity, but less than the quote requires: this test is
         // about the SHORTFALL, not about the empty-account rule.
         token.mint(address(poor), 1_000e6);
-        Binding memory b =
-            OracleHarness.binding(address(poor), poor.stateVersion(), FACILITY);
+        Binding memory b = OracleHarness.binding(address(poor), poor.stateVersion(), FACILITY);
         Assessment memory a = OracleHarness.approvedQuote(
-            b, ++seq, 1_000e6, 1_200, 10 days, 5_000e6, address(token), DEPLOYMENT,
+            b,
+            ++seq,
+            1_000e6,
+            1_200,
+            10 days,
+            5_000e6,
+            address(token),
+            DEPLOYMENT,
             uint64(block.timestamp)
         );
         oracle.accept(a, OracleHarness.sign(oracle, a, SIGNER_KEY));
@@ -853,14 +860,17 @@ contract LifecycleTest is Test {
 
         uint256 owed = manager.debtDue(loanId);
         uint256 held = token.balanceOf(address(account));
-        assertGt(held, owed, "the account must hold more than it owes for this test to mean anything");
+        assertGt(
+            held, owed, "the account must hold more than it owes for this test to mean anything"
+        );
 
         // Ask for everything; only the obligation may move.
         vm.prank(OPERATOR);
         manager.collect(loanId, held);
 
         assertEq(
-            token.balanceOf(address(account)), held - owed,
+            token.balanceOf(address(account)),
+            held - owed,
             "residual equity must stay with the borrower"
         );
         assertEq(manager.debtDue(loanId), 0, "a settled loan owes nothing");
@@ -1135,9 +1145,7 @@ contract LifecycleTest is Test {
         vm.warp(block.timestamp + 10 minutes);
         Binding memory rb = _bindingFor(account, account.stateVersion());
         vm.prank(OPERATOR);
-        vm.expectRevert(
-            abi.encodeWithSelector(LoanManager.LoanNotRecoverable.selector, loanId)
-        );
+        vm.expectRevert(abi.encodeWithSelector(LoanManager.LoanNotRecoverable.selector, loanId));
         manager.openRecovery(loanId, KEEPER, rb);
     }
 
@@ -1202,19 +1210,13 @@ contract LifecycleTest is Test {
         uint64 version = account.stateVersion();
         Binding memory fresh = _bindingFor(account, version);
         OracleHarness.publishMonitoring(
-            oracle, fresh, ++seq, SIGNER_KEY, true, DEPLOYMENT,
-            uint64(block.timestamp)
+            oracle, fresh, ++seq, SIGNER_KEY, true, DEPLOYMENT, uint64(block.timestamp)
         );
 
-        assertTrue(
-            oracle.riskAllowed(fresh),
-            "the oracle itself must consider this permitted"
-        );
+        assertTrue(oracle.riskAllowed(fresh), "the oracle itself must consider this permitted");
         assertTrue(
             oracle.riskAllowedFor(
-                oracle.bindingKey(fresh),
-                oracle.bindingConfigHash(fresh),
-                version
+                oracle.bindingKey(fresh), oracle.bindingConfigHash(fresh), version
             ),
             "and the account's hash-keyed view must agree"
         );
@@ -1240,9 +1242,7 @@ contract LifecycleTest is Test {
 
         vm.warp(block.timestamp + 10 minutes);
         vm.prank(OPERATOR);
-        vm.expectRevert(
-            abi.encodeWithSelector(LoanManager.BindingNotForLoan.selector, loanId)
-        );
+        vm.expectRevert(abi.encodeWithSelector(LoanManager.BindingNotForLoan.selector, loanId));
         manager.openRecovery(loanId, KEEPER, stranger);
     }
 
@@ -1264,14 +1264,11 @@ contract LifecycleTest is Test {
     /// attestor's output. A signed requiredEquity of zero would otherwise
     /// fund an account with no first loss layer at all.
     function test_EmptyAccountIsNotFunded() public {
-        CreditAccount empty =
-            new CreditAccount(address(manager), OWNER, AGENT, address(oracle));
+        CreditAccount empty = new CreditAccount(address(manager), OWNER, AGENT, address(oracle));
         assertEq(token.balanceOf(address(empty)), 0, "the account must be empty");
 
         Binding memory b = _publish(oracle, empty, 5_000e6, 1_200, 10 days);
-        vm.expectRevert(
-            abi.encodeWithSelector(LoanManager.InsufficientEquity.selector, 1, 0)
-        );
+        vm.expectRevert(abi.encodeWithSelector(LoanManager.InsufficientEquity.selector, 1, 0));
         manager.originate(b, 5_000e6);
     }
 
@@ -1291,7 +1288,8 @@ contract LifecycleTest is Test {
         uint256 loanId = _originate(account, 5_000e6, 1_200, 10 days);
         Binding memory b = _bindingFor(account, account.stateVersion());
         assertEq(
-            manager.agentIdOf(loanId), b.agentId,
+            manager.agentIdOf(loanId),
+            b.agentId,
             "the loan must carry the binding's agent, not a supplied one"
         );
 
@@ -1299,14 +1297,8 @@ contract LifecycleTest is Test {
         // obligation ends, when the binding is long gone.
         vm.warp(block.timestamp + 1 days);
         manager.repay(loanId);
-        assertEq(
-            uint8(manager.status(loanId)), uint8(LoanManager.Status.Repaid),
-            "loan resolved"
-        );
-        assertEq(
-            manager.agentIdOf(loanId), b.agentId,
-            "attribution must outlive the obligation"
-        );
+        assertEq(uint8(manager.status(loanId)), uint8(LoanManager.Status.Repaid), "loan resolved");
+        assertEq(manager.agentIdOf(loanId), b.agentId, "attribution must outlive the obligation");
     }
 
     function test_IdentityTransferLeavesTheLoanIntact() public {
@@ -1319,14 +1311,8 @@ contract LifecycleTest is Test {
 
         // The obligation is unchanged: it is keyed by the ACCOUNT, which
         // a registry transfer does not move.
-        assertEq(
-            manager.activeLoan(address(account)), loanId,
-            "a transfer must not erase the loan"
-        );
-        assertEq(
-            uint8(manager.status(loanId)), uint8(LoanManager.Status.Active),
-            "nor resolve it"
-        );
+        assertEq(manager.activeLoan(address(account)), loanId, "a transfer must not erase the loan");
+        assertEq(uint8(manager.status(loanId)), uint8(LoanManager.Status.Active), "nor resolve it");
 
         // And the new identity cannot draw against it. The one-active-loan
         // rule stops it before the quote check even runs, which is the
@@ -1355,9 +1341,7 @@ contract LifecycleTest is Test {
         moved.agentId = 999;
 
         vm.prank(OPERATOR);
-        vm.expectRevert(
-            abi.encodeWithSelector(LoanManager.BindingNotForLoan.selector, loanId)
-        );
+        vm.expectRevert(abi.encodeWithSelector(LoanManager.BindingNotForLoan.selector, loanId));
         manager.openRecovery(loanId, KEEPER, moved);
     }
 
@@ -1369,7 +1353,8 @@ contract LifecycleTest is Test {
 
         manager.repay(loanId);
         assertEq(
-            uint8(manager.status(loanId)), uint8(LoanManager.Status.Repaid),
+            uint8(manager.status(loanId)),
+            uint8(LoanManager.Status.Repaid),
             "repayment must remain open"
         );
     }
@@ -1398,8 +1383,7 @@ contract LifecycleTest is Test {
         vm.prank(OPERATOR);
         vm.expectRevert(
             abi.encodeWithSelector(
-                LoanManager.StaleAccountState.selector,
-                forged.accountStateVersion, live
+                LoanManager.StaleAccountState.selector, forged.accountStateVersion, live
             )
         );
         manager.openRecovery(loanId, KEEPER, forged);
