@@ -5,3 +5,5 @@ credence.db-*
 /credence-scenario
 /credence-verify
 /credence-publish
+/credence-sim
+/credence-assessd
