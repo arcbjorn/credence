@@ -99,12 +99,39 @@ def entry_at(url: str, registry: str, index: int) -> dict:
     }
 
 
+def assert_registry_present(url: str, registry: str) -> None:
+    """Refuse to read from an address with no code.
+
+    Every read below returns empty for a contract that is not there, so
+    a wrong address looks exactly like an agent with no history. Failing
+    loudly is the difference between "nothing was published" and "you are
+    pointed at the wrong place".
+    """
+    payload = json.dumps({
+        "jsonrpc": "2.0", "id": 1, "method": "eth_getCode",
+        "params": [registry, "latest"],
+    }).encode()
+    req = urllib.request.Request(
+        url, data=payload, headers={"content-type": "application/json"})
+    with urllib.request.urlopen(req, timeout=15) as r:
+        body = json.load(r)
+    code = body.get("result", "0x")
+    if code in ("0x", "", None):
+        raise SystemExit(
+            f"no contract at {registry} on this RPC.\n"
+            f"An absent registry reads as an empty history, so this is "
+            f"refused rather than reported as 'no feedback'."
+        )
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--rpc", required=True, help="JSON-RPC endpoint")
     ap.add_argument("--registry", required=True, help="feedback registry address")
     ap.add_argument("--agent", type=int, required=True, help="agent id")
     args = ap.parse_args()
+
+    assert_registry_present(args.rpc, args.registry)
 
     indices = agent_entries(args.rpc, args.registry, args.agent)
     if not indices:
