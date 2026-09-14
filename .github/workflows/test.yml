@@ -85,7 +85,10 @@ jobs:
       # -race, because the gateway runs a scheduler loop beside a
       # publisher and the store is shared between them.
       - name: go test
-        run: go test -race ./...
+        # `-count=1` disables the test cache. Without it a warm cache can
+        # report a stale pass: the committed canonicalization vector broke
+        # on 14 September and `go test ./...` still said ok.
+        run: go test -race -count=1 ./...
         working-directory: gateway
 
   workflow:
@@ -101,5 +104,5 @@ jobs:
         run: go vet ./underwrite/
         working-directory: cre
       - name: go test
-        run: go test ./underwrite/
+        run: go test -count=1 ./underwrite/
         working-directory: cre
