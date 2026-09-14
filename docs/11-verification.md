@@ -110,6 +110,21 @@ The limit rises, the APR falls, and the binding constraint **switches from
 history to stress capacity at loan 3** — the `min()` story told honestly:
 history opens the facility until portfolio risk becomes the limit.
 
+**A fourth loan makes the limit FALL, and that is correct.** Running
+`LOANS=4` — the command the forecast-evaluation row below uses — produces
+`capacity=8112265837` at loan 4, slightly below loan 3. Once
+`StressCapacity` binds, capacity tracks the book rather than the record,
+and the account's settlement balance shrinks each cycle as interest is
+paid out: 10.000e9, 9.993e9, 9.987e9, 9.981e9. A smaller book stresses to
+a smaller number.
+
+Recorded because the sentence above says "the limit rises", and a reader
+who runs the four-loan command would otherwise see it contradicted. The
+claim is about what history does while history binds; it was never that
+capacity rises forever. `sequential_loans_compound_credit` holds the
+account constant and varies only the record, which is why it asserts
+monotonicity and this run does not.
+
 Only `base_history_cap` was tuned to produce this; the calibration and the
 two traps that defeat it are recorded in
 [03 · Underwriting](03-underwriting.md#how-the-fixtures-are-calibrated).
