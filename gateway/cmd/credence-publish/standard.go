@@ -146,7 +146,7 @@ func publishStandard(
 		if err := waitMined(ctx, reader, txHash); err != nil {
 			return 0, fmt.Errorf("%s: %w", e.Tag1, err)
 		}
-		log.Printf("loan %d: %-18s value=%s tx=%s", loanID, e.Tag1, e.Value, txHash)
+		log.Printf("loan %d: %-18s value=%s", loanID, e.Tag1, e.Value)
 	}
 	log.Printf("loan %d: published %s as %d signals, evidence %s",
 		loanID, outcomeName(f.Outcome), len(entries), uri)
