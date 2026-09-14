@@ -175,6 +175,43 @@ fn duplicate_evidence_ids_rejected() {
     );
 }
 
+/// Account and market may not be labelled Optional.
+///
+/// The evidence gate blocks on stale REQUIRED evidence and merely omits
+/// stale optional evidence -- but the engine reads account and market
+/// unconditionally. An optional label would therefore let a stale account
+/// be reported as omitted while still supporting an executable approval,
+/// with the label alone deciding whether staleness blocks (`docs/04`).
+///
+/// Reported by review, 14 September.
+#[test]
+fn core_evidence_cannot_be_optional() {
+    let mut i = input();
+    i.account.requirement = Requirement::Optional;
+    assert_eq!(
+        i.validate(),
+        Err(InputError::CoreEvidenceNotRequired("account".into()))
+    );
+
+    let mut i = input();
+    i.market.requirement = Requirement::Optional;
+    assert_eq!(
+        i.validate(),
+        Err(InputError::CoreEvidenceNotRequired("market".into()))
+    );
+}
+
+/// Enrichment may still be optional: only the two the engine consumes
+/// unconditionally are pinned.
+#[test]
+fn enrichment_may_remain_optional() {
+    let mut i = input();
+    i.history.requirement = Requirement::Optional;
+    i.forecasts.requirement = Requirement::Optional;
+    i.portfolio.requirement = Requirement::Optional;
+    assert!(i.validate().is_ok());
+}
+
 /// The proposed sequence must exceed what the chain already accepted.
 #[test]
 fn non_increasing_sequence_rejected() {

@@ -208,6 +208,15 @@ pub enum InputError {
     ScenarioIdMissing,
     /// The snapshot declares a schema this engine does not implement.
     UnsupportedSchemaVersion(String),
+    /// Core evidence was labelled Optional.
+    ///
+    /// Account and market are the two the engine reads unconditionally.
+    /// The evidence gate omits stale OPTIONAL evidence rather than
+    /// blocking on it, so a stale account marked optional would be
+    /// reported as omitted while still supporting an executable approval
+    /// -- the label alone deciding whether a stale reading blocks
+    /// (`docs/04`). Reported by review, 14 September.
+    CoreEvidenceNotRequired(String),
 }
 
 /// Schema majors this engine understands.
@@ -258,6 +267,17 @@ impl RiskInput {
             return Err(InputError::UnsupportedSchemaVersion(
                 self.schema_version.clone(),
             ));
+        }
+
+        // Account and market must be Required. The engine consumes both
+        // unconditionally, and the gate only blocks on stale REQUIRED
+        // evidence -- so an optional label here turns a blocker into an
+        // omission note while the value is used anyway.
+        if self.account.requirement != Requirement::Required {
+            return Err(InputError::CoreEvidenceNotRequired("account".into()));
+        }
+        if self.market.requirement != Requirement::Required {
+            return Err(InputError::CoreEvidenceNotRequired("market".into()));
         }
 
         let mut ids = Vec::new();
