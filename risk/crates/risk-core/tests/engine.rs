@@ -24,6 +24,22 @@ fn hash_of(p: &Policy) -> String {
     risk_core::canonical::hash_hex(&value).expect("hash policy")
 }
 
+/// The policy the demo scripts actually run.
+///
+/// Read from disk rather than mirrored here: a copy is a second place for
+/// the calibration to drift from the one `docs/11` reports.
+fn shipped_policy() -> Policy {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .ancestors()
+        .nth(3)
+        .expect("repo root")
+        .join("config/engine-policy.json");
+    let raw = std::fs::read_to_string(&path)
+        .unwrap_or_else(|e| panic!("read {}: {e}", path.display()));
+    serde_json::from_str(&raw)
+        .unwrap_or_else(|e| panic!("parse {}: {e}", path.display()))
+}
+
 fn policy() -> Policy {
     Policy {
         stress: StressPolicy {
@@ -916,12 +932,28 @@ fn recovery_blocks_monitoring_permission() {
 /// compounds" is decoration.
 #[test]
 fn sequential_loans_compound_credit() {
-    let p = policy();
+    // The SHIPPED policy, not the local fixture.
+    //
+    // `docs/11` reports this run's numbers from `config/engine-policy.json`,
+    // where `base_history_cap` was calibrated to 6.2e9 so the constraint
+    // visibly switches off history at loan 3. The local `policy()` still
+    // carries the pre-calibration 10e9, under which a different cap takes
+    // over -- so this test and the documented demo asserted different
+    // bindings for the same claim.
+    //
+    // Loading the real file means the two cannot diverge again: recalibrate
+    // the demo and this test recalibrates with it. Reported by review,
+    // 14 September.
+    let p = shipped_policy();
 
     // Same account, same market, same policy. Only demonstrated history
     // differs, which is the controlled-ablation discipline of `docs/03`.
+    let declared = hash_of(&p);
     let run = |weighted_ppm: u64| {
         let mut i = input(2_000_000_000, 5_000_000_000);
+        // The declared label must be the hash of the policy actually
+        // supplied, or the engine refuses to produce an executable result.
+        i.model_policy.policy_hash = declared.clone();
         if let Some(h) = i.history.value.as_mut() {
             h.weighted_repayments_ppm = weighted_ppm;
             h.coverage_complete = true;
@@ -973,10 +1005,30 @@ fn sequential_loans_compound_credit() {
         BindingConstraint::HistoryGrowthCap,
         "history binds first"
     );
-    assert_eq!(
+    // The thesis is that history STOPS binding, not that any particular
+    // cap replaces it.
+    //
+    // Which one takes over depends on the evidence beside the policy: this
+    // fixture carries ten resolved forecasts, so its forecast cap is
+    // generous and stress is not what limits it; the demo carries three or
+    // four, and binds on `StressCapacity` instead. `docs/11` reports that
+    // run. Asserting one specific cap here made this test and the
+    // documented demo contradict each other over the same claim.
+    //
+    // Reported by review, 14 September.
+    assert_ne!(
         bind3,
-        BindingConstraint::ForecastCap,
-        "another cap takes over"
+        BindingConstraint::HistoryGrowthCap,
+        "the constraint must move OFF history -- that is the whole claim"
+    );
+    assert!(
+        matches!(
+            bind3,
+            BindingConstraint::ForecastCap
+                | BindingConstraint::StressCapacity
+                | BindingConstraint::AccountHardCap
+        ),
+        "and onto a named cap a reader can see, got {bind3:?}"
     );
 }
 
