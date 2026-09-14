@@ -230,6 +230,7 @@ func TestReportNeverOutlivesTheEngineBound(t *testing.T) {
 		ValidAfter: 900,
 		// The engine says this dies at 1500.
 		ValidUntil: 1500,
+		ID:         "0x" + hex64('e'),
 		ModelHash:  "0x" + hex64('a'),
 		InputHash:  "0x" + hex64('b'),
 		Evidence:   "0x" + hex64('c'),
@@ -257,6 +258,7 @@ func TestConfiguredWindowStillCapsALongerBound(t *testing.T) {
 		LoanID:     1,
 		ValidAfter: 900,
 		ValidUntil: 999_999,
+		ID:         "0x" + hex64('e'),
 		ModelHash:  "0x" + hex64('a'),
 		InputHash:  "0x" + hex64('b'),
 		Evidence:   "0x" + hex64('c'),
@@ -277,4 +279,36 @@ func hex64(c byte) string {
 		b[i] = c
 	}
 	return string(b)
+}
+
+// The report's id and content hash must be two different commitments.
+//
+// The receiver's replay key is `(workflowId, reportId, assessmentId)`.
+// The workflow parsed `assessment_hash` and wrote it to BOTH fields, so
+// the key carried the content hash twice and the id it names was never
+// actually present -- two distinct facts collapsed into one, in the place
+// whose whole purpose is telling one assessment from another.
+//
+// Reported by review, 14 September.
+func TestReportCarriesDistinctIdAndHash(t *testing.T) {
+	a := &assessmentResponse{
+		Decision:   "Approved",
+		Permission: "Allowed",
+		Class:      "PrototypeEligible",
+		LoanID:     1,
+		ValidAfter: 900,
+		ValidUntil: 5000,
+		ID:         "0x" + hex64('e'),
+		Assessment: "0x" + hex64('d'),
+		ModelHash:  "0x" + hex64('a'),
+		InputHash:  "0x" + hex64('b'),
+		Evidence:   "0x" + hex64('c'),
+	}
+	r, err := buildReport(LoanRef{LoanID: 1}, a, 1, 1000, 3600)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.assessmentID == r.assessmentHash {
+		t.Fatal("the id and the content hash are the same value")
+	}
 }

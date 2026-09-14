@@ -145,6 +145,14 @@ type Response struct {
 	ModelHash           string `json:"model_hash"`
 	InputHash           string `json:"input_hash"`
 	EvidenceRoot        string `json:"evidence_root"`
+	// AssessmentID identifies the assessment; AssessmentHash commits to
+	// its content. Two different facts: the id is derived from the
+	// snapshot's labels, the hash from the canonical output bytes.
+	//
+	// The id was not sent until 14 September, so the CRE workflow used the
+	// content hash for both -- collapsing the receiver's replay key, whose
+	// whole purpose is to distinguish one assessment from another.
+	AssessmentID        string `json:"assessment_id"`
 	AssessmentHash      string `json:"assessment_hash"`
 	AccountStateVersion uint64 `json:"account_state_version"`
 	LoanID              uint64 `json:"loan_id"`
@@ -332,6 +340,7 @@ func (s *Server) Assess(ctx context.Context, req Request) (*Response, int, error
 		ModelHash:      hashHex(envelope.ModelHash),
 		InputHash:      hashHex(envelope.InputHash),
 		EvidenceRoot:   hashHex(envelope.EvidenceRoot),
+		AssessmentID:   hashHex(envelope.AssessmentID),
 		AssessmentHash: hashHex(envelope.AssessmentHash),
 		ValidAfter:     envelope.ValidAfter,
 		ValidUntil:     envelope.ValidUntil,

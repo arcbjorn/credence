@@ -55,7 +55,8 @@ type Config struct {
 	// gateway's job (`gateway/riskclient`).
 	//
 	// That snapshotting endpoint is `credence-assessd`, which serves
-	// `GET /v1/assessment/{loanId}`: it reads the account and the loan,
+	// `POST /v1/assess` with `{"loan_id": N}`: it reads the account and
+	// the loan,
 	// builds the snapshot, calls the engine, and returns the assessment
 	// the workflow reaches consensus on.
 	//
@@ -135,6 +136,11 @@ type assessmentResponse struct {
 	ModelHash  string `json:"model_hash"`
 	InputHash  string `json:"input_hash"`
 	Evidence   string `json:"evidence_root"`
+	// ID identifies the assessment; Assessment commits to its content.
+	// Distinct facts, and both go in the report: the receiver's replay key
+	// includes the id, so reusing the content hash for both collapsed two
+	// commitments into one.
+	ID         string `json:"assessment_id"`
 	Assessment string `json:"assessment_hash"`
 	// AccountStateVersion is the portfolio the engine actually assessed.
 	// It rides in the report rather than being supplied by the receiver:
@@ -390,7 +396,11 @@ func buildReport(
 	if err != nil {
 		return r, err
 	}
-	assessmentID, err := parseHash32(a.Assessment)
+	assessmentID, err := parseHash32(a.ID)
+	if err != nil {
+		return r, fmt.Errorf("assessment id: %w", err)
+	}
+	assessmentHash, err := parseHash32(a.Assessment)
 	if err != nil {
 		return r, fmt.Errorf("assessment hash: %w", err)
 	}
@@ -442,7 +452,7 @@ func buildReport(
 		permission:     permission,
 		class:          class,
 		assessmentID:   assessmentID,
-		assessmentHash: assessmentID,
+		assessmentHash: assessmentHash,
 		modelHash:      modelHash,
 		inputHash:      inputHash,
 		evidenceRoot:   evidenceRoot,
