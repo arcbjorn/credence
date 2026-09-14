@@ -65,23 +65,24 @@ refusals and the vault's ledgers among them.
 
 ### The interface
 
-`docs/09`'s eight screens, rendering what the demos retained. It needs two
-generated artifacts, so run the demos first:
+`docs/09`'s eight screens, rendering what the demos retained. One command
+does the whole path — toolchain check, a local chain, the demos, the
+WebAssembly engine, the data bundle, and the dev server:
 
 ```sh
-cargo install wasm-bindgen-cli --version 0.2.128   # once
-rustup target add wasm32-unknown-unknown           # once
-
-cd web
-pnpm install
-pnpm wasm    # compile the risk engine to WebAssembly
-pnpm data    # bundle what the demos retained
-pnpm dev
+scripts/web.sh          # or: make web
 ```
+
+It is idempotent and reuses evidence that already exists; `--fresh` re-runs
+the demos, `--no-serve` builds the static site instead of serving it.
 
 The replay screen runs the **actual engine** — the same Rust the gateway
 uses, compiled to WebAssembly — so a reader can reproduce a retained
 assessment in their own tab, and watch a tampered one fail.
+
+`make` on its own lists the other entry points; every one of them is a
+script under `scripts/`, so make is a convenience rather than a
+dependency.
 
 ### Against a public chain
 

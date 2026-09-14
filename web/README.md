@@ -63,10 +63,33 @@ verbatim rather than defaulting to `Observed`.
 
 ## Running it
 
+`src/engine/` and `public/data/` are **generated and gitignored**, and the
+data comes from actual demo runs. One command does the whole path:
+
 ```sh
+scripts/web.sh        # from the repository root; or: make web
+```
+
+It checks the toolchain, starts a chain if none is listening, runs the
+demos, compiles the engine, bundles what they retained, and serves the
+app. It reuses evidence that already exists, so a second run skips
+straight to the server. `--fresh` re-runs the demos; `--no-serve` builds
+the static site instead.
+
+By hand, the same steps in order:
+
+```sh
+cargo install wasm-bindgen-cli --version 0.2.128   # once
+rustup target add wasm32-unknown-unknown           # once
+
+anvil --port 8546 &
+LOANS=3 scripts/demo-repay.sh
+scripts/demo-monitor.sh
+
+cd web
 pnpm install
-pnpm wasm     # compile risk-core to WebAssembly (needs wasm-bindgen-cli)
-pnpm data     # generate the bundle from the demos' retained SQLite
+pnpm wasm     # compile risk-core to WebAssembly
+pnpm data     # bundle the demos' retained SQLite
 pnpm dev
 ```
 
