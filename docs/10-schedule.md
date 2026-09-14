@@ -56,14 +56,15 @@ From here everything raises fidelity. **Later changes can still introduce regres
 ### Slipped — the screen shell
 
 **Milestone one promised a first screen shell by 13 September. It slipped**,
-and was built on 14 September: React 19 on Vite 8, with four of
+and was built on 14 September: React 19 on Vite 8, with six of
 `docs/09`'s eight screens — agent overview (beat 4b), assessment detail,
+loan lifecycle with its forecasts (3, 4 and 7), lender epoch ledgers,
 enforcement (beat 6), and replay (beat 8). The demo remains `scripts/`: bash driving forge and
 the gateway binaries, printing what each beat proves. The interface reads
 what those scripts retained rather than driving them.
 
-Four screens are still unbuilt: three-agent comparison, evidence
-inspector, loan lifecycle, and lender/epoch, plus the optional note view.
+Two screens are still unbuilt: the three-agent comparison and the
+evidence inspector, plus the optional note view.
 
 The scripts alone were enough to record a technical walkthrough, and the
 verification rows they produce are real. They were **not** enough for a

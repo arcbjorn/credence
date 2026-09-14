@@ -7,6 +7,8 @@ carry the thesis.
 |---|---|
 | Agent overview | 4b — the limit rises, the APR falls, the constraint switches |
 | Assessment detail | which constraints bound one decision, and why |
+| Loan lifecycle | 3, 4, 7 — what was borrowed, and how its forecast scored |
+| Lender | the epoch's ledgers, kept separate |
 | Enforcement | 6 — the prohibited withdrawal, reverted on chain |
 | Replay | 8 — does retained input reproduce the assessment? |
 
