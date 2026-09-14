@@ -106,6 +106,43 @@ contract LifecycleHandler is Test {
         ghostPrincipalReturned += principalBefore - vault.outstandingPrincipal();
         if (manager.status(loanId) == LoanManager.Status.Recovered) loanId = 0;
     }
+
+    /// Write off what recovery could not collect.
+    ///
+    /// Without this the fuzzer never reaches a realized loss, so
+    /// `invariant_principalConserved` carried a `realizedLoss()` term that
+    /// was always zero -- the conservation claim was only ever tested on
+    /// the paths where nothing was lost. Reported by review, 14 September.
+    function declareDefault() external {
+        if (loanId == 0) return;
+        if (manager.status(loanId) != LoanManager.Status.RecoveryPending) return;
+        // A default requires every asset exhausted, not merely a shortfall
+        // (`docs/05` invariant 9). Sweep what remains so the write-off is
+        // reached rather than reverted.
+        uint256 remaining = token.balanceOf(address(account));
+        if (remaining > 0) {
+            // Credited to the ghost exactly as the standalone `collect`
+            // action does: this really is principal coming back, and
+            // omitting it here loses it from the identity.
+            uint256 principalBefore = vault.outstandingPrincipal();
+            vm.prank(KEEPER);
+            manager.collect(loanId, remaining);
+            ghostPrincipalReturned += principalBefore - vault.outstandingPrincipal();
+            if (manager.status(loanId) == LoanManager.Status.Recovered) {
+                loanId = 0;
+                return;
+            }
+        }
+
+        vm.prank(operator);
+        manager.declareDefault(loanId);
+        // No ghost adjustment. The identity is
+        //   lent == returned + outstanding + realizedLoss
+        // and a write-off moves principal from `outstanding` straight into
+        // `realizedLoss`, leaving both sides unchanged. Crediting it to
+        // `returned` as well would count it twice.
+        loanId = 0;
+    }
 }
 
 contract InvariantsTest is Test {
