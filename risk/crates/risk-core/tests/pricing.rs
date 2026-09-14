@@ -90,7 +90,10 @@ fn gross_interest_matches_interest_module() {
     )
     .unwrap();
     assert_eq!(e.gross_interest, Amount(16_438_357));
-    assert!(e.scenario_expected_loss.is_none(), "no assumption, no figure");
+    assert!(
+        e.scenario_expected_loss.is_none(),
+        "no assumption, no figure"
+    );
 }
 
 /// EL = PD_over_term * LGD * exposure, all on the loan's horizon.
@@ -102,7 +105,10 @@ fn expected_loss_uses_term_horizon() {
         30 * 86_400,
         Bps(450),
         Bps(100),
-        Some(LossAssumption { pd_over_term_ppm: 17_000, lgd_ppm: 250_000 }),
+        Some(LossAssumption {
+            pd_over_term_ppm: 17_000,
+            lgd_ppm: 250_000,
+        }),
     )
     .unwrap();
 
@@ -124,7 +130,10 @@ fn components_are_reported_separately_not_netted() {
         30 * 86_400,
         Bps(450),
         Bps(100),
-        Some(LossAssumption { pd_over_term_ppm: 17_000, lgd_ppm: 1_000_000 }),
+        Some(LossAssumption {
+            pd_over_term_ppm: 17_000,
+            lgd_ppm: 1_000_000,
+        }),
     )
     .unwrap();
 

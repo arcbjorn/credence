@@ -22,7 +22,12 @@ fn terms() -> ProposedTerms {
         permitted_action_hash: "act".into(),
         price_breakdown: price(&p, 0, 0),
         economics: economics(
-            Amount(5_000_000_000), Bps(1_200), 10 * 86_400, Bps(450), Bps(100), None,
+            Amount(5_000_000_000),
+            Bps(1_200),
+            10 * 86_400,
+            Bps(450),
+            Bps(100),
+            None,
         )
         .unwrap(),
     }
@@ -72,16 +77,26 @@ fn permission_follows_decision() {
     assert_eq!(approved.permission(), Permission::Allowed);
 
     assert_eq!(
-        Outcome::Denied { requested_principal: None, capacity: None }.permission(),
+        Outcome::Denied {
+            requested_principal: None,
+            capacity: None
+        }
+        .permission(),
         Permission::Blocked
     );
     assert_eq!(Outcome::Unavailable.permission(), Permission::Blocked);
     assert_eq!(
-        Outcome::MonitoringAllowed { loan_id: "l1".into() }.permission(),
+        Outcome::MonitoringAllowed {
+            loan_id: "l1".into()
+        }
+        .permission(),
         Permission::Allowed
     );
     assert_eq!(
-        Outcome::MonitoringBlocked { loan_id: "l1".into() }.permission(),
+        Outcome::MonitoringBlocked {
+            loan_id: "l1".into()
+        }
+        .permission(),
         Permission::Blocked
     );
 }
@@ -110,8 +125,12 @@ fn unavailable_produces_nothing_executable() {
 #[test]
 fn monitoring_omits_grant_and_terms() {
     for outcome in [
-        Outcome::MonitoringAllowed { loan_id: "l1".into() },
-        Outcome::MonitoringBlocked { loan_id: "l1".into() },
+        Outcome::MonitoringAllowed {
+            loan_id: "l1".into(),
+        },
+        Outcome::MonitoringBlocked {
+            loan_id: "l1".into(),
+        },
     ] {
         assert!(outcome.terms().is_none());
         assert!(!outcome.is_executable(), "monitoring can never fund a loan");

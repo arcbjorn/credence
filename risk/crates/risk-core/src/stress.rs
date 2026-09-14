@@ -149,8 +149,7 @@ pub fn recoverable_value(
                 .find(|(a, _)| *a == p.asset.as_str())
                 .map(|(_, t)| *t)
                 .unwrap_or(marked);
-            let impact =
-                liquidity_impact_bps(asset_total, depth, policy.liquidity_haircut_bps);
+            let impact = liquidity_impact_bps(asset_total, depth, policy.liquidity_haircut_bps);
             let after_liq = 10_000u128.checked_sub(impact.min(10_000))?;
             value = value.checked_mul(after_liq)? / 10_000;
         }
@@ -369,7 +368,11 @@ pub fn project(
         }
     };
 
-    Some(ProjectedPortfolio { settlement, positions, debt })
+    Some(ProjectedPortfolio {
+        settlement,
+        positions,
+        debt,
+    })
 }
 
 pub fn principal_is_safe(
@@ -404,9 +407,7 @@ pub fn stress_capacity(
     policy: &StressPolicy,
     upper_bound: Amount,
 ) -> Amount {
-    let safe = |p: Amount| {
-        principal_is_safe(account, action, p, apr, term_seconds, market, policy)
-    };
+    let safe = |p: Amount| principal_is_safe(account, action, p, apr, term_seconds, market, policy);
 
     if !safe(Amount(1)) {
         return Amount::ZERO;
@@ -417,7 +418,7 @@ pub fn stress_capacity(
 
     let (mut lo, mut hi) = (1u128, upper_bound.0);
     while lo < hi {
-        let mid = lo + (hi - lo + 1) / 2;
+        let mid = lo + (hi - lo).div_ceil(2);
         if safe(Amount(mid)) {
             lo = mid;
         } else {
@@ -431,11 +432,7 @@ pub fn stress_capacity(
 ///
 /// Not simply `available_credit`: the reserve must fit too, or the facility
 /// limit is breached the moment interest accrues (`docs/03`).
-pub fn debt_headroom_capacity(
-    available_credit: Amount,
-    apr: Bps,
-    term_seconds: u64,
-) -> Amount {
+pub fn debt_headroom_capacity(available_credit: Amount, apr: Bps, term_seconds: u64) -> Amount {
     if available_credit.0 == 0 {
         return Amount::ZERO;
     }
@@ -452,7 +449,7 @@ pub fn debt_headroom_capacity(
     }
     let (mut lo, mut hi) = (0u128, available_credit.0);
     while lo < hi {
-        let mid = lo + (hi - lo + 1) / 2;
+        let mid = lo + (hi - lo).div_ceil(2);
         if fits(Amount(mid)) {
             lo = mid;
         } else {

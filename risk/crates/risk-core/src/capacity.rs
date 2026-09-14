@@ -43,9 +43,7 @@ pub fn forecast_penalty_bps(
         return Bps::ZERO;
     }
     let clamped = mean_brier_ppm.min(policy.worst_brier_ppm);
-    let scaled = (policy.max_penalty_bps.0 as u64)
-        .saturating_mul(clamped)
-        / policy.worst_brier_ppm;
+    let scaled = (policy.max_penalty_bps.0 as u64).saturating_mul(clamped) / policy.worst_brier_ppm;
     Bps(scaled as u32)
 }
 
@@ -135,7 +133,10 @@ pub struct CapacityResult {
 pub fn compose(agent: AgentInputs, lender: LenderInputs) -> CapacityResult {
     let agent_pairs = [
         (agent.stress_capacity, BindingConstraint::StressCapacity),
-        (agent.history_growth_cap, BindingConstraint::HistoryGrowthCap),
+        (
+            agent.history_growth_cap,
+            BindingConstraint::HistoryGrowthCap,
+        ),
         (agent.account_hard_cap, BindingConstraint::AccountHardCap),
         (agent.forecast_cap, BindingConstraint::ForecastCap),
     ];
@@ -143,9 +144,18 @@ pub fn compose(agent: AgentInputs, lender: LenderInputs) -> CapacityResult {
 
     let drawable_pairs = [
         (agent_capacity, agent_binding),
-        (lender.debt_headroom_capacity, BindingConstraint::DebtHeadroom),
-        (lender.remaining_strategy_budget, BindingConstraint::StrategyBudget),
-        (lender.remaining_vault_budget, BindingConstraint::VaultBudget),
+        (
+            lender.debt_headroom_capacity,
+            BindingConstraint::DebtHeadroom,
+        ),
+        (
+            lender.remaining_strategy_budget,
+            BindingConstraint::StrategyBudget,
+        ),
+        (
+            lender.remaining_vault_budget,
+            BindingConstraint::VaultBudget,
+        ),
         (lender.available_cash, BindingConstraint::AvailableCash),
     ];
     let (drawable_capacity, drawable_binding) = min_with_reason(&drawable_pairs);
@@ -189,8 +199,13 @@ pub fn score(agent_capacity: Amount, account_hard_cap: Amount) -> Option<u32> {
 /// v0 grants the exact requested amount or denies (`docs/03`).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum GrantDecision {
-    Approve { principal: Amount },
-    Deny { limiting: BindingConstraint, capacity: Amount },
+    Approve {
+        principal: Amount,
+    },
+    Deny {
+        limiting: BindingConstraint,
+        capacity: Amount,
+    },
     DenyZeroRequest,
 }
 
@@ -201,7 +216,9 @@ pub fn decide_grant(requested: Amount, capacity: &CapacityResult) -> GrantDecisi
         return GrantDecision::DenyZeroRequest;
     }
     if requested.0 <= capacity.drawable_capacity.0 {
-        GrantDecision::Approve { principal: requested }
+        GrantDecision::Approve {
+            principal: requested,
+        }
     } else {
         GrantDecision::Deny {
             limiting: capacity.drawable_binding,

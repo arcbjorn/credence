@@ -85,7 +85,11 @@ fn input(requested: u128, equity: u128) -> RiskInput {
         requested_class: Class::PrototypeEligible,
         assessment_time: 1_000,
         scenario_id: None,
-        proposal: Proposal { sequence: 5, valid_after: 900, valid_until: 4_600 },
+        proposal: Proposal {
+            sequence: 5,
+            valid_after: 900,
+            valid_until: 4_600,
+        },
         binding: Binding {
             agent: AgentRef {
                 identity_registry_chain_id: 10143,
@@ -189,7 +193,7 @@ fn evaluation_is_deterministic() {
     }
 
     let a = serde_json::to_value(&first).unwrap();
-    let b = serde_json::to_value(&evaluate(&i, &p)).unwrap();
+    let b = serde_json::to_value(evaluate(&i, &p)).unwrap();
     assert_eq!(
         risk_core::snapshot::output_hash(&a).unwrap(),
         risk_core::snapshot::output_hash(&b).unwrap()
@@ -202,7 +206,12 @@ fn evaluation_is_deterministic() {
 fn eligible_request_is_approved_exactly() {
     let a = evaluate(&input(2_000_000_000, 5_000_000_000), &policy());
     match &a.outcome {
-        Outcome::ApprovedOrigination { requested_principal, approved_principal, terms, .. } => {
+        Outcome::ApprovedOrigination {
+            requested_principal,
+            approved_principal,
+            terms,
+            ..
+        } => {
             assert_eq!(requested_principal, approved_principal, "exact grant");
             assert_eq!(terms.term_seconds, 10 * 86_400);
             assert!(terms.apr_bps.0 > 0);
@@ -240,7 +249,10 @@ fn approval_carries_priced_economics() {
 fn request_above_capacity_is_denied_with_reason() {
     let a = evaluate(&input(40_000_000_000, 5_000_000_000), &policy());
     match &a.outcome {
-        Outcome::Denied { requested_principal, capacity } => {
+        Outcome::Denied {
+            requested_principal,
+            capacity,
+        } => {
             assert_eq!(*requested_principal, Some(Amount(40_000_000_000)));
             assert!(capacity.is_some(), "the reader must see what was possible");
         }
@@ -276,7 +288,10 @@ fn rate_above_borrower_maximum_denies() {
         request.max_accepted_apr = Bps(100); // below any schedule output
     }
     let a = evaluate(&i, &policy());
-    assert!(matches!(a.reasons[0], Reason::PriceExceedsBorrowerMaximum { .. }));
+    assert!(matches!(
+        a.reasons[0],
+        Reason::PriceExceedsBorrowerMaximum { .. }
+    ));
     assert!(a.outcome.terms().is_none());
 }
 
@@ -317,7 +332,10 @@ fn synthetic_input_caps_class_and_blocks_execution() {
     let a = evaluate(&i, &policy());
     assert!(a.synthetic_used);
     assert_eq!(a.authorization_class, Class::ScenarioOnly);
-    assert!(!a.is_executable(), "scenario evidence cannot move real capital");
+    assert!(
+        !a.is_executable(),
+        "scenario evidence cannot move real capital"
+    );
 }
 
 // --- Monitoring ---
@@ -346,8 +364,14 @@ fn healthy_monitoring_allows_risk() {
     let a = evaluate(&monitoring(1_000_000_000, 5_000_000_000), &policy());
     assert!(matches!(a.outcome, Outcome::MonitoringAllowed { .. }));
     assert_eq!(a.permission(), Permission::Allowed);
-    assert!(a.outcome.terms().is_none(), "monitoring never carries terms");
-    assert!(!a.outcome.is_executable(), "monitoring can never fund a loan");
+    assert!(
+        a.outcome.terms().is_none(),
+        "monitoring never carries terms"
+    );
+    assert!(
+        !a.outcome.is_executable(),
+        "monitoring can never fund a loan"
+    );
 }
 
 /// A breached account loses permission — the continuous-underwriting beat.
@@ -384,7 +408,10 @@ fn history_alone_changes_the_offered_rate() {
 
     let poor_apr = evaluate(&poor, &p).outcome.terms().unwrap().apr_bps;
     let strong_apr = evaluate(&strong, &p).outcome.terms().unwrap().apr_bps;
-    assert!(strong_apr.0 < poor_apr.0, "history must move the rate: {strong_apr:?} vs {poor_apr:?}");
+    assert!(
+        strong_apr.0 < poor_apr.0,
+        "history must move the rate: {strong_apr:?} vs {poor_apr:?}"
+    );
 }
 
 /// Insufficient forecast outcomes take the maximum penalty, which must be
@@ -408,7 +435,10 @@ fn insufficient_forecasts_reduce_capacity() {
         Outcome::ApprovedOrigination { capacity, .. } => capacity.agent_capacity,
         _ => panic!("expected approval"),
     };
-    assert!(thin_cap.0 <= full_cap.0, "missing forecasts must not increase capacity");
+    assert!(
+        thin_cap.0 <= full_cap.0,
+        "missing forecasts must not increase capacity"
+    );
 }
 
 /// Every approval names the constraint that bound it (`docs/03`).
@@ -460,7 +490,9 @@ fn report_capacity_boundary() {
     for principal in (1_000_000_000u128..=8_000_000_000).step_by(1_000_000_000) {
         let a = evaluate(&input(principal, 5_000_000_000), &p);
         let label = match &a.outcome {
-            Outcome::ApprovedOrigination { capacity, terms, .. } => format!(
+            Outcome::ApprovedOrigination {
+                capacity, terms, ..
+            } => format!(
                 "APPROVED  apr={}bps agent_cap={} bound_by={:?} score={:?}",
                 terms.apr_bps.0, capacity.agent_capacity.0, capacity.agent_binding, capacity.score
             ),
@@ -562,10 +594,14 @@ fn emit_fixture_pack() {
 
     for (name, value) in [
         ("input.json", serde_json::to_value(&i).unwrap()),
-        ("policy.json", serde_json::to_value(&p).unwrap()),
+        ("policy.json", serde_json::to_value(p).unwrap()),
         ("assessment.json", serde_json::to_value(&a).unwrap()),
     ] {
-        fs::write(root.join(name), serde_json::to_string_pretty(&value).unwrap() + "\n").unwrap();
+        fs::write(
+            root.join(name),
+            serde_json::to_string_pretty(&value).unwrap() + "\n",
+        )
+        .unwrap();
     }
 }
 
@@ -686,7 +722,10 @@ fn validity_still_honours_a_shorter_request() {
     p.max_evidence_age_seconds = 3_600;
 
     let out = evaluate(&i, &p);
-    assert_eq!(out.valid_until, 1_010, "a shorter request must not be extended");
+    assert_eq!(
+        out.valid_until, 1_010,
+        "a shorter request must not be extended"
+    );
 }
 
 /// Incomplete history is not clean history.
@@ -794,12 +833,17 @@ fn reported_stress_describes_the_post_draw_portfolio() {
     let out = evaluate(&i, &policy());
 
     let granted = match &out.outcome {
-        Outcome::ApprovedOrigination { approved_principal, .. } => *approved_principal,
+        Outcome::ApprovedOrigination {
+            approved_principal, ..
+        } => *approved_principal,
         other => panic!("expected an approval, got {other:?}"),
     };
     assert!(granted.0 > 0, "this test needs a positive grant");
 
-    assert!(!out.stress_results.is_empty(), "stress cases must be reported");
+    assert!(
+        !out.stress_results.is_empty(),
+        "stress cases must be reported"
+    );
     for r in &out.stress_results {
         assert!(
             r.debt_with_reserved_interest.0 >= granted.0,
@@ -860,9 +904,13 @@ fn sequential_loans_compound_credit() {
     let third = run(600_000);
 
     let terms = |a: &risk_core::assessment::RiskAssessment| match &a.outcome {
-        Outcome::ApprovedOrigination { terms, capacity, .. } => {
-            Some((terms.apr_bps, capacity.agent_capacity, capacity.agent_binding))
-        }
+        Outcome::ApprovedOrigination {
+            terms, capacity, ..
+        } => Some((
+            terms.apr_bps,
+            capacity.agent_capacity,
+            capacity.agent_binding,
+        )),
         other => panic!("expected approval, got {other:?}"),
     };
 
@@ -873,16 +921,33 @@ fn sequential_loans_compound_credit() {
     // Capacity rises while history is what limits it, then PLATEAUS when
     // another cap takes over. The plateau is the point, not a defect: it
     // is why the binding constraint must be reported beside the number.
-    assert!(cap2 > cap1, "capacity must rise while history binds: {cap1:?} -> {cap2:?}");
-    assert!(cap3 >= cap2, "capacity must never fall as history accumulates");
+    assert!(
+        cap2 > cap1,
+        "capacity must rise while history binds: {cap1:?} -> {cap2:?}"
+    );
+    assert!(
+        cap3 >= cap2,
+        "capacity must never fall as history accumulates"
+    );
 
     // APR falls throughout: pricing keeps responding to demonstrated
     // history after capacity has stopped.
-    assert!(apr2 < apr1 && apr3 < apr2, "APR must fall: {apr1:?} {apr2:?} {apr3:?}");
+    assert!(
+        apr2 < apr1 && apr3 < apr2,
+        "APR must fall: {apr1:?} {apr2:?} {apr3:?}"
+    );
 
     // The switch `docs/09` beat 4b exists to show.
-    assert_eq!(bind1, BindingConstraint::HistoryGrowthCap, "history binds first");
-    assert_eq!(bind3, BindingConstraint::ForecastCap, "another cap takes over");
+    assert_eq!(
+        bind1,
+        BindingConstraint::HistoryGrowthCap,
+        "history binds first"
+    );
+    assert_eq!(
+        bind3,
+        BindingConstraint::ForecastCap,
+        "another cap takes over"
+    );
 }
 
 /// A revocation must be deliverable.

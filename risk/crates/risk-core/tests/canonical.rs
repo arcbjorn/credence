@@ -43,7 +43,10 @@ fn rust_reproduces_go_hashes() {
 fn key_order_does_not_affect_hash() {
     let a: Value = serde_json::from_str(r#"{"b":1,"a":2,"c":3}"#).unwrap();
     let b: Value = serde_json::from_str(r#"{"c":3,"a":2,"b":1}"#).unwrap();
-    assert_eq!(canonical::hash_hex(&a).unwrap(), canonical::hash_hex(&b).unwrap());
+    assert_eq!(
+        canonical::hash_hex(&a).unwrap(),
+        canonical::hash_hex(&b).unwrap()
+    );
 }
 
 /// Arrays represent real sequences, so their order is meaningful and must
@@ -52,7 +55,10 @@ fn key_order_does_not_affect_hash() {
 fn array_order_changes_hash() {
     let a: Value = serde_json::from_str(r#"{"e":[1,2,3]}"#).unwrap();
     let b: Value = serde_json::from_str(r#"{"e":[3,2,1]}"#).unwrap();
-    assert_ne!(canonical::hash_hex(&a).unwrap(), canonical::hash_hex(&b).unwrap());
+    assert_ne!(
+        canonical::hash_hex(&a).unwrap(),
+        canonical::hash_hex(&b).unwrap()
+    );
 }
 
 /// Floats have no canonical decimal form both languages agree on, and never
@@ -67,8 +73,8 @@ fn floats_are_rejected() {
 /// would corrupt an amount.
 #[test]
 fn large_integers_survive_exactly() {
-    let v: Value = serde_json::from_str(r#"{"amount":340282366920938463463374607431768211455}"#)
-        .unwrap();
+    let v: Value =
+        serde_json::from_str(r#"{"amount":340282366920938463463374607431768211455}"#).unwrap();
     let encoded = String::from_utf8(canonical::encode(&v).unwrap()).unwrap();
     assert!(encoded.contains("340282366920938463463374607431768211455"));
 }

@@ -34,12 +34,19 @@ fn vault_scarcity_does_not_move_the_score() {
     let drained = compose(a, lender(50_000, 50_000, 50_000, 4_500));
 
     assert_eq!(flush.agent_capacity, Amount(9_000));
-    assert_eq!(drained.agent_capacity, Amount(9_000), "borrower capacity is unchanged");
+    assert_eq!(
+        drained.agent_capacity,
+        Amount(9_000),
+        "borrower capacity is unchanged"
+    );
 
     let s1 = score(flush.agent_capacity, a.account_hard_cap).unwrap();
     let s2 = score(drained.agent_capacity, a.account_hard_cap).unwrap();
     assert_eq!(s1, 750);
-    assert_eq!(s2, 750, "a lender-side constraint must not move a borrower score");
+    assert_eq!(
+        s2, 750,
+        "a lender-side constraint must not move a borrower score"
+    );
 
     // The scarcity shows up where it belongs.
     assert_eq!(drained.drawable_capacity, Amount(4_500));
@@ -89,10 +96,22 @@ fn each_constraint_can_bind_and_is_named() {
 fn lender_constraints_bind_drawable_only() {
     let a = agent(9_000, 9_000, 12_000, 12_000);
     for (l, expected) in [
-        (lender(500, 99_000, 99_000, 99_000), BindingConstraint::DebtHeadroom),
-        (lender(99_000, 500, 99_000, 99_000), BindingConstraint::StrategyBudget),
-        (lender(99_000, 99_000, 500, 99_000), BindingConstraint::VaultBudget),
-        (lender(99_000, 99_000, 99_000, 500), BindingConstraint::AvailableCash),
+        (
+            lender(500, 99_000, 99_000, 99_000),
+            BindingConstraint::DebtHeadroom,
+        ),
+        (
+            lender(99_000, 500, 99_000, 99_000),
+            BindingConstraint::StrategyBudget,
+        ),
+        (
+            lender(99_000, 99_000, 500, 99_000),
+            BindingConstraint::VaultBudget,
+        ),
+        (
+            lender(99_000, 99_000, 99_000, 500),
+            BindingConstraint::AvailableCash,
+        ),
     ] {
         let r = compose(a, l);
         assert_eq!(r.drawable_binding, expected);
@@ -104,14 +123,20 @@ fn lender_constraints_bind_drawable_only() {
 /// inputs always name the same constraint.
 #[test]
 fn ties_report_deterministically() {
-    let r = compose(agent(5_000, 5_000, 5_000, 5_000), lender(99_000, 99_000, 99_000, 99_000));
+    let r = compose(
+        agent(5_000, 5_000, 5_000, 5_000),
+        lender(99_000, 99_000, 99_000, 99_000),
+    );
     assert_eq!(r.agent_binding, BindingConstraint::StressCapacity);
 }
 
 /// drawable never exceeds agent capacity.
 #[test]
 fn drawable_never_exceeds_agent_capacity() {
-    let r = compose(agent(3_000, 9_000, 9_000, 9_000), lender(99_000, 99_000, 99_000, 99_000));
+    let r = compose(
+        agent(3_000, 9_000, 9_000, 9_000),
+        lender(99_000, 99_000, 99_000, 99_000),
+    );
     assert_eq!(r.drawable_capacity, Amount(3_000));
     assert!(r.drawable_capacity.0 <= r.agent_capacity.0);
 }
@@ -147,7 +172,10 @@ fn penalty_is_monotone_in_brier_loss() {
     let mut previous = 0u32;
     for loss in (0..=300_000).step_by(25_000) {
         let penalty = forecast_penalty_bps(&p, 10, loss).0;
-        assert!(penalty >= previous, "penalty fell as loss rose: {penalty} < {previous}");
+        assert!(
+            penalty >= previous,
+            "penalty fell as loss rose: {penalty} < {previous}"
+        );
         previous = penalty;
     }
     assert_eq!(previous, 2_000, "loss beyond the worst case is clamped");
@@ -180,10 +208,15 @@ fn penalty_binds_through_forecast_cap_only() {
 /// `docs/03`: a request for 1,000 with capacity 5,000 grants exactly 1,000.
 #[test]
 fn request_within_capacity_is_granted_exactly() {
-    let c = compose(agent(5_000, 9_000, 9_000, 9_000), lender(99_000, 99_000, 99_000, 99_000));
+    let c = compose(
+        agent(5_000, 9_000, 9_000, 9_000),
+        lender(99_000, 99_000, 99_000, 99_000),
+    );
     assert_eq!(
         decide_grant(Amount(1_000), &c),
-        GrantDecision::Approve { principal: Amount(1_000) }
+        GrantDecision::Approve {
+            principal: Amount(1_000)
+        }
     );
 }
 
@@ -191,7 +224,10 @@ fn request_within_capacity_is_granted_exactly() {
 /// There is no implicit partial fill.
 #[test]
 fn request_above_capacity_is_denied_not_reduced() {
-    let c = compose(agent(5_000, 9_000, 9_000, 9_000), lender(99_000, 99_000, 99_000, 99_000));
+    let c = compose(
+        agent(5_000, 9_000, 9_000, 9_000),
+        lender(99_000, 99_000, 99_000, 99_000),
+    );
     assert_eq!(
         decide_grant(Amount(6_000), &c),
         GrantDecision::Deny {
@@ -203,20 +239,35 @@ fn request_above_capacity_is_denied_not_reduced() {
 
 #[test]
 fn exact_capacity_is_grantable() {
-    let c = compose(agent(5_000, 9_000, 9_000, 9_000), lender(99_000, 99_000, 99_000, 99_000));
-    assert!(matches!(decide_grant(Amount(5_000), &c), GrantDecision::Approve { .. }));
+    let c = compose(
+        agent(5_000, 9_000, 9_000, 9_000),
+        lender(99_000, 99_000, 99_000, 99_000),
+    );
+    assert!(matches!(
+        decide_grant(Amount(5_000), &c),
+        GrantDecision::Approve { .. }
+    ));
 }
 
 #[test]
 fn zero_request_is_denied() {
-    let c = compose(agent(5_000, 9_000, 9_000, 9_000), lender(99_000, 99_000, 99_000, 99_000));
-    assert_eq!(decide_grant(Amount::ZERO, &c), GrantDecision::DenyZeroRequest);
+    let c = compose(
+        agent(5_000, 9_000, 9_000, 9_000),
+        lender(99_000, 99_000, 99_000, 99_000),
+    );
+    assert_eq!(
+        decide_grant(Amount::ZERO, &c),
+        GrantDecision::DenyZeroRequest
+    );
 }
 
 /// The denial names the lender-side constraint when that is what bound.
 #[test]
 fn denial_names_the_lender_constraint() {
-    let c = compose(agent(9_000, 9_000, 12_000, 12_000), lender(99_000, 99_000, 99_000, 2_000));
+    let c = compose(
+        agent(9_000, 9_000, 12_000, 12_000),
+        lender(99_000, 99_000, 99_000, 2_000),
+    );
     assert_eq!(
         decide_grant(Amount(5_000), &c),
         GrantDecision::Deny {

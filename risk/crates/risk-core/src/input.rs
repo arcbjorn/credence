@@ -201,7 +201,11 @@ pub enum InputError {
     /// A window that has already closed cannot authorize anything.
     InvalidValidityWindow { valid_after: u64, valid_until: u64 },
     /// Assessment time outside its own declared window.
-    AssessmentTimeOutsideWindow { time: u64, valid_after: u64, valid_until: u64 },
+    AssessmentTimeOutsideWindow {
+        time: u64,
+        valid_after: u64,
+        valid_until: u64,
+    },
     /// The account the binding names is not the account described.
     AccountStateVersionMismatch { binding: u64, account: u64 },
     /// A scenario identity is required when scenario evidence is in play.

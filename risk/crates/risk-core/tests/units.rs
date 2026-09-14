@@ -99,7 +99,10 @@ fn ratio_comparison_is_exact() {
 fn overflow_is_checked_not_wrapped() {
     assert_eq!(Amount(u128::MAX).checked_add(Amount(1)), None);
     assert_eq!(Amount(0).checked_sub(Amount(1)), None);
-    assert_eq!(interest::full_term(Amount(u128::MAX), Bps(10_000), 86_400), None);
+    assert_eq!(
+        interest::full_term(Amount(u128::MAX), Bps(10_000), 86_400),
+        None
+    );
 }
 
 /// Headroom saturates at zero; debt exceeding the limit is not negative.

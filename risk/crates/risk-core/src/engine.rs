@@ -12,16 +12,10 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::assessment::{
-    CapacityView, Outcome, ProposedTerms, Reason, RiskAssessment,
-};
-use crate::capacity::{
-    self, AgentInputs, ForecastPolicy, GrantDecision, LenderInputs,
-};
+use crate::assessment::{CapacityView, Outcome, ProposedTerms, Reason, RiskAssessment};
+use crate::capacity::{self, AgentInputs, ForecastPolicy, GrantDecision, LenderInputs};
 use crate::evidence::{Blocker, Class, EvidenceCheck};
-use crate::input::{
-    Context, ForecastSummary, HistorySummary, PortfolioContext, RiskInput,
-};
+use crate::input::{Context, ForecastSummary, HistorySummary, PortfolioContext, RiskInput};
 use crate::interest;
 use crate::pricing::{self, LossAssumption, PricingPolicy};
 use crate::snapshot;
@@ -184,8 +178,10 @@ pub fn evaluate(input: &RiskInput, policy: &Policy) -> RiskAssessment {
     // explanation and the arithmetic disagree, and would let an agent earn
     // a discount from a reading the engine has already disowned.
     let history = usable_or(
-        &input.history, &omitted_history,
-        input.assessment_time, policy.max_evidence_age_seconds,
+        &input.history,
+        &omitted_history,
+        input.assessment_time,
+        policy.max_evidence_age_seconds,
     );
 
     let omitted_forecasts = ForecastSummary {
@@ -195,8 +191,10 @@ pub fn evaluate(input: &RiskInput, policy: &Policy) -> RiskAssessment {
         unobservable: 0,
     };
     let forecasts = usable_or(
-        &input.forecasts, &omitted_forecasts,
-        input.assessment_time, policy.max_evidence_age_seconds,
+        &input.forecasts,
+        &omitted_forecasts,
+        input.assessment_time,
+        policy.max_evidence_age_seconds,
     );
 
     let omitted_portfolio = PortfolioContext {
@@ -206,8 +204,10 @@ pub fn evaluate(input: &RiskInput, policy: &Policy) -> RiskAssessment {
         available_cash: Amount::ZERO,
     };
     let portfolio = usable_or(
-        &input.portfolio, &omitted_portfolio,
-        input.assessment_time, policy.max_evidence_age_seconds,
+        &input.portfolio,
+        &omitted_portfolio,
+        input.assessment_time,
+        policy.max_evidence_age_seconds,
     );
 
     match &input.context {
@@ -256,7 +256,9 @@ pub fn evaluate(input: &RiskInput, policy: &Policy) -> RiskAssessment {
             // nothing about whether recovery should be interrupted.
             let (outcome, reasons) = if healthy && !account.restricted && !loan.in_recovery {
                 (
-                    Outcome::MonitoringAllowed { loan_id: loan.loan_id.clone() },
+                    Outcome::MonitoringAllowed {
+                        loan_id: loan.loan_id.clone(),
+                    },
                     vec![Reason::Eligible],
                 )
             } else {
@@ -265,17 +267,28 @@ pub fn evaluate(input: &RiskInput, policy: &Policy) -> RiskAssessment {
                 } else if account.restricted {
                     Reason::AccountRestricted
                 } else {
-                    Reason::MonitoringCoverageBreach { shock: "marked".into() }
+                    Reason::MonitoringCoverageBreach {
+                        shock: "marked".into(),
+                    }
                 };
                 (
-                    Outcome::MonitoringBlocked { loan_id: loan.loan_id.clone() },
+                    Outcome::MonitoringBlocked {
+                        loan_id: loan.loan_id.clone(),
+                    },
                     vec![reason],
                 )
             };
 
             assemble(
-                input, &identity, outcome, results, reasons, verdict.omitted,
-                class, verdict.synthetic_used, policy.max_evidence_age_seconds,
+                input,
+                &identity,
+                outcome,
+                results,
+                reasons,
+                verdict.omitted,
+                class,
+                verdict.synthetic_used,
+                policy.max_evidence_age_seconds,
             )
         }
 
@@ -283,16 +296,28 @@ pub fn evaluate(input: &RiskInput, policy: &Policy) -> RiskAssessment {
             // Step 2 — request against account policy.
             if account.restricted {
                 return denied(
-                    input, &identity, Some(request.requested_principal), None,
-                    vec![Reason::AccountRestricted], verdict.omitted, class,
-                    verdict.synthetic_used, policy.max_evidence_age_seconds,
+                    input,
+                    &identity,
+                    Some(request.requested_principal),
+                    None,
+                    vec![Reason::AccountRestricted],
+                    verdict.omitted,
+                    class,
+                    verdict.synthetic_used,
+                    policy.max_evidence_age_seconds,
                 );
             }
             if request.requested_principal.0 == 0 {
                 return denied(
-                    input, &identity, Some(Amount::ZERO), None,
-                    vec![Reason::ZeroRequest], verdict.omitted, class,
-                    verdict.synthetic_used, policy.max_evidence_age_seconds,
+                    input,
+                    &identity,
+                    Some(Amount::ZERO),
+                    None,
+                    vec![Reason::ZeroRequest],
+                    verdict.omitted,
+                    class,
+                    verdict.synthetic_used,
+                    policy.max_evidence_age_seconds,
                 );
             }
 
@@ -327,11 +352,9 @@ pub fn evaluate(input: &RiskInput, policy: &Policy) -> RiskAssessment {
                 history.resolved_defaults,
                 history.policy_breaches,
             );
-            let history_growth_cap = Amount(
-                policy.base_history_cap.0.saturating_add(
-                    (earned_ppm as u128).saturating_mul(policy.history_growth_per_ppm),
-                ),
-            );
+            let history_growth_cap = Amount(policy.base_history_cap.0.saturating_add(
+                (earned_ppm as u128).saturating_mul(policy.history_growth_per_ppm),
+            ));
 
             // Step 7 — forecast cap.
             let penalty = capacity::forecast_penalty_bps(
@@ -341,7 +364,9 @@ pub fn evaluate(input: &RiskInput, policy: &Policy) -> RiskAssessment {
             );
             let forecast_cap = capacity::forecast_cap(policy.account_hard_cap, penalty);
 
-            let available_credit = account.facility_limit.saturating_sub(account.outstanding_debt);
+            let available_credit = account
+                .facility_limit
+                .saturating_sub(account.outstanding_debt);
             let headroom = stress::debt_headroom_capacity(
                 available_credit,
                 indicative_apr,
@@ -384,16 +409,27 @@ pub fn evaluate(input: &RiskInput, policy: &Policy) -> RiskAssessment {
                 GrantDecision::Approve { principal } => principal,
                 GrantDecision::Deny { limiting, capacity } => {
                     return denied(
-                        input, &identity, Some(request.requested_principal), Some(view),
+                        input,
+                        &identity,
+                        Some(request.requested_principal),
+                        Some(view),
                         vec![Reason::CapacityExceeded { limiting, capacity }],
-                        verdict.omitted, class, verdict.synthetic_used,
+                        verdict.omitted,
+                        class,
+                        verdict.synthetic_used,
                         policy.max_evidence_age_seconds,
                     );
                 }
                 GrantDecision::DenyZeroRequest => {
                     return denied(
-                        input, &identity, Some(Amount::ZERO), Some(view),
-                        vec![Reason::ZeroRequest], verdict.omitted, class, verdict.synthetic_used,
+                        input,
+                        &identity,
+                        Some(Amount::ZERO),
+                        Some(view),
+                        vec![Reason::ZeroRequest],
+                        verdict.omitted,
+                        class,
+                        verdict.synthetic_used,
                         policy.max_evidence_age_seconds,
                     );
                 }
@@ -403,15 +439,26 @@ pub fn evaluate(input: &RiskInput, policy: &Policy) -> RiskAssessment {
             // manufacture eligibility.
             let history_quality_ppm = history.weighted_repayments_ppm.min(1_000_000);
             let portfolio_risk_ppm = portfolio_risk(account, market);
-            let breakdown = pricing::price(&policy.pricing, history_quality_ppm, portfolio_risk_ppm);
+            let breakdown =
+                pricing::price(&policy.pricing, history_quality_ppm, portfolio_risk_ppm);
 
-            if let Err(pricing::PricingRefusal::ExceedsBorrowerMaximum { offered_bps, maximum_bps }) =
-                pricing::check_borrower_maximum(breakdown.apr_bps, request.max_accepted_apr)
+            if let Err(pricing::PricingRefusal::ExceedsBorrowerMaximum {
+                offered_bps,
+                maximum_bps,
+            }) = pricing::check_borrower_maximum(breakdown.apr_bps, request.max_accepted_apr)
             {
                 return denied(
-                    input, &identity, Some(request.requested_principal), Some(view),
-                    vec![Reason::PriceExceedsBorrowerMaximum { offered_bps, maximum_bps }],
-                    verdict.omitted, class, verdict.synthetic_used,
+                    input,
+                    &identity,
+                    Some(request.requested_principal),
+                    Some(view),
+                    vec![Reason::PriceExceedsBorrowerMaximum {
+                        offered_bps,
+                        maximum_bps,
+                    }],
+                    verdict.omitted,
+                    class,
+                    verdict.synthetic_used,
                     policy.max_evidence_age_seconds,
                 );
             }
@@ -421,16 +468,26 @@ pub fn evaluate(input: &RiskInput, policy: &Policy) -> RiskAssessment {
             // but the requested portfolio is rechecked exactly, because a
             // capacity estimate does not authorize an allocation (`docs/03`).
             if !stress::principal_is_safe(
-                account, &action, granted, breakdown.apr_bps, request.term_seconds,
-                market, &policy.stress,
+                account,
+                &action,
+                granted,
+                breakdown.apr_bps,
+                request.term_seconds,
+                market,
+                &policy.stress,
             ) {
                 return denied(
-                    input, &identity, Some(request.requested_principal), Some(view),
+                    input,
+                    &identity,
+                    Some(request.requested_principal),
+                    Some(view),
                     vec![Reason::CapacityExceeded {
                         limiting: composed.agent_binding,
                         capacity: composed.agent_capacity,
                     }],
-                    verdict.omitted, class, verdict.synthetic_used,
+                    verdict.omitted,
+                    class,
+                    verdict.synthetic_used,
                     policy.max_evidence_age_seconds,
                 );
             }
@@ -440,24 +497,35 @@ pub fn evaluate(input: &RiskInput, policy: &Policy) -> RiskAssessment {
             // recheck just ran, so the displayed cases and the decision
             // describe one portfolio rather than two.
             let results = match stress::project(
-                account, &action, granted, breakdown.apr_bps, request.term_seconds,
+                account,
+                &action,
+                granted,
+                breakdown.apr_bps,
+                request.term_seconds,
             ) {
-                Some(p) => stress::evaluate_all(
-                    p.settlement, &p.positions, p.debt, market, &policy.stress,
-                )
-                .unwrap_or(results),
+                Some(p) => {
+                    stress::evaluate_all(p.settlement, &p.positions, p.debt, market, &policy.stress)
+                        .unwrap_or(results)
+                }
                 None => results,
             };
 
             let econ = pricing::economics(
-                granted, breakdown.apr_bps, request.term_seconds,
-                policy.funding_rate_bps, policy.operating_rate_bps, policy.loss_assumption,
+                granted,
+                breakdown.apr_bps,
+                request.term_seconds,
+                policy.funding_rate_bps,
+                policy.operating_rate_bps,
+                policy.loss_assumption,
             );
             let Some(economics) = econ else {
                 return unavailable(
-                    input, &identity,
+                    input,
+                    &identity,
                     vec![Reason::StructurallyInvalid("economics overflow".into())],
-                    verdict.omitted, class, verdict.synthetic_used,
+                    verdict.omitted,
+                    class,
+                    verdict.synthetic_used,
                     policy.max_evidence_age_seconds,
                 );
             };
@@ -478,8 +546,14 @@ pub fn evaluate(input: &RiskInput, policy: &Policy) -> RiskAssessment {
             };
 
             assemble(
-                input, &identity, outcome, results, vec![Reason::Eligible],
-                verdict.omitted, class, verdict.synthetic_used,
+                input,
+                &identity,
+                outcome,
+                results,
+                vec![Reason::Eligible],
+                verdict.omitted,
+                class,
+                verdict.synthetic_used,
                 policy.max_evidence_age_seconds,
             )
         }
@@ -636,9 +710,18 @@ fn denied(
     max_evidence_age_seconds: u64,
 ) -> RiskAssessment {
     assemble(
-        input, identity,
-        Outcome::Denied { requested_principal: requested, capacity },
-        vec![], reasons, omitted, class, synthetic_used, max_evidence_age_seconds,
+        input,
+        identity,
+        Outcome::Denied {
+            requested_principal: requested,
+            capacity,
+        },
+        vec![],
+        reasons,
+        omitted,
+        class,
+        synthetic_used,
+        max_evidence_age_seconds,
     )
 }
 
@@ -652,7 +735,14 @@ fn unavailable(
     max_evidence_age_seconds: u64,
 ) -> RiskAssessment {
     assemble(
-        input, identity, Outcome::Unavailable, vec![], reasons, omitted, class,
-        synthetic_used, max_evidence_age_seconds,
+        input,
+        identity,
+        Outcome::Unavailable,
+        vec![],
+        reasons,
+        omitted,
+        class,
+        synthetic_used,
+        max_evidence_age_seconds,
     )
 }

@@ -109,8 +109,14 @@ fn combined_shock_is_the_most_severe() {
     let liquidity = r[1].recoverable_value.0;
     let combined = r[2].recoverable_value.0;
 
-    assert!(combined <= price, "combined must be at least as severe as price");
-    assert!(combined <= liquidity, "combined must be at least as severe as liquidity");
+    assert!(
+        combined <= price,
+        "combined must be at least as severe as price"
+    );
+    assert!(
+        combined <= liquidity,
+        "combined must be at least as severe as liquidity"
+    );
 }
 
 /// Settlement balance does not fall under a price shock, but a risky
@@ -118,10 +124,24 @@ fn combined_shock_is_the_most_severe() {
 #[test]
 fn price_shock_hits_positions_not_settlement() {
     let p = policy();
-    let cash_only = recoverable_value(Amount(10_000_000_000), &[], Shock::Price, Bps(3_000), Amount(1), &p)
-        .unwrap();
-    let no_shock = recoverable_value(Amount(10_000_000_000), &[], Shock::Liquidity, Bps(3_000), Amount(1), &p)
-        .unwrap();
+    let cash_only = recoverable_value(
+        Amount(10_000_000_000),
+        &[],
+        Shock::Price,
+        Bps(3_000),
+        Amount(1),
+        &p,
+    )
+    .unwrap();
+    let no_shock = recoverable_value(
+        Amount(10_000_000_000),
+        &[],
+        Shock::Liquidity,
+        Bps(3_000),
+        Amount(1),
+        &p,
+    )
+    .unwrap();
     assert_eq!(cash_only, no_shock, "cash is unaffected by a price shock");
 }
 
@@ -129,6 +149,7 @@ fn price_shock_hits_positions_not_settlement() {
 
 /// Brute-force reference, as `docs/03` requires: the binary search must
 /// agree with a linear scan over a small range.
+#[allow(clippy::too_many_arguments)]
 fn reference_capacity(
     acct: &AccountState,
     action: &IntendedAction,
@@ -159,8 +180,17 @@ fn binary_search_agrees_with_reference() {
     let upper = 20_000_000_000u128;
     let step = 100_000_000u128;
 
-    let searched = stress_capacity(&acct, &action, Bps(1_200), 10 * 86_400, &m, &p, Amount(upper));
-    let reference = reference_capacity(&acct, &action, Bps(1_200), 10 * 86_400, &m, &p, upper, step);
+    let searched = stress_capacity(
+        &acct,
+        &action,
+        Bps(1_200),
+        10 * 86_400,
+        &m,
+        &p,
+        Amount(upper),
+    );
+    let reference =
+        reference_capacity(&acct, &action, Bps(1_200), 10 * 86_400, &m, &p, upper, step);
 
     // The search is exact; the reference is granular, so it can only be
     // lower — but never by more than one step.
@@ -181,12 +211,32 @@ fn safety_is_monotone_in_principal() {
     let p = policy();
     let m = market(2_000);
     let cap = stress_capacity(
-        &acct, &IntendedAction::Hold, Bps(1_200), 10 * 86_400, &m, &p, Amount(50_000_000_000),
+        &acct,
+        &IntendedAction::Hold,
+        Bps(1_200),
+        10 * 86_400,
+        &m,
+        &p,
+        Amount(50_000_000_000),
     );
 
-    assert!(principal_is_safe(&acct, &IntendedAction::Hold, cap, Bps(1_200), 10 * 86_400, &m, &p));
+    assert!(principal_is_safe(
+        &acct,
+        &IntendedAction::Hold,
+        cap,
+        Bps(1_200),
+        10 * 86_400,
+        &m,
+        &p
+    ));
     assert!(!principal_is_safe(
-        &acct, &IntendedAction::Hold, Amount(cap.0 + 1), Bps(1_200), 10 * 86_400, &m, &p
+        &acct,
+        &IntendedAction::Hold,
+        Amount(cap.0 + 1),
+        Bps(1_200),
+        10 * 86_400,
+        &m,
+        &p
     ));
 }
 
@@ -199,7 +249,15 @@ fn acquiring_risk_reduces_capacity_versus_holding() {
     let m = market(2_000);
     let upper = Amount(50_000_000_000);
 
-    let holding = stress_capacity(&acct, &IntendedAction::Hold, Bps(1_200), 864_000, &m, &p, upper);
+    let holding = stress_capacity(
+        &acct,
+        &IntendedAction::Hold,
+        Bps(1_200),
+        864_000,
+        &m,
+        &p,
+        upper,
+    );
     let acquiring = stress_capacity(
         &acct,
         &IntendedAction::Acquire {
@@ -253,11 +311,21 @@ fn existing_debt_reduces_capacity() {
     let m = market(2_000);
     let clean = stress_capacity(
         &account(10_000_000_000, vec![], 0),
-        &IntendedAction::Hold, Bps(1_200), 864_000, &m, &p, Amount(50_000_000_000),
+        &IntendedAction::Hold,
+        Bps(1_200),
+        864_000,
+        &m,
+        &p,
+        Amount(50_000_000_000),
     );
     let levered = stress_capacity(
         &account(10_000_000_000, vec![], 3_000_000_000),
-        &IntendedAction::Hold, Bps(1_200), 864_000, &m, &p, Amount(50_000_000_000),
+        &IntendedAction::Hold,
+        Bps(1_200),
+        864_000,
+        &m,
+        &p,
+        Amount(50_000_000_000),
     );
     assert!(levered.0 < clean.0);
 }
@@ -274,24 +342,36 @@ fn headroom_reserves_full_term_interest() {
     assert!(cap.0 < available.0, "capacity must leave room for interest");
 
     let reserve = risk_core::interest::full_term(cap, Bps(1_200), 10 * 86_400).unwrap();
-    assert!(cap.0 + reserve.0 <= available.0, "principal plus reserve must fit");
+    assert!(
+        cap.0 + reserve.0 <= available.0,
+        "principal plus reserve must fit"
+    );
 
     // One unit more must not fit.
     let next = Amount(cap.0 + 1);
     let next_reserve = risk_core::interest::full_term(next, Bps(1_200), 10 * 86_400).unwrap();
-    assert!(next.0 + next_reserve.0 > available.0, "capacity must be maximal");
+    assert!(
+        next.0 + next_reserve.0 > available.0,
+        "capacity must be maximal"
+    );
 }
 
 #[test]
 fn zero_headroom_yields_zero_capacity() {
-    assert_eq!(debt_headroom_capacity(Amount::ZERO, Bps(1_200), 864_000), Amount::ZERO);
+    assert_eq!(
+        debt_headroom_capacity(Amount::ZERO, Bps(1_200), 864_000),
+        Amount::ZERO
+    );
 }
 
 /// At zero APR there is no reserve, so all headroom is usable.
 #[test]
 fn zero_apr_uses_all_headroom() {
     let available = Amount(5_000_000_000);
-    assert_eq!(debt_headroom_capacity(available, Bps::ZERO, 864_000), available);
+    assert_eq!(
+        debt_headroom_capacity(available, Bps::ZERO, 864_000),
+        available
+    );
 }
 
 // --- Liquidity depth governs the exit (docs/03) ---
@@ -314,8 +394,7 @@ fn shallow_depth_reduces_recoverable_value() {
     let mut shallow = market(2_000);
     shallow.liquidity_depth = Amount(2_000_000_000_000_000_000_000); // the position IS the market
 
-    let deep_results =
-        evaluate_all(Amount(0), &positions, Amount(1), &deep, &p).expect("deep");
+    let deep_results = evaluate_all(Amount(0), &positions, Amount(1), &deep, &p).expect("deep");
     let shallow_results =
         evaluate_all(Amount(0), &positions, Amount(1), &shallow, &p).expect("shallow");
 
@@ -344,7 +423,7 @@ fn ample_depth_leaves_small_positions_alone() {
     let mut ample = market(2_000);
     ample.liquidity_depth = Amount(2_000_000_000_000_000_000_000_000_000);
     let mut ampler = market(2_000);
-    ampler.liquidity_depth = Amount(2_000_000_000_000_000_000_000_000_000_0);
+    ampler.liquidity_depth = Amount(20_000_000_000_000_000_000_000_000_000);
 
     let a = evaluate_all(Amount(0), &positions, Amount(1), &ample, &p).expect("a");
     let b = evaluate_all(Amount(0), &positions, Amount(1), &ampler, &p).expect("b");
@@ -416,7 +495,10 @@ fn liquidity_impact_follows_the_square_root_law() {
     let same = recover_at(marked);
     let hundredth = recover_at(marked * 100);
 
-    assert!(same <= quarter, "size == depth must cost at least as much as size == depth/4");
+    assert!(
+        same <= quarter,
+        "size == depth must cost at least as much as size == depth/4"
+    );
     assert!(quarter <= hundredth, "deeper must never recover less");
 
     // Isolate the LIQUIDITY component. The asset's own haircut and the
@@ -429,8 +511,7 @@ fn liquidity_impact_follows_the_square_root_law() {
     // sqrt(1/4) == 1/2, so a quarter-of-depth position takes about half
     // the impact. A band, since bps arithmetic rounds.
     assert!(
-        quarter_impact * 2 >= full_impact * 9 / 10
-            && quarter_impact * 2 <= full_impact * 11 / 10,
+        quarter_impact * 2 >= full_impact * 9 / 10 && quarter_impact * 2 <= full_impact * 11 / 10,
         "quarter-depth impact should be about half of full: {quarter_impact} vs {full_impact}"
     );
 }
@@ -505,8 +586,7 @@ fn isqrt_is_exact_including_at_the_ceiling() {
     let mut at_depth = market(2_000);
     at_depth.liquidity_depth = Amount(marked);
 
-    let r = evaluate_all(Amount(0), &positions, Amount(1), &at_depth, &p)
-        .expect("results");
+    let r = evaluate_all(Amount(0), &positions, Amount(1), &at_depth, &p).expect("results");
     let liq = r.iter().find(|x| x.shock == Shock::Liquidity).unwrap();
 
     // marked, less the 500bps asset haircut, less the full 2000bps
@@ -544,7 +624,11 @@ fn acquire_projects_the_equity_it_actually_deploys() {
 
     // Deploying only the principal leaves equity as a cash buffer.
     let principal_only = project(
-        &acct, &eth_at(0), Amount(6_000_000_000), Bps(1_200), 10 * 86_400,
+        &acct,
+        &eth_at(0),
+        Amount(6_000_000_000),
+        Bps(1_200),
+        10 * 86_400,
     )
     .expect("projection");
     assert_eq!(
@@ -555,7 +639,11 @@ fn acquire_projects_the_equity_it_actually_deploys() {
 
     // Deploying everything leaves none.
     let everything = project(
-        &acct, &eth_at(10_000), Amount(6_000_000_000), Bps(1_200), 10 * 86_400,
+        &acct,
+        &eth_at(10_000),
+        Amount(6_000_000_000),
+        Bps(1_200),
+        10 * 86_400,
     )
     .expect("projection");
     assert_eq!(
@@ -595,7 +683,11 @@ fn omitted_deployment_share_defaults_to_everything() {
 
     let acct = account(5_000_000_000, vec![], 0);
     let projected = project(
-        &acct, &action, Amount(6_000_000_000), Bps(1_200), 10 * 86_400,
+        &acct,
+        &action,
+        Amount(6_000_000_000),
+        Bps(1_200),
+        10 * 86_400,
     )
     .expect("projection");
 
@@ -620,7 +712,12 @@ fn splitting_a_holding_does_not_raise_recoverable_value() {
     let depth = Amount(10_000_000_000);
 
     let whole = recoverable_value(
-        Amount(0), &[eth(1_000_000)], Shock::Liquidity, Bps(3_000), depth, &p,
+        Amount(0),
+        &[eth(1_000_000)],
+        Shock::Liquidity,
+        Bps(3_000),
+        depth,
+        &p,
     )
     .unwrap();
 

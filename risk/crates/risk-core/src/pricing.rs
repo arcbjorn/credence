@@ -143,10 +143,7 @@ pub enum PricingRefusal {
 }
 
 /// Check the priced rate against the borrower's declared ceiling.
-pub fn check_borrower_maximum(
-    offered: Bps,
-    borrower_max: Bps,
-) -> Result<(), PricingRefusal> {
+pub fn check_borrower_maximum(offered: Bps, borrower_max: Bps) -> Result<(), PricingRefusal> {
     if offered.0 > borrower_max.0 {
         return Err(PricingRefusal::ExceedsBorrowerMaximum {
             offered_bps: offered,

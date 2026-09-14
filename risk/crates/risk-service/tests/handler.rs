@@ -56,7 +56,10 @@ fn responses_are_canonical() {
         "/v1/assess",
         serde_json::json!({ "input": fixture("input.json"), "policy": fixture("policy.json") }),
     );
-    assert!(!res.body.contains(": "), "response must not be pretty-printed");
+    assert!(
+        !res.body.contains(": "),
+        "response must not be pretty-printed"
+    );
 
     // Keys are sorted, so the same result always serializes identically.
     let again = post(

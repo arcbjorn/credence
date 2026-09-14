@@ -2,12 +2,7 @@
 
 use risk_core::evidence::*;
 
-fn ev<T>(
-    value: Option<T>,
-    state: State,
-    origin: Origin,
-    requirement: Requirement,
-) -> Evidence<T> {
+fn ev<T>(value: Option<T>, state: State, origin: Origin, requirement: Requirement) -> Evidence<T> {
     Evidence {
         value,
         state,
@@ -33,7 +28,12 @@ fn check() -> EvidenceCheck {
 #[test]
 fn missing_required_blocks() {
     let mut c = check();
-    c.observe(&ev::<u64>(None, State::Missing, Origin::Observed, Requirement::Required));
+    c.observe(&ev::<u64>(
+        None,
+        State::Missing,
+        Origin::Observed,
+        Requirement::Required,
+    ));
     let v = c.finish();
     assert!(!v.authorized());
     assert!(matches!(v.blockers[0], Blocker::MissingRequired { .. }));
@@ -44,18 +44,31 @@ fn missing_required_blocks() {
 fn stale_required_blocks() {
     let mut c = EvidenceCheck::new(FacilityPolicy::Observed, 10_000, 3_600);
     // Present and valued, but observed long ago.
-    let mut e = ev(Some(1u64), State::Present, Origin::Observed, Requirement::Required);
+    let mut e = ev(
+        Some(1u64),
+        State::Present,
+        Origin::Observed,
+        Requirement::Required,
+    );
     e.observed_at = Some(1_000);
     c.observe(&e);
     let v = c.finish();
-    assert!(!v.authorized(), "an old observation is stale even when Present");
+    assert!(
+        !v.authorized(),
+        "an old observation is stale even when Present"
+    );
     assert!(matches!(v.blockers[0], Blocker::StaleRequired { .. }));
 }
 
 #[test]
 fn conflicting_required_blocks() {
     let mut c = check();
-    c.observe(&ev(Some(1u64), State::Conflicting, Origin::Observed, Requirement::Required));
+    c.observe(&ev(
+        Some(1u64),
+        State::Conflicting,
+        Origin::Observed,
+        Requirement::Required,
+    ));
     assert!(!c.finish().authorized());
 }
 
@@ -64,7 +77,12 @@ fn conflicting_required_blocks() {
 #[test]
 fn partial_coverage_blocks_required() {
     let mut c = check();
-    let mut e = ev(Some(1u64), State::Present, Origin::Observed, Requirement::Required);
+    let mut e = ev(
+        Some(1u64),
+        State::Present,
+        Origin::Observed,
+        Requirement::Required,
+    );
     e.coverage = Coverage::Partial;
     c.observe(&e);
     let v = c.finish();
@@ -77,7 +95,12 @@ fn partial_coverage_blocks_required() {
 #[test]
 fn missing_optional_omits_without_blocking() {
     let mut c = check();
-    c.observe(&ev::<u64>(None, State::Missing, Origin::Observed, Requirement::Optional));
+    c.observe(&ev::<u64>(
+        None,
+        State::Missing,
+        Origin::Observed,
+        Requirement::Optional,
+    ));
     let v = c.finish();
     assert!(v.authorized(), "optional absence must not block");
     assert_eq!(v.omitted, vec!["e1".to_string()]);
@@ -88,10 +111,18 @@ fn missing_optional_omits_without_blocking() {
 #[test]
 fn synthetic_rejected_in_observed_facility() {
     let mut c = EvidenceCheck::new(FacilityPolicy::Observed, 1_000, 3_600);
-    c.observe(&ev(Some(1u64), State::Present, Origin::Synthetic, Requirement::Required));
+    c.observe(&ev(
+        Some(1u64),
+        State::Present,
+        Origin::Synthetic,
+        Requirement::Required,
+    ));
     let v = c.finish();
     assert!(!v.authorized());
-    assert!(matches!(v.blockers[0], Blocker::SyntheticInObservedFacility { .. }));
+    assert!(matches!(
+        v.blockers[0],
+        Blocker::SyntheticInObservedFacility { .. }
+    ));
 }
 
 /// The same rule applies to optional enrichment — origin is checked before
@@ -99,7 +130,12 @@ fn synthetic_rejected_in_observed_facility() {
 #[test]
 fn synthetic_optional_also_rejected_in_observed_facility() {
     let mut c = EvidenceCheck::new(FacilityPolicy::Observed, 1_000, 3_600);
-    c.observe(&ev(Some(1u64), State::Present, Origin::Synthetic, Requirement::Optional));
+    c.observe(&ev(
+        Some(1u64),
+        State::Present,
+        Origin::Synthetic,
+        Requirement::Optional,
+    ));
     assert!(!c.finish().authorized());
 }
 
@@ -108,7 +144,12 @@ fn synthetic_optional_also_rejected_in_observed_facility() {
 #[test]
 fn synthetic_caps_class_in_scenario_facility() {
     let mut c = EvidenceCheck::new(FacilityPolicy::Scenario, 1_000, 3_600);
-    c.observe(&ev(Some(1u64), State::Present, Origin::Synthetic, Requirement::Required));
+    c.observe(&ev(
+        Some(1u64),
+        State::Present,
+        Origin::Synthetic,
+        Requirement::Required,
+    ));
     let v = c.finish();
     assert!(v.authorized(), "scenario facility accepts synthetic input");
     assert!(v.synthetic_used);
@@ -119,11 +160,19 @@ fn synthetic_caps_class_in_scenario_facility() {
 #[test]
 fn observed_evidence_keeps_requested_class() {
     let mut c = check();
-    c.observe(&ev(Some(1u64), State::Present, Origin::Observed, Requirement::Required));
+    c.observe(&ev(
+        Some(1u64),
+        State::Present,
+        Origin::Observed,
+        Requirement::Required,
+    ));
     let v = c.finish();
     assert!(v.authorized());
     assert!(!v.synthetic_used);
-    assert_eq!(v.max_class(Class::PrototypeEligible), Class::PrototypeEligible);
+    assert_eq!(
+        v.max_class(Class::PrototypeEligible),
+        Class::PrototypeEligible
+    );
 }
 
 /// A policy assumption is not synthetic evidence: it is a declared input,
@@ -131,16 +180,29 @@ fn observed_evidence_keeps_requested_class() {
 #[test]
 fn policy_assumption_does_not_cap_class() {
     let mut c = check();
-    c.observe(&ev(Some(1u64), State::Present, Origin::PolicyAssumption, Requirement::Required));
+    c.observe(&ev(
+        Some(1u64),
+        State::Present,
+        Origin::PolicyAssumption,
+        Requirement::Required,
+    ));
     let v = c.finish();
     assert!(v.authorized());
-    assert_eq!(v.max_class(Class::PrototypeEligible), Class::PrototypeEligible);
+    assert_eq!(
+        v.max_class(Class::PrototypeEligible),
+        Class::PrototypeEligible
+    );
 }
 
 /// Evidence with no observation time cannot be shown fresh.
 #[test]
 fn unknown_observation_time_is_stale() {
-    let mut e = ev(Some(1u64), State::Present, Origin::Observed, Requirement::Required);
+    let mut e = ev(
+        Some(1u64),
+        State::Present,
+        Origin::Observed,
+        Requirement::Required,
+    );
     e.observed_at = None;
     assert!(e.is_stale(1_000, 3_600));
 }
@@ -150,9 +212,19 @@ fn unknown_observation_time_is_stale() {
 #[test]
 fn all_blockers_are_recorded() {
     let mut c = check();
-    let mut a = ev::<u64>(None, State::Missing, Origin::Observed, Requirement::Required);
+    let mut a = ev::<u64>(
+        None,
+        State::Missing,
+        Origin::Observed,
+        Requirement::Required,
+    );
     a.evidence_id = "missing".into();
-    let mut b = ev(Some(1u64), State::Conflicting, Origin::Observed, Requirement::Required);
+    let mut b = ev(
+        Some(1u64),
+        State::Conflicting,
+        Origin::Observed,
+        Requirement::Required,
+    );
     b.evidence_id = "conflicting".into();
     c.observe(&a);
     c.observe(&b);

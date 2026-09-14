@@ -46,9 +46,15 @@ pub struct ProposedTerms {
 pub enum Reason {
     EvidenceBlocked(Blocker),
     StructurallyInvalid(String),
-    CapacityExceeded { limiting: BindingConstraint, capacity: Amount },
+    CapacityExceeded {
+        limiting: BindingConstraint,
+        capacity: Amount,
+    },
     ZeroRequest,
-    PriceExceedsBorrowerMaximum { offered_bps: Bps, maximum_bps: Bps },
+    PriceExceedsBorrowerMaximum {
+        offered_bps: Bps,
+        maximum_bps: Bps,
+    },
     AccountRestricted,
     /// Recovery is in progress. The keeper owns the position until it
     /// resolves; permission to act would race the liquidation.
@@ -56,7 +62,9 @@ pub enum Reason {
     ActiveLoanPresent,
     UnresolvedDefault,
     /// Monitoring: the existing account no longer meets monitoring policy.
-    MonitoringCoverageBreach { shock: String },
+    MonitoringCoverageBreach {
+        shock: String,
+    },
     Eligible,
 }
 
@@ -86,6 +94,13 @@ impl CapacityView {
 /// The outcome. Each variant carries exactly the fields its shape permits.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "decision")]
+// The approved variant is much larger than a denial, and clippy suggests
+// boxing it. Declined deliberately: `Outcome` is the type the engine and
+// both language bindings pattern-match on, and a `Box` in one arm would
+// complicate every reader of it to save stack on a value that is
+// constructed once per assessment. The grant and its terms are
+// inseparable from the approval (`docs/05`), which is why they sit inline.
+#[allow(clippy::large_enum_variant)]
 pub enum Outcome {
     /// Origination approved. Grant and terms are inseparable from it.
     ApprovedOrigination {

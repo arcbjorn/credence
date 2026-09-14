@@ -107,10 +107,18 @@ fn replay(body: &[u8]) -> Response {
     // A replay under different pins is not a replay (`docs/04`). Refusing
     // is more useful than reporting a difference with an obvious cause.
     if parsed.assessment.model_hash != parsed.input.model_policy.model_hash {
-        return Response::error(409, "model_mismatch", "assessment and input pin different models");
+        return Response::error(
+            409,
+            "model_mismatch",
+            "assessment and input pin different models",
+        );
     }
     if parsed.assessment.policy_hash != parsed.input.model_policy.policy_hash {
-        return Response::error(409, "policy_mismatch", "assessment and input pin different policies");
+        return Response::error(
+            409,
+            "policy_mismatch",
+            "assessment and input pin different policies",
+        );
     }
 
     let replayed = evaluate(&parsed.input, &parsed.policy);

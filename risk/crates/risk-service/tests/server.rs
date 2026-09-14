@@ -71,7 +71,11 @@ fn serves_assess_over_http() {
     let body = serde_json::json!({ "input": input, "policy": policy }).to_string();
 
     let res = post(&addr, "/v1/assess", &body);
-    assert!(res.starts_with("HTTP/1.1 200 OK"), "got: {}", &res[..res.len().min(200)]);
+    assert!(
+        res.starts_with("HTTP/1.1 200 OK"),
+        "got: {}",
+        &res[..res.len().min(200)]
+    );
     assert!(res.contains("assessment_id"));
 }
 

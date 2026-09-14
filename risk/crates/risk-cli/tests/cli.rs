@@ -70,7 +70,10 @@ fn replay_detects_altered_evidence() {
     assert!(!ok, "an altered replay must fail");
     assert!(stdout.contains("DIFFERENCE"));
     // The diff must name what changed, not merely report inequality.
-    assert!(stdout.contains("input_hash"), "diff must name the fields: {stdout}");
+    assert!(
+        stdout.contains("input_hash"),
+        "diff must name the fields: {stdout}"
+    );
 }
 
 /// A replay under a different model is not a replay. Refuse it rather than
@@ -113,13 +116,20 @@ fn assess_emits_canonical_json() {
     let trimmed = stdout.trim();
     assert!(trimmed.starts_with('{') && trimmed.ends_with('}'));
     // Canonical output has no whitespace padding between tokens.
-    assert!(!trimmed.contains(": "), "canonical output must not be pretty-printed");
+    assert!(
+        !trimmed.contains(": "),
+        "canonical output must not be pretty-printed"
+    );
     serde_json::from_str::<serde_json::Value>(trimmed).expect("valid json");
 }
 
 #[test]
 fn inspect_reports_identity_and_structure() {
-    let (ok, stdout, _) = run(&["inspect", "--input", fixture("input.json").to_str().unwrap()]);
+    let (ok, stdout, _) = run(&[
+        "inspect",
+        "--input",
+        fixture("input.json").to_str().unwrap(),
+    ]);
     assert!(ok);
     for field in ["input_hash", "assessment_id", "model_hash", "structure"] {
         assert!(stdout.contains(field), "missing {field} in: {stdout}");

@@ -92,18 +92,15 @@ fn cmd_assess(args: &[String]) -> Result<(), String> {
 /// rather than inventing a label.
 fn cmd_policy_hash(args: &[String]) -> Result<(), String> {
     let policy: Policy = load(&flag(args, "--policy")?)?;
-    let value = serde_json::to_value(policy)
-        .map_err(|e| format!("serialize policy: {e}"))?;
-    let hash = risk_core::canonical::hash_hex(&value)
-        .map_err(|e| format!("hash policy: {e:?}"))?;
+    let value = serde_json::to_value(policy).map_err(|e| format!("serialize policy: {e}"))?;
+    let hash = risk_core::canonical::hash_hex(&value).map_err(|e| format!("hash policy: {e:?}"))?;
     println!("{hash}");
     Ok(())
 }
 
 fn cmd_inspect(args: &[String]) -> Result<(), String> {
     let input: RiskInput = load(&flag(args, "--input")?)?;
-    let identity =
-        snapshot::identify(&input).map_err(|e| format!("identify: {e:?}"))?;
+    let identity = snapshot::identify(&input).map_err(|e| format!("identify: {e:?}"))?;
 
     println!("input_hash    {}", identity.input_hash);
     println!("assessment_id {}", identity.assessment_id);
@@ -165,9 +162,17 @@ fn diff(a: &RiskAssessment, b: &RiskAssessment) -> Vec<String> {
         }
     };
 
-    cmp("assessment_id", a.assessment_id.clone(), b.assessment_id.clone());
+    cmp(
+        "assessment_id",
+        a.assessment_id.clone(),
+        b.assessment_id.clone(),
+    );
     cmp("input_hash", a.input_hash.clone(), b.input_hash.clone());
-    cmp("schema_version", a.schema_version.clone(), b.schema_version.clone());
+    cmp(
+        "schema_version",
+        a.schema_version.clone(),
+        b.schema_version.clone(),
+    );
     cmp("sequence", a.sequence.to_string(), b.sequence.to_string());
     cmp(
         "authorization_class",
@@ -216,15 +221,17 @@ fn decision_label(a: &RiskAssessment) -> String {
 
 fn granted(a: &RiskAssessment) -> String {
     match &a.outcome {
-        risk_core::assessment::Outcome::ApprovedOrigination { approved_principal, .. } => {
-            approved_principal.0.to_string()
-        }
+        risk_core::assessment::Outcome::ApprovedOrigination {
+            approved_principal, ..
+        } => approved_principal.0.to_string(),
         _ => "-".into(),
     }
 }
 
 fn apr(a: &RiskAssessment) -> String {
-    a.outcome.terms().map_or("-".into(), |t| t.apr_bps.0.to_string())
+    a.outcome
+        .terms()
+        .map_or("-".into(), |t| t.apr_bps.0.to_string())
 }
 
 fn capacity_view(a: &RiskAssessment) -> Option<&risk_core::assessment::CapacityView> {

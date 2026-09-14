@@ -21,9 +21,7 @@ pub fn accrued(
     accrual_end: u64,
     term_seconds: u64,
 ) -> Option<Amount> {
-    let elapsed = accrual_end
-        .saturating_sub(originated_at)
-        .min(term_seconds) as u128;
+    let elapsed = accrual_end.saturating_sub(originated_at).min(term_seconds) as u128;
 
     let numer = principal
         .0

@@ -99,7 +99,11 @@ fn baseline() -> RiskInput {
         requested_class: Class::PrototypeEligible,
         assessment_time: 1_000,
         scenario_id: None,
-        proposal: Proposal { sequence: 5, valid_after: 900, valid_until: 4_600 },
+        proposal: Proposal {
+            sequence: 5,
+            valid_after: 900,
+            valid_until: 4_600,
+        },
         binding: Binding {
             agent: AgentRef {
                 identity_registry_chain_id: 31337,
@@ -199,13 +203,17 @@ struct Observed {
 fn observe(input: &RiskInput, policy: &Policy) -> Observed {
     let a = evaluate(input, policy);
     match &a.outcome {
-        Outcome::ApprovedOrigination { capacity, terms, .. } => Observed {
+        Outcome::ApprovedOrigination {
+            capacity, terms, ..
+        } => Observed {
             capacity: capacity.agent_capacity.0,
             binding: capacity.agent_binding,
             apr_bps: terms.apr_bps.0,
             score: capacity.score,
         },
-        Outcome::Denied { capacity: Some(c), .. } => Observed {
+        Outcome::Denied {
+            capacity: Some(c), ..
+        } => Observed {
             capacity: c.agent_capacity.0,
             binding: c.agent_binding,
             apr_bps: 0,
@@ -260,8 +268,11 @@ fn history_alone_changes_capacity_and_rate() {
         a.apr_bps,
         b.apr_bps
     );
-    assert_eq!(a.binding, BindingConstraint::HistoryGrowthCap,
-        "history must be what binds before it improves");
+    assert_eq!(
+        a.binding,
+        BindingConstraint::HistoryGrowthCap,
+        "history must be what binds before it improves"
+    );
 }
 
 /// The improvement is monotone: more history never yields less capacity.
@@ -457,7 +468,10 @@ fn score_moves_with_behaviour() {
     let b = observe(&strong, &p);
 
     let (before, after) = (a.score.expect("score"), b.score.expect("score"));
-    assert!(after > before, "score must rise with history: {before} -> {after}");
+    assert!(
+        after > before,
+        "score must rise with history: {before} -> {after}"
+    );
 }
 
 /// `docs/11` release row: a favourable history plus a current-risk denial.

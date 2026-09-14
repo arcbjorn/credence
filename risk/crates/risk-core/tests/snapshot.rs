@@ -29,7 +29,11 @@ fn input() -> RiskInput {
         requested_class: Class::PrototypeEligible,
         assessment_time: 1_000,
         scenario_id: None,
-        proposal: Proposal { sequence: 5, valid_after: 900, valid_until: 4_600 },
+        proposal: Proposal {
+            sequence: 5,
+            valid_after: 900,
+            valid_until: 4_600,
+        },
         binding: Binding {
             agent: AgentRef {
                 identity_registry_chain_id: 10143,
@@ -78,7 +82,13 @@ fn input() -> RiskInput {
             },
             "mkt-ev",
         ),
-        history: evidence(HistorySummary { coverage_complete: true, ..Default::default() }, "hist-ev"),
+        history: evidence(
+            HistorySummary {
+                coverage_complete: true,
+                ..Default::default()
+            },
+            "hist-ev",
+        ),
         forecasts: evidence(ForecastSummary::default(), "fc-ev"),
         portfolio: evidence(
             PortfolioContext {
@@ -121,7 +131,11 @@ fn any_input_change_changes_hash() {
 
     let mut changed = input();
     changed.proposal.sequence = 6;
-    assert_ne!(snapshot::input_hash(&changed).unwrap(), base, "sequence is inside the hash");
+    assert_ne!(
+        snapshot::input_hash(&changed).unwrap(),
+        base,
+        "sequence is inside the hash"
+    );
 
     let mut changed = input();
     changed.binding.config_hash = "other".into();
@@ -217,21 +231,30 @@ fn enrichment_may_remain_optional() {
 fn non_increasing_sequence_rejected() {
     let mut i = input();
     i.proposal.sequence = 4;
-    assert!(matches!(i.validate(), Err(InputError::SequenceNotIncreasing { .. })));
+    assert!(matches!(
+        i.validate(),
+        Err(InputError::SequenceNotIncreasing { .. })
+    ));
 }
 
 #[test]
 fn inverted_validity_window_rejected() {
     let mut i = input();
     i.proposal.valid_until = i.proposal.valid_after;
-    assert!(matches!(i.validate(), Err(InputError::InvalidValidityWindow { .. })));
+    assert!(matches!(
+        i.validate(),
+        Err(InputError::InvalidValidityWindow { .. })
+    ));
 }
 
 #[test]
 fn assessment_time_outside_window_rejected() {
     let mut i = input();
     i.assessment_time = 5_000;
-    assert!(matches!(i.validate(), Err(InputError::AssessmentTimeOutsideWindow { .. })));
+    assert!(matches!(
+        i.validate(),
+        Err(InputError::AssessmentTimeOutsideWindow { .. })
+    ));
 }
 
 /// The binding must describe the account being assessed.
@@ -241,7 +264,10 @@ fn account_state_version_mismatch_rejected() {
     if let Some(a) = i.account.value.as_mut() {
         a.state_version = 9;
     }
-    assert!(matches!(i.validate(), Err(InputError::AccountStateVersionMismatch { .. })));
+    assert!(matches!(
+        i.validate(),
+        Err(InputError::AccountStateVersionMismatch { .. })
+    ));
 }
 
 /// A missing account is an evidence blocker, not a structural mismatch —
@@ -251,7 +277,11 @@ fn missing_account_is_not_a_structural_error() {
     let mut i = input();
     i.account.value = None;
     i.account.state = State::Missing;
-    assert_eq!(i.validate(), Ok(()), "absence is judged by evidence policy, not structure");
+    assert_eq!(
+        i.validate(),
+        Ok(()),
+        "absence is judged by evidence policy, not structure"
+    );
 }
 
 /// A scenario facility must name its scenario.
@@ -311,10 +341,9 @@ fn emit_snapshot_vector() {
         "input": i,
     });
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .ancestors().nth(3).unwrap().join("schemas/v1/snapshot-vector.json");
-    fs::write(
-        root,
-        serde_json::to_string_pretty(&doc).unwrap() + "\n",
-    )
-    .unwrap();
+        .ancestors()
+        .nth(3)
+        .unwrap()
+        .join("schemas/v1/snapshot-vector.json");
+    fs::write(root, serde_json::to_string_pretty(&doc).unwrap() + "\n").unwrap();
 }

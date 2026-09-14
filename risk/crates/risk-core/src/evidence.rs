@@ -80,9 +80,7 @@ impl<T> Evidence<T> {
     /// incomplete (`docs/04`), and acting on part of a portfolio is how an
     /// underwriter misses the position that matters.
     pub fn is_usable(&self) -> bool {
-        self.state == State::Present
-            && self.value.is_some()
-            && self.coverage == Coverage::Complete
+        self.state == State::Present && self.value.is_some() && self.coverage == Coverage::Complete
     }
 
     /// Blocks authorization: required, and not usable.
@@ -103,13 +101,27 @@ impl<T> Evidence<T> {
 /// Why an assessment could not produce executable terms.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Blocker {
-    MissingRequired { evidence_id: String, source: String },
-    StaleRequired { evidence_id: String, age_seconds: u64 },
-    ConflictingRequired { evidence_id: String },
-    UnsupportedRequired { evidence_id: String },
-    PartialCoverage { evidence_id: String },
+    MissingRequired {
+        evidence_id: String,
+        source: String,
+    },
+    StaleRequired {
+        evidence_id: String,
+        age_seconds: u64,
+    },
+    ConflictingRequired {
+        evidence_id: String,
+    },
+    UnsupportedRequired {
+        evidence_id: String,
+    },
+    PartialCoverage {
+        evidence_id: String,
+    },
     /// Synthetic input reached a facility whose policy forbids it.
-    SyntheticInObservedFacility { evidence_id: String },
+    SyntheticInObservedFacility {
+        evidence_id: String,
+    },
 }
 
 /// What a facility will accept as evidence.

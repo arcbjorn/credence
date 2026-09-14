@@ -15,10 +15,10 @@ pub mod capacity;
 pub mod engine;
 pub mod evidence;
 pub mod input;
+pub mod interest;
 pub mod pricing;
 pub mod snapshot;
 pub mod stress;
-pub mod interest;
 pub mod units;
 
 pub use units::{coverage_meets, Amount, Bps, Ratio};
