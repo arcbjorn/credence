@@ -125,6 +125,19 @@ export interface Manifest {
   deployment?: Record<string, unknown>;
 }
 
+/** One agent profile in `docs/09` beat 1's comparison. */
+export interface Profile {
+  name: string;
+  blurb: string;
+  assessment: AssessmentPayload;
+}
+
+export interface Comparison {
+  policy_hash: string;
+  model_hash: string;
+  profiles: Profile[];
+}
+
 const cache = new Map<string, unknown>();
 
 async function fetchJSON<T>(path: string): Promise<T> {
@@ -156,6 +169,9 @@ export const loadRun = (name: string) => fetchJSON<Run>(`data/${name}.json`);
  * CLEAN replay return `Unavailable` -- a DIFFERENCE, which would have made
  * the replay screen prove the opposite of what it claims.
  */
+export const loadComparison = () =>
+  fetchJSON<Comparison>("data/comparison.json");
+
 export const loadPolicy = (run: string) =>
   fetchJSON<unknown>(`data/${run}-policy.json`);
 

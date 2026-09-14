@@ -1,6 +1,7 @@
 import { NavLink, Route, Routes, Navigate } from "react-router";
 import { AgentOverview } from "./screens/AgentOverview";
 import { AssessmentDetail } from "./screens/AssessmentDetail";
+import { Comparison_ } from "./screens/Comparison";
 import { Enforcement } from "./screens/Enforcement";
 import { Lender } from "./screens/Lender";
 import { Lifecycle } from "./screens/Lifecycle";
@@ -8,8 +9,9 @@ import { Replay } from "./screens/Replay";
 import "./styles/app.css";
 
 /**
- * `docs/09` specifies eight screens. Six are built here -- the ones that
+ * `docs/09` specifies eight screens. Seven are built here -- the ones that
  * carry the thesis: what an agent can borrow and why (4b), the
+ * three-agent comparison (beats 1 and 5), the
  * constraints behind one decision, the loan lifecycle with its forecasts
  * (3, 4 and 7), the lender's epoch ledgers, the prohibited withdrawal (beat 6, which `docs/09` calls
  * the single most convincing moment), and replay (beat 8).
@@ -25,6 +27,7 @@ export default function App() {
         <h1>Credence</h1>
         <p className="tagline">Autonomous credit markets for AI agents</p>
         <NavLink to="/agent">Agent overview</NavLink>
+        <NavLink to="/compare">Three agents</NavLink>
         <NavLink to="/assessment">Assessment detail</NavLink>
         <NavLink to="/lifecycle">Loan lifecycle</NavLink>
         <NavLink to="/lender">Lender</NavLink>
@@ -35,6 +38,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Navigate to="/agent" replace />} />
           <Route path="/agent" element={<AgentOverview />} />
+          <Route path="/compare" element={<Comparison_ />} />
           <Route path="/assessment" element={<AssessmentDetail />} />
           <Route path="/lifecycle" element={<Lifecycle />} />
           <Route path="/lender" element={<Lender />} />

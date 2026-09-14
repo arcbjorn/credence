@@ -1,0 +1,112 @@
+import { useEffect, useState } from "react";
+import { loadComparison, units, bps, type Comparison } from "../lib/data";
+import { classMode } from "../lib/modes";
+import { ModeChip } from "../components/ModeChip";
+import { Hash } from "../components/Hash";
+
+/**
+ * `docs/09` beat 1: three accounts and the financing problem, plus beat 5,
+ * where a good record is denied by the current portfolio.
+ *
+ * Every figure is the real engine's output under the shipped policy.
+ * `emit_comparison` produces the fixture and
+ * `comparison_fixture_matches_the_engine` refuses to let it drift, so a
+ * number here is one the engine still returns rather than one it returned
+ * once.
+ *
+ * **The three profiles differ by ONE thing at a time**, from a single
+ * baseline. That is the whole discipline (`docs/03`): three accounts that
+ * differed in several ways at once would show a difference without
+ * attributing it to anything.
+ */
+export function Comparison_() {
+  const [cmp, setCmp] = useState<Comparison | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    loadComparison().then(setCmp).catch((e: Error) => setError(e.message));
+  }, []);
+
+  if (error) return <div className="error">{error}</div>;
+  if (!cmp) return <p className="lede">Loading the comparison…</p>;
+
+  return (
+    <>
+      <h2>Three agents</h2>
+      <p className="lede">
+        The same policy and the same model, applied to three accounts that
+        differ in one respect at a time. What separates them is what they
+        have demonstrated and what they are currently holding.
+      </p>
+
+      <div className="modes">
+        {cmp.profiles[0] && (
+          <ModeChip mode={classMode(cmp.profiles[0].assessment.authorization_class)} />
+        )}
+      </div>
+
+      <div className="grid">
+        {cmp.profiles.map((p) => {
+          const o = p.assessment.outcome;
+          const approved = o.decision === "ApprovedOrigination";
+          return (
+            <div className="card" key={p.name}>
+              <h3>{p.name}</h3>
+              <p className="lede" style={{ minHeight: "4.5em" }}>{p.blurb}</p>
+              <table>
+                <tbody>
+                  <tr>
+                    <th>Decision</th>
+                    <td>{approved ? "Approved" : "Denied"}</td>
+                  </tr>
+                  <tr>
+                    <th>Capacity</th>
+                    <td className="num">{units(o.capacity?.agent_capacity)}</td>
+                  </tr>
+                  <tr>
+                    <th>Bound by</th>
+                    <td>{o.capacity?.agent_binding ?? "-"}</td>
+                  </tr>
+                  <tr>
+                    <th>APR</th>
+                    <td className="num">
+                      {o.terms ? bps(o.terms.apr_bps) : "-"}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+              {!approved && (
+                <p className="difference" style={{ marginTop: 10 }}>
+                  {p.assessment.reasons.join(", ") || "Denied"}
+                </p>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <h3 style={{ marginTop: 24 }}>What the comparison shows</h3>
+      <div className="card">
+        <p>
+          History opens the facility: a demonstrated record moves capacity
+          from the history cap to the account's hard cap. It does not
+          override the book.
+        </p>
+        <p style={{ marginBottom: 0 }}>
+          The third account has the <strong>same flawless record</strong> as
+          the second and is refused anyway, because stress capacity binds
+          first. That is the claim <code>docs/03</code> makes: a perfect
+          record does not survive a dangerous position.
+        </p>
+      </div>
+
+      <details>
+        <summary>One policy and one model, across all three</summary>
+        <div className="card" style={{ display: "grid", gap: 10, marginTop: 8 }}>
+          <Hash label="policy_hash" value={cmp.policy_hash} />
+          <Hash label="model_hash" value={cmp.model_hash} />
+        </div>
+      </details>
+    </>
+  );
+}
