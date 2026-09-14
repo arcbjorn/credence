@@ -16,6 +16,7 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
 
@@ -84,6 +85,21 @@ func LoadBinding(
 		return attest.Binding{}, fmt.Errorf("facility id %q is not numeric", facilityID)
 	}
 
+	// The account state version the standing permission is bound to.
+	//
+	// NOT a defaulted zero. The oracle stores this as the version
+	// permission applies to, and `riskAllowedFor` compares it against the
+	// account's CURRENT version -- so a signed zero is accepted on chain
+	// and then never matches, and every monitoring cycle lands while none
+	// of them authorizes anything. Reported by review, 14 September.
+	//
+	// A binding with no watched loan legitimately has no version to carry,
+	// and zero is right there: there is no standing permission to bind.
+	stateVersion, err := NewRegistryStateVersion(ctx, db, bindingKey)
+	if err != nil {
+		return attest.Binding{}, err
+	}
+
 	return attest.Binding{
 		IdentityRegistryChainID: new(big.Int).SetUint64(registryChainID),
 		IdentityRegistry:        registryAddr,
@@ -91,11 +107,29 @@ func LoadBinding(
 		Operator:                operatorAddr,
 		CreditAccount:           accountAddr,
 		FacilityID:              facility,
+		AccountStateVersion:     stateVersion,
 		ConfigVersion:           configVersion,
 		ConfigHash:              cfgHash,
 		PolicyEpoch:             policyEpoch,
 		PolicyHash:              polHash,
 	}, nil
+}
+
+// NewRegistryStateVersion reads the watched account state version,
+// reporting zero for a binding with no active loan.
+func NewRegistryStateVersion(
+	ctx context.Context,
+	db *store.Store,
+	bindingKey string,
+) (uint64, error) {
+	v, err := store.NewRegistry(db).WatchedStateVersion(ctx, bindingKey)
+	if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			return 0, nil
+		}
+		return 0, fmt.Errorf("watched state version: %w", err)
+	}
+	return v, nil
 }
 
 // BuildMarketReader constructs the market source for this facility.
