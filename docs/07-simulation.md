@@ -1,20 +1,18 @@
 # 07 · Simulation
 
-> **Status, 14 September: not built.** This document describes a design,
-> not something in the repository. There is no `gateway/sim`, no virtual
-> clock, no fixture pack, and no world generator separated from the
-> underwriter.
+> **Status, 14 September: built.** `gateway/sim` generates the world,
+> `credence-sim` runs the evaluation, and two sealed packs live in
+> `fixtures/sim/`.
 >
-> What exists instead: the demo scripts advance an isolated local chain
-> with `evm_increaseTime`, and against a public chain they wait in real
-> time (`holdUntilChainTime`). That is enough to show a lifecycle, and it
-> is what `docs/11` reports. It is **not** the independent-population
-> evaluation this document describes, and no claim anywhere should present
-> it as one.
+> What is NOT claimed: this is a synthetic population, and this document
+> forbids claiming default-model validation from one. The packs report
+> what was exercised -- coverage, realized figures, declines -- and carry
+> no score, because a number that looked like a grade would invite exactly
+> that claim.
 >
-> Reported by review, 14 September. Kept rather than deleted because the
-> design is still the right one and the schedule may reach it; what was
-> wrong was reading as though it had been implemented.
+> The virtual clock never advances live chain time. `scripts/` still drive
+> a real chain, with `evm_increaseTime` locally and real waits on a public
+> network; the simulation is a separate evaluation, not a replacement.
 
 There is no independent borrower population or repayment history yet. The 32-day build cannot produce the multi-month arcs the thesis describes. **Build the synthetic population deliberately and say so.** A model-backed runner can make real proposals while operating on this synthetic economic evidence.
 
@@ -45,6 +43,43 @@ hidden parameters        no hidden params)
 ```
 
 Use a **development scenario set** and a **separate evaluation set** with different seeds and shock schedules. Include a shock **outside** the model's named scenarios — this demonstrates the difference between expected stress protection and guaranteed recovery.
+
+### What the evaluation found — 14 September
+
+Both sets ran against the live engine, one policy and one model hash
+throughout. The packs are sealed in `fixtures/sim/` and verify on load; an
+edited one fails.
+
+| | development | evaluation |
+|---|---|---|
+| seed | `0xC0FFEE` | `0xBADBEEF` |
+| shocks | the three NAMED scenarios | two named, one **unnamed** |
+| originated | 12 | 3 |
+| declined | 0 | 653 |
+| principal recovered | 84% | **58%** |
+| principal lost | 8% | **41%** |
+
+**The unnamed shock cost five times more.** The model stresses to the
+scenarios it names -- price, liquidity, combined -- and
+`gap-through-the-exit` supplies a price fall and a liquidity collapse
+arriving together, through the level where a keeper would have exited.
+Realized loss went from 8% to 41% of principal.
+
+That is the difference this document asks to be demonstrated rather than
+asserted: **expected stress protection is not guaranteed recovery.**
+
+The 653 declines matter too. The agent must be able to refuse terms it
+cannot justify, and the demo must not force an approval to advance. In a
+market drifting against it, the agent mostly declined -- and the run
+records that as an outcome rather than retrying until something was
+approved.
+
+**One placement error, kept in the record.** The evaluation's unnamed
+shock was first scheduled for day 62, by which point the agent had stopped
+borrowing. The harness reported it as unexercised rather than counting it,
+which is how the mistake surfaced; it now falls at day 20. A shock nothing
+is exposed to tests nothing, and a harness that counted it would have
+overstated coverage.
 
 **Do not claim default-model validation from a small synthetic population.** Report what was exercised: failure-path coverage, monotonic constraints, response latency, replay equality, realized losses within declared scenarios.
 
