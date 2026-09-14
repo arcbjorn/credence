@@ -60,7 +60,11 @@ def rows(db, sql):
         c.close()
 
 def parse(v):
-    """Payload columns hold JSON text or bytes; everything else passes."""
+    """Payload columns hold JSON text or bytes; everything else passes.
+
+    Bytes are decoded to text FIRST, so a non-JSON blob still lands as a
+    readable string rather than the Python repr `b'...'`.
+    """
     if isinstance(v, (bytes, bytearray)):
         v = v.decode("utf-8", "replace")
     if isinstance(v, str) and v[:1] in "{[":
@@ -88,9 +92,25 @@ for name, db in zip(names, dbs):
     forecasts = rows(db, "SELECT * FROM forecasts")
     events    = rows(db, "SELECT * FROM chain_events")
 
+    # Decode EVERY row, not just assessments and snapshots.
+    #
+    # `parse` was applied to two tables and `default=str` caught the rest,
+    # which turned a bytes column into the Python repr `"b'{...}'"` -- a
+    # string no consumer can parse, shipped as if it were data. Eight
+    # fields across the two bundles carried it. Reported by review,
+    # 14 September.
+    def decode(rows_):
+        for r in rows_:
+            for k, v in r.items():
+                r[k] = parse(v)
+        return rows_
+
     for a in assessments:
         a["payload"] = parse(a.get("payload"))
     by_input = {s["input_hash"]: parse(s["payload"]) for s in snapshots}
+    outcomes = decode(outcomes)
+    forecasts = decode(forecasts)
+    events = decode(events)
 
     run = {
         "name": name,
@@ -103,7 +123,7 @@ for name, db in zip(names, dbs):
         "chain_events": events,
     }
     with open(os.path.join(out, f"{name}.json"), "w") as f:
-        json.dump(run, f, indent=1, sort_keys=True, default=str)
+        json.dump(run, f, indent=1, sort_keys=True)
 
     # The on-chain checks `credence-verify` ran against this deployment.
     # `docs/09` beat 6 is "the single most convincing moment", and it was
@@ -114,7 +134,7 @@ for name, db in zip(names, dbs):
         with open(checks_path) as f:
             run["checks"] = json.load(f)
         with open(os.path.join(out, f"{name}.json"), "w") as f:
-            json.dump(run, f, indent=1, sort_keys=True, default=str)
+            json.dump(run, f, indent=1, sort_keys=True)
 
     manifest["runs"].append({
         "name": name,
