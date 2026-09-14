@@ -878,4 +878,77 @@ contract LifecycleTest is Test {
         );
         manager.originate(b, 5_000e6);
     }
+
+    // --- Identity transfer (docs/06) ---
+
+    /// A registry transfer never moves or erases a loan.
+    ///
+    /// `docs/06`: on transfer, freeze new credit and require reassessment,
+    /// while existing debt and recovery rights stay with the original
+    /// record. The new identity must not inherit the obligation, and must
+    /// not be able to act on the old one's authorization.
+    function test_IdentityTransferLeavesTheLoanIntact() public {
+        uint256 loanId = _originate(account, 5_000e6, 1_200, 10 days);
+        assertEq(manager.activeLoan(address(account)), loanId, "the loan exists");
+
+        // The same account, now claimed by a different agent id.
+        Binding memory moved = _bindingFor(account, account.stateVersion());
+        moved.agentId = 999;
+
+        // The obligation is unchanged: it is keyed by the ACCOUNT, which
+        // a registry transfer does not move.
+        assertEq(
+            manager.activeLoan(address(account)), loanId,
+            "a transfer must not erase the loan"
+        );
+        assertEq(
+            uint8(manager.status(loanId)), uint8(LoanManager.Status.Active),
+            "nor resolve it"
+        );
+
+        // And the new identity cannot draw against it. The one-active-loan
+        // rule stops it before the quote check even runs, which is the
+        // stronger guarantee: a transfer cannot open a second obligation
+        // on an account that already owes.
+        vm.expectRevert(LoanManager.AccountHasActiveLoan.selector);
+        manager.originate(moved, 5_000e6);
+
+        // Once the obligation resolves, the new identity still has no
+        // standing quote of its own -- new credit requires reassessment.
+        vm.warp(block.timestamp + 1 days);
+        manager.repay(loanId);
+        vm.expectRevert(RiskOracle.NoQuote.selector);
+        manager.originate(moved, 5_000e6);
+    }
+
+    /// Recovery rights stay with the loan, not the identity.
+    ///
+    /// A transferred agent must not be able to present its new binding to
+    /// seize a position it did not originate.
+    function test_TransferredIdentityCannotOpenRecovery() public {
+        uint256 loanId = _originate(account, 5_000e6, 1_200, 10 days);
+        vm.warp(block.timestamp + 10 days);
+
+        Binding memory moved = _bindingFor(account, account.stateVersion());
+        moved.agentId = 999;
+
+        vm.prank(OPERATOR);
+        vm.expectRevert(
+            abi.encodeWithSelector(LoanManager.BindingNotForLoan.selector, loanId)
+        );
+        manager.openRecovery(loanId, KEEPER, moved);
+    }
+
+    /// The ORIGINAL identity can still repay: a transfer freezes new
+    /// credit, it does not strand an existing obligation.
+    function test_TransferDoesNotBlockRepayment() public {
+        uint256 loanId = _originate(account, 5_000e6, 1_200, 10 days);
+        vm.warp(block.timestamp + 1 days);
+
+        manager.repay(loanId);
+        assertEq(
+            uint8(manager.status(loanId)), uint8(LoanManager.Status.Repaid),
+            "repayment must remain open"
+        );
+    }
 }
