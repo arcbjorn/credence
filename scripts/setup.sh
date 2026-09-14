@@ -36,3 +36,17 @@ echo "building"
 (cd "$ROOT/gateway" && go build ./...)
 
 echo "ready. run scripts/demo-repay.sh"
+
+# External dependencies, when a target chain is given. The demos deploy
+# their own contracts and need none of this, so a local run stays silent;
+# a testnet run is told what is actually there before it builds against
+# an assumption.
+if [ -n "${RPC:-}" ]; then
+  echo
+  echo "checking external dependencies on $RPC"
+  "$ROOT/scripts/probe-testnet.sh" || {
+    echo
+    echo "note: the demos do not need these. This affects only the"
+    echo "ERC-8004 and CRE integrations."
+  }
+fi
