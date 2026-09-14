@@ -149,34 +149,55 @@ above is what the receiver contract must validate `msg.sender` against.
 
 Run `scripts/probe-testnet.sh` to re-verify.
 
-### What is NOT integrated
+### CRE — built, simulated, not yet delivered on chain
 
-**`Route.CRE` is an enum value with a separate signer allowlist. There is
-no CRE integration.** What is missing, concretely:
+**Corrected 14 September.** This section previously said there was no
+receiver, no forwarder authentication, no workflow, and no SDK. All four
+now exist, and leaving that text standing would let a reader quote this
+document against `docs/11`.
 
-- No report receiver. `RiskOracle` implements neither `onReport` nor
-  ERC-165, which Chainlink's consumer contract interface requires
-- No forwarder authentication. Every route authenticates the same way —
-  `_recover` against an allowlist — so nothing distinguishes a DON
-  forwarder from an EOA
-- No workflow, and therefore none of the five checks this document
-  specifies
-- No CRE SDK dependency, and the CLI is not installed here
+What exists:
 
-The route separation that *does* work is narrow and worth stating
-exactly: a facility pinned to one route rejects the other route's
-attestations, and signer allowlists are route-scoped. That is real and
-tested. But an operator can allowlist a development key **for the CRE
-route**, and a locally signed EOA attestation is then accepted — the
-contract cannot tell it from a forwarder report, because it never looks.
+| Piece | State |
+|---|---|
+| `CREReceiver.sol` | Deployed on Monad testnet, 19 tests |
+| `cre/underwrite` | Compiles to WASM, runs under `cre workflow simulate` |
+| `credence-assessd` | Serves the assessments the workflow reads |
+| CRE CLI v1.33.0 | Installed, authenticated |
 
-`test_CREFacilityAcceptsItsOwnRoute` signs with `vm.sign`. It proves a
-separately allowlisted key is accepted; it says nothing about Chainlink
-report delivery.
+The receiver validates `msg.sender` against the forwarder above,
+implements ERC-165, checks the workflow owner and id, requires the loan to
+be enrolled by the operator, and consumes each report once.
 
-> **Nothing here supports a CRE integration claim.** Reaching one needs an
-> authenticated receiver, a workflow implementing the five checks,
-> end-to-end simulation, and a deployed report — in that order.
+#### What this still is not
+
+Being precise, because "CRE integration" reads broader than what holds:
+
+- **No DON-signed report has reached the live receiver.** The simulator's
+  `Written: 1` means the write path executed and was accepted in
+  simulation; it is not a transaction. Deploy access is pending.
+- **The workflow is a monitoring transport.** It asks
+  `credence-assessd` — a project-controlled HTTP service — for an
+  assessment and reaches consensus on the reply. That is N nodes agreeing
+  on one source, which is weaker than N nodes independently reading chain
+  state. The checks this document specifies for a CRE claim (independent
+  account and facility reads, bounds, evidence commitments) are performed
+  by the ENGINE against a gateway-built snapshot, not by the workflow.
+- **Origination cannot use CRE.** A monitoring report carries no grant by
+  construction, so a CRE-pinned facility can monitor but cannot fund. A
+  CRE-only facility is not possible in v0.
+- **`acceptFromRoute` is unsigned by design**, authenticated by caller
+  rather than by EIP-712. Anyone the operator allowlists for `Route.CRE`
+  can record a full assessment. That is the trust model `docs/05` states,
+  and it means a mistaken `setSigner(Route.CRE, eoa, true)` is a funding
+  door.
+- **The metadata layout was observed on the MOCK forwarder**, not the
+  production Keystone one. If production metadata is not exactly 64 bytes
+  with the owner at `[42:62]`, every report reverts — loudly, which is the
+  right failure, but untested against the real path.
+
+> The honest sentence: **CRE authentication is built and simulated. No CRE
+> facility has originated or monitored on chain.**
 
 ## Kuru — gated extension
 
