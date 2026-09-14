@@ -322,7 +322,7 @@ the request is reviewed, and per Chainlink's documentation that gates
 
 | Piece | State |
 |---|---|
-| `CREReceiver.sol` | 13 tests, `forge test --match-contract CREReceiver` |
+| `CREReceiver.sol` | 19 tests, `forge test --match-contract CREReceiver` |
 | `cre/underwrite` workflow | compiles to WASM, runs in the simulator |
 | Deploy to the workflow registry | **blocked on access** |
 
@@ -369,14 +369,23 @@ authorized:
 | 1 | `msg.sender` is the forwarder | Otherwise anyone calls `onReport` and the DON is decorative |
 | 2 | Workflow owner matches | One forwarder routes for every workflow on the chain |
 | 3 | Workflow id matches | An owner may run several workflows; one underwrites |
-| 4 | Route is `CRE` | `docs/05` invariant 6; a development route in a report is malformed |
+| 4 | The loan is enrolled | The workflow names a loan; the OPERATOR says what that loan is |
 | 5 | Report not already seen | The forwarder retries a reverted delivery (`docs/05` invariant 2) |
+
+**The route is not a check.** An earlier version of this table listed
+"Route is `CRE`" as check 4. It is not read from the report at all:
+`_normalize` hardcodes `Route.CRE`, because a `MonitoringReport` has no
+route field to carry. That is stronger than a check — the route is
+structurally unforgeable — but it is not what the table said. Corrected
+after review, 14 September.
 
 The receiver **authenticates, never permits**. `RiskOracle.accept` was
 split so signature and caller authentication share one recording path:
 `test_receiverDoesNotBypassOracleExpiry` and
-`test_receiverDoesNotBypassDeploymentBinding` show the oracle still
-applies its own rules to a report that passed every receiver check.
+`test_receiverDoesNotBypassSequenceOrdering` show the oracle still applies
+its own rules to a report that passed every receiver check. (An earlier
+version of this line cited a test that does not exist; it was renamed when
+the payload was narrowed.)
 
 ### A monitoring report cannot carry a grant
 
