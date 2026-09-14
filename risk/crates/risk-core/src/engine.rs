@@ -646,7 +646,15 @@ fn portfolio_risk(
 ) -> u64 {
     let mut risky = 0u128;
     for p in &account.positions {
-        let scale = 10u128.pow(p.price_scale);
+        // Checked, like every other scale computation. `10^price_scale`
+        // overflows u128 above 38, and the service has no panic boundary
+        // around evaluation -- a snapshot with an absurd scale must
+        // produce a refusal, not a crash. Skipping the position rather
+        // than defaulting its scale keeps it out of the risky total
+        // instead of mismarking it. Reported by review, 14 September.
+        let Some(scale) = 10u128.checked_pow(p.price_scale) else {
+            continue;
+        };
         risky = risky.saturating_add(p.amount.0.saturating_mul(p.price.0) / scale);
     }
     let total = risky.saturating_add(account.settlement_balance.0);
@@ -783,4 +791,51 @@ fn unavailable(
         synthetic_used,
         max_evidence_age_seconds,
     )
+}
+
+#[cfg(test)]
+mod portfolio_risk_tests {
+    use super::*;
+    use crate::input::{AccountState, MarketState, Position};
+    use crate::units::{Amount, Bps};
+
+    /// An absurd price scale must not panic.
+    ///
+    /// `10^price_scale` overflows u128 above 38, and `docs/04` forbids a
+    /// panic path here: the service has no boundary around evaluation, so
+    /// a crash takes the process down rather than producing a refusal.
+    ///
+    /// Tested at this function rather than through `evaluate`, because a
+    /// position that large is denied on capacity long before pricing runs
+    /// -- the line would never be reached from outside.
+    ///
+    /// Reported by review, 14 September.
+    #[test]
+    fn absurd_price_scale_is_skipped_not_panicked() {
+        let account = AccountState {
+            settlement_balance: Amount(1_000_000),
+            positions: vec![Position {
+                asset: "ETH".into(),
+                amount: Amount(1_000_000),
+                price: Amount(2_000_000_000),
+                price_scale: 255,
+                haircut_bps: Bps(500),
+            }],
+            state_version: 0,
+            outstanding_debt: Amount::ZERO,
+            facility_limit: Amount(100_000_000),
+            restricted: false,
+        };
+        // Unused by portfolio_risk, which reads only the account.
+        let market = MarketState {
+            observed_at: 0,
+            realized_volatility_bps: Bps(0),
+            volatility_window_seconds: 0,
+            liquidity_depth: Amount(1),
+        };
+
+        // The assertion is that this returns. A position whose scale
+        // cannot be computed contributes nothing rather than mismarking.
+        assert_eq!(portfolio_risk(&account, &market), 0);
+    }
 }
