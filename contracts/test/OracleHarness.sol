@@ -44,6 +44,63 @@ library OracleHarness {
         });
     }
 
+    /// A monitoring result that grants standing permission.
+    function monitoringAllowed(
+        Binding memory b,
+        uint64 sequence,
+        uint256 deploymentId,
+        uint64 nowTs
+    ) internal pure returns (Assessment memory a) {
+        a = monitoringBlocked(b, sequence, deploymentId, nowTs);
+        a.decision = Decision.Approved;
+        a.permission = Permission.Allowed;
+    }
+
+    /// A monitoring result that withdraws permission.
+    ///
+    /// Distinct from letting one lapse: this is the attestor SAYING the
+    /// loan may no longer take risk, which `docs/05` treats as a recovery
+    /// trigger, where silence is not.
+    function monitoringBlocked(
+        Binding memory b,
+        uint64 sequence,
+        uint256 deploymentId,
+        uint64 nowTs
+    ) internal pure returns (Assessment memory a) {
+        a = Assessment({
+            deploymentId: deploymentId,
+            evidencePolicyId: keccak256("evidence-v1"),
+            route: Route.Development,
+            binding: b,
+            kind: Kind.Monitoring,
+            assessmentId: keccak256(abi.encode("monitoring", sequence, b.creditAccount)),
+            assessmentHash: keccak256("output"),
+            decision: Decision.Denied,
+            permission: Permission.Blocked,
+            modelHash: keccak256("model-v1"),
+            inputHash: keccak256("input"),
+            evidenceRoot: keccak256("evidence"),
+            class_: Class.PrototypeEligible,
+            sequence: sequence,
+            validAfter: nowTs,
+            validUntil: nowTs + 1 hours,
+            // Monitoring carries no grant: `docs/05` forbids it and the
+            // oracle rejects a result that does.
+            requestId: bytes32(0),
+            intentHash: bytes32(0),
+            settlementAsset: address(0),
+            requestedPrincipal: 0,
+            terms: Terms({
+                approvedPrincipal: 0,
+                aprBps: 0,
+                termSeconds: 0,
+                requiredEquity: 0,
+                permittedActionHash: bytes32(0)
+            }),
+            loanId: 1
+        });
+    }
+
     function approvedQuote(
         Binding memory b,
         uint64 sequence,

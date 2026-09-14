@@ -82,6 +82,20 @@ contract LoanManager {
     RiskOracle public immutable oracle;
     address public immutable operator;
 
+    /// @notice How long a LAPSED permission is tolerated before the loan
+    /// becomes recoverable on that ground alone.
+    ///
+    /// @dev Fixed per deployment rather than operator-tunable: the whole
+    /// point is that the party who could withhold assessments cannot also
+    /// shorten the window that withholding them opens.
+    ///
+    /// Twelve hours is chosen against the monitoring cadence, not the loan
+    /// term -- long enough that an attestor outage or a missed cycle is
+    /// not a seizure, short enough that an obligation nobody is assessing
+    /// does not stay open indefinitely. An explicit `Blocked` is
+    /// unaffected and triggers immediately.
+    uint64 public constant recoveryGraceSeconds = 12 hours;
+
     /// @dev ERC-721 identity registry, when one is configured. A draw
     /// then requires the binding's `operator` to still own the agent
     /// token: `docs/06` freezes new credit on transfer, and a binding
@@ -454,8 +468,31 @@ contract LoanManager {
         );
 
         bool matured = block.timestamp >= loan.originatedAt + loan.termSeconds;
-        bool unpermitted = !oracle.riskAllowed(binding);
-        require(matured || unpermitted, LoanNotRecoverable(loanId));
+
+        // Two different facts, deliberately not merged.
+        //
+        // An attestor that says "blocked" has made a statement about this
+        // loan, and that is a trigger. An attestor that says NOTHING has
+        // made no statement at all -- and treating silence the same way
+        // would let an operator seize a healthy, unmatured position by
+        // withholding updates, making the borrower's real covenant "keep
+        // the attestor answering" rather than "stay solvent".
+        //
+        // A lapse still blocks new risk on its own (`docs/05`), and after
+        // the grace window it still opens recovery: an obligation nobody
+        // is assessing cannot stay open indefinitely. What it does not do
+        // is become seizable the instant the last window closes.
+        //
+        // Reported by review, 14 September.
+        bool withdrawn = oracle.permissionWithdrawn(binding);
+        uint64 expiry = oracle.permissionExpiry(binding);
+        bool lapsedBeyondGrace = expiry != 0
+            && block.timestamp >= uint256(expiry) + recoveryGraceSeconds;
+
+        require(
+            matured || withdrawn || lapsedBeyondGrace,
+            LoanNotRecoverable(loanId)
+        );
 
         loan.interestSnapshot = _accruedAt(loan, uint64(block.timestamp));
         loan.recoveryStartedAt = uint64(block.timestamp);

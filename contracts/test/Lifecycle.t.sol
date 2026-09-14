@@ -220,6 +220,88 @@ contract LifecycleTest is Test {
 
     // --- Recovery and loss ---
 
+    /// A silent attestor must not make a healthy loan seizable.
+    ///
+    /// `riskAllowed` goes false the moment a monitoring window lapses, and
+    /// recovery once read that as "permission withdrawn". An operator who
+    /// also controls the attestor could then seize a healthy, unmatured
+    /// position by withholding updates -- making the borrower's real
+    /// covenant "keep the attestor answering" rather than "stay solvent".
+    ///
+    /// `docs/05` invariant 12: recovery needs a trigger. Silence is not
+    /// one, at least not immediately. Reported by review, 14 September.
+    function test_LapsedPermissionAloneDoesNotOpenRecovery() public {
+        uint256 loanId = _originate(account, 5_000e6, 1_200, 10 days);
+
+        // A monitoring update grants standing permission, as the
+        // continuous-underwriting loop does on every healthy cycle.
+        Binding memory rb = _bindingFor(account, account.stateVersion());
+        Assessment memory ok =
+            OracleHarness.monitoringAllowed(rb, 98, DEPLOYMENT, uint64(block.timestamp));
+        oracle.accept(ok, OracleHarness.sign(oracle, ok, SIGNER_KEY));
+        assertTrue(oracle.riskAllowed(rb), "permission stands");
+
+        // Then the attestor goes quiet and the window closes. Nothing
+        // else happens: no denial, no market move, no maturity.
+        vm.warp(block.timestamp + 2 hours);
+        assertFalse(oracle.riskAllowed(rb), "permission has lapsed");
+        assertFalse(
+            oracle.permissionWithdrawn(rb),
+            "but nothing was withdrawn -- the attestor simply went quiet"
+        );
+
+        vm.prank(OPERATOR);
+        vm.expectRevert(
+            abi.encodeWithSelector(LoanManager.LoanNotRecoverable.selector, loanId)
+        );
+        manager.openRecovery(loanId, KEEPER, rb);
+    }
+
+    /// Silence cannot hold a loan open forever either. Past the grace
+    /// window an unassessed obligation becomes recoverable, because
+    /// nobody is watching it.
+    function test_LapsedPermissionOpensRecoveryAfterGrace() public {
+        uint256 loanId = _originate(account, 5_000e6, 1_200, 10 days);
+
+        Binding memory rb = _bindingFor(account, account.stateVersion());
+        Assessment memory ok =
+            OracleHarness.monitoringAllowed(rb, 98, DEPLOYMENT, uint64(block.timestamp));
+        oracle.accept(ok, OracleHarness.sign(oracle, ok, SIGNER_KEY));
+
+        vm.warp(block.timestamp + 1 hours + manager.recoveryGraceSeconds() + 1);
+        vm.prank(OPERATOR);
+        manager.openRecovery(loanId, KEEPER, rb);
+        assertEq(
+            uint8(manager.status(loanId)),
+            uint8(LoanManager.Status.RecoveryPending),
+            "an obligation nobody assesses does not stay open indefinitely"
+        );
+    }
+
+    /// An explicit denial is a statement about the loan, and triggers at
+    /// once. The grace period protects against silence, not against a
+    /// risk decision.
+    function test_WithdrawnPermissionOpensRecoveryImmediately() public {
+        uint256 loanId = _originate(account, 5_000e6, 1_200, 10 days);
+
+        Binding memory rb = _bindingFor(account, account.stateVersion());
+        Assessment memory blocked =
+            OracleHarness.monitoringBlocked(rb, 99, DEPLOYMENT, uint64(block.timestamp));
+        oracle.accept(blocked, OracleHarness.sign(oracle, blocked, SIGNER_KEY));
+
+        assertTrue(
+            oracle.permissionWithdrawn(rb),
+            "a denial is a statement, not silence"
+        );
+
+        vm.prank(OPERATOR);
+        manager.openRecovery(loanId, KEEPER, rb);
+        assertEq(
+            uint8(manager.status(loanId)),
+            uint8(LoanManager.Status.RecoveryPending)
+        );
+    }
+
     /// docs/05: collection accounting is idempotent across several calls.
     function test_recoveryCollectsInStages() public {
         uint256 loanId = _originate(account, 5_000e6, 1_200, 10 days);

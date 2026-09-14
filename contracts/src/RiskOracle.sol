@@ -447,6 +447,53 @@ contract RiskOracle {
     /// @dev Permission expires, and is void if the account has executed since
     /// it was issued — a state-version mismatch means the portfolio the
     /// permission was computed against no longer exists.
+    /// @notice Was permission WITHDRAWN, as opposed to merely lapsed?
+    ///
+    /// @dev The two are different facts and only one of them is a
+    /// statement about the borrower.
+    ///
+    /// An explicit denial clears the record, including `validUntil`, so a
+    /// zero there means the last thing the attestor said was "blocked" --
+    /// or that nothing was ever said. A non-zero `validUntil` in the past
+    /// means the opposite: the last thing said was "allowed", and it
+    /// simply ran out because no newer assessment arrived.
+    ///
+    /// Recovery uses this rather than `riskAllowed` so that an attestor
+    /// who goes SILENT cannot make a healthy, unmatured loan seizable by
+    /// doing nothing. Without the distinction the borrower's covenant is
+    /// "keep the attestor answering", which is not the instrument they
+    /// agreed to (`docs/05` invariant 12: recovery needs a trigger).
+    ///
+    /// A lapse still blocks new risk -- `riskAllowed` is unchanged, and
+    /// `docs/05` requires expired permission to prevent risk increases.
+    /// It just is not, by itself, grounds to seize.
+    function permissionWithdrawn(Binding calldata b)
+        external
+        view
+        returns (bool)
+    {
+        bytes32 key = bindingKey(b);
+        if (riskPermission[key] == Permission.Allowed
+            && permissionValidUntil[key] > block.timestamp
+            && permissionStateVersion[key] == b.accountStateVersion) {
+            // Currently allowed: nothing was withdrawn.
+            return false;
+        }
+        // Withdrawn, or never granted. Both leave no standing window.
+        return permissionValidUntil[key] == 0;
+    }
+
+    /// @notice When the standing permission for this binding lapses.
+    /// @dev Zero when none stands. Read by the loan manager so a lapse can
+    /// be given a grace period rather than treated as a withdrawal.
+    function permissionExpiry(Binding calldata b)
+        external
+        view
+        returns (uint64)
+    {
+        return permissionValidUntil[bindingKey(b)];
+    }
+
     function riskAllowed(Binding calldata b) external view returns (bool) {
         bytes32 key = bindingKey(b);
         if (riskPermission[key] != Permission.Allowed) return false;
