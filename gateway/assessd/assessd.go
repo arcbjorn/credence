@@ -21,12 +21,14 @@ package assessd
 
 import (
 	"context"
+	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/arcbjorn/credence/gateway/attest"
@@ -77,6 +79,18 @@ type Config struct {
 	// ValiditySeconds bounds how long an assessment stands. Zero leaves
 	// the engine's own window in place.
 	ValiditySeconds uint64
+	// AuthToken, when set, is required as `Authorization: Bearer <token>`
+	// on every assessment request.
+	//
+	// This service is what the whole CRE route reads, so an unauthenticated
+	// one is a permission oracle any caller can drive. Binding to loopback
+	// is a real mitigation but not an access control, and nothing stopped
+	// an operator listening on a public interface.
+	//
+	// Empty leaves the endpoint open, which keeps a local development run
+	// from needing a credential invented for it. `credence-assessd`
+	// REQUIRES this whenever its listener is not loopback.
+	AuthToken string
 }
 
 type Server struct {
@@ -143,9 +157,39 @@ type errorBody struct {
 
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
+	// Health stays open deliberately: a liveness probe that needs the
+	// secret is a liveness probe nothing can run.
 	mux.HandleFunc("/health", s.health)
-	mux.HandleFunc("/v1/assess", s.assess)
+	mux.HandleFunc("/v1/assess", s.authed(s.assess))
 	return mux
+}
+
+// authed enforces the bearer token when one is configured.
+//
+// Compared with `subtle.ConstantTimeCompare` so a wrong token cannot be
+// recovered a byte at a time from response timing. The length is compared
+// first and separately, which leaks only the length.
+func (s *Server) authed(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if s.cfg.AuthToken == "" {
+			next(w, r)
+			return
+		}
+		const prefix = "Bearer "
+		got := r.Header.Get("Authorization")
+		if !strings.HasPrefix(got, prefix) {
+			writeError(w, http.StatusUnauthorized, "unauthorized", "")
+			return
+		}
+		presented := []byte(strings.TrimPrefix(got, prefix))
+		want := []byte(s.cfg.AuthToken)
+		if len(presented) != len(want) ||
+			subtle.ConstantTimeCompare(presented, want) != 1 {
+			writeError(w, http.StatusUnauthorized, "unauthorized", "")
+			return
+		}
+		next(w, r)
+	}
 }
 
 func (s *Server) health(w http.ResponseWriter, r *http.Request) {
@@ -209,8 +253,8 @@ func (s *Server) Assess(ctx context.Context, req Request) (*Response, int, error
 		// A caller-driven reassessment is a heartbeat: no market event
 		// prompted it, the schedule did. Labelling it a price move would
 		// put a cause in the record that nothing observed.
-		Trigger:    scheduler.TriggerHeartbeat,
-		QueuedAt:   now,
+		Trigger:  scheduler.TriggerHeartbeat,
+		QueuedAt: now,
 	}
 
 	input, err := s.evidence.Collect(ctx, task, now)
@@ -271,13 +315,13 @@ func (s *Server) Assess(ctx context.Context, req Request) (*Response, int, error
 	}
 
 	return &Response{
-		Decision:            decision,
-		Permission:          permission,
-		Class:               class,
-		ModelHash:           hashHex(envelope.ModelHash),
-		InputHash:           hashHex(envelope.InputHash),
-		EvidenceRoot:        hashHex(envelope.EvidenceRoot),
-		AssessmentHash:      hashHex(envelope.AssessmentHash),
+		Decision:       decision,
+		Permission:     permission,
+		Class:          class,
+		ModelHash:      hashHex(envelope.ModelHash),
+		InputHash:      hashHex(envelope.InputHash),
+		EvidenceRoot:   hashHex(envelope.EvidenceRoot),
+		AssessmentHash: hashHex(envelope.AssessmentHash),
 		// The version the COLLECTOR saw, read out of the snapshot that
 		// produced this decision rather than from the configured binding.
 		// The engine compares the two and refuses a mismatch, and the
@@ -403,7 +447,6 @@ func (b StaticBindings) Lookup(loanID uint64) (attest.Binding, bool) {
 	binding, ok := b[loanID]
 	return binding, ok
 }
-
 
 // assessedStateVersion reads the account state version out of the
 // snapshot the engine was given.

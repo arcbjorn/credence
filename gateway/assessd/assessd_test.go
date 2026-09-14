@@ -492,3 +492,94 @@ func TestMonitoringContextCarryingARequestIsRefused(t *testing.T) {
 		t.Fatal("the engine was called with a request-bearing context")
 	}
 }
+
+// --- authentication ---
+
+// An assessment endpoint reachable without a credential is a permission
+// oracle anyone can drive.
+//
+// `docs/05` names the CRE route as caller-authenticated, and this service
+// is what the whole route reads. It defaults to loopback, which is a real
+// mitigation and not an access control: nothing stopped an operator
+// binding it to a public interface. Reported by review, 14 September.
+func TestAuthTokenIsRequiredWhenConfigured(t *testing.T) {
+	s, _ := newServer(t)
+	s.cfg.AuthToken = "s3cret"
+	srv := httptest.NewServer(s.Handler())
+	defer srv.Close()
+
+	body := fmt.Sprintf(`{"loan_id":%d}`, monitoredLoan)
+
+	// No credential at all.
+	resp, err := http.Post(srv.URL+"/v1/assess", "application/json",
+		strings.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("no token: status = %d, want 401", resp.StatusCode)
+	}
+
+	// A wrong one.
+	req, _ := http.NewRequest(http.MethodPost, srv.URL+"/v1/assess",
+		strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer wrong")
+	resp, err = http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("wrong token: status = %d, want 401", resp.StatusCode)
+	}
+
+	// The right one still works, or the guard has broken the service.
+	req, _ = http.NewRequest(http.MethodPost, srv.URL+"/v1/assess",
+		strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer s3cret")
+	resp, err = http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("correct token: status = %d, want 200", resp.StatusCode)
+	}
+}
+
+// Health must stay open: a liveness probe that needs the secret is a
+// liveness probe nothing can run.
+func TestHealthNeedsNoToken(t *testing.T) {
+	s, _ := newServer(t)
+	s.cfg.AuthToken = "s3cret"
+	srv := httptest.NewServer(s.Handler())
+	defer srv.Close()
+
+	resp, err := http.Get(srv.URL + "/health")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d", resp.StatusCode)
+	}
+}
+
+// With no token configured the service behaves as before, so a local
+// development run does not need a credential invented for it.
+func TestNoTokenConfiguredLeavesTheEndpointOpen(t *testing.T) {
+	s, _ := newServer(t)
+	srv := httptest.NewServer(s.Handler())
+	defer srv.Close()
+
+	resp, err := http.Post(srv.URL+"/v1/assess", "application/json",
+		strings.NewReader(fmt.Sprintf(`{"loan_id":%d}`, monitoredLoan)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d", resp.StatusCode)
+	}
+}
