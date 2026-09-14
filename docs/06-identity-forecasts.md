@@ -127,6 +127,28 @@ negative because the registry's value is signed for that purpose:
 publishing it unsigned would read as a gain of the same size to anyone
 summing the tag.
 
+### A silent failure mode, found the hard way
+
+**The reputation registry accepts feedback about an agent that does not
+exist.** A `giveFeedback` call naming an unregistered token id returns
+receipt `status: 1` and writes a row attributed to nothing. It does not
+revert.
+
+Found on 14 September when a derivation bug published four signals to
+**agent 0** and every transaction reported success. Nothing in the
+transaction result distinguished it from a correct publish; the entries
+were simply attributed to a token nobody holds. The
+`ERC721NonexistentToken` revert seen elsewhere fires only on the
+ownership path, not on this one.
+
+Two defences, because an attribution that fails silently is worse than
+one that fails:
+
+- The publisher derives the agent from `agentIdOf(loanId)` and **refuses
+  to publish when it reads zero** rather than falling back to a default.
+- Before sending, it calls `ownerOf` on the identity registry and refuses
+  an agent with no owner.
+
 Verified against the deployed registry on Monad testnet, 14 September:
 
 - `giveFeedback(uint256,int128,uint8,string,string,string,string,bytes32)`
