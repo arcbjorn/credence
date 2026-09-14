@@ -91,6 +91,71 @@ contract ReentrantToken {
     }
 }
 
+/// A settlement token that ORIGINATES a new loan mid-transfer.
+///
+/// The sharper attack: repaying twice is caught by the ordering, but
+/// `repay` clears `activeLoan` before the transfer and calls
+/// `closeDebt()` after it. A callback that lands between the two sees an
+/// account with no active loan, draws a second one, and then has the
+/// OUTER repayment close the new loan's custody lock on the way out.
+contract OriginatingToken {
+    mapping(address => uint256) public balanceOf;
+    mapping(address => mapping(address => uint256)) public allowance;
+
+    LoanManager public target;
+    Binding public binding;
+    uint256 public principal;
+    bool public attacking;
+    uint256 public originatedLoan;
+    bytes public lastRevert;
+
+    function mint(address to, uint256 amount) external {
+        balanceOf[to] += amount;
+    }
+
+    function arm(LoanManager target_, Binding calldata b, uint256 principal_)
+        external
+    {
+        target = target_;
+        binding = b;
+        principal = principal_;
+        attacking = true;
+    }
+
+    function _maybeReenter() private {
+        if (!attacking || address(target) == address(0)) return;
+        attacking = false;
+        try target.originate(binding, principal) returns (uint256 id) {
+            originatedLoan = id;
+        } catch (bytes memory reason) {
+            lastRevert = reason;
+        }
+    }
+
+    function transfer(address to, uint256 value) external returns (bool) {
+        balanceOf[msg.sender] -= value;
+        balanceOf[to] += value;
+        _maybeReenter();
+        return true;
+    }
+
+    function transferFrom(address from, address to, uint256 value)
+        external
+        returns (bool)
+    {
+        allowance[from][msg.sender] -= value;
+        balanceOf[from] -= value;
+        balanceOf[to] += value;
+        _maybeReenter();
+        return true;
+    }
+
+    function approve(address spender, uint256 value) external returns (bool) {
+        allowance[msg.sender][spender] = value;
+        return true;
+    }
+}
+
 contract ReentrancyTest is Test {
     ReentrantToken token;
     CreditVault vault;
@@ -145,6 +210,82 @@ contract ReentrancyTest is Test {
         );
         oracle.accept(a, OracleHarness.sign(oracle, a, SIGNER_KEY));
         return manager.originate(b, principal);
+    }
+
+    /// Repayment must not clear a loan it did not open.
+    ///
+    /// `repay` zeroes `activeLoan` before the transfer so a reentrant
+    /// second repayment finds nothing live. That same window lets a
+    /// callback ORIGINATE: the account looks loan-free, a standing quote
+    /// funds a second draw, and the outer repayment's `closeDebt()` then
+    /// releases the new loan's custody lock -- leaving the vault owed
+    /// principal while the owner can withdraw the account's balance.
+    ///
+    /// `docs/05` invariant: neither agent nor owner withdraws while debt
+    /// is active. Reported by review, 14 September.
+    function test_repaymentCannotCloseANewerLoansDebt() public {
+        OriginatingToken attacker = new OriginatingToken();
+        CreditVault v = new CreditVault(IERC20(address(attacker)), OPERATOR, 100_000e6);
+        RiskOracle o = new RiskOracle(OPERATOR, DEPLOYMENT, Class.PrototypeEligible);
+        LoanManager m = new LoanManager(IERC20(address(attacker)), v, o, OPERATOR);
+
+        vm.startPrank(OPERATOR);
+        v.setLoanManager(address(m));
+        o.setLoanManager(address(m));
+        o.pinRoute(FACILITY, Route.Development);
+        o.setSigner(Route.Development, vm.addr(SIGNER_KEY), true);
+        vm.stopPrank();
+
+        CreditAccount acct =
+            new CreditAccount(address(m), OWNER, AGENT, address(o));
+
+        attacker.mint(LENDER, 50_000e6);
+        vm.startPrank(LENDER);
+        attacker.approve(address(v), 50_000e6);
+        v.deposit(50_000e6);
+        vm.stopPrank();
+        vm.prank(OPERATOR);
+        v.activate();
+
+        attacker.mint(address(acct), 10_000e6);
+
+        // Loan 1, drawn normally.
+        Binding memory b1 =
+            OracleHarness.binding(address(acct), acct.stateVersion(), FACILITY);
+        Assessment memory a1 = OracleHarness.approvedQuote(
+            b1, ++seq, 1_000e6, 1_200, 10 days, 0, address(attacker),
+            DEPLOYMENT, uint64(block.timestamp));
+        o.accept(a1, OracleHarness.sign(o, a1, SIGNER_KEY));
+        uint256 loan1 = m.originate(b1, 1_000e6);
+
+        // A second standing quote, ready for the callback to consume.
+        Binding memory b2 =
+            OracleHarness.binding(address(acct), acct.stateVersion(), FACILITY);
+        Assessment memory a2 = OracleHarness.approvedQuote(
+            b2, ++seq, 1_000e6, 1_200, 10 days, 0, address(attacker),
+            DEPLOYMENT, uint64(block.timestamp));
+        o.accept(a2, OracleHarness.sign(o, a2, SIGNER_KEY));
+
+        attacker.arm(m, b2, 1_000e6);
+        m.repay(loan1);
+
+        uint256 loan2 = attacker.originatedLoan();
+        if (loan2 == 0) {
+            // The draw was refused outright, which is also a correct
+            // outcome -- there is then no second loan to strand.
+            assertTrue(acct.debtOutstanding() == false, "no loan, no debt");
+            return;
+        }
+
+        // A second loan exists, so the account must still be locked.
+        assertEq(
+            uint8(m.status(loan2)), uint8(LoanManager.Status.Active),
+            "loan 2 is live"
+        );
+        assertTrue(
+            acct.debtOutstanding(),
+            "repaying loan 1 must not release loan 2's custody lock"
+        );
     }
 
     /// A token that reenters during repayment cannot repay twice.

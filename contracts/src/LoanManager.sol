@@ -398,7 +398,7 @@ contract LoanManager {
 
         vault.recordPrincipalRepaid(loan.account, principal);
         vault.recordInterestCollected(loan.account, interestDue);
-        CreditAccount(loan.account).closeDebt();
+        _releaseAccount(loan.account);
 
         emit Repaid(loanId, principal, interestDue);
     }
@@ -531,7 +531,7 @@ contract LoanManager {
             loan.resolvedAt = uint64(block.timestamp);
             activeLoan[loan.account] = 0;
             _releaseReservation(loanId);
-            CreditAccount(loan.account).closeDebt();
+            _releaseAccount(loan.account);
             emit Recovered(loanId);
         }
     }
@@ -584,7 +584,7 @@ contract LoanManager {
         if (unpaidInterest > 0) {
             vault.clearReceivable(unpaidInterest);
         }
-        CreditAccount(loan.account).closeDebt();
+        _releaseAccount(loan.account);
 
         emit Defaulted(loanId, principalLoss, unpaidInterest);
     }
@@ -600,6 +600,27 @@ contract LoanManager {
         if (amount == 0) return;
         reservation[loanId] = 0;
         vault.releaseReservation(amount);
+    }
+
+    /// @dev Close the account's custody lock only when nothing is left
+    /// owing on it.
+    ///
+    /// A terminal transition releases the account, but the account is
+    /// shared by every loan written against it and only ONE may be active
+    /// at a time. `repay` clears `activeLoan` before pulling settlement
+    /// tokens, so a callback during that transfer sees a loan-free account
+    /// and can draw against a standing quote -- and an unconditional
+    /// `closeDebt()` on the way out would then release the NEW loan's
+    /// lock, leaving the vault owed principal while the owner withdraws
+    /// (`docs/05`: neither agent nor owner withdraws while debt is
+    /// active). Reported by review, 14 September.
+    ///
+    /// Checking `activeLoan` rather than adding a reentrancy guard keeps
+    /// the rule where the rule lives: the account is locked exactly while
+    /// it owes, whatever order the calls arrived in.
+    function _releaseAccount(address acct) private {
+        if (activeLoan[acct] != 0) return;
+        CreditAccount(acct).closeDebt();
     }
 
     function status(uint256 loanId) external view returns (Status) {
