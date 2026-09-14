@@ -78,8 +78,19 @@ export interface StressResult {
   [k: string]: unknown;
 }
 
+/** One check `credence-verify` ran against the live deployment. */
+export interface Check {
+  beat: string;
+  name: string;
+  passed: boolean;
+  /** Verbatim, because it holds the revert selector. */
+  detail: string;
+}
+
 export interface Run {
   name: string;
+  /** Present when the run recorded on-chain checks. */
+  checks?: Check[];
   assessments: Assessment[];
   /** Keyed by input_hash, so an assessment pairs with its exact snapshot. */
   snapshots: Record<string, unknown>;
