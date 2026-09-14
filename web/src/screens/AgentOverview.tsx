@@ -32,9 +32,20 @@ export function AgentOverview() {
     <>
       <h2>Agent overview</h2>
       <p className="lede">
-        Three sequential loans under one policy and one model. The limit
-        rises as history accumulates, the rate falls, and the constraint
-        that bounds the facility changes.
+        {originations.length > 0 ? (
+          <>
+            {originations.length} sequential{" "}
+            {originations.length === 1 ? "loan" : "loans"} under one policy
+            and one model. The limit rises as history accumulates, the rate
+            falls, and the constraint that bounds the facility changes.
+          </>
+        ) : (
+          <>
+            No originations in this run. The lede used to assert three
+            loans regardless, which read as a claim about data that was not
+            on screen.
+          </>
+        )}
       </p>
 
       <div className="modes">
@@ -51,7 +62,9 @@ export function AgentOverview() {
               <th>Loan</th>
               <th className="num">Requested</th>
               <th className="num">Approved</th>
-              <th className="num">Capacity</th>
+              <th className="num">Agent capacity</th>
+              <th>Bound by</th>
+              <th className="num">Drawable</th>
               <th>Bound by</th>
               <th className="num">APR</th>
             </tr>
@@ -64,6 +77,8 @@ export function AgentOverview() {
                 <td className="num">{units(a.payload.outcome.approved_principal)}</td>
                 <td className="num">{units(a.payload.outcome.capacity?.agent_capacity)}</td>
                 <td>{a.payload.outcome.capacity?.agent_binding ?? "-"}</td>
+                <td className="num">{units(a.payload.outcome.capacity?.drawable_capacity)}</td>
+                <td>{a.payload.outcome.capacity?.drawable_binding ?? "-"}</td>
                 <td className="num">{bps(a.payload.outcome.terms?.apr_bps)}</td>
               </tr>
             ))}
@@ -73,8 +88,8 @@ export function AgentOverview() {
 
       {originations.length === 0 && (
         <p className="lede">
-          No originations in this run. Generate the bundle with{" "}
-          <code>pnpm data</code> after <code>LOANS=3 scripts/demo-repay.sh</code>.
+          Generate the bundle with <code>pnpm data</code> after{" "}
+          <code>LOANS=3 scripts/demo-repay.sh</code>.
         </p>
       )}
 
