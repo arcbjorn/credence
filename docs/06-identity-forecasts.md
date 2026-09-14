@@ -61,10 +61,17 @@ asks for rather than a documentation citation:
 | Reputation | `0x8004B663056A597Dffe9eCcC1965A193B7388713` | `giveFeedback`, `readFeedback`, `readAllFeedback` selectors present in the deployed implementation |
 | Validation | not deployed | Out of scope; this release publishes feedback, not validation |
 
-> **Use the testnet addresses.** The widely cited `0x8004A169…` and
-> `0x8004BAa1…` pair is **mainnet** and holds no code on Monad testnet.
-> Both registries are proxies, so compatibility is checked against the
-> implementation behind the EIP-1967 slot, not the proxy itself.
+ERC-8004 publishes two canonical pairs — one shared by every mainnet, one
+by every testnet — and the mainnet pair holds no code on Monad testnet.
+**Nothing hardcodes either.** `probe-testnet.sh` tries both and reports
+which the chain actually has, so pointing at the wrong tier is a loud
+failure rather than a silent empty read. Both registries are proxies, so
+compatibility is checked against the implementation behind the EIP-1967
+slot, not the proxy.
+
+The reader applies the same rule: it refuses an address with no code,
+because an absent registry returns the same empty result as an agent with
+no history, and those must not look alike.
 
 The standard's shape differs from the local adapter: feedback is a signed
 `int128` value with decimals and two string tags, not the outcome struct
