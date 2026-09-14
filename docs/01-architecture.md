@@ -48,20 +48,34 @@ Provider APIs enrich evidence. CRE can validate and deliver an assessment. Kuru 
 | Solidity | Facility state, balances, debt, allowed operations, authorization, loss allocation | Estimating real-world default probability |
 | Frontend | Comparison, lifecycle actions, evidence drilldown, lender outcomes | Manufacturing history, silently changing modes |
 
-**Go's substantive job is the simulation clock** — compressing months of agent history into weeks — plus provider fan-out and the reassessment scheduler. **Rust's purity is a scheduling advantage**: golden-fixture testable offline while contracts are still moving.
+**Go's substantive job is the simulation clock** — compressing months of
+agent history into weeks — plus provider fan-out and the reassessment
+scheduler. **Rust's purity is a scheduling advantage**: golden-fixture
+testable offline while contracts are still moving.
+
+> **Corrected 14 September.** As built, Go's substantive job turned out to
+> be the *data plane* — evidence acquisition, canonical snapshots, the
+> assessment API and the reassessment scheduler — with the simulation
+> clock one package inside it (`gateway/sim`). The sentence above ranked
+> them the other way round, and a reader taking it at face value would
+> look for the project's weight in the wrong place.
 
 ## Stack
 
-| Layer | Technology |
-|---|---|
-| Chain | Monad |
-| Contracts | Solidity + Foundry, OpenZeppelin (pin after first green build) |
-| Risk engine | Rust, `rust_decimal` or integer base units |
-| Data plane | Go, SQLite/WAL |
-| Internal transport | HTTP/JSON baseline; isolated protobuf/gRPC gate on 6 Oct after the 5 Oct freeze |
-| Indexer | Envio |
-| Frontend | TypeScript + Next.js, viem/wagmi |
-| Deployment | Docker Compose onto a small persistent VM |
+This is the stack as **planned**. The right-hand column records what is
+actually in the tree on 14 September, because a stack table that lists
+dependencies the repository does not have is a reader's first wrong turn.
+
+| Layer | Planned | As built, 14 Sep |
+|---|---|---|
+| Chain | Monad | Monad testnet, chain 10143 |
+| Contracts | Solidity + Foundry, OpenZeppelin (pin after first green build) | Solidity + Foundry. **No OpenZeppelin** — `forge-std` is the only submodule; the contracts implement their own access control and reentrancy discipline, which `docs/05` specifies and tests |
+| Risk engine | Rust, `rust_decimal` or integer base units | Rust, **integer base units only**. No `rust_decimal`: the engine must hash byte-identically against Go and Solidity, and a decimal type with its own rounding would break that |
+| Data plane | Go, SQLite/WAL | As planned |
+| Internal transport | HTTP/JSON baseline; isolated protobuf/gRPC gate on 6 Oct | **HTTP/JSON only.** The gRPC gate is not built; it sits after the freeze by design |
+| Indexer | Envio | **Not built.** The gateway follows contract events directly; no separate indexer was needed at this size |
+| Frontend | TypeScript + Next.js, viem/wagmi | **Not built.** See the slip recorded in [10 · Schedule](10-schedule.md#slipped--the-screen-shell). The demo is `scripts/` |
+| Deployment | Docker Compose onto a small persistent VM | **Not built.** Everything runs from `scripts/`, against anvil or Monad testnet |
 
 **On transport:** the boundary is architectural and permanent; only its wire format changes. Freeze contracts, schemas, model, fixtures, and a working JSON release candidate on 5 October. On 6 October, accept the isolated gRPC transport change only if it passes identical canonicalization vectors and the applicable acceptance matrix without changing those frozen artifacts. Otherwise ship JSON. The architecture diagram is unchanged either way.
 
@@ -85,6 +99,15 @@ docs/                       This documentation
 
 Signing credentials stay in a restricted backend. Scenario identities and funding keys stay separate from any personal wallet. Record dependency versions, artifacts, addresses, and model, policy, and fixture hashes for the release.
 
-Every implementation directory above now exists: `risk/`, `gateway/`, `contracts/`, `cre/`, and `tools/reader/`. The exception is the web interface, which `docs/09` specifies and which has not been started — the demo is the scripts in `scripts/`, and no claim should imply otherwise.
+**As built, 14 September:** `risk/`, `gateway/`, `contracts/`,
+`schemas/v1/`, `fixtures/` and `deployments/` exist as laid out, plus two
+this layout did not anticipate — `cre/` (the CRE workflow) and
+`tools/reader/` (standalone readers that import nothing from this
+repository). Two planned paths do not exist: `agent/`, whose deterministic
+runner lives in `gateway/sim` instead because only the simulation harness
+drives it and there is no model-backed runner; and `web/`, which `docs/09`
+specifies and which has not been started — see the slip recorded in
+[10 · Schedule](10-schedule.md#slipped--the-screen-shell). The demo is the
+scripts in `scripts/`, and no claim should imply otherwise.
 
 Use conventional commits, one granular commit per goal, with a 50-character subject limit.
