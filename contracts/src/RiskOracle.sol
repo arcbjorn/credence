@@ -424,6 +424,21 @@ contract RiskOracle {
 
     // --- Consumption ---
 
+    /// @notice The action a standing quote is bound to, or zero for a
+    /// hold-only quote.
+    ///
+    /// @dev Read by the loan manager BEFORE consuming, so it can refuse a
+    /// plain draw against a quote whose approval included a trade.
+    /// `consumeQuote` clears the terms, so the check cannot happen after.
+    ///
+    /// Returns zero when no quote stands. That is correct here: a caller
+    /// with no quote fails at `consumeQuote` a moment later with `NoQuote`,
+    /// which is the accurate error rather than "this quote needs an
+    /// action".
+    function quoteActionHash(Binding calldata b) external view returns (bytes32) {
+        return quoteTerms[bindingKey(b)].permittedActionHash;
+    }
+
     /// @notice Consume the standing quote for an exact draw.
     /// @dev `docs/03`: v0 grants the exact requested amount or denies. A
     /// smaller or larger draw cannot consume the quote.

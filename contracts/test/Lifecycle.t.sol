@@ -108,8 +108,17 @@ contract LifecycleTest is Test {
         uint32 aprBps,
         uint64 term
     ) internal returns (Binding memory b) {
-        return _publish(
-            orc, acct, principal, aprBps, term, keccak256("action"));
+        // HOLD-ONLY by default.
+        //
+        // Most tests here are about capacity, expiry, bindings or custody
+        // rather than about an approved trade, and they draw through the
+        // plain `originate`. Since 14 September that path accepts only a
+        // quote with no bound action, so a default action hash would make
+        // every one of them fail on a rule they are not testing.
+        //
+        // The tests that ARE about an action pass their hash explicitly to
+        // the overload below.
+        return _publish(orc, acct, principal, aprBps, term, bytes32(0));
     }
 
     /// A quote committing to one exact action, for the atomic
@@ -669,6 +678,69 @@ contract LifecycleTest is Test {
         );
         assertEq(vault.idleCash(), cashBefore, "and no cash left the vault");
         assertFalse(account.debtOutstanding(), "nor any custody lock");
+    }
+
+    /// A quote bound to an action must not be drawable without it.
+    ///
+    /// `originateAndExecute` unwinds a failed trade, but it is not the only
+    /// door. `originate` is public and consumes the SAME quote, so a
+    /// borrower whose approved trade would revert can simply call the other
+    /// entry point and keep the cash -- holding settlement tokens the
+    /// stress scenarios assumed were deployed.
+    ///
+    /// That is not untidy, it is a different risk position than the one
+    /// priced. The atomicity rule `docs/05` states ("fund and trade
+    /// atomically; revert everything if post-action checks fail") is only
+    /// enforced for callers who opt into it.
+    ///
+    /// A quote whose approved action is to HOLD is the legitimate use of
+    /// the plain entry point, and that case is what `permittedActionHash
+    /// == 0` now means.
+    ///
+    /// Reported by review, 14 September.
+    function test_ActionBoundQuoteCannotBeDrawnWithoutTheAction() public {
+        FailingAdapter bad = new FailingAdapter();
+        vm.prank(OPERATOR);
+        manager.setAccountAdapter(account, address(bad), true);
+
+        Binding memory b = _publish(
+            oracle, account, 1_000e6, 1_200, 10 days,
+            keccak256(abi.encode(address(bad), abi.encodeCall(FailingAdapter.act, ())))
+        );
+
+        // The approved trade cannot be filled.
+        vm.prank(AGENT);
+        vm.expectRevert(CreditAccount.AdapterCallFailed.selector);
+        manager.originateAndExecute(
+            b, 1_000e6, address(bad), abi.encodeCall(FailingAdapter.act, ()));
+
+        // So the borrower takes the other door. It must be shut.
+        vm.prank(AGENT);
+        vm.expectRevert(LoanManager.ActionRequired.selector);
+        manager.originate(b, 1_000e6);
+
+        assertEq(
+            manager.activeLoan(address(account)), 0,
+            "an action-bound quote funded nothing without its action"
+        );
+    }
+
+    /// A hold-only quote still originates through the plain entry point.
+    ///
+    /// The narrowing above must not break the case it exists to permit:
+    /// when there is no approved action to perform, there is nothing to
+    /// perform atomically.
+    function test_HoldOnlyQuoteOriginatesDirectly() public {
+        Binding memory b = _publish(
+            oracle, account, 1_000e6, 1_200, 10 days, bytes32(0));
+
+        vm.prank(AGENT);
+        uint256 loanId = manager.originate(b, 1_000e6);
+
+        assertEq(
+            manager.activeLoan(address(account)), loanId,
+            "a hold-only quote funds without an action"
+        );
     }
 
     /// A de-risking exemption may not be granted while the account owes.

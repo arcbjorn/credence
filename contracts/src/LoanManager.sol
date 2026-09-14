@@ -122,6 +122,8 @@ contract LoanManager {
 
     error NotOperator();
     error AccountHasActiveLoan();
+    /// @dev A quote bound to an action was drawn without performing it.
+    error ActionRequired();
     error AccountInDefault();
     error WrongStatus(Status expected, Status actual);
     error NotYetDefaultable();
@@ -246,8 +248,41 @@ contract LoanManager {
     /// exact amount). This function enforces live contract state, because a
     /// correctly signed assessment is not permission to ignore a vault cap
     /// or an open loan.
+    /// Only a HOLD-ONLY quote may be drawn here.
+    ///
+    /// `originateAndExecute` unwinds a failed trade, but it was not the
+    /// only door: this entry point consumed the same quote, so a borrower
+    /// whose approved trade would revert could take the cash and skip the
+    /// action -- holding settlement tokens the stress scenarios assumed
+    /// were deployed. That is a different risk position than the one
+    /// priced, which is exactly what `docs/05`'s atomicity rule exists to
+    /// prevent, and it was enforced only for callers who opted in.
+    ///
+    /// `permittedActionHash == 0` is the quote that approves holding, and
+    /// it is the only kind this path now accepts. Reported by review,
+    /// 14 September.
     function originate(Binding calldata binding, uint256 principal)
         public
+        returns (uint256 loanId)
+    {
+        // Read before consuming: `consumeQuote` clears the terms, so the
+        // check has to happen against the standing quote.
+        //
+        // Checked here rather than inside `_originate` so the atomic path
+        // is unaffected, but AFTER nothing else -- a caller who is paused,
+        // stale, or over the cap should still see that error rather than
+        // this one, so the gate is applied to the quote only once the
+        // draw itself is otherwise admissible. `_originate` performs those
+        // checks, so the order below is: cheap quote read, then the full
+        // path, then the action requirement enforced by the account's own
+        // `permittedActionHash` when the action runs.
+        bytes32 required = oracle.quoteActionHash(binding);
+        loanId = _originate(binding, principal);
+        require(required == bytes32(0), ActionRequired());
+    }
+
+    function _originate(Binding calldata binding, uint256 principal)
+        internal
         returns (uint256 loanId)
     {
         require(!paused, Paused());
@@ -371,7 +406,7 @@ contract LoanManager {
         address adapter,
         bytes calldata action
     ) external returns (uint256 loanId, bytes memory result) {
-        loanId = originate(binding, principal);
+        loanId = _originate(binding, principal);
         // Reverting here unwinds the draw with it: the vault's lend, the
         // debt record, and the account's lock all roll back together, so a
         // failed action leaves no funded loan behind.
