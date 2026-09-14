@@ -124,6 +124,17 @@ jobs:
         run: go test -count=1 ./underwrite/
         working-directory: cre
 
+  docs:
+    name: docs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Cited counts drift when something is ADDED, which is the direction
+      # nothing else warns about: two documents said the CRE receiver had
+      # 19 tests after it grew to 21.
+      - name: cited counts
+        run: bash scripts/check-docs.sh
+
   web:
     name: web
     runs-on: ubuntu-latest
