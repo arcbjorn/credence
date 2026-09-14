@@ -7,7 +7,16 @@ carry the thesis.
 |---|---|
 | Agent overview | 4b — the limit rises, the APR falls, the constraint switches |
 | Assessment detail | which constraints bound one decision, and why |
+| Enforcement | 6 — the prohibited withdrawal, reverted on chain |
 | Replay | 8 — does retained input reproduce the assessment? |
+
+Beat 6 is the one `docs/09` calls **"the single most convincing moment"**.
+The screen renders what `credence-verify` recorded against the live
+deployment, and shows the two refusals side by side with their raw
+selectors: the owner is refused because debt is open (`0xe9d4b4e2`), a
+stranger because they are not the owner (`0x72cb8533`). They must be
+DIFFERENT errors — if they matched, the first would only be proving
+access control, not lender protection. `enforcement.test.ts` pins that.
 
 ## The engine runs in the browser
 
