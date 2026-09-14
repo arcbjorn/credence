@@ -50,6 +50,23 @@ if [ -n "${REPUTATION_REGISTRY:-}" ] && [ -n "${IDENTITY_REGISTRY:-}" ]; then
   AGENT_ID=${AGENT_ID:?set AGENT_ID to a registered agent on this registry}
   echo "using the canonical registries on this chain"
 else
+  # A local double is only ever acceptable on a local chain.
+  #
+  # Without this, forgetting the two environment variables against a
+  # public RPC would deploy a mock registry there and publish to it --
+  # producing a green run, real transactions, and a claim about ERC-8004
+  # that rests on a contract this script deployed a moment earlier. The
+  # whole point of the canonical registries is that Credence does not
+  # control them. Reported by review, 14 September.
+  case "$RPC" in
+    *127.0.0.1*|*localhost*|*0.0.0.0*) ;;
+    *)
+      echo "refusing to deploy a local ERC-8004 double against $RPC" >&2
+      echo "set REPUTATION_REGISTRY, IDENTITY_REGISTRY and AGENT_ID to the" >&2
+      echo "canonical deployment (see contracts/deployments/<chainId>.json)" >&2
+      exit 1
+      ;;
+  esac
   echo "no registry given; deploying a local double"
   IDENTITY=$(forge create src/MockERC8004.sol:MockIdentityRegistry \
     --rpc-url "$RPC" --private-key "0x$DEPLOYER" --broadcast \
