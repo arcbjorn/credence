@@ -587,6 +587,25 @@ contract RiskOracle {
             s := calldataload(add(sig.offset, 32))
             v := byte(0, calldataload(add(sig.offset, 64)))
         }
-        return ecrecover(digest, v, r, s);
+        // Reject the high-s half of each signature pair.
+        //
+        // secp256k1 admits two valid signatures per message, (r, s) and
+        // (r, n - s), so a third party can produce a second well-formed
+        // signature over an assessment they did not author. Sequence
+        // monotonicity already stops that being replayable here, but a
+        // signature check that accepts both forms is a weaker statement
+        // than one that does not -- and this is the check every route's
+        // authority rests on. Reported by review, 14 September.
+        require(
+            uint256(s) <= 0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0,
+            UnauthorizedSigner(address(0))
+        );
+        require(v == 27 || v == 28, UnauthorizedSigner(address(0)));
+
+        address signer = ecrecover(digest, v, r, s);
+        // ecrecover returns zero on failure rather than reverting, and a
+        // zero address must never match an allowlisted signer.
+        require(signer != address(0), UnauthorizedSigner(address(0)));
+        return signer;
     }
 }

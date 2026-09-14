@@ -183,8 +183,8 @@ contract LoanManager {
     /// @notice Register an execution route on an account.
     /// @dev The account only accepts adapter changes from its loan manager,
     /// so this is the operator's path to whitelisting a strategy route.
-    /// @notice Register an execution route on an account.
-    /// @dev Refused while the account owes: the set of routes an agent may
+    ///
+    /// Refused while the account owes: the set of routes an agent may
     /// trade through is part of the terms it borrowed under. Revocation is
     /// always permitted, because withdrawing a route only ever reduces
     /// what the account can do.

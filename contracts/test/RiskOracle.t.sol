@@ -586,6 +586,39 @@ contract RiskOracleTest is Test {
     /// `docs/05` calls this a hard gate, not a preference: a facility
     /// claiming CRE verification requires its CRE path, and a development
     /// key must not remain an equally powerful alternative.
+    /// The high-s twin of a valid signature must be refused.
+    ///
+    /// secp256k1 admits two valid signatures per message, (r, s) and
+    /// (r, n - s), so anyone holding one can produce the other without the
+    /// key. Sequence monotonicity already stops a replay, but the check
+    /// every route's authority rests on should not accept a signature its
+    /// signer never produced. Reported by review, 14 September.
+    function test_MalleableSignatureIsRejected() public {
+        Assessment memory a = _origination(1, Decision.Approved);
+        bytes memory sig = _sign(a, devKey);
+
+        // Flip to the other valid form: s' = n - s, v toggled.
+        bytes32 r;
+        bytes32 sVal;
+        uint8 v;
+        assembly {
+            r := mload(add(sig, 32))
+            sVal := mload(add(sig, 64))
+            v := byte(0, mload(add(sig, 96)))
+        }
+        uint256 n =
+            0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141;
+        bytes32 flipped = bytes32(n - uint256(sVal));
+        uint8 flippedV = v == 27 ? 28 : 27;
+        bytes memory malleable = abi.encodePacked(r, flipped, flippedV);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                RiskOracle.UnauthorizedSigner.selector, address(0))
+        );
+        oracle.accept(a, malleable);
+    }
+
     function test_CREFacilityRejectsDevelopmentOrigination() public {
         vm.prank(OPERATOR);
         oracle.pinRoute(FACILITY, Route.CRE);

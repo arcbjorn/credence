@@ -62,7 +62,16 @@ contract CreditVault {
     mapping(address lender => uint256 shares) public shares;
     uint256 public totalShares;
 
-    /// @dev Cash frozen at settlement, so later dust math stays stable.
+    /// @dev The pot at the moment the epoch settled, recorded once.
+    ///
+    /// Not used by withdrawal, which divides the LIVE `idleCash` by the
+    /// remaining shares -- the remaining-cash / remaining-shares rule
+    /// `docs/05` specifies, so the final claimant takes the dust. This is
+    /// the audit record of what there was to divide, which `idleCash`
+    /// stops being the moment the first lender withdraws.
+    ///
+    /// An earlier comment claimed it stabilized the dust math. It does
+    /// not; corrected after review, 14 September.
     uint256 public settlementCash;
     uint256 public claimedShares;
 
