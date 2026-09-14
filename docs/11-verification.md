@@ -165,6 +165,80 @@ loss are reported independently and never collapsed into a score.
 > registry shares, so it should port rather than be rewritten — but that
 > claim is untested until a registry exists to test it against.
 
+## Public-chain deployment — 14 September
+
+Deployed to **Monad testnet (chain 10143)** and verified by reading the
+chain back, not by trusting the deploy script's exit code:
+
+| Contract | Address |
+|---|---|
+| `RiskOracle` | `0xE53287EA0DD26DDCFd4a569Db64f8ceEC7A1A080` |
+| `CreditVault` | `0xC95cF75ee3F4f050fAeD698585A3423dDd225dDa` |
+| `LoanManager` | `0x7354894D550A26D1d367bF13016DaE1ffb2dEe47` |
+| settlement token | `0x5F99631697224476e01cE9A608FA589e362fB315` |
+| risky asset (*NOT ETH*) | `0x6BA7cfCC24Fd51A81adeA5059C0468126a349D89` |
+| venue | `0x62EEB5D74DC4aBA6A531da347d131Dc8e9cf74D5` |
+| price source | `0xf2DCcfd279cBFa9E6636026fF40aE46DdA40C2cB` |
+| adapter | `0xE3213CB09F2B09f99Fb303f2e786899605e67C2f` |
+
+Three loans completed the full lifecycle on the public chain, and all
+seven deployment checks passed against it — including the one that
+separates the two refusal reasons:
+
+```
+[PASS] beat 6  owner withdrawal reverts while debt is open   custom error 0xe9d4b4e2
+[PASS] beat 6  stranger withdrawal reverts                   custom error 0x72cb8533
+[PASS] beat 6  owner blocked by debt, not access control     owner=0xe9d4b4e2 stranger=0x72cb8533
+```
+
+Reproduce with `scripts/deploy-testnet.sh`, then
+`RPC=https://testnet-rpc.monad.xyz TERM_SECONDS=600 HOLD_SECONDS=45 LOANS=3 scripts/demo-repay.sh`.
+
+### What a public chain surfaced that a local one hid
+
+Three defects, none of which a local run could have found:
+
+- **Revert data was discarded at the transport layer.** `rpcError` kept
+  only `code` and `message`. Anvil writes the selector into the message,
+  so every custom error was distinguishable locally; Monad returns it in
+  a separate `data` field and *also* decodes the bytes into the message
+  as text, where `0x72cb8533` renders as `r˅3`. Every custom error was
+  therefore identical to every other on a public chain, and the beat-6
+  check that distinguishes debt from access control reported `unknown`
+  against contracts that had behaved correctly.
+- **The hold had no implementation for a chain that cannot warp.** The
+  scenario probed for `evm_increaseTime` and printed the right advice,
+  but called it unconditionally anyway, so the run aborted after
+  funding. A real hold now waits on **chain time**, confirmed by a block
+  carrying the later timestamp — wall-clock sleep proves nothing, since
+  `block.timestamp` is what the contract charges interest against.
+- **Forge's broadcast cache stalls a redeploy.** A restarted chain resets
+  nonces while forge replays cached ones, and it retries `nonce too low`
+  with no output until it gives up. Observed twice as a silent
+  ten-minute stall.
+
+### The sequential-loans row does not reproduce on testnet
+
+Stated plainly, because the testnet run looks like a weaker result:
+
+```
+loan 1: apr=1200bps capacity=6200000000 binding=HistoryGrowthCap
+loan 2: apr=1200bps capacity=6200170000 binding=HistoryGrowthCap
+loan 3: apr=1200bps capacity=6200340000 binding=HistoryGrowthCap
+```
+
+The constraint never switches and capacity barely moves. **This is the
+anti-farming rule working, not a regression.** `docs/06` credits
+`min(eligible_seconds, 30d) / 30d`, so a 45-second hold earns 1/9,600th
+of the history credit a five-day hold earns. The observed capacity growth
+is ~5,600x smaller, which is that rule and the binding `min()` acting
+together.
+
+A public chain cannot warp time, and holding three loans for five days
+each is not a demo. **The row's evidence therefore remains the local
+run**, where the elapsed term is real within the chain's own clock. The
+testnet run demonstrates portability and enforcement, not repricing.
+
 ## Operational measurement
 
 Engine runtime, input size, provider lag, event reconciliation lag, transaction status. One scripted command runs the offline scenario suite; another starts the demo environment. Document required credentials and optional integrations explicitly.
