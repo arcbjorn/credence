@@ -62,6 +62,16 @@ contract LoanManager {
         uint256 principalLoss;
         uint256 unpaidInterest;
         Status status;
+        /// @dev The agent this obligation belongs to, taken from the
+        /// binding the quote was consumed under. Recorded because
+        /// published feedback must be ATTRIBUTABLE (`docs/06`): a
+        /// publisher that took an agent id from its own configuration
+        /// would assert an attribution the chain never verified, and the
+        /// same loan number under a different manager would carry the
+        /// same claim. The id survives an identity transfer unchanged,
+        /// which is what makes the loss stay attributable to the
+        /// original binding.
+        uint256 agentId;
     }
 
     uint256 private constant BPS_DENOM = 10_000;
@@ -271,7 +281,8 @@ contract LoanManager {
             resolvedAt: 0,
             principalLoss: 0,
             unpaidInterest: 0,
-            status: Status.Active
+            status: Status.Active,
+            agentId: binding.agentId
         });
         activeLoan[acct] = loanId;
 
@@ -593,5 +604,14 @@ contract LoanManager {
 
     function status(uint256 loanId) external view returns (Status) {
         return loans[loanId].status;
+    }
+
+    /// @notice The agent this obligation was originated for.
+    /// @dev Read by the feedback publisher so attribution is DERIVED from
+    /// the binding the loan was drawn under rather than supplied to the
+    /// publisher (`docs/06`). Unchanged by an identity transfer, which is
+    /// what keeps a realized loss attributable to the original binding.
+    function agentIdOf(uint256 loanId) external view returns (uint256) {
+        return loans[loanId].agentId;
     }
 }

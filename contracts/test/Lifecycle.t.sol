@@ -904,6 +904,32 @@ contract LifecycleTest is Test {
     /// while existing debt and recovery rights stay with the original
     /// record. The new identity must not inherit the obligation, and must
     /// not be able to act on the old one's authorization.
+    /// Published feedback must be attributable (`docs/06`). Attribution
+    /// that came from the publisher's own configuration would assert a
+    /// link the chain never checked, so the loan records the agent from
+    /// the binding its quote was consumed under.
+    function test_LoanRecordsTheBindingsAgent() public {
+        uint256 loanId = _originate(account, 5_000e6, 1_200, 10 days);
+        Binding memory b = _bindingFor(account, account.stateVersion());
+        assertEq(
+            manager.agentIdOf(loanId), b.agentId,
+            "the loan must carry the binding's agent, not a supplied one"
+        );
+
+        // And it survives resolution: a publisher reads this AFTER the
+        // obligation ends, when the binding is long gone.
+        vm.warp(block.timestamp + 1 days);
+        manager.repay(loanId);
+        assertEq(
+            uint8(manager.status(loanId)), uint8(LoanManager.Status.Repaid),
+            "loan resolved"
+        );
+        assertEq(
+            manager.agentIdOf(loanId), b.agentId,
+            "attribution must outlive the obligation"
+        );
+    }
+
     function test_IdentityTransferLeavesTheLoanIntact() public {
         uint256 loanId = _originate(account, 5_000e6, 1_200, 10 days);
         assertEq(manager.activeLoan(address(account)), loanId, "the loan exists");
