@@ -203,17 +203,17 @@ scenario's constants are chosen to produce it:
 
 | Quantity | Value | Why |
 |---|---|---|
-| Agent equity | 5,000 | Sets stress capacity: an acquisition puts the whole principal into the risky asset, and stress capacity lands near **1.29× equity** under this policy |
-| `base_history_cap` | 5,000 | Below stress capacity at loan 1, so **history binds first** |
+| Agent equity | 10,000 | Sets stress capacity: the loan deploys equity *and* principal into the risky asset, and stress capacity lands near **0.82× equity** under this policy |
+| `base_history_cap` | 6,200 | Below stress capacity at loan 1, so **history binds first** |
 | `history_growth_per_ppm` | 10,000 | Each repayment adds ~1.33e9 of cap, so two repayments carry the history cap past stress |
 | Forecast cap | 9,600 at maximum penalty | Stays **above** stress, so it never masks the switch |
 
 Observed:
 
 ```
-loan 1: apr=1200bps capacity=5000000000 binding=HistoryGrowthCap
-loan 2: apr=1147bps capacity=6333330000 binding=HistoryGrowthCap
-loan 3: apr=1094bps capacity=7419342778 binding=StressCapacity
+loan 1: apr=1200bps capacity=6200000000 binding=HistoryGrowthCap
+loan 2: apr=1147bps capacity=7533330000 binding=HistoryGrowthCap
+loan 3: apr=1094bps capacity=8117138556 binding=StressCapacity
 ```
 
 Two traps worth naming, because both silently defeat the demonstration:
@@ -224,9 +224,16 @@ Two traps worth naming, because both silently defeat the demonstration:
   history may bind below a conservative forecast cap — but it means the
   forecast cap must sit *above* stress capacity, or it binds instead and
   no switch is visible.
-- **Raising equity does not help.** Stress capacity scales with equity, so
-  more equity moves the target rather than reaching it. The lever is
-  `base_history_cap` relative to stress, not equity in absolute terms.
+- **Raising equity does not help on its own.** Stress capacity scales with
+  equity, so more equity moves the target rather than reaching it. The
+  lever is `base_history_cap` relative to stress. Equity matters only for
+  a second reason: the requested principal must fit under loan 1's
+  capacity, or the request is denied outright rather than sized down.
+- **The action's declared `deploy_bps` changes the ratio.** Deploying
+  equity alongside principal is a riskier book than principal alone, so
+  stress capacity falls from ~1.29× equity to ~0.82×. Calibrating against
+  a projection that understates the deployment produces numbers that stop
+  working the moment the projection is corrected.
 
 ## Continuous underwriting
 

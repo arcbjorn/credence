@@ -100,9 +100,9 @@ Observed on 13 September for the sequential-loans row, one policy and
 model hash throughout, only demonstrated history varying:
 
 ```
-loan 1: apr=1200bps capacity=5000000000 binding=HistoryGrowthCap
-loan 2: apr=1147bps capacity=6333330000 binding=HistoryGrowthCap
-loan 3: apr=1094bps capacity=7419342778 binding=StressCapacity
+loan 1: apr=1200bps capacity=6200000000 binding=HistoryGrowthCap
+loan 2: apr=1147bps capacity=7533330000 binding=HistoryGrowthCap
+loan 3: apr=1094bps capacity=8117138556 binding=StressCapacity
 ```
 
 The limit rises, the APR falls, and the binding constraint **switches from
