@@ -543,6 +543,67 @@ signs, generates a DON-signed report, and submits the write. The only
 thing still simulated is the chain write itself, which needs deploy
 access.
 
+## External review — 14 September
+
+Six findings against baseline `726324c`, all confirmed and fixed. Each
+was reproduced with a failing test before the fix, and each test was
+checked to fail again when the fix is reverted.
+
+| # | Finding | Fix |
+|---|---|---|
+| 1 | Repayment could clear a NEWER loan's custody lock | `_releaseAccount` closes debt only when no loan is active |
+| 2 | The signed binding dropped the account state version | `LoadBinding` carries the watched version |
+| 3 | A pending publish confirmed on sequence alone | Reconcile on the transaction's own receipt first |
+| 4 | Core evidence could be labelled Optional | Validation requires account and market |
+| 5 | The price timestamp was discarded | Account evidence ages its price against the block |
+| 6 | Splitting a holding inflated recovery value | Impact is computed from aggregate exposure per asset |
+
+### 1 — the sharpest one
+
+`repay` clears `activeLoan` before pulling settlement tokens, so a
+callback during that transfer sees a loan-free account. With a standing
+quote it can draw a second loan, and the outer repayment's unconditional
+`closeDebt()` then released the NEW loan's lock -- leaving the vault owed
+principal while the owner could withdraw.
+
+The existing reentrancy tests covered re-entering `repay` and `collect`;
+neither tried to ORIGINATE. `test_repaymentCannotCloseANewerLoansDebt`
+now does.
+
+The fix checks `activeLoan` rather than adding a reentrancy guard, which
+keeps the rule where the rule lives: the account is locked exactly while
+it owes, whatever order the calls arrived in.
+
+### 2 and 5 — the same shape, twice
+
+Both are a value that exists being replaced by a default on the way
+through. The signed binding left `AccountStateVersion` at zero while the
+assessment carried the real one, so permission landed on chain and could
+never match. The price observation carried a source timestamp that
+`positionsAt` dropped, so a stale price entered evidence stamped with the
+current block.
+
+Both had a comment nearby explaining exactly why the value mattered.
+Neither had a test.
+
+### 6 — worth stating precisely
+
+Market impact grows with the square root of size, so computing it per
+position made two half-sized rows cheaper to exit than one whole one. The
+reverted-fix run shows the gap: `1712838600` whole against `1762120800`
+split, a 2.9% inflation of recoverable value for the same book.
+
+Impact now comes from aggregate exposure per asset. A second test pins
+the other half of the rule: **distinct** assets still get their own
+impact, since they trade in their own books.
+
+### What the review did not establish
+
+Its own framing, kept here because it is right: passing those diagnostics
+was evidence of defects, not correctness. The review performed no
+public-network deployment and established no CRE or ERC-8004
+interoperability -- those rest on the separate evidence recorded above.
+
 ## Operational measurement
 
 Engine runtime, input size, provider lag, event reconciliation lag, transaction status. One scripted command runs the offline scenario suite; another starts the demo environment. Document required credentials and optional integrations explicitly.
