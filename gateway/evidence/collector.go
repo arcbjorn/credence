@@ -44,6 +44,19 @@ type AccountState struct {
 	OutstandingDebt   string     `json:"outstanding_debt"`
 	FacilityLimit     string     `json:"facility_limit"`
 	Restricted        bool       `json:"restricted"`
+
+	// PriceObservedAt is the source timestamp of the OLDEST price used to
+	// mark a position, or zero when no position was priced from a feed.
+	//
+	// Deliberately unserialized: it is not part of what the engine hashes,
+	// it is what the collector checks BEFORE building the snapshot. A
+	// position marked at a price the feed published hours ago would
+	// otherwise enter account evidence stamped with the current block
+	// timestamp, and fresh independent market evidence does not vouch for
+	// that price's age (`docs/11`: stale data blocks new risk).
+	//
+	// Reported by review, 14 September.
+	PriceObservedAt uint64 `json:"-"`
 }
 
 type Position struct {
@@ -226,6 +239,26 @@ func (c *Collector) collectAccount(
 		// No substitution. An unreadable account is unknown, not empty.
 		return snapshot.Missing("account", "chain", snapshot.OriginObserved, snapshot.Required, ts)
 	}
+
+	// Positions are marked at a feed price, and that price has its own
+	// age. The account is stamped with the BLOCK timestamp, so a price
+	// published long before this block would enter apparently fresh
+	// evidence -- and fresh independent market evidence does not vouch for
+	// the age of the price a position was marked at.
+	//
+	// Same rule the market path applies, for the same reason: detected,
+	// not blended (`docs/11`: stale data blocks new risk without inventing
+	// a zero liquidation value). Reported by review, 14 September.
+	if state.PriceObservedAt != 0 &&
+		skew(state.PriceObservedAt, block.Timestamp) > c.cfg.MaxSkewSeconds {
+		ev := snapshot.Missing(
+			"account", "chain", snapshot.OriginObserved, snapshot.Required, ts)
+		ev.State = snapshot.StateStale
+		observed := state.PriceObservedAt
+		ev.ObservedAt = &observed
+		return ev
+	}
+
 	ev, err := snapshot.Present(
 		"account", "chain", snapshot.OriginObserved, snapshot.Required,
 		block.Timestamp, ts, state,

@@ -150,10 +150,11 @@ func (r *Reader) AccountAt(
 	// Read what the account actually holds. A hardcoded empty list would
 	// report every account as unconcentrated no matter what it owns, so
 	// the engine could never see a dangerous book.
-	positions, err := r.positionsAt(ctx, account, at.Number)
+	positions, priceObservedAt, err := r.positionsAt(ctx, account, at.Number)
 	if err != nil {
 		return state, fmt.Errorf("account positions: %w", err)
 	}
+	state.PriceObservedAt = priceObservedAt
 
 	state.SettlementBalance = balance.String()
 	state.StateVersion = stateVersion.Uint64()
@@ -174,17 +175,17 @@ func (r *Reader) positionsAt(
 	ctx context.Context,
 	account string,
 	blockNumber uint64,
-) ([]evidence.Position, error) {
+) ([]evidence.Position, uint64, error) {
 	if r.addr.Risky == "" {
-		return []evidence.Position{}, nil
+		return []evidence.Position{}, 0, nil
 	}
 
 	amount, err := r.callUint(ctx, account, "balanceOf(address)", blockNumber, r.addr.Risky)
 	if err != nil {
-		return nil, fmt.Errorf("risky balance: %w", err)
+		return nil, 0, fmt.Errorf("risky balance: %w", err)
 	}
 	if amount.Sign() == 0 {
-		return []evidence.Position{}, nil
+		return []evidence.Position{}, 0, nil
 	}
 
 	// The engine marks a position as amount * price / 10^price_scale, so
@@ -208,17 +209,25 @@ func (r *Reader) positionsAt(
 	// when the market is most likely moving.
 	price := new(big.Int).SetUint64(r.risky.Price)
 	scale := r.risky.PriceScale
+	// Zero when the price came from policy rather than a feed: a declared
+	// constant has no observation time to age, and treating it as
+	// observed-at-zero would report every such deployment as stale.
+	var observedAt uint64
 	if r.riskySource != "" {
 		obs, err := r.RiskyPriceAt(ctx, r.riskySource, blockNumber)
 		if err != nil {
-			return nil, fmt.Errorf("risky price: %w", err)
+			return nil, 0, fmt.Errorf("risky price: %w", err)
 		}
 		price, scale = obs.Price, obs.Scale
+		// Carried out, not discarded. The caller stamps account evidence
+		// with the BLOCK timestamp, so a price the feed published long ago
+		// would otherwise look as fresh as the block that read it.
+		observedAt = obs.ObservedAt
 
 		// The amount was normalized to the DECLARED scale above; if the
 		// source reports a different one, that normalization is wrong.
 		if scale != r.risky.PriceScale {
-			return nil, fmt.Errorf(
+			return nil, 0, fmt.Errorf(
 				"risky price scale %d from source does not match declared %d",
 				scale, r.risky.PriceScale)
 		}
@@ -230,7 +239,7 @@ func (r *Reader) positionsAt(
 		Price:      price.String(),
 		PriceScale: scale,
 		HaircutBps: r.risky.HaircutBps,
-	}}, nil
+	}}, observedAt, nil
 }
 
 // outstandingDebtAt reads what the account currently owes.

@@ -12,6 +12,10 @@ import (
 )
 
 type fakeChain struct {
+	// priceObservedAt is the source timestamp of the price positions were
+	// marked at. Zero means the deployment prices from policy, which has
+	// no observation time to age.
+	priceObservedAt uint64
 	block      evidence.BlockRef
 	blockErr   error
 	accountErr error
@@ -39,6 +43,7 @@ func (c *fakeChain) AccountAt(_ context.Context, _ string, at evidence.BlockRef)
 		StateVersion:      3,
 		OutstandingDebt:   "1000000000",
 		FacilityLimit:     "50000000000",
+		PriceObservedAt:   c.priceObservedAt,
 	}, nil
 }
 
@@ -362,5 +367,61 @@ func TestIntegerDerivedEvidenceIsPresent(t *testing.T) {
 	// compares against.
 	if _, err := in.InputHash(); err != nil {
 		t.Fatalf("snapshot must hash: %v", err)
+	}
+}
+
+
+// A position marked at a price the feed published long ago must not enter
+// apparently fresh account evidence.
+//
+// The account is stamped with the BLOCK timestamp, so without this the
+// price's own age is invisible -- and fresh independent market evidence
+// does not vouch for the age of the price a position was marked at.
+// `docs/11`: stale data blocks new risk.
+//
+// Reported by review, 14 September.
+func TestStalePriceMakesAccountEvidenceStale(t *testing.T) {
+	chain := &fakeChain{
+		block: evidence.BlockRef{Number: 500, Timestamp: 10_000},
+		// The price was published 300s before the block, against a 60s bound.
+		priceObservedAt: 9_700,
+	}
+	c := evidence.New(chain, fakeMarket{state: evidence.MarketState{ObservedAt: 9_990}},
+		fakeHistory{}, binding, config())
+
+	in := collect(t, c)
+	if in.Account.State != snapshot.StateStale {
+		t.Fatalf("account state = %s, want Stale: a position marked at a "+
+			"300s-old price is not fresh because the block is", in.Account.State)
+	}
+	if in.Account.Value != nil {
+		t.Fatal("stale evidence must not carry a usable value")
+	}
+}
+
+// A price inside the bound is fine, and a deployment pricing from policy
+// has no observation time to age.
+func TestFreshAndPolicyPricedAccountsAreNotStale(t *testing.T) {
+	for _, c := range []struct {
+		name       string
+		observedAt uint64
+	}{
+		{"fresh feed price", 9_970},
+		{"policy price, no feed", 0},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			chain := &fakeChain{
+				block:           evidence.BlockRef{Number: 500, Timestamp: 10_000},
+				priceObservedAt: c.observedAt,
+			}
+			col := evidence.New(chain,
+				fakeMarket{state: evidence.MarketState{ObservedAt: 9_990}},
+				fakeHistory{}, binding, config())
+
+			in := collect(t, col)
+			if in.Account.State == snapshot.StateStale {
+				t.Fatal("account evidence must not be stale here")
+			}
+		})
 	}
 }
