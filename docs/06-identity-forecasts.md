@@ -94,10 +94,50 @@ Two further gaps in what the local path publishes:
 
 - **Attribution is supplied, not derived.** The publisher takes an agent
   id from its command line and applies it to every loan, without reading
-  the registry or checking the binding it came from.
+  the registry or checking the binding it came from. **Fixed 14
+  September** at the root: the loan now records `agentId` from the
+  binding its quote was consumed under, readable afterwards via
+  `agentIdOf(loanId)`. Previously the id appeared in no storage slot and
+  no event, so the publisher could not have derived it -- the flag was a
+  missing link in the chain, not laziness.
 - **`evidenceRef` is not evidence.** It is the keccak of a loan-number
   string, so the same loan number under different managers produces the
-  same reference. It commits to nothing retrievable.
+  same reference. It commits to nothing retrievable. ERC-8004 carries
+  `feedbackURI` plus `feedbackHash` for exactly this, and the rewrite
+  uses both.
+
+### The value model, resolved
+
+ERC-8004 stores **one signed `int128` per entry** with two filterable
+tags. `docs/06` forbids combining a repayment, a profit, a forecast and
+an absence of default into one fact. A composite score would fit the
+field and break the rule, so Credence publishes **one entry per signal**,
+not one per loan:
+
+| tag1 | value | tag2 |
+|---|---|---|
+| `credence.outcome` | principal | outcome class |
+| `credence.interest` | interest collected | outcome class |
+| `credence.loss` | realized loss, **negative** | outcome class |
+| `credence.held` | seconds held | outcome class |
+
+All four carry the same `feedbackURI` and `feedbackHash`, so they resolve
+to one retained record rather than four disconnected claims. The loss is
+negative because the registry's value is signed for that purpose:
+publishing it unsigned would read as a gain of the same size to anyone
+summing the tag.
+
+Verified against the deployed registry on Monad testnet, 14 September:
+
+- `giveFeedback(uint256,int128,uint8,string,string,string,string,bytes32)`
+  computes to `0x3c036a7e`, matching both the selector recorded above and
+  the code behind the registry's EIP-1967 proxy slot.
+- A negative value simulates successfully against the live contract.
+- Self-feedback reverts `"Self-feedback not allowed"`, and an
+  unregistered agent reverts `ERC721NonexistentToken(uint256)`. **Credence
+  must therefore be the client, and the borrowing agent a separately
+  owned registered identity** -- Credence cannot report on an agent it
+  owns.
 
 > **Sub-claims A and B are not met.** What exists is a local feedback
 > adapter with its own ABI and a reader for that ABI, which `docs/08`

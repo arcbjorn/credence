@@ -161,9 +161,11 @@ loss are reported independently and never collapsed into a score.
 > gate stays open; the row requires publication to the selected network's
 > ERC-8004-compatible registry, with its address and compatibility
 > evidence in the deployment manifest. The registry compatibility gate is
-> **15 September**. The reader is written against an ABI layout the real
-> registry shares, so it should port rather than be rewritten — but that
-> claim is untested until a registry exists to test it against.
+> **15 September**. The reader is written against an ABI the real registry
+> does **not** share: `agentEntries` exists only on the local adapter and
+> reverts against ERC-8004, whose read path is
+> `readAllFeedback(uint256,address[],string,string,bool)` — `0xd9d84224`,
+> confirmed in the deployed implementation. It is a rewrite.
 
 ## Public-chain deployment — 14 September
 
