@@ -27,6 +27,7 @@ Usage:
 """
 
 import argparse
+import hashlib
 import json
 import sys
 import urllib.request
@@ -216,18 +217,30 @@ def agent_owner(url: str, identity: str, agent_id: int) -> str:
     return "0x" + data[12:32].hex()
 
 
-def group_by_loan(entries: list) -> tuple:
-    """Credence tags every entry for one obligation `loan:N`.
+def deployment_tag(chain_id: int, manager: str) -> str:
+    """Short digest of the chain and loan manager.
 
-    Entries whose tag2 is not a loan tag were written by this client for
-    some other purpose; they are reported as unrecognised rather than
-    silently folded into a total.
+    Loan ids restart at 1 for every deployment, so a bare `loan:1` from
+    one manager is indistinguishable from another's. sha256 rather than
+    keccak because this reader is stdlib-only by design -- a digest it
+    could not recompute would make the tag unverifiable here.
+    """
+    raw = f"{chain_id}:{manager.lower()}".encode()
+    return hashlib.sha256(raw).hexdigest()[:8]
+
+
+def group_by_loan(entries: list, prefix: str) -> tuple:
+    """Credence tags every entry for one obligation `loan:<deployment>:N`.
+
+    Entries whose tag2 names a different deployment, or no obligation at
+    all, are reported as unrecognised rather than silently folded into a
+    total: another manager's loan 1 is a different obligation.
     """
     loans, other = {}, []
     for e in entries:
         tag2 = e["tag2"]
-        if tag2.startswith("loan:") and tag2[5:].isdigit():
-            loans.setdefault(int(tag2[5:]), []).append(e)
+        if tag2.startswith(prefix) and tag2[len(prefix):].isdigit():
+            loans.setdefault(int(tag2[len(prefix):]), []).append(e)
         else:
             other.append(e)
     return loans, other
@@ -244,6 +257,9 @@ def main() -> int:
                          "anyone write, so a consumer must choose whom to trust")
     ap.add_argument("--identity", default=None,
                     help="identity registry, to confirm the agent exists")
+    ap.add_argument("--manager", default=None,
+                    help="loan manager whose obligations to read; loan ids "
+                         "restart per deployment, so the tag is scoped to it")
     ap.add_argument("--expect-chain", type=int, default=None,
                     help="refuse a registry on any other chain")
     args = ap.parse_args()
@@ -280,7 +296,15 @@ def main() -> int:
         print(f"agent {args.agent}: no feedback from this client")
         return 0
 
-    loans, other = group_by_loan(entries)
+    if args.manager:
+        prefix = f"loan:{deployment_tag(chain_id, args.manager)}:"
+    else:
+        # Without a manager every loan tag is foreign, which would report
+        # nothing at all. Say so rather than printing an empty history.
+        raise SystemExit(
+            "--manager is required: loan ids restart per deployment, so "
+            "the reader cannot tell whose loan 1 an entry describes")
+    loans, other = group_by_loan(entries, prefix)
     print(f"agent {args.agent}: {len(entries)} entries "
           f"covering {len(loans)} obligation(s)")
     print()

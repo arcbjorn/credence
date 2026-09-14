@@ -15,6 +15,8 @@ func defaulted() LoanOutcome {
 		PrincipalLoss: big.NewInt(2_600_000_000),
 		HeldSeconds:   432_001,
 		EvidenceURI:   "https://example.invalid/loan/1.json",
+		ChainID:       testChain,
+		Manager:       testManager,
 	}
 }
 
@@ -109,8 +111,9 @@ func TestRepaidStillPublishesZeroLoss(t *testing.T) {
 		if f.Value.Sign() != 0 {
 			t.Fatalf("repaid loan reports loss %s, want 0", f.Value)
 		}
-		if f.Tag2 != LoanTag(1) {
-			t.Fatalf("loss tagged %q, want %q", f.Tag2, LoanTag(1))
+		if f.Tag2 != LoanTag(testChain, testManager, 1) {
+			t.Fatalf("loss tagged %q, want %q",
+				f.Tag2, LoanTag(testChain, testManager, 1))
 		}
 	}
 	if !found {
@@ -149,7 +152,7 @@ func TestEveryEntryCarriesTheLoanIDInTag2(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, f := range got {
-		id, ok := ParseLoanTag(f.Tag2)
+		id, ok := ParseLoanTag(f.Tag2, testChain, testManager)
 		if !ok {
 			t.Fatalf("%s: tag2 %q does not identify a loan", f.Tag1, f.Tag2)
 		}
@@ -183,10 +186,50 @@ func TestOutcomeClassIsFilterable(t *testing.T) {
 }
 
 func TestParseLoanTagRejectsForeignTags(t *testing.T) {
+	tag := DeploymentTag(testChain, testManager)
 	for _, bad := range []string{"", "loan:", "loan:x", "crosscheck", "pass",
-		"loan:18446744073709551616"} {
-		if id, ok := ParseLoanTag(bad); ok {
+		"loan:" + tag + ":", "loan:" + tag + ":x",
+		"loan:" + tag + ":18446744073709551616",
+		// Another deployment's loan 1 is a different obligation.
+		"loan:" + DeploymentTag(31337, testManager) + ":1",
+		"loan:1"} {
+		if id, ok := ParseLoanTag(bad, testChain, testManager); ok {
 			t.Errorf("%q parsed as loan %d, want refusal", bad, id)
 		}
+	}
+}
+
+// The tag must be specific to the deployment. Loan ids restart at 1 for
+// every manager, and because idempotency keys on this tag, a collision
+// does not merely confuse a reader -- it makes the second deployment's
+// loan 1 permanently unpublishable. `docs/06` records the same defect
+// against the old keccak("loan-N") evidence reference.
+func TestLoanTagIsScopedToTheDeployment(t *testing.T) {
+	mine := LoanTag(testChain, testManager, 1)
+	if mine == LoanTag(31337, testManager, 1) {
+		t.Error("chain id must change the tag")
+	}
+	other := "0x0000000000000000000000000000000000000001"
+	if mine == LoanTag(testChain, other, 1) {
+		t.Error("manager must change the tag")
+	}
+	if _, ok := ParseLoanTag(mine, 31337, testManager); ok {
+		t.Error("another chain's tag must not parse as ours")
+	}
+	if _, ok := ParseLoanTag(mine, testChain, other); ok {
+		t.Error("another manager's tag must not parse as ours")
+	}
+}
+
+// The independent reader recomputes this digest in Python with the
+// standard library alone. If the two ever disagree the reader silently
+// reports no obligations, so the expected value is pinned here.
+//
+//	python3 -c "import hashlib;print(hashlib.sha256(
+//	  b'10143:0xdbc452dd0c1f2ff6e40465f04ea4d5dd33527ba2').hexdigest()[:8])"
+func TestDeploymentTagMatchesTheReader(t *testing.T) {
+	got := DeploymentTag(10143, "0xdbC452DD0c1f2fF6e40465f04EA4D5Dd33527bA2")
+	if got != "a70ec896" {
+		t.Fatalf("DeploymentTag = %s, want a70ec896 (the reader's value)", got)
 	}
 }

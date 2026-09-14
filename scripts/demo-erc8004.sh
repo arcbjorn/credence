@@ -109,4 +109,4 @@ cp "$ROOT/tools/reader/read_erc8004.py" "$READER"
 cd "$(dirname "$READER")"
 python3 "$READER" --rpc "$RPC" --registry "$REPUTATION" \
   --identity "$IDENTITY" --agent "$AGENT_ID" --client "$CLIENT" \
-  --expect-chain "$CHAIN_ID"
+  --manager "$MANAGER" --expect-chain "$CHAIN_ID"

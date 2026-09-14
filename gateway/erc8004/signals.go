@@ -1,8 +1,11 @@
 package erc8004
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"math/big"
+	"strings"
 )
 
 // Tag vocabulary. Namespaced so a consumer filtering `readAllFeedback`
@@ -31,18 +34,42 @@ const (
 	loanTagPrefix = "loan:"
 )
 
+// DeploymentTag is a short digest of the chain and loan manager.
+//
+// Loan ids restart at 1 for every deployment, so a bare `loan:1` from one
+// manager is indistinguishable from another's -- and because this tag is
+// what idempotency keys on, the collision does not merely confuse a
+// reader, it makes the second deployment's loan 1 permanently
+// unpublishable. That is the same defect `docs/06` records against the
+// old keccak("loan-N") evidence reference, so it must not reappear here.
+//
+// sha256 rather than keccak: the independent reader is stdlib-only by
+// design, and Python has sha256 but not keccak. A digest a reader cannot
+// recompute would make the tag unverifiable.
+func DeploymentTag(chainID uint64, manager string) string {
+	sum := sha256.Sum256([]byte(fmt.Sprintf("%d:%s",
+		chainID, strings.ToLower(manager))))
+	return hex.EncodeToString(sum[:4])
+}
+
 // LoanTag is the tag2 value identifying one obligation.
-func LoanTag(loanID uint64) string {
-	return fmt.Sprintf("%s%d", loanTagPrefix, loanID)
+func LoanTag(chainID uint64, manager string, loanID uint64) string {
+	return fmt.Sprintf("%s%s:%d",
+		loanTagPrefix, DeploymentTag(chainID, manager), loanID)
 }
 
 // ParseLoanTag recovers a loan id from tag2, reporting false for a tag
-// this client did not write.
-func ParseLoanTag(tag2 string) (uint64, bool) {
-	if len(tag2) <= len(loanTagPrefix) || tag2[:len(loanTagPrefix)] != loanTagPrefix {
+// written by a different deployment or a different client.
+//
+// Strict about the deployment on purpose: treating another manager's
+// `loan:1` as ours would mark an obligation published that was never
+// reported, and the outcome would silently never reach the registry.
+func ParseLoanTag(tag2 string, chainID uint64, manager string) (uint64, bool) {
+	want := loanTagPrefix + DeploymentTag(chainID, manager) + ":"
+	if len(tag2) <= len(want) || tag2[:len(want)] != want {
 		return 0, false
 	}
-	return parseUint(tag2[len(loanTagPrefix):])
+	return parseUint(tag2[len(want):])
 }
 
 // Outcome classes, matching the loan manager's terminal states.
@@ -66,6 +93,10 @@ type LoanOutcome struct {
 	// cannot check.
 	EvidenceURI  string
 	EvidenceHash [32]byte
+	// ChainID and Manager scope the loan id: ids restart at 1 per
+	// deployment, so the tag must say which one.
+	ChainID uint64
+	Manager string
 }
 
 // Signals expands one resolved loan into the registry entries that
@@ -111,7 +142,7 @@ func Signals(o LoanOutcome) ([]Feedback, error) {
 	// selects every default in one call.
 	out := base
 	out.Tag1 = TagOutcome + "." + outcome
-	out.Tag2 = LoanTag(o.LoanID.Uint64())
+	out.Tag2 = LoanTag(o.ChainID, o.Manager, o.LoanID.Uint64())
 	out.Value = new(big.Int).Set(o.Principal)
 	out.ValueDecimals = settlementDecimal
 
@@ -120,7 +151,7 @@ func Signals(o LoanOutcome) ([]Feedback, error) {
 	// interest -- collapsing them would hide which happened.
 	interest := base
 	interest.Tag1 = TagInterest
-	interest.Tag2 = LoanTag(o.LoanID.Uint64())
+	interest.Tag2 = LoanTag(o.ChainID, o.Manager, o.LoanID.Uint64())
 	interest.Value = new(big.Int).Set(o.InterestPaid)
 	interest.ValueDecimals = settlementDecimal
 
@@ -130,7 +161,7 @@ func Signals(o LoanOutcome) ([]Feedback, error) {
 	// figure that moves the right way.
 	loss := base
 	loss.Tag1 = TagLoss
-	loss.Tag2 = LoanTag(o.LoanID.Uint64())
+	loss.Tag2 = LoanTag(o.ChainID, o.Manager, o.LoanID.Uint64())
 	loss.Value = new(big.Int).Neg(o.PrincipalLoss)
 	loss.ValueDecimals = settlementDecimal
 
@@ -140,7 +171,7 @@ func Signals(o LoanOutcome) ([]Feedback, error) {
 	// than inferring it from timestamps it cannot see.
 	held := base
 	held.Tag1 = TagHeld
-	held.Tag2 = LoanTag(o.LoanID.Uint64())
+	held.Tag2 = LoanTag(o.ChainID, o.Manager, o.LoanID.Uint64())
 	held.Value = new(big.Int).SetUint64(o.HeldSeconds)
 	held.ValueDecimals = 0
 

@@ -30,6 +30,7 @@ func readPublished(
 	ctx context.Context,
 	rpc *chain.RPC,
 	registry, client, manager string,
+	chainID uint64,
 	fromLoan, toLoan, blockNumber uint64,
 ) (erc8004.Published, error) {
 	out := erc8004.Published{}
@@ -71,7 +72,7 @@ func readPublished(
 			// Re-sending it would add a second live row beside the
 			// revocation rather than correcting anything; `docs/06`
 			// records a correction as a NEW version, deliberately.
-			if id, ok := erc8004.ParseLoanTag(e.Tag2); ok {
+			if id, ok := erc8004.ParseLoanTag(e.Tag2, chainID, manager); ok {
 				out[id] = true
 			}
 		}
@@ -129,6 +130,8 @@ func publishStandard(
 		HeldSeconds:   held,
 		EvidenceURI:   uri,
 		EvidenceHash:  f.EvidenceRef,
+		ChainID:       chainID,
+		Manager:       manager,
 	})
 	if err != nil {
 		return 0, err

@@ -37,6 +37,8 @@ func outcome(id uint64) LoanOutcome {
 		InterestPaid:  big.NewInt(6_575_358),
 		PrincipalLoss: big.NewInt(0),
 		HeldSeconds:   45,
+		ChainID:       testChain,
+		Manager:       testManager,
 	}
 }
 

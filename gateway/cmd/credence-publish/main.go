@@ -143,7 +143,7 @@ func run(cfg config) error {
 	if cfg.standard {
 		var err error
 		already, err = readPublished(
-			ctx, rpc, registry, w.Address(), manager,
+			ctx, rpc, registry, w.Address(), manager, chainID,
 			fromLoan, toLoan, block.Number)
 		if err != nil {
 			return fmt.Errorf("read published: %w", err)
