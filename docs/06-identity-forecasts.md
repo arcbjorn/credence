@@ -73,10 +73,14 @@ The reader applies the same rule: it refuses an address with no code,
 because an absent registry returns the same empty result as an agent with
 no history, and those must not look alike.
 
-### What is NOT integrated
+### Local adapter vs. ERC-8004 — the rewrite, done
 
-The registries exist and respond. **Credence does not speak to them.**
-Stated plainly because the gap is easy to understate:
+**Corrected 14 September.** This section previously opened "The registries
+exist and respond. **Credence does not speak to them.**" That was true when
+written and is now false: `scripts/demo-erc8004.sh` publishes to the
+canonical reputation registry on Monad testnet, and the note at the end of
+this section records the evidence. The comparison below is kept because it
+is still the reason the two paths are not interchangeable.
 
 | Piece | Local adapter | ERC-8004 |
 |---|---|---|
@@ -86,25 +90,26 @@ Stated plainly because the gap is easy to understate:
 | Attribution | a single publisher | per-client `clientAddress`, self-feedback refused |
 
 Different selectors in both directions, and a different value model. The
-reader's `agentEntries` call **reverts** against the live registry.
-Pointing either at a real address changes nothing: this is a rewrite, not
-a configuration.
+local reader's `agentEntries` call **reverts** against the live registry,
+which is why this was a rewrite rather than a configuration change, and why
+both paths still exist side by side.
 
-Two further gaps in what the local path publishes:
+Two gaps that the local path had, and how each was closed:
 
-- **Attribution is supplied, not derived.** The publisher takes an agent
-  id from its command line and applies it to every loan, without reading
+- **Attribution was supplied, not derived.** The publisher took an agent
+  id from its command line and applied it to every loan, without reading
   the registry or checking the binding it came from. **Fixed 14
   September** at the root: the loan now records `agentId` from the
   binding its quote was consumed under, readable afterwards via
   `agentIdOf(loanId)`. Previously the id appeared in no storage slot and
-  no event, so the publisher could not have derived it -- the flag was a
+  no event, so the publisher could not have derived it — the flag was a
   missing link in the chain, not laziness.
-- **`evidenceRef` is not evidence.** It is the keccak of a loan-number
-  string, so the same loan number under different managers produces the
-  same reference. It commits to nothing retrievable. ERC-8004 carries
-  `feedbackURI` plus `feedbackHash` for exactly this, and the rewrite
-  uses both.
+- **`evidenceRef` was not evidence.** It was the keccak of a loan-number
+  string, so the same loan number under different managers produced the
+  same reference, and it committed to nothing retrievable. The ERC-8004
+  path carries `feedbackURI` plus `feedbackHash` for exactly this and
+  uses both, and the loan tag now mixes a `sha256(chainId:manager)`
+  deployment digest so two deployments cannot collide.
 
 ### The value model, resolved
 
