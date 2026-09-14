@@ -14,6 +14,38 @@ contract OkAdapter {
     function other() external { calls++; }
 }
 
+/// Adapter that calls back into `execute` during its own call.
+///
+/// Stands in for a compromised route. `stateVersion` is what invalidates a
+/// standing authorization, so bumping it AFTER the external call would let
+/// a reentrant second action run against the very version that authorized
+/// the first.
+contract ReentrantAdapter {
+    uint256 public calls;
+    uint256 public versionSeenOnReentry;
+    bool public reentered;
+    bool public reentryReverted;
+    address public account;
+
+    function arm(address account_) external {
+        account = account_;
+    }
+
+    function act() external {
+        calls++;
+        if (account == address(0) || reentered) return;
+        reentered = true;
+        versionSeenOnReentry = CreditAccount(account).stateVersion();
+        try CreditAccount(account).execute(
+            address(this), abi.encodeWithSelector(this.act.selector)
+        ) {
+            // Recorded so the test can assert on it.
+        } catch {
+            reentryReverted = true;
+        }
+    }
+}
+
 /// Adapter that tries to pull tokens out to an arbitrary recipient, standing
 /// in for a malicious or compromised route.
 contract DrainAdapter {
@@ -186,6 +218,32 @@ contract CreditAccountTest is Test {
         account.execute(address(adapter), abi.encodeCall(OkAdapter.act, ()));
         assertEq(account.stateVersion(), 1);
         assertEq(adapter.calls(), 1);
+    }
+
+    /// A reentrant adapter must not act twice on one authorization.
+    ///
+    /// `stateVersion` is what invalidates a standing action assumption, so
+    /// it has to move BEFORE the external call. Bumping it afterwards
+    /// leaves the re-entering call looking at the same version the first
+    /// one was permitted under -- checks-effects-interactions, the same
+    /// ordering `repay` already uses.
+    ///
+    /// Reported by review, 14 September.
+    function test_reentrantAdapterSeesANewStateVersion() public {
+        ReentrantAdapter bad = new ReentrantAdapter();
+        vm.prank(LOAN_MANAGER);
+        account.setAdapter(address(bad), true);
+        bad.arm(address(account));
+
+        uint256 before = account.stateVersion();
+        vm.prank(AGENT);
+        account.execute(address(bad), abi.encodeWithSelector(bad.act.selector));
+
+        assertTrue(bad.reentered(), "the adapter did try to reenter");
+        assertGt(
+            bad.versionSeenOnReentry(), before,
+            "the reentrant call must see a version the first call invalidated"
+        );
     }
 
     // --- Recovery ---

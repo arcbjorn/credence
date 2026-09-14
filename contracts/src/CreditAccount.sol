@@ -256,14 +256,22 @@ contract CreditAccount {
             actionConsumed = true;
         }
 
+        // Invariant: every execution invalidates prior action assumptions.
+        //
+        // Bumped BEFORE the call, not after. The version is what makes a
+        // standing authorization stale, so a compromised adapter that
+        // reenters here would otherwise look at the very version its first
+        // call was permitted under and act twice on one assessment.
+        // Checks-effects-interactions, the ordering `repay` already uses.
+        // Reported by review, 14 September.
+        unchecked {
+            stateVersion++;
+        }
+
         bool ok;
         (ok, result) = adapter.call(data);
         require(ok, AdapterCallFailed());
 
-        // Invariant: every execution invalidates prior action assumptions.
-        unchecked {
-            stateVersion++;
-        }
         emit Executed(adapter, stateVersion);
     }
 
@@ -301,13 +309,16 @@ contract CreditAccount {
         require(msg.sender == recoveryKeeper, NotKeeper());
         require(adapterAllowed[adapter], AdapterNotAllowed(adapter));
 
+        // Before the call, as in `execute`. Recovery reaches the same
+        // adapters, so it inherits the same reentrancy question.
+        unchecked {
+            stateVersion++;
+        }
+
         bool ok;
         (ok, result) = adapter.call(data);
         require(ok, AdapterCallFailed());
 
-        unchecked {
-            stateVersion++;
-        }
         emit Executed(adapter, stateVersion);
     }
 
