@@ -58,6 +58,10 @@ Terminal states leave the loss record permanently attributable to the original b
 
 Where an initial trade is part of the approval, **fund and trade atomically**; revert everything if post-action checks fail. A quote for a conservative allocation cannot fund a different allocation.
 
+`LoanManager.originateAndExecute` is that path: it consumes the quote, creates the debt, funds the account, and performs the committed action in one transaction. A failing action reverts the draw with it, so no funded loan survives an action that never happened. `originate` remains for a quote whose approved action is to hold settlement tokens, where there is nothing to perform.
+
+Implemented 14 September after review; origination was previously two transactions, which left a window where a borrower could draw and never execute — holding settlement tokens the stress scenarios had assumed were deployed.
+
 `approved_principal` must equal the positive `requested_principal`; a smaller or larger draw cannot consume that quote. A request above current capacity is denied with no proposed terms. Changing the amount or intended allocation requires a new commitment and assessment. The borrower may decline an approved quote without consuming it.
 
 ## Custody rules

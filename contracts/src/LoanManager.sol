@@ -247,7 +247,7 @@ contract LoanManager {
     /// correctly signed assessment is not permission to ignore a vault cap
     /// or an open loan.
     function originate(Binding calldata binding, uint256 principal)
-        external
+        public
         returns (uint256 loanId)
     {
         require(!paused, Paused());
@@ -339,6 +339,45 @@ contract LoanManager {
         oracle.openObligation(binding.facilityId);
 
         emit Originated(loanId, acct, principal);
+    }
+
+    /// @notice Originate and perform the approved action in one transaction.
+    ///
+    /// @dev `docs/05`: "Where an initial trade is part of the approval,
+    /// fund and trade atomically; revert everything if post-action checks
+    /// fail."
+    ///
+    /// Two transactions leave a gap the assessment did not price. The
+    /// engine sized this loan against the portfolio the action WOULD
+    /// produce -- `IntendedAction::Acquire` with its deploy_bps -- so a
+    /// borrower that drew and never executed would hold settlement tokens
+    /// the stress scenarios assumed were deployed, and the equity backing
+    /// its capacity would be doing nothing it was assessed as doing. That
+    /// is not merely untidy; it is a different risk position than the one
+    /// approved.
+    ///
+    /// The action is still checked by the account against
+    /// `permittedActionHash`, exactly as it would be if called separately.
+    /// Nothing here relaxes a rule; it removes the window between two that
+    /// were always meant to hold together.
+    ///
+    /// `originate` remains for a quote whose approved action is to hold
+    /// settlement tokens, where there is nothing to perform.
+    ///
+    /// Reported by review, 14 September.
+    function originateAndExecute(
+        Binding calldata binding,
+        uint256 principal,
+        address adapter,
+        bytes calldata action
+    ) external returns (uint256 loanId, bytes memory result) {
+        loanId = originate(binding, principal);
+        // Reverting here unwinds the draw with it: the vault's lend, the
+        // debt record, and the account's lock all roll back together, so a
+        // failed action leaves no funded loan behind.
+        result = CreditAccount(loans[loanId].account).executeFor(
+            msg.sender, adapter, action
+        );
     }
 
     // --- Interest ---

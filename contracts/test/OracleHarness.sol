@@ -112,6 +112,29 @@ library OracleHarness {
         uint256 deploymentId,
         uint64 nowTs
     ) internal pure returns (Assessment memory a) {
+        return approvedQuote(
+            b, sequence, principal, aprBps, termSeconds, requiredEquity,
+            settlementAsset, deploymentId, nowTs, bytes32(0)
+        );
+    }
+
+    /// The same quote, committing to one exact action.
+    ///
+    /// `docs/05`: a quote authorizes THAT call, not any call through the
+    /// same adapter. A zero hash means the approved action is to hold
+    /// settlement tokens.
+    function approvedQuote(
+        Binding memory b,
+        uint64 sequence,
+        uint256 principal,
+        uint32 aprBps,
+        uint64 termSeconds,
+        uint256 requiredEquity,
+        address settlementAsset,
+        uint256 deploymentId,
+        uint64 nowTs,
+        bytes32 actionHash
+    ) internal pure returns (Assessment memory a) {
         a = Assessment({
             deploymentId: deploymentId,
             evidencePolicyId: keccak256("evidence-v1"),
@@ -138,7 +161,7 @@ library OracleHarness {
                 aprBps: aprBps,
                 termSeconds: termSeconds,
                 requiredEquity: requiredEquity,
-                permittedActionHash: keccak256("action")
+                permittedActionHash: actionHash
             }),
             loanId: 0
         });

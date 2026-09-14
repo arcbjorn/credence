@@ -16,6 +16,15 @@ contract NoopAdapter {
     function act() external {}
 }
 
+/// An adapter whose action fails, standing in for a trade that cannot be
+/// filled. `docs/05`: revert everything if post-action checks fail.
+contract FailingAdapter {
+    error CannotFill();
+    function act() external pure {
+        revert CannotFill();
+    }
+}
+
 /// Minimal ERC-721 ownership, enough to model a transfer.
 contract MockIdentityRegistry {
     mapping(uint256 => address) private owners;
@@ -99,10 +108,24 @@ contract LifecycleTest is Test {
         uint32 aprBps,
         uint64 term
     ) internal returns (Binding memory b) {
+        return _publish(
+            orc, acct, principal, aprBps, term, keccak256("action"));
+    }
+
+    /// A quote committing to one exact action, for the atomic
+    /// origination path.
+    function _publish(
+        RiskOracle orc,
+        CreditAccount acct,
+        uint256 principal,
+        uint32 aprBps,
+        uint64 term,
+        bytes32 actionHash
+    ) internal returns (Binding memory b) {
         b = OracleHarness.binding(address(acct), acct.stateVersion(), FACILITY);
         Assessment memory a = OracleHarness.approvedQuote(
             b, ++seq, principal, aprBps, term, 0, address(token), DEPLOYMENT,
-            uint64(block.timestamp)
+            uint64(block.timestamp), actionHash
         );
         orc.accept(a, OracleHarness.sign(orc, a, SIGNER_KEY));
     }
@@ -493,6 +516,68 @@ contract LifecycleTest is Test {
 
         vm.expectRevert(RiskOracle.QuoteConsumed.selector);
         manager.originate(b, 1_000e6);
+    }
+
+    /// Funding and the approved trade happen together.
+    ///
+    /// `docs/05`: "Where an initial trade is part of the approval, fund and
+    /// trade atomically." Two transactions leave a gap the assessment did
+    /// not price -- the engine sized the loan against the portfolio the
+    /// action WOULD produce, so a borrower that drew and never executed
+    /// would hold settlement tokens the stress scenarios assumed deployed.
+    ///
+    /// Reported by review, 14 September.
+    function test_OriginateAndExecuteFundsAndTradesTogether() public {
+        vm.prank(OPERATOR);
+        manager.setAccountAdapter(account, address(noop), true);
+
+        Binding memory b = _publish(
+            oracle, account, 1_000e6, 1_200, 10 days,
+            keccak256(abi.encode(address(noop), abi.encodeCall(NoopAdapter.act, ())))
+        );
+
+        vm.prank(AGENT);
+        (uint256 loanId,) = manager.originateAndExecute(
+            b, 1_000e6, address(noop), abi.encodeCall(NoopAdapter.act, ()));
+
+        assertEq(
+            uint8(manager.status(loanId)), uint8(LoanManager.Status.Active),
+            "the loan is live"
+        );
+        assertEq(
+            account.stateVersion(), 1,
+            "and the action ran inside the same transaction"
+        );
+    }
+
+    /// A trade that cannot be filled unwinds the draw with it.
+    ///
+    /// The alternative is a funded loan whose approved action never
+    /// happened -- exactly the position the atomicity rule exists to
+    /// prevent.
+    function test_FailedActionUnwindsTheDraw() public {
+        FailingAdapter bad = new FailingAdapter();
+        vm.prank(OPERATOR);
+        manager.setAccountAdapter(account, address(bad), true);
+
+        Binding memory b = _publish(
+            oracle, account, 1_000e6, 1_200, 10 days,
+            keccak256(abi.encode(address(bad), abi.encodeCall(FailingAdapter.act, ())))
+        );
+
+        uint256 cashBefore = vault.idleCash();
+
+        vm.prank(AGENT);
+        vm.expectRevert(CreditAccount.AdapterCallFailed.selector);
+        manager.originateAndExecute(
+            b, 1_000e6, address(bad), abi.encodeCall(FailingAdapter.act, ()));
+
+        assertEq(
+            manager.activeLoan(address(account)), 0,
+            "no loan survives a failed action"
+        );
+        assertEq(vault.idleCash(), cashBefore, "and no cash left the vault");
+        assertFalse(account.debtOutstanding(), "nor any custody lock");
     }
 
     /// A de-risking exemption may not be granted while the account owes.

@@ -206,7 +206,32 @@ contract CreditAccount {
         external
         returns (bytes memory result)
     {
-        require(msg.sender == owner || msg.sender == agent, NotOwnerOrAgent());
+        return _execute(msg.sender, adapter, data);
+    }
+
+    /// @notice Execute on behalf of the owner or agent, for the loan
+    /// manager's atomic origination path.
+    ///
+    /// @dev `docs/05` requires funding and the approved initial trade to
+    /// happen together. The manager therefore performs the action inside
+    /// `originateAndExecute`, and must present WHOSE authority it is
+    /// acting under -- the authority check is not waived, it is relayed.
+    ///
+    /// Restricted to the loan manager, which is the only contract that can
+    /// have just consumed a quote committing to this exact action.
+    function executeFor(address actor, address adapter, bytes calldata data)
+        external
+        onlyLoanManager
+        returns (bytes memory result)
+    {
+        return _execute(actor, adapter, data);
+    }
+
+    function _execute(address actor, address adapter, bytes calldata data)
+        private
+        returns (bytes memory result)
+    {
+        require(actor == owner || actor == agent, NotOwnerOrAgent());
         require(adapterAllowed[adapter], AdapterNotAllowed(adapter));
 
         // Recovery is the keeper's path. Letting the owner or agent keep
