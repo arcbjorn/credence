@@ -87,6 +87,20 @@ contract RiskOracle {
     /// issued for, so a permission cannot be read against a binding that
     /// merely shares the standing key.
     mapping(bytes32 bindingKey => bytes32) public permissionBinding;
+    /// @dev Did an accepted assessment ever WITHHOLD permission for this
+    /// binding?
+    ///
+    /// Set when a result that could have granted permission did not: a
+    /// denial, an unavailable, a shadow class, or an origination refusal.
+    /// Cleared whenever permission is granted, so it always describes the
+    /// LAST thing the attestor said rather than anything it ever said.
+    ///
+    /// Needed because `permissionValidUntil == 0` has two causes that must
+    /// not be treated alike -- permission was withdrawn, or none was ever
+    /// issued. Recovery turns on the first and not the second, and without
+    /// this flag a loan between origination and its first monitoring cycle
+    /// looked identical to a denied one (`docs/05` invariant 12).
+    mapping(bytes32 bindingKey => bool) public permissionDenied;
     /// @dev Live obligations per facility. Configuration is immutable
     /// while this is non-zero (`docs/05`).
     mapping(uint256 facilityId => uint256) public liveLoans;
@@ -329,6 +343,7 @@ contract RiskOracle {
                 delete permissionStateVersion[key];
                 delete permissionValidUntil[key];
                 delete permissionBinding[key];
+                permissionDenied[key] = true;
             }
             if (a.decision == Decision.Approved && _isExecutable(a.class_)) {
                 quote[key] = Stored({
@@ -357,12 +372,16 @@ contract RiskOracle {
                 riskPermission[key] = Permission.Allowed;
                 permissionStateVersion[key] = a.binding.accountStateVersion;
                 permissionValidUntil[key] = a.validUntil;
-                    permissionBinding[key] = bindingConfigHash(a.binding);
+                permissionBinding[key] = bindingConfigHash(a.binding);
+                // The attestor's last word is "allowed", so any earlier
+                // withholding no longer describes this binding.
+                delete permissionDenied[key];
             } else {
                 delete riskPermission[key];
                 delete permissionStateVersion[key];
                 delete permissionValidUntil[key];
                 delete permissionBinding[key];
+                permissionDenied[key] = true;
             }
         }
 
@@ -500,8 +519,17 @@ contract RiskOracle {
             // Currently allowed: nothing was withdrawn.
             return false;
         }
-        // Withdrawn, or never granted. Both leave no standing window.
-        return permissionValidUntil[key] == 0;
+        // No standing window. That has two causes, and only one of them
+        // is a statement about the borrower:
+        //
+        //   - an accepted result WITHHELD permission -> a trigger
+        //   - nothing was ever said, or a grant simply ran out -> not one
+        //
+        // Returning true for both made a loan seizable in the block it was
+        // funded, since origination writes a quote and never a permission.
+        // The lapse case is handled separately by the loan manager's grace
+        // window, which this must not pre-empt.
+        return permissionValidUntil[key] == 0 && permissionDenied[key];
     }
 
     /// @notice When the standing permission for this binding lapses.

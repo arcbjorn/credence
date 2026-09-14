@@ -301,6 +301,61 @@ contract LifecycleTest is Test {
         );
     }
 
+    /// A loan that was NEVER monitored must not be seizable on origination.
+    ///
+    /// The gap the lapse fix left open. `permissionWithdrawn` answered the
+    /// question "is there a standing window?" -- and a loan that has only
+    /// ever been originated has none, because origination writes a quote
+    /// and never a permission. So `permissionValidUntil` is zero, the
+    /// withdrawal branch returned true, and the loan was recoverable the
+    /// block it was funded.
+    ///
+    /// That is the same defect as the lapse, in its worst form: no
+    /// statement was ever made about this borrower, and silence became a
+    /// trigger instantly rather than after the grace window. An operator
+    /// could fund a loan and seize it in the next transaction.
+    ///
+    /// `docs/05` invariant 12: recovery needs a trigger. Reported by
+    /// review, 14 September.
+    function test_NeverMonitoredLoanIsNotImmediatelyRecoverable() public {
+        uint256 loanId = _originate(account, 5_000e6, 1_200, 10 days);
+
+        // No monitoring assessment is ever accepted. This is the state of
+        // every loan between origination and its first monitoring cycle.
+        Binding memory rb = _bindingFor(account, account.stateVersion());
+        assertEq(
+            oracle.permissionExpiry(rb), 0, "nothing was ever granted"
+        );
+        assertFalse(
+            oracle.permissionWithdrawn(rb),
+            "nothing was ever withdrawn either -- nothing was ever said"
+        );
+
+        vm.prank(OPERATOR);
+        vm.expectRevert(
+            abi.encodeWithSelector(LoanManager.LoanNotRecoverable.selector, loanId)
+        );
+        manager.openRecovery(loanId, KEEPER, rb);
+    }
+
+    /// Nor can a never-monitored loan stay open forever. The grace window
+    /// runs from ORIGINATION when no permission was ever issued, so the
+    /// same "nobody is watching this" backstop applies.
+    function test_NeverMonitoredLoanRecoverableAfterGrace() public {
+        uint256 loanId = _originate(account, 5_000e6, 1_200, 10 days);
+        Binding memory rb = _bindingFor(account, account.stateVersion());
+
+        vm.warp(block.timestamp + manager.recoveryGraceSeconds() + 1);
+
+        vm.prank(OPERATOR);
+        manager.openRecovery(loanId, KEEPER, rb);
+        assertEq(
+            uint8(manager.status(loanId)),
+            uint8(LoanManager.Status.RecoveryPending),
+            "an unassessed obligation does not stay open indefinitely"
+        );
+    }
+
     /// An explicit denial is a statement about the loan, and triggers at
     /// once. The grace period protects against silence, not against a
     /// risk decision.
@@ -989,13 +1044,24 @@ contract LifecycleTest is Test {
         assertEq(uint8(manager.status(loanId)), uint8(LoanManager.Status.RecoveryPending));
     }
 
-    /// Withdrawn permission is the other trigger: the engine assessed the
-    /// position and blocked it, which is this protocol's covenant breach.
-    function test_RecoveryAllowedWhenPermissionWithdrawn() public {
+    /// An unassessed loan becomes recoverable once the grace window has
+    /// passed.
+    ///
+    /// **Renamed and corrected 14 September.** This test was called
+    /// `test_RecoveryAllowedWhenPermissionWithdrawn` and its comment read
+    /// "No standing permission at all, which reads as withdrawn" -- it
+    /// asserted the defect as intended behavior. Absent permission is not
+    /// a withdrawal, and reading it as one made a loan seizable in the
+    /// block it was funded. What actually licenses recovery here is the
+    /// day of silence, which is past `recoveryGraceSeconds`.
+    ///
+    /// The genuine withdrawal trigger is covered by
+    /// `test_WithdrawnPermissionOpensRecoveryImmediately`, which needs no
+    /// warp at all -- that is the difference.
+    function test_RecoveryAllowedAfterGraceWithNoAssessment() public {
         uint256 loanId = _originate(account, 5_000e6, 1_200, 10 days);
         vm.warp(block.timestamp + 1 days);
 
-        // No standing permission at all, which reads as withdrawn.
         Binding memory rb = _bindingFor(account, account.stateVersion());
         vm.prank(OPERATOR);
         manager.openRecovery(loanId, KEEPER, rb);

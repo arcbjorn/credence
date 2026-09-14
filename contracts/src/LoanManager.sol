@@ -540,8 +540,19 @@ contract LoanManager {
         // Reported by review, 14 September.
         bool withdrawn = oracle.permissionWithdrawn(binding);
         uint64 expiry = oracle.permissionExpiry(binding);
-        bool lapsedBeyondGrace = expiry != 0
-            && block.timestamp >= uint256(expiry) + recoveryGraceSeconds;
+
+        // When no permission was ever issued, the grace window runs from
+        // ORIGINATION rather than from an expiry that does not exist.
+        //
+        // Otherwise the two silences behave differently for no reason: a
+        // loan monitored once and then abandoned becomes recoverable 12
+        // hours after its window closes, while a loan never monitored at
+        // all -- strictly less assessed -- could never be recovered.
+        // Anchoring to origination gives the borrower the same protection
+        // and the lender the same backstop in both cases.
+        uint256 silenceSince = expiry != 0 ? uint256(expiry) : loan.originatedAt;
+        bool lapsedBeyondGrace =
+            block.timestamp >= silenceSince + recoveryGraceSeconds;
 
         require(
             matured || withdrawn || lapsedBeyondGrace,
