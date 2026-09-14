@@ -25,6 +25,10 @@ contract CREReceiverTest is Test {
     bytes32 constant EVIDENCE_POLICY = keccak256("evidence-v1");
 
     bytes32 constant WORKFLOW_ID = bytes32(uint256(0xC0DE));
+    // casting to 'bytes10' is safe because "credence" is 8 bytes, so the
+    // literal is right-padded rather than truncated. A longer name would
+    // silently lose its tail, which is what this lint exists to catch.
+    // forge-lint: disable-next-line(unsafe-typecast)
     bytes10 constant WORKFLOW_NAME = bytes10("credence");
     address constant WORKFLOW_OWNER = address(0x0BEE);
 
