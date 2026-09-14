@@ -34,9 +34,17 @@ func NewRPC(url string, timeout time.Duration) *RPC {
 type rpcError struct {
 	Code    int    `json:"code"`
 	Message string `json:"message"`
+	// Revert data. A custom error's selector lives here and nowhere
+	// else: some nodes decode the bytes into Message as text, which
+	// renders as mojibake and identifies nothing. Dropping this field
+	// makes every custom error indistinguishable from every other.
+	Data string `json:"data,omitempty"`
 }
 
 func (e *rpcError) Error() string {
+	if e.Data != "" && e.Data != "0x" {
+		return fmt.Sprintf("rpc error %d: %s, data: %q", e.Code, e.Message, e.Data)
+	}
 	return fmt.Sprintf("rpc error %d: %s", e.Code, e.Message)
 }
 
