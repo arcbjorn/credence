@@ -39,13 +39,21 @@ func Open(ctx context.Context, path string) (*Store, error) {
 	// exactly what the single-writer rule forbids.
 	db.SetMaxOpenConns(1)
 
-	if _, err := db.ExecContext(ctx, schema); err != nil {
-		db.Close()
-		return nil, fmt.Errorf("apply schema: %w", err)
-	}
+	// Migrations run BEFORE the schema, not after. The schema creates an
+	// index over `accepted_at`, so on a database written by an earlier
+	// release it fails on a column the migration is what adds -- leaving
+	// the migration unreachable and the database permanently unopenable.
+	//
+	// Each migration below is a no-op on a fresh database, where the
+	// tables it would alter do not exist yet and the schema creates them
+	// correctly a moment later.
 	if err := migrate(ctx, db); err != nil {
 		db.Close()
 		return nil, err
+	}
+	if _, err := db.ExecContext(ctx, schema); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("apply schema: %w", err)
 	}
 	return &Store{db: db}, nil
 }
@@ -61,7 +69,9 @@ func migrate(ctx context.Context, db *sql.DB) error {
 	// binding registered before indexing was tracked.
 	if _, err := db.ExecContext(ctx,
 		`ALTER TABLE bindings ADD COLUMN indexed_from INTEGER NOT NULL DEFAULT 0`,
-	); err != nil && !strings.Contains(err.Error(), "duplicate column") {
+	); err != nil &&
+		!strings.Contains(err.Error(), "duplicate column") &&
+		!strings.Contains(err.Error(), "no such table") {
 		return fmt.Errorf("migrate bindings.indexed_from: %w", err)
 	}
 	// The assessments table once carried UNIQUE(binding_key, sequence),
