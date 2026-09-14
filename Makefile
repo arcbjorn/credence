@@ -26,7 +26,7 @@ demos: ## Run the demos that produce the evidence
 	@bash scripts/demo-default.sh
 
 test: ## Every suite, the way CI runs them
-	@echo "== contracts ==" && cd contracts && forge test
+	@echo "== contracts ==" && cd contracts && forge fmt --check && forge lint && forge test
 	@echo "== engine ==" && cd risk && cargo fmt --check && cargo clippy --all-targets -- -D warnings && cargo test
 	@echo "== gateway ==" && cd gateway && go test -race -count=1 ./...
 	@echo "== workflow ==" && cd cre && go test -race -count=1 ./underwrite/

@@ -49,6 +49,18 @@ jobs:
       - name: forge build
         run: forge build
         working-directory: contracts
+      # Zero warnings, so a new one is visible instead of lost in a wall
+      # of accepted ones. Every current exemption is annotated in place
+      # with its reason; `docs/05` records the block.timestamp rationale.
+      - name: forge lint
+        run: |
+          out=$(forge lint 2>&1)
+          echo "$out"
+          if echo "$out" | grep -qE '^warning\['; then
+            echo "::error::forge lint reported warnings" >&2
+            exit 1
+          fi
+        working-directory: contracts
       - name: forge test
         run: forge test -vv
         working-directory: contracts
