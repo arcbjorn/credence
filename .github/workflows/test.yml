@@ -79,6 +79,16 @@ jobs:
         with:
           go-version-file: gateway/go.mod
           cache-dependency-path: gateway/go.sum
+      # Matches the rust job's `cargo fmt --check`. Without it the two
+      # languages held different standards and eight gateway files had
+      # drifted unnoticed.
+      - name: gofmt
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "not gofmt'd:"; echo "$unformatted"; exit 1
+          fi
+        working-directory: gateway
       - name: go vet
         run: go vet ./...
         working-directory: gateway
@@ -100,6 +110,13 @@ jobs:
         with:
           go-version-file: cre/go.mod
           cache-dependency-path: cre/go.sum
+      - name: gofmt
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "not gofmt'd:"; echo "$unformatted"; exit 1
+          fi
+        working-directory: cre
       - name: go vet
         run: go vet ./underwrite/
         working-directory: cre
