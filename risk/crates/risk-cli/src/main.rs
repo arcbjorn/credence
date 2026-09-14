@@ -29,6 +29,7 @@ fn main() -> ExitCode {
         "assess" => cmd_assess(&args[1..]),
         "replay" => cmd_replay(&args[1..]),
         "inspect" => cmd_inspect(&args[1..]),
+        "policy-hash" => cmd_policy_hash(&args[1..]),
         "--help" | "-h" | "help" => {
             usage();
             return ExitCode::SUCCESS;
@@ -82,6 +83,21 @@ fn cmd_assess(args: &[String]) -> Result<(), String> {
 
     let assessment = evaluate(&input, &policy);
     print_canonical(&assessment)
+}
+
+/// Prints the canonical content hash of a policy file.
+///
+/// An executable result requires the snapshot's declared `policy_hash` to
+/// equal this value, so a snapshot author needs a way to compute it
+/// rather than inventing a label.
+fn cmd_policy_hash(args: &[String]) -> Result<(), String> {
+    let policy: Policy = load(&flag(args, "--policy")?)?;
+    let value = serde_json::to_value(policy)
+        .map_err(|e| format!("serialize policy: {e}"))?;
+    let hash = risk_core::canonical::hash_hex(&value)
+        .map_err(|e| format!("hash policy: {e:?}"))?;
+    println!("{hash}");
+    Ok(())
 }
 
 fn cmd_inspect(args: &[String]) -> Result<(), String> {

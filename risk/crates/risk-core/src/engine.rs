@@ -70,14 +70,23 @@ pub fn evaluate(input: &RiskInput, policy: &Policy) -> RiskAssessment {
     // A declared label that is not a content hash is left alone: some
     // deployments pin policy by identifier elsewhere. What is refused is a
     // label that claims to be a hash and disagrees with the content.
-    if let Some(actual) = policy_content_hash(policy) {
-        let declared = &input.model_policy.policy_hash;
-        if looks_like_hash(declared) && declared != &actual {
+    // The declared label must BE the hash of the policy supplied. A
+    // symbolic label proves nothing about which policy ran: the same
+    // label over different pricing produces different terms under an
+    // identical assessment id, and replay would "verify" two assessments
+    // made under different rules.
+    //
+    // Comparison is on normalized hex, so `0x`-prefixed and bare forms of
+    // the same bytes are the same commitment rather than a mismatch.
+    match policy_content_hash(policy) {
+        Some(actual) if normalize_hash(&input.model_policy.policy_hash) == actual => {}
+        _ => {
             return unavailable(
                 input,
                 &identity,
                 vec![Reason::StructurallyInvalid(format!(
-                    "policy content does not match declared hash {declared}"
+                    "policy content does not match declared policy_hash {}",
+                    input.model_policy.policy_hash
                 ))],
                 vec![],
                 Class::ScenarioOnly,
@@ -477,14 +486,14 @@ fn policy_content_hash(policy: &Policy) -> Option<String> {
     crate::canonical::hash_hex(&value).ok()
 }
 
-/// Whether a declared policy label is shaped like a content hash.
+/// A declared policy hash in canonical form: bare, lowercase hex.
 ///
-/// 64 lowercase hex characters, with or without a `0x` prefix. A
-/// deployment that pins policy by some other identifier is not forced to
-/// adopt this convention; it simply goes unverified here, and says so.
-fn looks_like_hash(s: &str) -> bool {
-    let body = s.strip_prefix("0x").unwrap_or(s);
-    body.len() == 64 && body.bytes().all(|b| b.is_ascii_hexdigit())
+/// `0x`-prefixed and bare spellings of the same bytes denote the same
+/// policy, so they must compare equal. A label that is not hex at all
+/// normalizes to itself and simply fails the comparison, which is the
+/// intended outcome: an unresolvable label cannot commit to anything.
+fn normalize_hash(s: &str) -> String {
+    s.strip_prefix("0x").unwrap_or(s).to_ascii_lowercase()
 }
 
 /// The evidence's value when it is usable, and the conservative stand-in

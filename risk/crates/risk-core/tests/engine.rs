@@ -9,6 +9,21 @@ use risk_core::pricing::{LossAssumption, PricingPolicy};
 use risk_core::stress::StressPolicy;
 use risk_core::units::{Amount, Bps, Ratio};
 
+/// Canonical content hash of the fixture policy.
+fn policy_hash() -> String {
+    hash_of(&policy())
+}
+
+/// Canonical content hash of any policy.
+///
+/// A test that VARIES the policy must re-declare this on its input, or
+/// the engine refuses the result: an executable answer requires the
+/// declared label to be the hash of the policy actually supplied.
+fn hash_of(p: &Policy) -> String {
+    let value = serde_json::to_value(p).expect("serialize policy");
+    risk_core::canonical::hash_hex(&value).expect("hash policy")
+}
+
 fn policy() -> Policy {
     Policy {
         stress: StressPolicy {
@@ -150,7 +165,11 @@ fn input(requested: u128, equity: u128) -> RiskInput {
             model_id: "m1".into(),
             model_hash: "model-hash".into(),
             policy_id: "p1".into(),
-            policy_hash: "policy-hash".into(),
+            // The REAL content hash of policy(). An executable result
+            // requires the declared label to be the hash of the policy
+            // actually supplied, so a symbolic one would make every
+            // fixture Unavailable.
+            policy_hash: policy_hash(),
         },
     }
 }
@@ -642,6 +661,7 @@ fn validity_is_bounded_by_required_evidence_freshness() {
 
     let mut p = policy();
     p.max_evidence_age_seconds = 60;
+    i.model_policy.policy_hash = hash_of(&p);
 
     let out = evaluate(&i, &p);
 
@@ -692,6 +712,7 @@ fn incomplete_history_does_not_earn_full_capacity() {
         f.comparable_resolved = 10;
         f.mean_brier_ppm = 0;
     }
+    complete.model_policy.policy_hash = hash_of(&p);
     let with_coverage = evaluate(&complete, &p);
 
     let mut partial = complete.clone();
@@ -734,6 +755,7 @@ fn resolved_defaults_reduce_capacity() {
         f.comparable_resolved = 10;
         f.mean_brier_ppm = 0;
     }
+    clean.model_policy.policy_hash = hash_of(&p);
     let baseline = evaluate(&clean, &p);
 
     let mut scarred = clean.clone();
@@ -879,6 +901,7 @@ fn a_revocation_is_never_born_expired() {
 
     let mut p = policy();
     p.max_evidence_age_seconds = 60;
+    i.model_policy.policy_hash = hash_of(&p);
 
     let out = evaluate(&i, &p);
 
@@ -909,6 +932,7 @@ fn a_grant_is_still_bounded_by_its_evidence() {
 
     let mut p = policy();
     p.max_evidence_age_seconds = 60;
+    i.model_policy.policy_hash = hash_of(&p);
 
     let out = evaluate(&i, &p);
     assert!(
@@ -1005,18 +1029,38 @@ fn policy_content_must_match_its_declared_hash() {
     );
 }
 
-/// A label that is not a content hash is left unverified rather than
-/// refused: a deployment may pin policy by some other identifier.
+/// A symbolic label cannot authorize anything.
+///
+/// An opaque identifier proves nothing about WHICH policy ran: the same
+/// label over a different pricing schedule produces different terms under
+/// an identical assessment id, so replay would "verify" two assessments
+/// made under different rules. Only a resolved content hash commits.
 #[test]
-fn a_non_hash_policy_label_is_not_refused() {
+fn a_symbolic_policy_label_is_refused() {
     let p = policy();
     let mut i = input(5_000_000_000, 5_000_000_000);
     i.model_policy.policy_hash = "policy-epoch-1".into();
 
     let out = evaluate(&i, &p);
     assert!(
+        matches!(out.outcome, Outcome::Unavailable),
+        "an unresolvable label must not produce executable terms, got {:?}",
+        out.outcome
+    );
+}
+
+/// A `0x`-prefixed hash denotes the same bytes as the bare form, so it
+/// must be accepted rather than read as a mismatch.
+#[test]
+fn a_prefixed_policy_hash_is_equivalent() {
+    let p = policy();
+    let mut i = input(5_000_000_000, 5_000_000_000);
+    i.model_policy.policy_hash = format!("0x{}", hash_of(&p));
+
+    let out = evaluate(&i, &p);
+    assert!(
         matches!(out.outcome, Outcome::ApprovedOrigination { .. }),
-        "an opaque label must not block evaluation, got {:?}",
+        "a prefixed hash is the same commitment, got {:?}",
         out.outcome
     );
 }

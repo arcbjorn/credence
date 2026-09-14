@@ -19,6 +19,21 @@ use risk_core::pricing::{LossAssumption, PricingPolicy};
 use risk_core::stress::{IntendedAction, StressPolicy};
 use risk_core::units::{Amount, Bps, Ratio};
 
+/// Canonical content hash of the fixture policy.
+fn policy_hash() -> String {
+    hash_of(&policy())
+}
+
+/// Canonical content hash of any policy.
+///
+/// A test that VARIES the policy must re-declare this on its input, or
+/// the engine refuses the result: an executable answer requires the
+/// declared label to be the hash of the policy actually supplied.
+fn hash_of(p: &Policy) -> String {
+    let value = serde_json::to_value(p).expect("serialize policy");
+    risk_core::canonical::hash_hex(&value).expect("hash policy")
+}
+
 fn policy() -> Policy {
     Policy {
         stress: StressPolicy {
@@ -164,7 +179,11 @@ fn baseline() -> RiskInput {
             model_id: "m1".into(),
             model_hash: "model-hash".into(),
             policy_id: "p1".into(),
-            policy_hash: "policy-hash".into(),
+            // The REAL content hash of policy(). An executable result
+            // requires the declared label to be the hash of the policy
+            // actually supplied, so a symbolic one would make every
+            // fixture Unavailable.
+            policy_hash: policy_hash(),
         },
     }
 }
