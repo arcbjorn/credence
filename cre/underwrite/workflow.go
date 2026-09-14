@@ -54,13 +54,20 @@ type Config struct {
 	// assemble that snapshot from chain and evidence first, which is the
 	// gateway's job (`gateway/riskclient`).
 	//
-	// That snapshotting endpoint is **not yet exposed over HTTP** -- the
-	// gateway is a set of CLI tools today, not a service. Until it is,
-	// this workflow simulates against a stub and blocks on anything else,
-	// which is the correct failure: an assessment that cannot be produced
-	// must not become a permission.
+	// That snapshotting endpoint is `credence-assessd`, which serves
+	// `GET /v1/assessment/{loanId}`: it reads the account and the loan,
+	// builds the snapshot, calls the engine, and returns the assessment
+	// the workflow reaches consensus on.
 	//
-	// It is asked, never trusted to be reachable.
+	// Be clear about what that consensus is worth. N nodes agree on one
+	// reply from one project-controlled service; they do not independently
+	// read chain state. The bounds and evidence checks live in the ENGINE,
+	// against a gateway-built snapshot, not in this workflow. `docs/08`
+	// states this distinction as the ceiling on the CRE claim.
+	//
+	// It is asked, never trusted to be reachable: an assessment that
+	// cannot be produced must not become a permission, so a failure here
+	// blocks rather than degrading.
 	RiskServiceURL string `json:"riskServiceUrl"`
 
 	// ChainSelector identifies the chain the receiver lives on.
@@ -135,8 +142,29 @@ func InitWorkflow(
 	if config.RiskServiceURL == "" {
 		return nil, fmt.Errorf("riskServiceUrl is required")
 	}
+	// Check the receiver is a real address, not just a non-empty string.
+	//
+	// `common.HexToAddress` never errors: it returns the zero address for
+	// anything it cannot parse. So an empty-string check alone accepts the
+	// config template's `0x000...0` placeholder AND outright garbage, and
+	// the workflow then spends gas writing reports into nothing --
+	// succeeding every cycle while no permission ever reaches the oracle.
+	// `config.production.json` shipped with the placeholder.
 	if config.ReceiverAddress == "" {
 		return nil, fmt.Errorf("receiverAddress is required")
+	}
+	if !common.IsHexAddress(config.ReceiverAddress) {
+		return nil, fmt.Errorf(
+			"receiverAddress %q is not an address", config.ReceiverAddress)
+	}
+	if common.HexToAddress(config.ReceiverAddress) == (common.Address{}) {
+		return nil, fmt.Errorf(
+			"receiverAddress is the zero address; set it to the deployed " +
+				"CREReceiver (contracts/deployments/<chainId>.json)")
+	}
+	// A write with no chain to land on is the same failure one layer up.
+	if config.ChainSelector == 0 {
+		return nil, fmt.Errorf("chainSelector is required")
 	}
 
 	trigger := cron.Trigger(&cron.Config{Schedule: config.Schedule})

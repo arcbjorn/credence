@@ -2,7 +2,7 @@
   "schedule": "0 */5 * * * *",
   "riskServiceUrl": "http://127.0.0.1:18223",
   "chainSelector": 2183018362218727504,
-  "receiverAddress": "0x0000000000000000000000000000000000000000",
+  "receiverAddress": "0xEc7A11Aa4da6482E4f7461ae535B9b3bB96CeF2c",
   "loans": [
     {
       "loanId": 1

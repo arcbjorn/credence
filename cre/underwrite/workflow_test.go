@@ -42,6 +42,23 @@ func TestInitWorkflowRefusesIncompleteConfig(t *testing.T) {
 		{"no schedule", func(c *Config) { c.Schedule = "" }},
 		{"no risk service", func(c *Config) { c.RiskServiceURL = "" }},
 		{"no receiver", func(c *Config) { c.ReceiverAddress = "" }},
+		// The zero address is the config template's placeholder, not an
+		// address. An empty-string check passes it, and the workflow would
+		// then write reports into nothing -- succeeding, at a cost, with
+		// no permission reaching the oracle. `config.production.json`
+		// shipped with exactly this value.
+		{"zero receiver", func(c *Config) {
+			c.ReceiverAddress = "0x0000000000000000000000000000000000000000"
+		}},
+		// Not an address at all. `common.HexToAddress` does not error --
+		// it returns the zero address for unparseable input, so garbage
+		// silently becomes the same failure as above.
+		{"unparseable receiver", func(c *Config) {
+			c.ReceiverAddress = "not-an-address"
+		}},
+		{"short receiver", func(c *Config) { c.ReceiverAddress = "0xdeadbeef" }},
+		// A write needs a chain to land on.
+		{"no chain selector", func(c *Config) { c.ChainSelector = 0 }},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			config := validConfig()
