@@ -141,6 +141,61 @@ type assessmentResponse struct {
 	// `riskAllowedFor` compares it against the account's CURRENT version,
 	// so permission issued against a stale view is void by construction.
 	AccountStateVersion uint64 `json:"account_state_version"`
+
+	// LoanID is the loan the endpoint says this answer is ABOUT.
+	//
+	// Decoded and checked rather than assumed. Until 14 September the
+	// workflow built its report from the REQUESTED id and never read this
+	// field, so a cached, misrouted or simply wrong response naming
+	// another loan became an Allowed report for the enrolled one -- and
+	// the receiver then substituted that loan's binding. The assessment
+	// and input hashes are opaque to both, so neither could catch it.
+	LoanID uint64 `json:"loan_id"`
+
+	// ValidAfter and ValidUntil are the ENGINE's bounds, not this
+	// workflow's. `docs/04` limits an executable assessment to its oldest
+	// required evidence deadline; a window synthesized here from wall
+	// clock and a configured duration would silently extend it.
+	ValidAfter uint64 `json:"valid_after"`
+	ValidUntil uint64 `json:"valid_until"`
+}
+
+// checkLoan refuses an answer that is not about the loan that was asked
+// about.
+//
+// A zero id is refused too: "names no loan" must not be read as "names
+// this one", since that assumption is precisely the defect.
+func checkLoan(a *assessmentResponse, loan LoanRef) error {
+	if a.LoanID == 0 {
+		return fmt.Errorf(
+			"assessment names no loan; expected loan %d", loan.LoanID)
+	}
+	if a.LoanID != loan.LoanID {
+		return fmt.Errorf(
+			"assessment is about loan %d, not the requested loan %d",
+			a.LoanID, loan.LoanID)
+	}
+	return nil
+}
+
+// checkFreshness refuses an assessment that is expired or not yet valid.
+//
+// The engine's bound is a ceiling, never a starting point to extend from.
+// An assessment that has outlived its evidence authorizes nothing, and
+// turning it into a fresh permission is worse than producing none.
+func checkFreshness(a *assessmentResponse, now int64) error {
+	if a.ValidUntil == 0 {
+		return fmt.Errorf("assessment carries no expiry")
+	}
+	if uint64(now) >= a.ValidUntil {
+		return fmt.Errorf(
+			"assessment expired at %d, now %d", a.ValidUntil, now)
+	}
+	if a.ValidAfter != 0 && uint64(now) < a.ValidAfter {
+		return fmt.Errorf(
+			"assessment is not valid until %d, now %d", a.ValidAfter, now)
+	}
+	return nil
 }
 
 func InitWorkflow(
@@ -356,6 +411,23 @@ func buildReport(
 		return r, fmt.Errorf("validitySeconds must be set")
 	}
 
+	// The configured window is a CEILING, never a replacement.
+	//
+	// `docs/04`: permission may not outlive the evidence behind it, so the
+	// engine already bounded this assessment by its oldest required
+	// observation. Whichever comes first wins. Until 14 September this
+	// used `now + validitySeconds` unconditionally, which silently
+	// extended -- or resurrected -- the engine's bound.
+	validUntil := uint64(now) + validitySeconds
+	if a.ValidUntil != 0 && a.ValidUntil < validUntil {
+		validUntil = a.ValidUntil
+	}
+	if validUntil <= uint64(now) {
+		return r, fmt.Errorf(
+			"assessment expires at %d, which is not after %d",
+			validUntil, now)
+	}
+
 	return monitoringReport{
 		loanID:              loan.LoanID,
 		accountStateVersion: a.AccountStateVersion,
@@ -365,7 +437,7 @@ func buildReport(
 		// own clock would expire early or late by whatever the two
 		// disagree by.
 		validAfter:     uint64(now),
-		validUntil:     uint64(now) + validitySeconds,
+		validUntil:     validUntil,
 		decision:       decision,
 		permission:     permission,
 		class:          class,
@@ -473,6 +545,17 @@ func assessLoan(
 	}
 
 	if err := checkAssessment(&out); err != nil {
+		return nil, err
+	}
+	// The answer must be about the loan that was asked about, and it must
+	// still be live by the ENGINE's bound. Both were missing until
+	// 14 September: the workflow trusted the endpoint to have answered the
+	// right question, and replaced the engine's expiry with a window of
+	// its own.
+	if err := checkLoan(&out, loan); err != nil {
+		return nil, err
+	}
+	if err := checkFreshness(&out, runtime.Now().Unix()); err != nil {
 		return nil, err
 	}
 	return &out, nil
