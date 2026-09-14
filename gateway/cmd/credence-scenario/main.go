@@ -363,6 +363,10 @@ func run(
 		// The deploy amount is knowable before origination: it is the
 		// balance the account will hold once the principal lands.
 		deployAmount := uint64(0)
+		// The exact action the quote commits to, so origination can
+		// perform it atomically rather than in a second transaction.
+		var deployAction []byte
+		var deployAdapter [20]byte
 		if adapter != "" && deployBps > 0 {
 			at, err := reader.LatestBlock(ctx)
 			if err != nil {
@@ -384,6 +388,10 @@ func run(
 			acquire := append(attest.Selector("acquire(uint256)"),
 				attest.Word(new(big.Int).SetUint64(deployAmount))...)
 			assessment.Terms.PermittedActionHash = actionHash(adapterAddr, acquire)
+			// Kept so origination can perform exactly the action it was
+			// priced against, rather than a separately encoded one.
+			deployAction = acquire
+			deployAdapter = adapterAddr
 		}
 
 		signature, err := attest.Sign(attest.Digest(domain, assessment), attestKey)
@@ -400,7 +408,33 @@ func run(
 			return fmt.Errorf("loan %d: accept quote: %w", i, err)
 		}
 
-		originateTx, err := w.Send(ctx, manager, encodeOriginate(bindingForDraw, principal))
+		// Fund and trade in ONE transaction when the quote approves a
+		// trade.
+		//
+		// `docs/05`: "Where an initial trade is part of the approval, fund
+		// and trade atomically; revert everything if post-action checks
+		// fail." This tool drew first and deployed afterwards, which left
+		// exactly the gap that rule forbids -- and since 14 September the
+		// contract refuses a plain draw against an action-bound quote
+		// (`ActionRequired`), so the two-step sequence no longer works at
+		// all.
+		//
+		// The adapter allowance still has to exist before the action runs,
+		// so it is granted first. It moves no funds on its own.
+		var originateData []byte
+		if deployAction != nil {
+			if err := approveAdapter(
+				ctx, w, reader, account, settlement, adapter, deployAmount,
+			); err != nil {
+				return fmt.Errorf("loan %d: approve adapter: %w", i, err)
+			}
+			originateData = encodeOriginateAndExecute(
+				bindingForDraw, principal, deployAdapter, deployAction)
+		} else {
+			originateData = encodeOriginate(bindingForDraw, principal)
+		}
+
+		originateTx, err := w.Send(ctx, manager, originateData)
 		if err != nil {
 			return fmt.Errorf("loan %d: originate: %w", i, err)
 		}
@@ -422,23 +456,19 @@ func run(
 		}
 		originatedAt := originBlock.Timestamp
 
-		// Deploy the principal. An account that only holds settlement can
-		// always repay from what it borrowed, so nothing about the credit
-		// decision is being tested until the principal is actually at risk.
-		deployed := false
-		if adapter != "" && deployBps > 0 {
-			// The amount committed to above. Measured against the
-			// account's whole settlement balance, not the principal
-			// alone: agent equity is the first loss layer, so leaving it
-			// in settlement while only the borrowed funds trade would let
-			// equity absorb any crash from the sidelines.
-			amount := deployAmount
-			if err := deployPrincipal(ctx, w, reader, account, settlement,
-				adapter, amount); err != nil {
-				return fmt.Errorf("loan %d: deploy principal: %w", i, err)
-			}
-			log.Printf("loan %d: deployed %d into the risky asset", i, amount)
-			deployed = true
+		// The principal is already deployed: `originateAndExecute`
+		// performed the approved trade in the same transaction as the
+		// draw, so there is nothing to do here.
+		//
+		// It used to happen in a second transaction. An account that only
+		// holds settlement can always repay from what it borrowed, so
+		// nothing about the credit decision is tested until the principal
+		// is actually at risk -- and the window between the two was a
+		// position the assessment had not priced.
+		deployed := deployAction != nil
+		if deployed {
+			log.Printf("loan %d: deployed %d into the risky asset (atomic)",
+				i, deployAmount)
 		}
 
 		// Let time pass so interest actually accrues. Without this the
@@ -1013,13 +1043,12 @@ func deployPrincipal(
 	}
 	value := new(big.Int).SetUint64(amount)
 
-	approve := append(attest.Selector("approveAdapter(address,address,uint256)"),
-		attest.AddressWord(settlementAddr)...)
-	approve = append(approve, attest.AddressWord(adapterAddr)...)
-	approve = append(approve, attest.Word(value)...)
-	if err := sendAndWait(ctx, w, reader, account, approve, "approveAdapter"); err != nil {
+	if err := approveAdapter(
+		ctx, w, reader, account, settlement, adapter, amount,
+	); err != nil {
 		return err
 	}
+	_ = settlementAddr
 
 	acquire := append(attest.Selector("acquire(uint256)"), attest.Word(value)...)
 	execute := append(attest.Selector("execute(address,bytes)"),
@@ -1217,4 +1246,75 @@ func mustAddress(s string) attest.Address {
 		panic(err)
 	}
 	return a
+}
+
+// approveAdapter grants the adapter an allowance on the account.
+//
+// Split out of `deployPrincipal` so atomic origination can grant it
+// BEFORE the draw: `originateAndExecute` performs the approved trade
+// inside the same transaction, and the adapter needs its allowance to
+// already exist by then. The approval moves no funds on its own.
+func approveAdapter(
+	ctx context.Context,
+	w *wallet.Wallet,
+	reader *chain.Reader,
+	account, settlement, adapter string,
+	amount uint64,
+) error {
+	settlementAddr, err := toAddress(settlement)
+	if err != nil {
+		return err
+	}
+	adapterAddr, err := toAddress(adapter)
+	if err != nil {
+		return err
+	}
+	approve := append(attest.Selector("approveAdapter(address,address,uint256)"),
+		attest.AddressWord(settlementAddr)...)
+	approve = append(approve, attest.AddressWord(adapterAddr)...)
+	approve = append(approve, attest.Word(new(big.Int).SetUint64(amount))...)
+	return sendAndWait(ctx, w, reader, account, approve, "approveAdapter")
+}
+
+// encodeOriginateAndExecute funds the loan and performs the approved
+// action in one transaction.
+//
+// `docs/05` requires the two to be atomic where a trade is part of the
+// approval, and the contract now enforces it: a plain draw against an
+// action-bound quote reverts with `ActionRequired`.
+func encodeOriginateAndExecute(
+	b attest.Binding,
+	principal uint64,
+	adapter [20]byte,
+	action []byte,
+) []byte {
+	selector := attest.KeccakBytes([]byte(
+		"originateAndExecute((uint256,address,uint256,address,address," +
+			"uint256,uint64,uint64,bytes32,uint64,bytes32),uint256,address,bytes)"))
+
+	out := append([]byte{}, selector[:4]...)
+	out = append(out, attest.Word(b.IdentityRegistryChainID)...)
+	out = append(out, attest.AddressWord(b.IdentityRegistry)...)
+	out = append(out, attest.Word(b.AgentID)...)
+	out = append(out, attest.AddressWord(b.Operator)...)
+	out = append(out, attest.AddressWord(b.CreditAccount)...)
+	out = append(out, attest.Word(b.FacilityID)...)
+	out = append(out, attest.Uint64Word(b.AccountStateVersion)...)
+	out = append(out, attest.Uint64Word(b.ConfigVersion)...)
+	out = append(out, b.ConfigHash[:]...)
+	out = append(out, attest.Uint64Word(b.PolicyEpoch)...)
+	out = append(out, b.PolicyHash[:]...)
+	out = append(out, attest.Word(new(big.Int).SetUint64(principal))...)
+	out = append(out, attest.AddressWord(adapter)...)
+
+	// The struct is static (11 words), so the dynamic `bytes` tail starts
+	// after binding + principal + adapter + this offset word.
+	const head = 11*32 + 32 + 32 + 32
+	out = append(out, attest.Word(big.NewInt(head))...)
+	out = append(out, attest.Word(big.NewInt(int64(len(action))))...)
+	out = append(out, action...)
+	if pad := len(action) % 32; pad != 0 {
+		out = append(out, make([]byte, 32-pad)...)
+	}
+	return out
 }
