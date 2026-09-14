@@ -190,7 +190,7 @@ contract RiskOracleTest is Test {
         assertEq(approved, 5_000e6, "terms stored with quote");
 
         vm.prank(CONSUMER);
-        (Terms memory t, ) = oracle.consumeQuote(b, 5_000e6);
+        (Terms memory t, , ) = oracle.consumeQuote(b, 5_000e6);
         assertEq(t.aprBps, 1_200);
     }
 
@@ -420,7 +420,7 @@ contract RiskOracleTest is Test {
         vm.warp(block.timestamp + 30 minutes);
 
         vm.prank(CONSUMER);
-        (Terms memory t, ) = oracle.consumeQuote(_binding(), 5_000e6);
+        (Terms memory t, , ) = oracle.consumeQuote(_binding(), 5_000e6);
         assertEq(t.approvedPrincipal, 5_000e6, "a live quote must still fund");
     }
 
@@ -528,7 +528,7 @@ contract RiskOracleTest is Test {
         scenario.accept(a, _signFor(scenario, a, devKey));
 
         vm.prank(CONSUMER);
-        (Terms memory t, ) = scenario.consumeQuote(_binding(), 5_000e6);
+        (Terms memory t, , ) = scenario.consumeQuote(_binding(), 5_000e6);
         assertEq(t.approvedPrincipal, 5_000e6, "a scenario quote must fund here");
     }
 
@@ -641,7 +641,7 @@ contract RiskOracleTest is Test {
         oracle.accept(a, _sign(a, creKey));
 
         vm.prank(CONSUMER);
-        (Terms memory t, ) = oracle.consumeQuote(_binding(), 5_000e6);
+        (Terms memory t, , ) = oracle.consumeQuote(_binding(), 5_000e6);
         assertEq(t.approvedPrincipal, 5_000e6, "the CRE path must still fund");
     }
 }

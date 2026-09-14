@@ -198,7 +198,7 @@ contract LoanManager {
         );
 
         // Consumes once, and only for this exact amount.
-        (Terms memory terms, uint64 quoteValidUntil) =
+        (Terms memory terms, uint64 quoteValidUntil, uint64 quoteSequence) =
             oracle.consumeQuote(binding, principal);
 
         // `docs/02`: an agent with no equity receives no credit in v0.
@@ -246,7 +246,8 @@ contract LoanManager {
             // separately against the account's live value.
             oracle.bindingConfigHash(binding),
             terms.permittedActionHash,
-            quoteValidUntil
+            quoteValidUntil,
+            quoteSequence
         );
         vault.lend(acct, principal, reserved);
         reservation[loanId] = reserved;
@@ -385,6 +386,16 @@ contract LoanManager {
             oracle.bindingKey(binding) == acct.boundBindingKey()
                 && oracle.bindingConfigHash(binding) == acct.boundBindingHash(),
             BindingNotForLoan(loanId)
+        );
+
+        // The state version too. bindingConfigHash deliberately excludes
+        // it -- it changes on every execution and is checked separately --
+        // but "separately" has to mean checked, not skipped. A fabricated
+        // version makes riskAllowed return false, which reads here as
+        // "permission withdrawn" and opens recovery on a healthy loan.
+        require(
+            binding.accountStateVersion == acct.stateVersion(),
+            StaleAccountState(binding.accountStateVersion, acct.stateVersion())
         );
 
         bool matured = block.timestamp >= loan.originatedAt + loan.termSeconds;

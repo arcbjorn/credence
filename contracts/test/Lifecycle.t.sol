@@ -951,4 +951,35 @@ contract LifecycleTest is Test {
             "repayment must remain open"
         );
     }
+
+    /// A fabricated state version cannot manufacture recovery eligibility.
+    ///
+    /// `bindingConfigHash` excludes the state version on purpose, so the
+    /// binding check alone does not catch a wrong one — and a wrong one
+    /// makes `riskAllowed` return false, which reads as "permission
+    /// withdrawn" and liquidates a healthy, unmatured loan.
+    function test_FabricatedStateVersionCannotOpenRecovery() public {
+        uint256 loanId = _originate(account, 5_000e6, 1_200, 10 days);
+
+        // Genuinely permitted, so only the version is wrong.
+        Binding memory own = _bindingFor(account, account.stateVersion());
+        OracleHarness.publishMonitoring(
+            oracle, own, ++seq, SIGNER_KEY, true, DEPLOYMENT, uint64(block.timestamp)
+        );
+
+        Binding memory forged = own;
+        forged.accountStateVersion = own.accountStateVersion + 1;
+
+        vm.warp(block.timestamp + 10 minutes);
+        // Read before the prank: a call inside expectRevert consumes it.
+        uint64 live = account.stateVersion();
+        vm.prank(OPERATOR);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                LoanManager.StaleAccountState.selector,
+                forged.accountStateVersion, live
+            )
+        );
+        manager.openRecovery(loanId, KEEPER, forged);
+    }
 }

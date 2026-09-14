@@ -11,6 +11,11 @@ interface IRiskOracle {
         external
         view
         returns (bool);
+
+    /// The highest assessment sequence accepted for a binding. Strictly
+    /// increasing, so a value above the quote's own sequence means
+    /// something newer has superseded it.
+    function lastSequence(bytes32 key) external view returns (uint64);
 }
 
 /// @title CreditAccount
@@ -74,6 +79,10 @@ contract CreditAccount {
     /// (`docs/05`) -- and an expired quote covers nothing, so a deferred
     /// first action needs a current monitoring result like any other.
     uint64 public permittedActionValidUntil;
+    /// @dev The assessment sequence the origination quote was signed at.
+    /// A newer accepted assessment supersedes that authorization, so the
+    /// first action stops being covered by it (`docs/05`).
+    uint64 public permittedActionSequence;
     /// @dev True once the origination-authorized action has been taken.
     /// Any further action needs live monitoring permission.
     bool public actionConsumed;
@@ -130,13 +139,15 @@ contract CreditAccount {
         bytes32 bindingKey_,
         bytes32 bindingHash,
         bytes32 actionHash,
-        uint64 actionValidUntil
+        uint64 actionValidUntil,
+        uint64 actionSequence
     ) external onlyLoanManager {
         debtOutstanding = true;
         boundBindingKey = bindingKey_;
         boundBindingHash = bindingHash;
         permittedActionHash = actionHash;
         permittedActionValidUntil = actionValidUntil;
+        permittedActionSequence = actionSequence;
         actionConsumed = false;
         emit DebtOpened();
     }
@@ -148,6 +159,7 @@ contract CreditAccount {
         boundBindingHash = bytes32(0);
         permittedActionHash = bytes32(0);
         permittedActionValidUntil = 0;
+        permittedActionSequence = 0;
         actionConsumed = false;
         emit DebtClosed();
     }
@@ -221,8 +233,17 @@ contract CreditAccount {
             // borrower could wait out the quote, receive an explicit
             // Blocked, and still execute the committed action on authority
             // that had already lapsed.
-            bool coveredByQuote =
-                !actionConsumed && block.timestamp < permittedActionValidUntil;
+            // The origination quote covers the first action while it is
+            // live AND while nothing newer has been accepted. Every
+            // accepted assessment supersedes unused older quotes
+            // (`docs/05`), so a Blocked monitoring result arriving before
+            // expiry must revoke this coverage -- otherwise a borrower
+            // reads the revocation and executes anyway.
+            bool superseded = IRiskOracle(riskOracle).lastSequence(boundBindingKey)
+                > permittedActionSequence;
+            bool coveredByQuote = !actionConsumed
+                && block.timestamp < permittedActionValidUntil
+                && !superseded;
 
             if (!coveredByQuote) {
                 require(

@@ -357,13 +357,16 @@ contract RiskOracle {
     /// otherwise burn a live quote by calling this directly — griefing that
     /// costs nothing and forces a fresh assessment.
     /// @return t The signed terms.
-    /// @return validUntil When the authorizing quote expires. Returned so
+    /// @return validUntil When the authorizing quote expires.
+    /// @return sequence The assessment sequence this quote was signed at,
+    /// so a consumer can tell whether a NEWER assessment has since
+    /// superseded it. Returned so
     /// the loan manager can bound the action it authorized: `docs/05`
     /// covers the initial atomic action by the consumed quote, and a quote
     /// that has expired covers nothing.
     function consumeQuote(Binding calldata b, uint256 drawAmount)
         external
-        returns (Terms memory t, uint64 validUntil)
+        returns (Terms memory t, uint64 validUntil, uint64 sequence)
     {
         require(msg.sender == loanManager, NotConsumer());
         bytes32 key = bindingKey(b);
@@ -380,6 +383,7 @@ contract RiskOracle {
         t = quoteTerms[key];
         require(t.approvedPrincipal == drawAmount, AmountMismatch(t.approvedPrincipal, drawAmount));
         validUntil = q.validUntil;
+        sequence = q.sequence;
 
         q.consumed = true;
         emit QuoteConsumedEvent(key, q.assessmentId);
