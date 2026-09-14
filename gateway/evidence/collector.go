@@ -219,6 +219,24 @@ func (c *Collector) Collect(
 	}
 
 	in.Account = c.collectAccount(ctx, info.Account, block, ts)
+
+	// The binding must describe the account that was just read.
+	//
+	// `BindingLookup` supplies the version watched at ENROLMENT, which
+	// stops being true the first time the account executes. Pairing it
+	// with a fresh read produced a snapshot the engine refuses outright
+	// (`AccountStateVersionMismatch`), so monitoring went silent for
+	// exactly the accounts that were active.
+	//
+	// Rewritten from the pinned account rather than the watch, so the
+	// binding and the evidence describe one moment. A later execution then
+	// invalidates the assessment -- which is correct -- instead of
+	// retroactively relabelling it. Reported by review, 14 September.
+	if raw, err := bindingAtAccountVersion(in.Binding, in.Account); err == nil {
+		in.Binding = raw
+	} else {
+		return snapshot.Input{}, fmt.Errorf("pin binding to account: %w", err)
+	}
 	in.Market = c.collectMarket(ctx, block, ts)
 	in.History = c.collectRaw(ctx, "history", task.BindingKey, block, ts, c.history.History)
 	in.Forecasts = c.collectForecasts(ctx, task.BindingKey, ts)
@@ -397,4 +415,47 @@ func skew(a, b uint64) uint64 {
 		return a - b
 	}
 	return b - a
+}
+
+// bindingAtAccountVersion restates the binding at the version the account
+// evidence was actually read at.
+//
+// A missing or unusable account read leaves the binding untouched: there
+// is no version to pin to, and inventing one would be worse than the
+// mismatch. The engine refuses such a snapshot for the account's sake
+// anyway.
+func bindingAtAccountVersion(
+	binding json.RawMessage,
+	account snapshot.Evidence,
+) (json.RawMessage, error) {
+	if account.State != snapshot.StatePresent || account.Value == nil {
+		return binding, nil
+	}
+
+	raw, err := json.Marshal(account.Value)
+	if err != nil {
+		return nil, fmt.Errorf("marshal account: %w", err)
+	}
+	var state struct {
+		StateVersion uint64 `json:"state_version"`
+	}
+	if err := json.Unmarshal(raw, &state); err != nil {
+		return nil, fmt.Errorf("read account state version: %w", err)
+	}
+
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(binding, &fields); err != nil {
+		return nil, fmt.Errorf("decode binding: %w", err)
+	}
+	version, err := json.Marshal(state.StateVersion)
+	if err != nil {
+		return nil, fmt.Errorf("encode state version: %w", err)
+	}
+	fields["account_state_version"] = version
+
+	out, err := json.Marshal(fields)
+	if err != nil {
+		return nil, fmt.Errorf("encode binding: %w", err)
+	}
+	return out, nil
 }

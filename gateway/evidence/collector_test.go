@@ -425,3 +425,61 @@ func TestFreshAndPolicyPricedAccountsAreNotStale(t *testing.T) {
 		})
 	}
 }
+
+// The binding's state version must be the one the ACCOUNT was read at.
+//
+// `BindingLookup` supplies the version watched at enrolment, and the
+// collector pairs it with a fresh account read at the pinned block. After
+// the account executes, those two numbers diverge, and the engine refuses
+// the snapshot outright with `AccountStateVersionMismatch` -- so the
+// monitoring loop stops producing assessments for exactly the accounts
+// that are active.
+//
+// Signing the assessed version (fixed earlier) addressed what reaches the
+// envelope; this is the snapshot the engine is handed in the first place.
+//
+// Reported by review, 14 September.
+func TestBindingVersionMatchesTheAssessedAccount(t *testing.T) {
+	chain := &fakeChain{block: evidence.BlockRef{Number: 500, Timestamp: 10_000}}
+
+	// The binding was enrolled when the account was at version 0; the
+	// account has since executed and the fake reads back version 3.
+	staleBinding := func(string) (evidence.BindingInfo, bool) {
+		return evidence.BindingInfo{
+			Raw: json.RawMessage(
+				`{"facility_id":"1","account_state_version":0}`),
+			ModelPolicy: json.RawMessage(`{"model_hash":"m","policy_hash":"p"}`),
+			Account:     "0xacct",
+		}, true
+	}
+
+	c := evidence.New(chain, fakeMarket{state: evidence.MarketState{ObservedAt: 10_000}},
+		fakeHistory{}, staleBinding, config())
+
+	in := collect(t, c)
+
+	var b struct {
+		AccountStateVersion uint64 `json:"account_state_version"`
+	}
+	if err := json.Unmarshal(in.Binding, &b); err != nil {
+		t.Fatal(err)
+	}
+
+	var acct struct {
+		StateVersion uint64 `json:"state_version"`
+	}
+	raw, err := json.Marshal(in.Account.Value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(raw, &acct); err != nil {
+		t.Fatal(err)
+	}
+
+	if b.AccountStateVersion != acct.StateVersion {
+		t.Fatalf(
+			"binding says version %d, account was read at %d -- the engine "+
+				"refuses this snapshot as AccountStateVersionMismatch",
+			b.AccountStateVersion, acct.StateVersion)
+	}
+}
