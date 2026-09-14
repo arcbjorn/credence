@@ -1,1 +1,6 @@
+# Editor and OS droppings. Covered by many developers' global ignore
+# files, which is exactly why it belongs here too: a contributor without
+# one would otherwise commit these.
+.DS_Store
+
 legacy/
