@@ -182,6 +182,30 @@ Pin adapters and risk limits for the active epoch. An administrator may pause ne
 
 **Increasing the number of independently authorized signers does not automatically strengthen verification.**
 
+### Time, and who controls it
+
+Every deadline these contracts enforce is measured against
+`block.timestamp`: quote and permission expiry, loan maturity, the
+12-hour recovery grace, and the price-age bound. A block proposer can
+shift that by a small amount, and `forge lint` flags each comparison for
+exactly that reason.
+
+**Accepted, and why.** The windows are hours, not seconds — a 3600s
+permission window, a 12-hour grace, a loan term in days. A few seconds of
+proposer drift cannot change *who* may act, only *when* by a margin far
+inside the window's own tolerance. The comparisons are annotated in place
+rather than rewritten, each with the same reasoning.
+
+What this does mean: **no deadline here should ever be tightened to
+seconds without revisiting it.** A short window is where timestamp drift
+stops being noise and starts being a lever, and the annotations would then
+be documenting a real weakness rather than an immaterial one.
+
+Note also that assessment validity is anchored to CHAIN time rather than
+the gateway's wall clock, for the same reason in reverse: the oracle
+judges against `block.timestamp`, so a window measured off a node's own
+clock would be wrong by whatever the two disagree by.
+
 ### What the operator can do — stated for borrowers
 
 One key pins the facility's route, allowlists signers, pauses new risk,
