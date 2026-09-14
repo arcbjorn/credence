@@ -85,4 +85,6 @@ docs/                       This documentation
 
 Signing credentials stay in a restricted backend. Scenario identities and funding keys stay separate from any personal wallet. Record dependency versions, artifacts, addresses, and model, policy, and fixture hashes for the release.
 
-The repository currently contains the documentation and historical plans; implementation directories above are planned. Use conventional commits, one granular commit per goal, with a 50-character subject limit.
+Every implementation directory above now exists: `risk/`, `gateway/`, `contracts/`, `cre/`, and `tools/reader/`. The exception is the web interface, which `docs/09` specifies and which has not been started — the demo is the scripts in `scripts/`, and no claim should imply otherwise.
+
+Use conventional commits, one granular commit per goal, with a 50-character subject limit.
