@@ -20,10 +20,11 @@ DEPLOYER=ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
 SIGNER=${CREDENCE_SIGNER_KEY:-5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a}
 # Well past the 500 bps trigger threshold, and deep enough that the
 # COVERAGE verdict flips decisively rather than by a hair. A 20% fall
-# trips the trigger but leaves coverage at 1.41 against a 1.15 floor, so
-# the reassessment would correctly still read Allowed -- true, but it
-# demonstrates nothing about permission being withdrawn.
-MOVE_BPS=${MOVE_BPS:-4000}
+# trips the trigger but leaves coverage well above the 1.15 floor, so the
+# reassessment would correctly still read Allowed -- true, but it
+# demonstrates nothing about permission being withdrawn. With 10,000 of
+# equity absorbing the fall, the move has to be deep to reach lenders.
+MOVE_BPS=${MOVE_BPS:-7000}
 
 rm -rf "$WORK" && mkdir -p "$WORK"
 

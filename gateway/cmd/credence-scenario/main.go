@@ -851,6 +851,9 @@ func intendedAcquire(adapter string, deployBps uint64, riskyAsset string) *Acqui
 		Price:      2_000_000_000,
 		PriceScale: 6,
 		HaircutBps: 2_000,
+		// The share this run will actually deploy, so the engine projects
+		// the same book rather than a safer one.
+		DeployBps: uint32(deployBps),
 	}
 }
 

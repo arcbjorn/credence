@@ -30,7 +30,7 @@ contract Scenario is Script {
         address managerAddr = vm.envAddress("LOAN_MANAGER_ADDRESS");
 
         uint256 lenderDeposit = vm.envOr("LENDER_DEPOSIT", uint256(50_000e6));
-        uint256 agentEquity = vm.envOr("AGENT_EQUITY", uint256(5_000e6));
+        uint256 agentEquity = vm.envOr("AGENT_EQUITY", uint256(10_000e6));
         // Equity held as the risky asset rather than settlement. An account
         // whose value sits in a shocked asset can owe more settlement than
         // it holds — which is how a real shortfall arises, and the only

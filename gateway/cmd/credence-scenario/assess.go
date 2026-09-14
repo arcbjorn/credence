@@ -76,9 +76,11 @@ func originationTerms(
 	action := `"Hold"`
 	if intendedAcquire != nil {
 		action = fmt.Sprintf(
-			`{"Acquire":{"asset":"%s","price":"%d","price_scale":%d,"haircut_bps":%d}}`,
+			`{"Acquire":{"asset":"%s","price":"%d","price_scale":%d,`+
+				`"haircut_bps":%d,"deploy_bps":%d}}`,
 			intendedAcquire.Asset, intendedAcquire.Price,
-			intendedAcquire.PriceScale, intendedAcquire.HaircutBps)
+			intendedAcquire.PriceScale, intendedAcquire.HaircutBps,
+			intendedAcquire.DeployBps)
 	}
 
 	in.Context = json.RawMessage(fmt.Sprintf(
@@ -195,6 +197,12 @@ type AcquireAction struct {
 	Price      uint64
 	PriceScale uint32
 	HaircutBps uint32
+	// Share of the post-draw settlement balance this loan deploys, in
+	// basis points. Declared so the engine projects the book the draw
+	// ACTUALLY creates: deploying equity as well as principal is a
+	// riskier portfolio than principal alone, and assessing the safer one
+	// approves a book that fails the same stress cases once deployed.
+	DeployBps uint32
 }
 
 type assessedTerms struct {
