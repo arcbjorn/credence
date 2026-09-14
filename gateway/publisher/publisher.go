@@ -211,30 +211,58 @@ func (p *Publisher) reconcile(
 	sequence uint64,
 	prior Attempt,
 ) (string, error) {
-	// The chain is authoritative. If it already accepted this sequence, the
-	// earlier attempt succeeded regardless of what we observed.
-	accepted, err := p.chain.AcceptedSequence(ctx, bindingKey)
-	if err != nil {
-		return "", fmt.Errorf("reconcile: read sequence: %w", err)
-	}
-	if accepted >= sequence {
-		confirmed := prior
-		confirmed.Status = StatusConfirmed
-		confirmed.Detail = "reconciled from chain state"
-		_ = p.journal.Record(ctx, confirmed)
-		return prior.TxHash, nil
-	}
-
-	// The chain has not accepted it. If we have a hash, ask about it before
-	// concluding anything.
+	// Ask about OUR transaction first, before reading anything from the
+	// sequence.
+	//
+	// The oracle enforces a strictly increasing sequence, so exactly one
+	// assessment ever lands at a given number. Two can be prepared for it
+	// -- an approval submitted, a denial built while it is still pending
+	// -- and concluding from `accepted >= sequence` alone would report the
+	// LOSER as delivered. For a denial that means recording a withdrawal
+	// of permission that never reached chain, which is the one direction
+	// that must never fail silently. Reported by review, 14 September.
 	if prior.TxHash != "" {
 		status, err := p.chain.ReceiptStatus(ctx, prior.TxHash)
 		if err != nil {
 			return "", fmt.Errorf("%w: tx %s", ErrPending, prior.TxHash)
 		}
-		if status == StatusPending {
+		switch status {
+		case StatusPending:
 			return "", fmt.Errorf("%w: tx %s still unmined", ErrPending, prior.TxHash)
+		case StatusConfirmed:
+			confirmed := prior
+			confirmed.Status = StatusConfirmed
+			confirmed.Detail = "reconciled from its own receipt"
+			_ = p.journal.Record(ctx, confirmed)
+			return prior.TxHash, nil
 		}
+		// Mined and reverted. Whatever the sequence now says, this
+		// payload is not what produced it.
+		failed := prior
+		failed.Status = StatusFailed
+		failed.Detail = "transaction reverted"
+		_ = p.journal.Record(ctx, failed)
+		return "", fmt.Errorf(
+			"publish reverted for sequence %d; a different assessment may hold it",
+			sequence)
+	}
+
+	// No hash to ask about -- the send never returned one. The sequence is
+	// then the only evidence available, and it is weaker: it says the slot
+	// is taken, not that WE took it. Treat it as superseded rather than
+	// confirmed, so the caller reassesses instead of assuming delivery.
+	accepted, err := p.chain.AcceptedSequence(ctx, bindingKey)
+	if err != nil {
+		return "", fmt.Errorf("reconcile: read sequence: %w", err)
+	}
+	if accepted >= sequence {
+		superseded := prior
+		superseded.Status = StatusFailed
+		superseded.Detail = "sequence taken by another assessment"
+		_ = p.journal.Record(ctx, superseded)
+		return "", fmt.Errorf(
+			"sequence %d already accepted; this attempt has no transaction to claim it",
+			sequence)
 	}
 
 	// Known not to have landed: safe to retry.

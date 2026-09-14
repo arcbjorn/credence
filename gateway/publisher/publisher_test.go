@@ -120,8 +120,10 @@ func TestPendingReconcilesFromChainState(t *testing.T) {
 		BindingKey: "b1", Sequence: 5, IdempotencyKey: key,
 		TxHash: "0xearlier", Status: publisher.StatusPending,
 	}
-	// The chain shows the sequence already accepted.
-	chain := &fakeChain{accepted: 5}
+	// The chain shows the sequence accepted AND our own transaction
+	// confirmed. Both matter: the sequence alone says the slot is taken,
+	// not that this payload took it.
+	chain := &fakeChain{accepted: 5, receipt: publisher.StatusConfirmed}
 	p := publisher.New(chain, j)
 
 	tx, err := p.Publish(ctx(), "b1", 5, []byte("p"), []byte("s"))
@@ -292,5 +294,84 @@ func TestIdempotencyKeyIsDerivedNotAllocated(t *testing.T) {
 	// as landed when only the approval did.
 	if a == publisher.IdempotencyKey("b1", 5, []byte("different")) {
 		t.Fatal("different payloads at one sequence must derive different keys")
+	}
+}
+
+// A pending denial must not be confirmed by a DIFFERENT payload winning
+// the same sequence.
+//
+// The oracle enforces a strictly increasing sequence, so exactly one
+// assessment can ever land at a given number. When an approval and a
+// denial are both prepared at that number and the approval wins,
+// reconciling the denial on `accepted >= sequence` alone reports it as
+// delivered -- recording a withdrawal of permission that never reached
+// chain, which is the one direction that must never fail silently.
+//
+// Reported by review, 14 September.
+func TestPendingAttemptIsNotConfirmedByAnotherPayload(t *testing.T) {
+	chain := &fakeChain{
+		// The approval already landed at this sequence.
+		accepted: 5,
+		// The denial's own transaction reverted.
+		receipt: publisher.StatusFailed,
+		txHash:  "0xdenial",
+	}
+	journal := newJournal()
+	p := publisher.New(chain, journal)
+
+	denial := []byte("denial-calldata")
+	key := publisher.IdempotencyKey("0xbinding", 5, denial)
+	journal.entries[key] = publisher.Attempt{
+		BindingKey:     "0xbinding",
+		Sequence:       5,
+		IdempotencyKey: key,
+		TxHash:         "0xdenial",
+		Status:         publisher.StatusPending,
+	}
+
+	_, err := p.Publish(
+		context.Background(), "0xbinding", 5, denial, []byte("sig"))
+	if err == nil {
+		t.Fatal("a denial whose transaction failed must not report success " +
+			"because a different assessment won the same sequence")
+	}
+
+	got := journal.entries[key]
+	if got.Status == publisher.StatusConfirmed {
+		t.Fatalf("denial recorded as %s; it never reached chain", got.Status)
+	}
+}
+
+// The ordinary reconciliation still works: our OWN transaction succeeded,
+// and the chain reflects it.
+func TestPendingAttemptConfirmsOnItsOwnReceipt(t *testing.T) {
+	chain := &fakeChain{
+		accepted: 5,
+		receipt:  publisher.StatusConfirmed,
+		txHash:   "0xmine",
+	}
+	journal := newJournal()
+	p := publisher.New(chain, journal)
+
+	payload := []byte("approval-calldata")
+	key := publisher.IdempotencyKey("0xbinding", 5, payload)
+	journal.entries[key] = publisher.Attempt{
+		BindingKey:     "0xbinding",
+		Sequence:       5,
+		IdempotencyKey: key,
+		TxHash:         "0xmine",
+		Status:         publisher.StatusPending,
+	}
+
+	txHash, err := p.Publish(
+		context.Background(), "0xbinding", 5, payload, []byte("sig"))
+	if err != nil {
+		t.Fatalf("our own confirmed transaction must reconcile: %v", err)
+	}
+	if txHash != "0xmine" {
+		t.Fatalf("tx = %q, want 0xmine", txHash)
+	}
+	if chain.submits != 0 {
+		t.Fatal("a confirmed attempt must not be resubmitted")
 	}
 }
