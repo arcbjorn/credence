@@ -1,0 +1,152 @@
+{
+  "account": {
+    "content_hash": "7956dc2a3689777b7490b0e868284e09e6bb670c849a04d0b548f0b5763df7d0",
+    "coverage": "Complete",
+    "evidence_id": "acct",
+    "observed_at": 1792841123,
+    "origin": "Observed",
+    "parent_evidence_ids": [],
+    "requirement": "Required",
+    "retrieved_at": 1792841123,
+    "scenario_id": null,
+    "source": "chain",
+    "state": "Present",
+    "value": {
+      "facility_limit": "100000000000",
+      "outstanding_debt": "0",
+      "positions": [],
+      "restricted": false,
+      "settlement_balance": "9987139680",
+      "state_version": 4
+    }
+  },
+  "assessment_time": 1792841123,
+  "binding": {
+    "accepted_sequence": 2,
+    "account_state_version": 4,
+    "agent": {
+      "agent_id": "184",
+      "identity_registry": "0x000000000000000000000000000000000000aec0",
+      "identity_registry_chain_id": 31337
+    },
+    "config_hash": "0x0b49c88cd3d1ba3c99fdd9a41ced95ec8629bda85e80b6c506c15db62ab8f761",
+    "config_version": 1,
+    "credit_account": "0x69f94e46cbc82ab02781ac4fafc3580d21f1a888",
+    "facility_id": "1",
+    "operator": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+    "policy_epoch": 1,
+    "policy_hash": "0x5b0f9436c819b53dbee8ea2c97c9b239e65dc59bc3413d5d08ecbb88caf2b2db"
+  },
+  "context": {
+    "kind": "Origination",
+    "request": {
+      "action_envelope_hash": "act",
+      "intended_action": {
+        "Acquire": {
+          "asset": "0x33f4f8bf90d8AA3d19fF812B50e79c15Df0d0b03",
+          "deploy_bps": 10000,
+          "haircut_bps": 2000,
+          "price": "2000000000",
+          "price_scale": 6
+        }
+      },
+      "intent_hash": "intent",
+      "max_accepted_apr": 4000,
+      "request_id": "req-3",
+      "requested_principal": "4000000000",
+      "settlement_asset": "0x0C8542AB89c1C60D711B00F309f7EF63b5D9d6eb",
+      "term_seconds": 864000
+    }
+  },
+  "facility_policy": "Scenario",
+  "forecasts": {
+    "content_hash": "1f50dd191167c0dec1c51f23d9c45aca701103852f2986d8b836b2e863c66b16",
+    "coverage": "Complete",
+    "evidence_id": "fc",
+    "observed_at": 1792841123,
+    "origin": "Observed",
+    "parent_evidence_ids": [],
+    "requirement": "Required",
+    "retrieved_at": 1792841123,
+    "scenario_id": null,
+    "source": "derived",
+    "state": "Present",
+    "value": {
+      "comparable_resolved": 2,
+      "mean_brier_ppm": 56250,
+      "unobservable": 0,
+      "unresolved": 1
+    }
+  },
+  "history": {
+    "content_hash": "e570565b97f724293b26246f668d5a9f55ab0df11a98261b1a47a455e6910a07",
+    "coverage": "Complete",
+    "evidence_id": "hist",
+    "observed_at": 1792841123,
+    "origin": "Observed",
+    "parent_evidence_ids": [],
+    "requirement": "Required",
+    "retrieved_at": 1792841123,
+    "scenario_id": null,
+    "source": "derived",
+    "state": "Present",
+    "value": {
+      "coverage_complete": true,
+      "policy_breaches": 0,
+      "resolved_defaults": 0,
+      "weighted_repayments_ppm": 266666
+    }
+  },
+  "market": {
+    "content_hash": "4355e17a165f520bd154c6d454c4dcf726bdf2c13ff357497ca7dc1ce9d20f37",
+    "coverage": "Complete",
+    "evidence_id": "mkt",
+    "observed_at": 1792841123,
+    "origin": "Synthetic",
+    "parent_evidence_ids": [],
+    "requirement": "Required",
+    "retrieved_at": 1792841123,
+    "scenario_id": null,
+    "source": "declared",
+    "state": "Present",
+    "value": {
+      "liquidity_depth": "2000000000000",
+      "observed_at": 1792841123,
+      "realized_volatility_bps": 2000,
+      "volatility_window_seconds": 3600
+    }
+  },
+  "model_policy": {
+    "model_hash": "eb1f28871b21718a9db5a3e65fcdca22fc1680e9f369d8adb25869966461a1a3",
+    "model_id": "m1",
+    "policy_hash": "28431e5ee431e374f46aa904b2799b7da50ee68fff1753d04f61cc3127059090",
+    "policy_id": "p1"
+  },
+  "portfolio": {
+    "content_hash": "648fe3fa210d3ca669b5b4629a8af2544120682d0c5c61bf2dc2bb2bb127a16d",
+    "coverage": "Complete",
+    "evidence_id": "pf",
+    "observed_at": 1792841123,
+    "origin": "Observed",
+    "parent_evidence_ids": [],
+    "requirement": "Required",
+    "retrieved_at": 1792841123,
+    "scenario_id": null,
+    "source": "derived",
+    "state": "Present",
+    "value": {
+      "available_cash": "46000000000",
+      "remaining_strategy_budget": "96000000000",
+      "remaining_vault_budget": "96000000000",
+      "strategy_id": "spot-v1"
+    }
+  },
+  "proposal": {
+    "sequence": 3,
+    "valid_after": 1792841123,
+    "valid_until": 1792844723
+  },
+  "requested_class": "PrototypeEligible",
+  "scenario_id": "demo-4b",
+  "schema_version": "v1"
+}

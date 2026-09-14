@@ -1077,6 +1077,82 @@ fn sequential_loans_compound_credit() {
     );
 }
 
+/// The demo's loan 3 binds on `StressCapacity`, and `docs/11` says so.
+///
+/// `sequential_loans_compound_credit` deliberately stopped asserting a
+/// specific replacement cap, because its fixture carries ten resolved
+/// forecasts and the demo carries few enough that stress binds instead --
+/// pinning one cap there made the test and the documented demo contradict
+/// each other.
+///
+/// That left the documented claim unpinned: `docs/11` reports
+/// `binding=StressCapacity` for loan 3 and nothing failed if it changed.
+/// This test closes that gap from the other side -- same shipped policy,
+/// same history progression, but the demo's THIN forecast evidence -- so
+/// the reported constraint is a test failure when it moves rather than a
+/// number that quietly goes stale.
+///
+/// Reported by review, 14 September.
+#[test]
+fn demo_third_loan_binds_on_stress_capacity() {
+    let p = shipped_policy();
+    let declared = hash_of(&p);
+
+    // The demo's ACTUAL loan-3 snapshot, replayed rather than rebuilt.
+    //
+    // Transcribing it field by field got the wrong binding constraint
+    // three times: the divergence was not history or forecasts but the
+    // market and the intended action -- 2000bps realized volatility, a
+    // 2000bps haircut, 2e12 depth -- which is exactly what stress reads.
+    // A fixture that approximates the demo cannot pin the demo's claim.
+    //
+    // Regenerate with:
+    //   LOANS=3 scripts/demo-repay.sh
+    //   sqlite3 /tmp/credence-repay/scenario.db \
+    //     'select payload from snapshots order by created_at desc limit 1'
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .ancestors()
+        .nth(3)
+        .expect("repo root")
+        .join("fixtures/demo/repay-loan3-origination.json");
+    let raw = std::fs::read_to_string(&path)
+        .unwrap_or_else(|e| panic!("read {}: {e}", path.display()));
+    let i: RiskInput = serde_json::from_str(&raw)
+        .unwrap_or_else(|e| panic!("parse {}: {e}", path.display()));
+
+    // The snapshot carries the policy hash it was assessed under, and the
+    // engine refuses an executable result when the declared label is not
+    // the hash of the policy supplied. If this assertion fails, the
+    // shipped policy was recalibrated and the fixture needs regenerating
+    // -- which is the point: the demo and this test move together.
+    assert_eq!(
+        i.model_policy.policy_hash, declared,
+        "fixture was captured under a different policy; regenerate it"
+    );
+
+    match evaluate(&i, &p).outcome {
+        Outcome::ApprovedOrigination {
+            terms, capacity, ..
+        } => {
+            // The three figures `docs/11` prints for loan 3. Pinned
+            // together: a capacity that drifts while the constraint name
+            // stays put is the same stale-number problem one field over.
+            assert_eq!(
+                capacity.agent_binding,
+                BindingConstraint::StressCapacity,
+                "docs/11 reports StressCapacity for the demo's loan 3"
+            );
+            assert_eq!(terms.apr_bps, Bps(1_094), "docs/11 reports apr=1094bps");
+            assert_eq!(
+                capacity.agent_capacity,
+                Amount(8_117_138_556),
+                "docs/11 reports capacity=8117138556"
+            );
+        }
+        other => panic!("expected approval, got {other:?}"),
+    }
+}
+
 /// A revocation must be deliverable.
 ///
 /// Bounding a blocked result by its evidence deadline can produce a window
