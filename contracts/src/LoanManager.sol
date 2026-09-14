@@ -200,15 +200,30 @@ contract LoanManager {
     }
 
     /// @notice Declare an adapter entry point as risk-reducing.
+    ///
     /// @dev Operator-gated for the same reason the adapter allowlist is:
     /// mislabelling a risk-INCREASING call as de-risking would exempt it
     /// from permission entirely.
+    ///
+    /// And refused while the account owes, on the same asymmetry
+    /// `setAccountAdapter` uses (`docs/05` invariant 11). Granting an
+    /// exemption mid-loan is the sharper version of adding a route: an
+    /// adapter added while debt is live still needs standing permission
+    /// to act, whereas a selector relabelled as de-risking needs none at
+    /// all. Withdrawing a label stays open, because taking an exemption
+    /// away only ever narrows what the account can do.
+    ///
+    /// Reported by review, 14 September.
     function setAccountDeRiskingAction(
         CreditAccount account,
         address adapter,
         bytes4 selector,
         bool isDeRisking
     ) external onlyOperator {
+        require(
+            !isDeRisking || activeLoan[address(account)] == 0,
+            AccountHasActiveLoan()
+        );
         account.setDeRiskingAction(adapter, selector, isDeRisking);
     }
 

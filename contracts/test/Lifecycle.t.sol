@@ -495,6 +495,44 @@ contract LifecycleTest is Test {
         manager.originate(b, 1_000e6);
     }
 
+    /// A de-risking exemption may not be granted while the account owes.
+    ///
+    /// Sharper than adding an adapter: a route added mid-loan still needs
+    /// standing permission to act, while a selector relabelled as
+    /// de-risking needs none at all. An operator could otherwise exempt a
+    /// risk-INCREASING call from the permission gate on a live loan --
+    /// which is the hazard the function's own comment names.
+    ///
+    /// `docs/05` invariant 11. Reported by review, 14 September.
+    function test_DeRiskingLabelRefusedWhileAccountOwes() public {
+        uint256 loanId = _originate(account, 5_000e6, 1_200, 10 days);
+        assertEq(manager.activeLoan(address(account)), loanId, "the loan is live");
+
+        vm.prank(OPERATOR);
+        vm.expectRevert(LoanManager.AccountHasActiveLoan.selector);
+        manager.setAccountDeRiskingAction(
+            account, address(noop), NoopAdapter.act.selector, true);
+    }
+
+    /// Withdrawing one stays open. Taking an exemption away only ever
+    /// narrows what the account can do, so it is safe under a live loan --
+    /// the same asymmetry revocation has for adapters.
+    function test_DeRiskingLabelCanAlwaysBeWithdrawn() public {
+        vm.prank(OPERATOR);
+        manager.setAccountDeRiskingAction(
+            account, address(noop), NoopAdapter.act.selector, true);
+
+        _originate(account, 5_000e6, 1_200, 10 days);
+
+        vm.prank(OPERATOR);
+        manager.setAccountDeRiskingAction(
+            account, address(noop), NoopAdapter.act.selector, false);
+        assertFalse(
+            account.deRiskingAction(address(noop), NoopAdapter.act.selector),
+            "revocation is always permitted"
+        );
+    }
+
     /// The binding must describe the account as it stands. If the account
     /// executed after assessment, the assessed portfolio no longer exists.
     function test_staleAccountStateRejected() public {

@@ -593,6 +593,37 @@ contract RiskOracleTest is Test {
     /// key. Sequence monotonicity already stops a replay, but the check
     /// every route's authority rests on should not accept a signature its
     /// signer never produced. Reported by review, 14 September.
+    /// The loan manager is wired once.
+    ///
+    /// This pointer decides which contract may open debt, consume quotes,
+    /// and drive recovery. An operator able to re-point it mid-epoch could
+    /// redirect all three to a contract lenders never agreed to, with
+    /// existing obligations still outstanding against the old one.
+    /// Reported by review, 14 September.
+    function test_LoanManagerIsWiredOnce() public {
+        RiskOracle fresh = new RiskOracle(OPERATOR, DEPLOYMENT, Class.PrototypeEligible);
+
+        vm.prank(OPERATOR);
+        fresh.setLoanManager(CONSUMER);
+        assertEq(fresh.loanManager(), CONSUMER, "wired");
+
+        vm.prank(OPERATOR);
+        vm.expectRevert(RiskOracle.LoanManagerAlreadySet.selector);
+        fresh.setLoanManager(address(0xBAD));
+
+        assertEq(fresh.loanManager(), CONSUMER, "and unchanged");
+    }
+
+    /// Wiring it to nothing would leave the system unusable and then
+    /// permanently unwireable, since the one-shot check reads a zero as
+    /// "not yet set".
+    function test_LoanManagerCannotBeWiredToZero() public {
+        RiskOracle fresh = new RiskOracle(OPERATOR, DEPLOYMENT, Class.PrototypeEligible);
+        vm.prank(OPERATOR);
+        vm.expectRevert(RiskOracle.LoanManagerRequired.selector);
+        fresh.setLoanManager(address(0));
+    }
+
     function test_MalleableSignatureIsRejected() public {
         Assessment memory a = _origination(1, Decision.Approved);
         bytes memory sig = _sign(a, devKey);

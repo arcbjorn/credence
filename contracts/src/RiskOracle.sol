@@ -92,6 +92,11 @@ contract RiskOracle {
     mapping(uint256 facilityId => uint256) public liveLoans;
 
     error NotOperator();
+    /// @dev The loan manager is wired once; re-pointing it mid-epoch would
+    /// redirect origination and recovery away from the contract lenders'
+    /// obligations were written against.
+    error LoanManagerAlreadySet();
+    error LoanManagerRequired();
     error RouteNotPinned(uint256 facilityId);
     error WrongRoute(Route pinned, Route presented);
     error UnauthorizedSigner(address signer);
@@ -138,7 +143,23 @@ contract RiskOracle {
         );
     }
 
+    /// @notice Wire the loan manager. Callable once.
+    ///
+    /// @dev One-shot, not merely operator-gated. This pointer decides which
+    /// contract may open debt, consume quotes, and drive recovery, so an
+    /// operator able to re-point it mid-epoch could redirect every one of
+    /// those to a contract lenders never agreed to -- with existing
+    /// obligations still outstanding against the old one.
+    ///
+    /// A deployment wires itself once and the address becomes immutable in
+    /// practice. `docs/05` calls the system non-upgradeable: a changed
+    /// implementation gets a new deployment manifest and a new assessment
+    /// domain, which is exactly what this enforces rather than assumes.
+    ///
+    /// Reported by review, 14 September.
     function setLoanManager(address loanManager_) external onlyOperator {
+        require(loanManager == address(0), LoanManagerAlreadySet());
+        require(loanManager_ != address(0), LoanManagerRequired());
         loanManager = loanManager_;
     }
 
