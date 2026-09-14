@@ -517,6 +517,18 @@ contract RiskOracle {
 
     function riskAllowed(Binding calldata b) external view returns (bool) {
         bytes32 key = bindingKey(b);
+        // The binding COMMITMENT too, as `riskAllowedFor` checks.
+        //
+        // Two views answering the same question with different rigor is an
+        // invitation to call the weaker one. Permission is granted against
+        // a specific configuration, so a caller presenting a rewritten
+        // binding -- different operator, policy, or config version -- is
+        // asking about something the attestor never assessed. The
+        // standing-quote key covers only the stable identity, which is
+        // exactly why the commitment exists.
+        //
+        // Reported by review, 14 September.
+        if (permissionBinding[key] != bindingConfigHash(b)) return false;
         if (riskPermission[key] != Permission.Allowed) return false;
         if (block.timestamp >= permissionValidUntil[key]) return false;
         if (permissionStateVersion[key] != b.accountStateVersion) return false;

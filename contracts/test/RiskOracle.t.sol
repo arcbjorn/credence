@@ -600,6 +600,45 @@ contract RiskOracleTest is Test {
     /// redirect all three to a contract lenders never agreed to, with
     /// existing obligations still outstanding against the old one.
     /// Reported by review, 14 September.
+    /// A rewritten binding must not read as permitted.
+    ///
+    /// Permission is granted against a specific configuration. The
+    /// standing-quote key covers only the stable identity — registry,
+    /// agent, account, facility — so a caller presenting a different
+    /// operator, policy epoch, or config version is asking about something
+    /// the attestor never assessed.
+    ///
+    /// `riskAllowedFor` always checked this; `riskAllowed` did not, and two
+    /// views answering the same question with different rigor is an
+    /// invitation to call the weaker one. Reported by review, 14 September.
+    function test_RiskAllowedChecksTheBindingCommitment() public {
+        vm.prank(OPERATOR);
+        oracle.pinRoute(FACILITY, Route.Development);
+
+        Assessment memory a = _monitoring(1, Permission.Allowed);
+        oracle.accept(a, _sign(a, devKey));
+        assertTrue(oracle.riskAllowed(a.binding), "permitted as assessed");
+
+        // Same stable identity, rewritten configuration.
+        Binding memory rewritten = a.binding;
+        rewritten.configVersion = a.binding.configVersion + 1;
+        assertEq(
+            oracle.bindingKey(rewritten), oracle.bindingKey(a.binding),
+            "the key is unchanged -- which is why the commitment matters"
+        );
+        assertFalse(
+            oracle.riskAllowed(rewritten),
+            "a configuration nobody assessed must not read as permitted"
+        );
+
+        Binding memory reoperated = a.binding;
+        reoperated.operator = address(0xBAD);
+        assertFalse(
+            oracle.riskAllowed(reoperated),
+            "nor a rewritten operator"
+        );
+    }
+
     function test_LoanManagerIsWiredOnce() public {
         RiskOracle fresh = new RiskOracle(OPERATOR, DEPLOYMENT, Class.PrototypeEligible);
 
