@@ -656,11 +656,18 @@ fn portfolio_risk(
         // Checked, like every other scale computation. `10^price_scale`
         // overflows u128 above 38, and the service has no panic boundary
         // around evaluation -- a snapshot with an absurd scale must
-        // produce a refusal, not a crash. Skipping the position rather
-        // than defaulting its scale keeps it out of the risky total
-        // instead of mismarking it. Reported by review, 14 September.
+        // produce a refusal, not a crash.
+        //
+        // An unmarkable position is treated as ENTIRELY risky rather than
+        // skipped. Skipping was the first fix, and it failed in the
+        // direction that costs the lender: the position left `risky` but
+        // the settlement balance stayed in `total`, so the ratio FELL and
+        // the rate got cheaper. A portfolio nobody can mark is not a safe
+        // one, and a malformed scale must never be the cheapest input.
+        //
+        // Reported by review, 14 September; corrected the same day.
         let Some(scale) = 10u128.checked_pow(p.price_scale) else {
-            continue;
+            return 1_000_000;
         };
         risky = risky.saturating_add(p.amount.0.saturating_mul(p.price.0) / scale);
     }
@@ -806,11 +813,19 @@ mod portfolio_risk_tests {
     use crate::input::{AccountState, MarketState, Position};
     use crate::units::{Amount, Bps};
 
-    /// An absurd price scale must not panic.
+    /// An absurd price scale must not panic, and must not be cheap.
     ///
     /// `10^price_scale` overflows u128 above 38, and `docs/04` forbids a
     /// panic path here: the service has no boundary around evaluation, so
     /// a crash takes the process down rather than producing a refusal.
+    ///
+    /// **This test asserted the wrong thing until 14 September.** It
+    /// checked that the position was skipped and the risk came back 0 --
+    /// which is the LOWEST possible portfolio risk and therefore the
+    /// cheapest APR. Skipping removed the position from `risky` while its
+    /// settlement balance stayed in `total`, so an unmarkable holding
+    /// actively discounted the rate. The test passed and the behavior was
+    /// backwards.
     ///
     /// Tested at this function rather than through `evaluate`, because a
     /// position that large is denied on capacity long before pricing runs
@@ -818,7 +833,7 @@ mod portfolio_risk_tests {
     ///
     /// Reported by review, 14 September.
     #[test]
-    fn absurd_price_scale_is_skipped_not_panicked() {
+    fn absurd_price_scale_is_maximally_risky_not_panicked() {
         let account = AccountState {
             settlement_balance: Amount(1_000_000),
             positions: vec![Position {
@@ -841,8 +856,50 @@ mod portfolio_risk_tests {
             liquidity_depth: Amount(1),
         };
 
-        // The assertion is that this returns. A position whose scale
-        // cannot be computed contributes nothing rather than mismarking.
-        assert_eq!(portfolio_risk(&account, &market), 0);
+        // It returns rather than panicking, AND it returns the most
+        // conservative answer available. A portfolio that cannot be
+        // marked must price as fully risky.
+        assert_eq!(portfolio_risk(&account, &market), 1_000_000);
+    }
+
+    /// The direction of the error is the point.
+    ///
+    /// An account holding an unmarkable position must never price more
+    /// cheaply than the same account holding nothing at all. That is the
+    /// comparison the skip-based version failed.
+    #[test]
+    fn unmarkable_position_never_prices_below_an_empty_account() {
+        let market = MarketState {
+            observed_at: 0,
+            realized_volatility_bps: Bps(0),
+            volatility_window_seconds: 0,
+            liquidity_depth: Amount(1),
+        };
+        let base = |positions: Vec<Position>| AccountState {
+            settlement_balance: Amount(1_000_000),
+            positions,
+            state_version: 0,
+            outstanding_debt: Amount::ZERO,
+            facility_limit: Amount(100_000_000),
+            restricted: false,
+        };
+
+        let empty = portfolio_risk(&base(vec![]), &market);
+        let unmarkable = portfolio_risk(
+            &base(vec![Position {
+                asset: "ETH".into(),
+                amount: Amount(1_000_000),
+                price: Amount(2_000_000_000),
+                price_scale: 255,
+                haircut_bps: Bps(500),
+            }]),
+            &market,
+        );
+
+        assert!(
+            unmarkable >= empty,
+            "an unmarkable position priced below an empty account: \
+             {unmarkable} < {empty}"
+        );
     }
 }
