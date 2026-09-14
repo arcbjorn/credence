@@ -284,25 +284,36 @@ func (s *Server) Assess(ctx context.Context, req Request) (*Response, int, error
 }
 
 // requireMonitoringContext refuses a snapshot that is not about an open
-// loan. Mirrors the monitor loop's guard, because this path reaches the
-// same engine with the same consequences.
+// loan.
+//
+// The same shape the monitor loop enforces, deliberately: this path
+// reaches the same engine with the same consequences, and a second
+// spelling of the rule would be a second place for it to drift.
+//
+// Three separate things are checked, and the third is the one that
+// matters most: a context that carried a borrower REQUEST would be an
+// origination wearing a monitoring label, which is how a health check
+// becomes a draw.
 func requireMonitoringContext(raw json.RawMessage) error {
 	if len(raw) == 0 {
 		return errors.New("snapshot carries no context")
 	}
-	var ctx struct {
-		Monitoring *struct {
-			LoanID string `json:"loan_id"`
-		} `json:"Monitoring"`
+	var probe struct {
+		Kind    string          `json:"kind"`
+		Loan    json.RawMessage `json:"loan"`
+		Request json.RawMessage `json:"request"`
 	}
-	if err := json.Unmarshal(raw, &ctx); err != nil {
-		return fmt.Errorf("decode context: %w", err)
+	if err := json.Unmarshal(raw, &probe); err != nil {
+		return errors.New("undecodable context")
 	}
-	if ctx.Monitoring == nil {
-		return errors.New("snapshot is not a monitoring context")
+	if probe.Kind != "Monitoring" {
+		return fmt.Errorf("context kind %q is not Monitoring", probe.Kind)
 	}
-	if ctx.Monitoring.LoanID == "" {
-		return errors.New("monitoring context names no loan")
+	if len(probe.Loan) == 0 {
+		return errors.New("monitoring context names no active loan")
+	}
+	if len(probe.Request) != 0 {
+		return errors.New("monitoring context carries a borrower request")
 	}
 	return nil
 }

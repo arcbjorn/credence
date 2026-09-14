@@ -88,11 +88,13 @@ type Config struct {
 }
 
 // LoanRef names one open obligation to reassess.
+//
+// Just an id. Everything else about the loan -- which agent, which
+// account, which policy -- is the assessment endpoint's to resolve and the
+// receiver's to hold. A workflow that carried those fields could name a
+// real loan while describing a different one.
 type LoanRef struct {
-	LoanID     uint64 `json:"loanId"`
-	FacilityID uint64 `json:"facilityId"`
-	AgentID    uint64 `json:"agentId"`
-	Account    string `json:"creditAccount"`
+	LoanID uint64 `json:"loanId"`
 }
 
 // ExecutionResult is what the run reports back.
@@ -348,12 +350,12 @@ func assessLoan(
 	runtime cre.Runtime,
 	loan LoanRef,
 ) (*assessmentResponse, error) {
+	// Only the loan id. The binding, the policy and the evidence all come
+	// from the deployment's own configuration, so this workflow cannot
+	// steer an assessment onto an account it does not underwrite -- and
+	// the endpoint refuses any other field rather than ignoring it.
 	body, err := json.Marshal(map[string]any{
-		"kind":           "Monitoring",
-		"loan_id":        loan.LoanID,
-		"facility_id":    loan.FacilityID,
-		"agent_id":       loan.AgentID,
-		"credit_account": loan.Account,
+		"loan_id": loan.LoanID,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("encode request: %w", err)

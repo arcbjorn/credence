@@ -106,7 +106,7 @@ func monitoringInput() snapshot.Input {
 			ValidAfter: now - 1,
 			ValidUntil: now + 3600,
 		},
-		Context:   json.RawMessage(`{"Monitoring":{"loan_id":"1"}}`),
+		Context:   json.RawMessage(`{"kind":"Monitoring","loan":{"loan_id":"1"}}`),
 		Account:   ev("account"),
 		Market:    ev("market"),
 		History:   ev("history"),
@@ -287,7 +287,7 @@ func TestDecisionIsRetainedBeforeReturning(t *testing.T) {
 // into a draw, so the snapshot is checked before it reaches the engine.
 func TestOriginationContextIsRefused(t *testing.T) {
 	in := snapshot.Input{}
-	in.Context = json.RawMessage(`{"Origination":{"request_id":"r1"}}`)
+	in.Context = json.RawMessage(`{"kind":"Origination","request":{"request_id":"r1"}}`)
 
 	s, d := newServer(t, func(d *deps) {
 		d.evidence = stubEvidence{input: in}
@@ -448,5 +448,25 @@ func TestUnknownEnvelopeValuesAreRefused(t *testing.T) {
 	if _, _, err := s2.Assess(
 		context.Background(), Request{LoanID: monitoredLoan}); err == nil {
 		t.Fatal("an unrecognised class must be refused")
+	}
+}
+
+// A context labelled Monitoring that still carries a borrower request is
+// an origination wearing the wrong label -- the case where a health check
+// would become a draw.
+func TestMonitoringContextCarryingARequestIsRefused(t *testing.T) {
+	in := monitoringInput()
+	in.Context = json.RawMessage(
+		`{"kind":"Monitoring","loan":{"loan_id":"1"},"request":{"principal":"1"}}`)
+
+	s, d := newServer(t, func(d *deps) {
+		d.evidence = stubEvidence{input: in}
+	})
+	if _, _, err := s.Assess(
+		context.Background(), Request{LoanID: monitoredLoan}); err == nil {
+		t.Fatal("a monitoring context carrying a request must be refused")
+	}
+	if e, ok := d.engine.(*stubEngine); ok && e.got != nil {
+		t.Fatal("the engine was called with a request-bearing context")
 	}
 }

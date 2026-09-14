@@ -5,10 +5,7 @@
   "receiverAddress": "0x0000000000000000000000000000000000000000",
   "loans": [
     {
-      "loanId": 1,
-      "facilityId": 1,
-      "agentId": 1830,
-      "creditAccount": "0x0000000000000000000000000000000000000000"
+      "loanId": 1
     }
   ],
   "gasLimit": 1000000,
