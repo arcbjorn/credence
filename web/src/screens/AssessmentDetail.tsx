@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { loadRun, units, bps, type Assessment, type Run } from "../lib/data";
 import { classMode } from "../lib/modes";
+import { reasonText } from "../lib/reasons";
 import { ModeChip } from "../components/ModeChip";
 import { Hash } from "../components/Hash";
 
@@ -71,7 +72,7 @@ export function AssessmentDetail() {
               <tr><th>Outcome</th><td>{outcome.decision}</td></tr>
               <tr><th>Requested</th><td className="num">{units(outcome.requested_principal)}</td></tr>
               <tr><th>Approved</th><td className="num">{units(outcome.approved_principal)}</td></tr>
-              <tr><th>Reasons</th><td>{a.payload.reasons.join(", ") || "-"}</td></tr>
+              <tr><th>Reasons</th><td>{a.payload.reasons.map(reasonText).join(", ") || "-"}</td></tr>
             </tbody>
           </table>
         </div>

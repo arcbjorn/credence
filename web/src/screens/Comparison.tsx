@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { loadComparison, units, bps, type Comparison } from "../lib/data";
 import { classMode } from "../lib/modes";
+import { reasonFields, reasonName } from "../lib/reasons";
 import { ModeChip } from "../components/ModeChip";
 import { Hash } from "../components/Hash";
 
@@ -79,9 +80,19 @@ export function Comparison_() {
                 </tbody>
               </table>
               {!approved && (
-                <p className="difference" style={{ marginTop: 10 }}>
-                  {p.assessment.reasons.join(", ") || "Denied"}
-                </p>
+                <div className="difference" style={{ marginTop: 10 }}>
+                  {p.assessment.reasons.length === 0 && "Denied"}
+                  {p.assessment.reasons.map((r, i) => (
+                    <div key={i}>
+                      <div>{reasonName(r)}</div>
+                      {reasonFields(r).map((f) => (
+                        <div key={f.label} className="reason-field">
+                          {f.label} <strong>{f.value}</strong>
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
           );

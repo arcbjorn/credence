@@ -33,7 +33,12 @@ export interface AssessmentPayload {
   policy_hash: string;
   schema_version: string;
   sequence: number;
-  reasons: string[];
+  /**
+   * Engine reasons: a unit variant is a string, a variant carrying data
+   * is a single-key object. Typed as `string[]` until 15 September, which
+   * rendered every structured reason as `[object Object]`.
+   */
+  reasons: Reason[];
   omitted_evidence: string[];
   synthetic_used?: boolean;
   outcome: Outcome;
@@ -106,6 +111,8 @@ export interface ForecastOutcome {
   resolved_at: number;
   brier_ppm: number;
 }
+
+import type { Reason } from "./reasons";
 
 /** One evidence item as the engine received it (`docs/04`). */
 export interface Evidence {
