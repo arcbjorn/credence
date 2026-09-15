@@ -7,6 +7,9 @@
 
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
+use std::time::Duration;
 
 use crate::handler::{handle, Request, Response, MAX_BODY_BYTES};
 
@@ -14,17 +17,67 @@ use crate::handler::{handle, Request, Response, MAX_BODY_BYTES};
 /// forever and exhaust memory before the body limit applies.
 const MAX_HEADER_BYTES: usize = 16 * 1024;
 
+/// How long a connection may take to send its request, and to accept its
+/// response.
+///
+/// Without these, a peer that opens a socket and sends nothing holds the
+/// worker forever. Generous, because the engine answers in milliseconds
+/// and a slow LAN is not an attack.
+const IO_TIMEOUT: Duration = Duration::from_secs(15);
+
+/// Connections served at once.
+///
+/// Bounded rather than unbounded: the engine is pure and CPU-bound, so
+/// more threads than this buy nothing and a connection flood must not be
+/// able to spawn without limit. A connection beyond the bound is answered
+/// 503 and closed, which is a true statement about capacity rather than a
+/// silent queue.
+const MAX_CONNECTIONS: usize = 32;
+
 pub fn serve(addr: &str) -> std::io::Result<()> {
     let listener = TcpListener::bind(addr)?;
     eprintln!("risk-service listening on {addr}");
+
+    // Bounded concurrency, and every connection on a deadline.
+    //
+    // This loop used to serve ONE connection at a time with no timeouts,
+    // on the reasoning that the engine is pure and the demo is
+    // single-client. Both halves were wrong by 15 September: a peer that
+    // connects and sends nothing blocked every other request until it
+    // disconnected -- verified by opening one idle socket and watching
+    // `/health` hang -- and the service now answers `credence-assessd`,
+    // which N CRE nodes query independently.
+    //
+    // Reported by review, 15 September.
+    let live = Arc::new(AtomicUsize::new(0));
+
     for stream in listener.incoming() {
         match stream {
-            // One connection at a time is sufficient: the engine is a pure
-            // function with no shared state, and the demo is single-client.
-            // Concurrency would add failure modes without adding capability.
             Ok(s) => {
-                if let Err(e) = handle_connection(s) {
-                    eprintln!("connection error: {e}");
+                let in_flight = live.fetch_add(1, Ordering::SeqCst) + 1;
+                if in_flight > MAX_CONNECTIONS {
+                    live.fetch_sub(1, Ordering::SeqCst);
+                    // Say so rather than queueing silently. A caller that
+                    // cannot be served must not mistake a stalled socket
+                    // for a slow assessment.
+                    let _ = refuse_overloaded(s);
+                    continue;
+                }
+                let counter = Arc::clone(&live);
+                let spawned =
+                    std::thread::Builder::new()
+                        .name("risk-conn".into())
+                        .spawn(move || {
+                            if let Err(e) = handle_connection(s) {
+                                eprintln!("connection error: {e}");
+                            }
+                            counter.fetch_sub(1, Ordering::SeqCst);
+                        });
+                if let Err(e) = spawned {
+                    // A thread that cannot start is not a request that can
+                    // be served; the count must not leak either way.
+                    live.fetch_sub(1, Ordering::SeqCst);
+                    eprintln!("spawn error: {e}");
                 }
             }
             Err(e) => eprintln!("accept error: {e}"),
@@ -33,7 +86,23 @@ pub fn serve(addr: &str) -> std::io::Result<()> {
     Ok(())
 }
 
+/// Answer 503 and close, for a connection beyond the concurrency bound.
+fn refuse_overloaded(mut stream: TcpStream) -> std::io::Result<()> {
+    let _ = stream.set_write_timeout(Some(IO_TIMEOUT));
+    write_response(
+        &mut stream,
+        &Response {
+            status: 503,
+            body: r#"{"detail":"too many connections","error":"overloaded"}"#.into(),
+        },
+    )
+}
+
 fn handle_connection(mut stream: TcpStream) -> std::io::Result<()> {
+    // A peer that stalls mid-request releases the worker on its own.
+    stream.set_read_timeout(Some(IO_TIMEOUT))?;
+    stream.set_write_timeout(Some(IO_TIMEOUT))?;
+
     let response = match read_request(&mut stream) {
         Ok(req) => handle(&req),
         Err(RequestError::TooLarge) => Response {
