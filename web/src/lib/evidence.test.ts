@@ -1,5 +1,6 @@
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
+import { fixtureMissing } from "./fixtures";
 import { describe, expect, it } from "vitest";
 import type { Run } from "./data";
 import { evidenceMode } from "./modes";
@@ -17,7 +18,7 @@ const ROOT = resolve(process.cwd(), "..");
 const MONITOR = `${ROOT}/web/public/data/monitor.json`;
 const ITEMS = ["account", "market", "history", "forecasts", "portfolio"] as const;
 
-describe.skipIf(!existsSync(MONITOR))("the evidence a decision rested on", () => {
+describe.skipIf(fixtureMissing(MONITOR))("the evidence a decision rested on", () => {
   const run = (): Run => JSON.parse(readFileSync(MONITOR, "utf8"));
   const snapshots = () => Object.values(run().snapshots);
 

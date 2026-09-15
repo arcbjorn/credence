@@ -1,5 +1,6 @@
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
+import { fixtureMissing } from "./fixtures";
 import { describe, expect, it } from "vitest";
 import type { Comparison } from "./data";
 
@@ -18,7 +19,7 @@ import type { Comparison } from "./data";
 const ROOT = resolve(process.cwd(), "..");
 const FILE = `${ROOT}/web/public/data/comparison.json`;
 
-describe.skipIf(!existsSync(FILE))("the three-agent comparison", () => {
+describe.skipIf(fixtureMissing(FILE))("the three-agent comparison", () => {
   const cmp = (): Comparison => JSON.parse(readFileSync(FILE, "utf8"));
 
   it("carries three profiles under one policy and one model", () => {

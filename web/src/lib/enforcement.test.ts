@@ -1,5 +1,6 @@
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
+import { fixtureMissing } from "./fixtures";
 import { describe, expect, it } from "vitest";
 import type { Check } from "./data";
 
@@ -18,7 +19,7 @@ import type { Check } from "./data";
 const ROOT = resolve(process.cwd(), "..");
 const REPAY = `${ROOT}/web/public/data/repay.json`;
 
-describe.skipIf(!existsSync(REPAY))("beat 6, as recorded on chain", () => {
+describe.skipIf(fixtureMissing(REPAY))("beat 6, as recorded on chain", () => {
   const checks = (): Check[] =>
     JSON.parse(readFileSync(REPAY, "utf8")).checks ?? [];
 
@@ -60,7 +61,7 @@ describe.skipIf(!existsSync(REPAY))("beat 6, as recorded on chain", () => {
  * settled cash and overstate what a lender could actually take, which is
  * the one direction an accounting error must never go.
  */
-describe.skipIf(!existsSync(REPAY))("the lender ledgers", () => {
+describe.skipIf(fixtureMissing(REPAY))("the lender ledgers", () => {
   const checks = (): Check[] =>
     JSON.parse(readFileSync(REPAY, "utf8")).checks ?? [];
 

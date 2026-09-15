@@ -178,15 +178,51 @@ jobs:
       - name: build the engine
         run: bash scripts/build-wasm.sh
 
+      # Generate the data bundle, so the data-dependent suites RUN.
+      #
+      # Without it, 19 of 38 web tests `skipIf` themselves away and CI
+      # reports green while testing half the interface -- including every
+      # assertion about the comparison screen and the replay pair. The
+      # demos need a chain and the Go toolchain, so this installs both;
+      # `build-web-data.sh` then bundles whatever they retained.
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: gateway/go.mod
+          cache-dependency-path: gateway/go.sum
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
+      - name: fetch pinned dependencies
+        run: |
+          git clone --quiet --depth 1 --branch v1.16.2 \
+            https://github.com/foundry-rs/forge-std contracts/lib/forge-std
+          mkdir -p contracts/deployments
+      - name: run the demos
+        run: |
+          anvil --port 8546 --silent &
+          for _ in $(seq 40); do
+            cast chain-id --rpc-url http://127.0.0.1:8546 >/dev/null 2>&1 && break
+            sleep 0.5
+          done
+          bash scripts/setup.sh
+          LOANS=3 bash scripts/demo-repay.sh
+          bash scripts/demo-monitor.sh
+      - name: bundle the evidence
+        run: bash scripts/build-web-data.sh
+
       - name: install
         run: pnpm install --frozen-lockfile
         working-directory: web
       - name: typecheck
         run: pnpm exec tsc -b --noEmit
         working-directory: web
+      # Required, not optional: a missing bundle fails here rather than
+      # skipping 19 of 38 tests and reporting green.
       - name: test
         run: pnpm test
         working-directory: web
+        env:
+          CREDENCE_REQUIRE_FIXTURES: '1'
       - name: build
         run: pnpm build
         working-directory: web

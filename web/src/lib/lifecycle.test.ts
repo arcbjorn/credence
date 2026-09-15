@@ -1,5 +1,6 @@
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
+import { fixtureMissing } from "./fixtures";
 import { describe, expect, it } from "vitest";
 import type { Run } from "./data";
 
@@ -20,7 +21,7 @@ import type { Run } from "./data";
 const ROOT = resolve(process.cwd(), "..");
 const REPAY = `${ROOT}/web/public/data/repay.json`;
 
-describe.skipIf(!existsSync(REPAY))("the lifecycle bundle", () => {
+describe.skipIf(fixtureMissing(REPAY))("the lifecycle bundle", () => {
   const run = (): Run => JSON.parse(readFileSync(REPAY, "utf8"));
 
   it("retains a forecast for every loan", () => {

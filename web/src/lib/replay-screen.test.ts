@@ -1,5 +1,6 @@
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
+import { fixtureMissing } from "./fixtures";
 import { describe, expect, it } from "vitest";
 import init, { replay } from "../engine/risk_wasm.js";
 
@@ -27,10 +28,11 @@ import init, { replay } from "../engine/risk_wasm.js";
 const ROOT = resolve(process.cwd(), "..");
 const DATA = `${ROOT}/web/public/data`;
 
-const bundleExists =
-  existsSync(`${DATA}/monitor.json`) && existsSync(`${DATA}/monitor-policy.json`);
+const bundleMissing =
+  fixtureMissing(`${DATA}/monitor.json`) ||
+  fixtureMissing(`${DATA}/monitor-policy.json`);
 
-describe.skipIf(!bundleExists)("the pair the Replay screen loads", () => {
+describe.skipIf(bundleMissing)("the pair the Replay screen loads", () => {
   const run = () => JSON.parse(readFileSync(`${DATA}/monitor.json`, "utf8"));
   const policy = () => readFileSync(`${DATA}/monitor-policy.json`, "utf8");
 
