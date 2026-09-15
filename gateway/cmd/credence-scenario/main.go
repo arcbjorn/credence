@@ -478,7 +478,7 @@ func run(
 		// be resolved against what happened. `docs/06` makes the sampling
 		// cadence part of the event definition: a sampled maximum
 		// drawdown does not claim to observe every intermediate price.
-		navPeak, navTrough := navSample(
+		navPeak, navTrough, navSeen := navSample(
 			ctx, reader, rpc, account, settlement, riskyAsset, priceSource, manager)
 
 		if holdSeconds > 0 {
@@ -514,15 +514,22 @@ func run(
 			}
 			// Sample again after the hold: the position has been marked
 			// across the horizon, so the peak and trough now bracket it.
-			if p, t := navSample(
+			// Observability, not magnitude. Testing `p > 0` dropped a
+			// genuinely insolvent sample as though nothing had been seen,
+			// which is the one reading a drawdown forecast most needs.
+			if p, t, seen := navSample(
 				ctx, reader, rpc, account, settlement, riskyAsset,
 				priceSource, manager,
-			); p > 0 {
-				if p > navPeak {
-					navPeak = p
-				}
-				if navTrough == 0 || t < navTrough {
-					navTrough = t
+			); seen {
+				if !navSeen {
+					navPeak, navTrough, navSeen = p, t, true
+				} else {
+					if p > navPeak {
+						navPeak = p
+					}
+					if t < navTrough {
+						navTrough = t
+					}
 				}
 			}
 
@@ -582,15 +589,30 @@ func run(
 				if err != nil {
 					return fmt.Errorf("loan %d: pin block: %w", i, err)
 				}
-				occurred := navPeak > 0 &&
-					navTrough*10_000 < navPeak*(10_000-drawdownThresholdBps)
+				// Three outcomes, not two. A sample that was never
+				// observed resolves as NotObservable and carries no
+				// score; testing `navPeak > 0` recorded it as "did not
+				// occur", which credits the agent for a question nobody
+				// answered -- and did the same to a genuinely insolvent
+				// account whose NAV really was zero.
+				resolution := store.NotObservable
+				occurred := false
+				if navSeen {
+					occurred = navTrough*10_000 <
+						navPeak*(10_000-drawdownThresholdBps)
+					resolution = store.DidNotOccur
+					if occurred {
+						resolution = store.Occurred
+					}
+				}
 				if err := resolveForecast(
-					ctx, enrollDB, chainKey, i, occurred, at.Timestamp,
+					ctx, enrollDB, chainKey, i, resolution, at.Timestamp,
 				); err != nil {
 					return fmt.Errorf("loan %d: resolve forecast: %w", i, err)
 				}
-				log.Printf("loan %d: forecast resolved occurred=%v "+
-					"(peak=%d trough=%d)", i, occurred, navPeak, navTrough)
+				log.Printf("loan %d: forecast resolved %s "+
+					"(peak=%d trough=%d observed=%v)",
+					i, resolution, navPeak, navTrough, navSeen)
 			}
 		} else if enrollDB != "" {
 			// Only the loan left open is enrolled. Continuous
@@ -704,37 +726,40 @@ const drawdownThresholdBps = 500
 // constant. A fixed mark cannot observe the event the forecast is about:
 // the price would never move, so the drawdown could never occur.
 //
-// Returns zero when anything cannot be read. A NAV that could not be
-// observed is not a NAV of zero, and the caller treats a zero peak as
-// "no observation" rather than as a total loss.
+// The third return reports whether the NAV was OBSERVED at all. A value
+// that could not be read is not a value of zero: `docs/06` scores these
+// samples into a forecast, and an unobservable moment must resolve as
+// unobservable rather than as a number. An insolvent account genuinely at
+// zero is reported as `(0, 0, true)`, which the caller must be able to
+// tell apart.
 func navSample(
 	ctx context.Context,
 	reader *chain.Reader,
 	rpc *chain.RPC,
 	account, settlement, riskyAsset, priceSource, manager string,
-) (uint64, uint64) {
+) (uint64, uint64, bool) {
 	at, err := rpc.LatestBlock(ctx)
 	if err != nil {
-		return 0, 0
+		return 0, 0, false
 	}
 	ref := evidence.BlockRef{Number: at.Number, Hash: at.Hash, Timestamp: at.Timestamp}
 
 	cash, err := reader.TokenBalance(ctx, settlement, account, ref)
 	if err != nil {
-		return 0, 0
+		return 0, 0, false
 	}
 	assets := new(big.Int).Set(cash)
 
 	if riskyAsset != "" {
 		risky, err := reader.TokenBalance(ctx, riskyAsset, account, ref)
 		if err != nil {
-			return 0, 0
+			return 0, 0, false
 		}
 		if risky.Sign() > 0 {
 			obs, err := reader.RiskyPriceAt(ctx, priceSource, at.Number)
 			if err != nil {
 				// The mark is unobservable, so the NAV is too.
-				return 0, 0
+				return 0, 0, false
 			}
 			// Risky units at the source's price, expressed in settlement
 			// units: amount * price / 10^decimals.
@@ -745,21 +770,37 @@ func navSample(
 	}
 
 	// Less what the account owes.
+	//
+	// An UNREADABLE debt is not a zero debt. Both reads below used to fall
+	// through to `debt = 0` on error, so a transient RPC failure produced
+	// a plausible positive NAV for a levered account -- and that figure
+	// then resolved a forecast that later underwriting scores. The asset
+	// path above already returns unobservable rather than guessing; this
+	// now matches it. Reported by review, 15 September.
 	debt := big.NewInt(0)
 	if manager != "" {
-		if loanID, err := readActiveLoan(ctx, rpc, manager, account); err == nil && loanID != 0 {
-			if d, err := readDebtDue(ctx, rpc, manager, loanID, at.Number); err == nil {
-				debt = d
+		loanID, err := readActiveLoan(ctx, rpc, manager, account)
+		if err != nil {
+			return 0, 0, false
+		}
+		if loanID != 0 {
+			d, err := readDebtDue(ctx, rpc, manager, loanID, at.Number)
+			if err != nil {
+				return 0, 0, false
 			}
+			debt = d
 		}
 	}
 	nav := new(big.Int).Sub(assets, debt)
 	if nav.Sign() < 0 {
+		// Insolvent. Reported as a real zero NAV, distinct from the
+		// unobservable zero above -- the caller must be able to tell a
+		// wiped-out account from a failed read.
 		nav = big.NewInt(0)
 	}
 
 	v := nav.Uint64()
-	return v, v
+	return v, v, true
 }
 
 // readDebtDue reads what a loan currently owes, principal plus unpaid

@@ -415,11 +415,19 @@ func commitForecast(
 // Called after the loan closes, so the outcome is observed rather than
 // assumed. A run that never resolves leaves the commitment counted as
 // unresolved, which takes the engine's maximum forecast penalty.
+// The resolution is passed in rather than derived from a boolean, because
+// there are THREE outcomes and not two. `docs/06` scores a forecast by
+// what resolved, and an unobservable moment must record as
+// `NotObservable` -- unscored -- rather than collapsing into "did not
+// occur". A boolean could only ever say the latter, which credited the
+// agent for a question nobody answered.
+//
+// Reported by review, 15 September.
 func resolveForecast(
 	ctx context.Context,
 	dbPath, chainKey string,
 	loanIndex int,
-	occurred bool,
+	resolution store.Resolution,
 	resolvedAt uint64,
 ) error {
 	db, err := store.Open(ctx, dbPath)
@@ -428,10 +436,6 @@ func resolveForecast(
 	}
 	defer db.Close()
 
-	resolution := store.DidNotOccur
-	if occurred {
-		resolution = store.Occurred
-	}
 	forecastID := fmt.Sprintf("%s:forecast:%d", chainKey, loanIndex)
 	return store.NewRegistry(db).ResolveForecast(
 		ctx, forecastID+":outcome", forecastID, resolution, int64(resolvedAt), nil)
