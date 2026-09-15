@@ -61,8 +61,12 @@ jobs:
             exit 1
           fi
         working-directory: contracts
+      # `forge lint` can leave the build cache in a state where `forge
+      # test` silently discovers fewer suites -- observed twice, 191 tests
+      # dropping to 131 with no error. A clean build makes the count
+      # trustworthy.
       - name: forge test
-        run: forge test -vv
+        run: forge clean && forge test -vv
         working-directory: contracts
 
   engine:
