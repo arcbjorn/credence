@@ -324,6 +324,72 @@ contract LifecycleTest is Test {
         );
     }
 
+    /// An older denial must not seize a loan approved AFTER it.
+    ///
+    /// `_record` cleared permission state on a denial and set
+    /// `permissionDenied`, but the APPROVED branch never cleared it again.
+    /// A binding that was once denied therefore carried that flag forever,
+    /// and the next loan it originated was recoverable in the block it was
+    /// funded -- `permissionWithdrawn` still reported a withdrawal that
+    /// referred to a superseded assessment.
+    ///
+    /// The operator controls both the denial and the recovery, so this is
+    /// a seizure path that needs no borrower misstep at all.
+    ///
+    /// Reported by review, 15 September.
+    function test_OlderDenialDoesNotSeizeANewlyApprovedLoan() public {
+        // A monitoring denial on this binding.
+        Binding memory rb = _bindingFor(account, account.stateVersion());
+        Assessment memory blocked =
+            OracleHarness.monitoringBlocked(rb, ++seq, DEPLOYMENT, uint64(block.timestamp));
+        oracle.accept(blocked, OracleHarness.sign(oracle, blocked, SIGNER_KEY));
+        assertTrue(oracle.permissionWithdrawn(rb), "the denial was recorded");
+
+        // Then the engine approves a new loan for the same binding.
+        uint256 loanId = _originate(account, 5_000e6, 1_200, 10 days);
+
+        Binding memory nb = _bindingFor(account, account.stateVersion());
+        assertFalse(oracle.permissionWithdrawn(nb), "an approval supersedes the earlier denial");
+
+        vm.prank(OPERATOR);
+        vm.expectRevert(abi.encodeWithSelector(LoanManager.LoanNotRecoverable.selector, loanId));
+        manager.openRecovery(loanId, KEEPER, nb);
+    }
+
+    /// A previous loan's expired window must not seize the next loan.
+    ///
+    /// `silenceSince` reads `permissionExpiry`, which survived the loan it
+    /// belonged to. After a first loan was monitored and repaid, the next
+    /// loan inherited that stale expiry -- already far past the 12-hour
+    /// grace -- so it was recoverable immediately, and the grace window
+    /// that exists to protect a borrower from silence protected nothing.
+    ///
+    /// Reported by review, 15 September.
+    function test_PreviousLoanExpiryDoesNotSeizeTheNextLoan() public {
+        uint256 first = _originate(account, 5_000e6, 1_200, 10 days);
+
+        // Monitored once, so an expiry is recorded against this binding.
+        Binding memory rb = _bindingFor(account, account.stateVersion());
+        Assessment memory ok =
+            OracleHarness.monitoringAllowed(rb, ++seq, DEPLOYMENT, uint64(block.timestamp));
+        oracle.accept(ok, OracleHarness.sign(oracle, ok, SIGNER_KEY));
+        assertTrue(oracle.permissionExpiry(rb) != 0, "an expiry now stands");
+
+        // The window closes and the grace period passes, then the loan is
+        // repaid -- a clean, complete obligation.
+        vm.warp(block.timestamp + 1 hours + manager.recoveryGraceSeconds() + 1);
+        manager.repay(first);
+
+        // A second loan is approved and funded now.
+        uint256 second = _originate(account, 5_000e6, 1_200, 10 days);
+        Binding memory nb = _bindingFor(account, account.stateVersion());
+
+        // Its own grace has not begun to run, so nothing licenses recovery.
+        vm.prank(OPERATOR);
+        vm.expectRevert(abi.encodeWithSelector(LoanManager.LoanNotRecoverable.selector, second));
+        manager.openRecovery(second, KEEPER, nb);
+    }
+
     /// A loan that was NEVER monitored must not be seizable on origination.
     ///
     /// The gap the lapse fix left open. `permissionWithdrawn` answered the

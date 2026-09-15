@@ -374,6 +374,31 @@ contract RiskOracle {
                     bindingCommitment: _bindingHash(a.binding)
                 });
                 quoteTerms[key] = a.terms;
+
+                // An approval SUPERSEDES the recovery state of whatever
+                // came before it.
+                //
+                // Without this, two stale facts survived into the new
+                // loan. A `permissionDenied` flag set by an earlier
+                // refusal made `permissionWithdrawn` keep reporting a
+                // withdrawal that referred to a superseded assessment, and
+                // a `permissionValidUntil` left by a PREVIOUS loan's
+                // monitoring window put `silenceSince` before this loan
+                // was even originated. Either made the new loan
+                // recoverable in the block it was funded, with no
+                // borrower misstep and no fresh risk decision.
+                //
+                // The engine has just assessed this binding and approved
+                // it. That is the current word on it, so the old one stops
+                // applying. A genuine revocation of THIS loan arrives as a
+                // later monitoring result and sets the flag again.
+                //
+                // Reported by review, 15 September.
+                delete permissionDenied[key];
+                delete permissionValidUntil[key];
+                delete riskPermission[key];
+                delete permissionStateVersion[key];
+                delete permissionBinding[key];
             }
         } else {
             // One transition rule across both kinds. Permission only ever
