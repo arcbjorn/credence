@@ -29,13 +29,21 @@ LOANS=${LOANS:-2}
 # public one cannot: the hold has to be a real wait, so both shrink to
 # seconds. Interest is then genuinely accrued over the elapsed term
 # rather than asserted over one that never passed.
-# The identity the loans are bound to. The defaults are a placeholder
-# registry and a made-up agent, which is honest for a local run: no
-# ERC-8004 registry exists there. Against a real one, name an agent that
-# is actually registered -- publishing feedback about a token id nobody
-# holds attributes an outcome to nothing.
-IDENTITY_REGISTRY=${IDENTITY_REGISTRY:-0x000000000000000000000000000000000000aec0}
-AGENT_ID=${AGENT_ID:-184}
+# The identity the loans are bound to. The placeholders below are honest
+# for a local run: no ERC-8004 registry exists there. They are NOT honest
+# against a chain that has one, and relying on the operator to remember
+# that is how the 14 September testnet run bound every loan to agent 184
+# against a registry address that does not exist -- while the manifest
+# named registered agent 1830. Publishing then reported zero obligations
+# for the manifest's manager, because the loans it could publish were
+# attributed to a token id nobody holds.
+#
+# So when the manifest carries an `erc8004` block, it wins over the
+# placeholder. The deployment already records the registered identity;
+# the demo should not need to be told it a second time. An explicit
+# environment variable still overrides both.
+IDENTITY_REGISTRY=${IDENTITY_REGISTRY:-}
+AGENT_ID=${AGENT_ID:-}
 TERM_SECONDS=${TERM_SECONDS:-$((10 * 86400))}
 HOLD_SECONDS=${HOLD_SECONDS:-$((5 * 86400))}
 
@@ -75,6 +83,27 @@ ORACLE=$(addr oracle);             VAULT=$(addr vault)
 MANAGER=$(addr loan_manager);      SETTLEMENT=$(addr settlement)
 RISKY=$(addr risky);               ADAPTER=$(addr adapter)
 PRICE_SOURCE=$(addr price_source)
+
+# Resolve the identity from the manifest when it records one, so a chain
+# with real registries cannot silently bind loans to the placeholder.
+erc8004() {
+  python3 -c "import json;d=json.load(open('$MANIFEST')).get('erc8004') or {};print(d.get('$1',''))"
+}
+IDENTITY_REGISTRY=${IDENTITY_REGISTRY:-$(erc8004 identity_registry)}
+AGENT_ID=${AGENT_ID:-$(erc8004 agent_id)}
+IDENTITY_REGISTRY=${IDENTITY_REGISTRY:-0x000000000000000000000000000000000000aec0}
+AGENT_ID=${AGENT_ID:-184}
+# Loans bound to an unregistered agent cannot be published as that
+# agent's history, and the failure is invisible until a reader reports
+# zero obligations. Fail here instead, where the cause is legible.
+if ! credence_is_local_chain "$CHAIN_ID" 2>/dev/null; then
+  if [ "$AGENT_ID" = "184" ]; then
+    echo "refusing to bind loans to placeholder agent 184 on chain $CHAIN_ID" >&2
+    echo "record an erc8004 block in $MANIFEST, or set AGENT_ID" >&2
+    exit 1
+  fi
+fi
+echo "identity       agent $AGENT_ID at $IDENTITY_REGISTRY"
 
 # The bound operator. It signs nothing in this demo, so it needs no gas,
 # but it follows CREDENCE_AGENT_KEY so every demo binds the same operator.
