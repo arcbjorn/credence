@@ -199,14 +199,40 @@ fi
 # So the containers are started by a throwaway invocation whose hang is
 # expected and ignored, and the real run follows against a warm
 # environment.
+
+# Start from an empty database every time.
+#
+# Envio generates a fresh Postgres password on each run, but the data
+# volume outlives the container and keeps the OLD one. A container
+# revived against that volume rejects envio's new credentials -- "password
+# authentication failed for user postgres" -- while `docker ps` still
+# reports it up and healthy, and `pg_isready` still says yes, because
+# `docker exec` connects over the local socket and never presents a
+# password at all. Neither check sees the failure envio hits over TCP.
+#
+# Rather than detect it, avoid it: the volume holds nothing worth keeping
+# because this script re-indexes from scratch with `-r` regardless, and
+# the local chain it indexes is itself thrown away on every demo run.
+# Hasura goes too — it pools against the database that just disappeared.
+if docker ps -a --format '{{.Names}}' | grep -qxE 'envio-postgres|envio-hasura'; then
+  echo "clearing the previous indexer database"
+  docker rm -f envio-postgres envio-hasura >/dev/null 2>&1 || true
+  docker volume rm envio-postgres-data >/dev/null 2>&1 || true
+fi
+
 if ! docker ps --format '{{.Names}}' | grep -qx envio-postgres ||
   ! docker ps --format '{{.Names}}' | grep -qx envio-hasura; then
   echo "starting Postgres and Hasura (the first run only brings them up)"
   ./node_modules/.bin/envio dev -r --config "$CONFIG" >/dev/null 2>&1 &
   starter=$!
-  for _ in $(seq 60); do
+  # BOTH containers, and Postgres answering -- not just Hasura healthy.
+  # envio creates Hasura first, so waiting on it alone kills the starter
+  # while Postgres is still being created, and the next step then finds
+  # no database at all.
+  for _ in $(seq 90); do
     if docker ps --format '{{.Names}}\t{{.Status}}' |
-      grep -q "^envio-hasura.*healthy"; then
+      grep -q "^envio-hasura.*healthy" &&
+      docker exec envio-postgres pg_isready -U postgres >/dev/null 2>&1; then
       break
     fi
     sleep 2
