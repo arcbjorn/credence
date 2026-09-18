@@ -74,6 +74,7 @@ cd "$ROOT/gateway"
 export CREDENCE_OPERATOR_KEY=$DEPLOYER CREDENCE_SIGNER_KEY=$SIGNER
 go build -o credence-scenario ./cmd/credence-scenario
 go build -o credence-recover ./cmd/credence-recover
+go build -o credence-verify ./cmd/credence-verify
 ./credence-scenario -rpc "$RPC" -oracle "$ORACLE" -manager "$MANAGER" \
   -account "$ACCOUNT" -settlement "$SETTLEMENT" \
   -principal "$PRINCIPAL" -adapter "$ADAPTER" -risky "$RISKY" \
@@ -102,3 +103,24 @@ echo "after unwind: debt $DEBT against cash $CASH"
 # what the market actually destroyed, not a number this script chose.
 ./credence-recover -rpc "$RPC" -manager "$MANAGER" -vault "$VAULT" \
   -account "$ACCOUNT" -settlement "$SETTLEMENT" -loan 1 -chain-id "$CHAIN_ID" -survives-bps 10000
+
+# Retain the vault's ledgers, so the interface can render a REALISED loss.
+#
+# Without this the lender screen reads `demo-repay`, where nothing ever
+# defaults, and its "realized loss" figure is structurally always zero --
+# the one screen whose job is showing a lender loss could never show one.
+# `docs/09` beat 7 requires the loss to be visible, and `docs/12` lists
+# "losses are accounted for" among the claims the release may earn.
+#
+# The figures come from `realizedLoss()` on the vault, read back after
+# recovery settled, not from anything this script computed.
+WORK=${WORK:-/tmp/credence-default}
+mkdir -p "$WORK"
+echo
+echo "=== deployment verification ==="
+# `-ledgers-only`: the loan has resolved, so the beat-6 checks would be
+# asking the wrong question. "Owner withdrawal reverts while debt is open"
+# cannot hold once the debt is written off, and reporting it as a failure
+# would describe a correctly resolved default as six broken invariants.
+./credence-verify -rpc "$RPC" -vault "$VAULT" -ledgers-only \
+  -json "$WORK/checks.json"

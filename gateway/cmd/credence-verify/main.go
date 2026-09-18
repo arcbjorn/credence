@@ -46,9 +46,18 @@ func main() {
 	// interface render the SAME on-chain evidence instead of retelling it.
 	jsonOut := flag.String("json", "",
 		"also write the checks to this file, for the web bundle")
+	// After a default there IS no active loan, so the loan-specific checks
+	// are not merely false, they are the wrong question: "owner withdrawal
+	// reverts while debt is open" cannot hold once the debt is written
+	// off. `demo-default.sh` wants the vault's ledgers -- what the lender
+	// actually lost -- and running the rest there reports six failures
+	// against a correctly resolved loan.
+	ledgersOnly := flag.Bool("ledgers-only", false,
+		"check the vault ledgers alone; for a run whose loan has resolved")
 	flag.Parse()
 
-	checks, err := run(*rpcURL, *manager, *account, *settlement, *owner, *vault, *risky)
+	checks, err := run(*rpcURL, *manager, *account, *settlement, *owner,
+		*vault, *risky, *ledgersOnly)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "verify: %v\n", err)
 		os.Exit(1)
@@ -77,7 +86,10 @@ func main() {
 	fmt.Printf("\nall %d checks passed against the deployment\n", len(checks))
 }
 
-func run(rpcURL, manager, account, settlement, owner, vault, risky string) ([]check, error) {
+func run(
+	rpcURL, manager, account, settlement, owner, vault, risky string,
+	ledgersOnly bool,
+) ([]check, error) {
 	ctx := context.Background()
 	rpc := chain.NewRPC(rpcURL, 15*time.Second)
 
@@ -87,6 +99,10 @@ func run(rpcURL, manager, account, settlement, owner, vault, risky string) ([]ch
 	}
 
 	var checks []check
+
+	if ledgersOnly {
+		return vaultLedgers(ctx, rpc, vault, block.Number, checks)
+	}
 
 	// Beat 4b: a loan is open, so the protections below are live rather
 	// than vacuously true on an idle account.
@@ -194,12 +210,27 @@ func run(rpcURL, manager, account, settlement, owner, vault, risky string) ([]ch
 	// Reported as separate ledgers on purpose: `docs/05` keeps idle cash,
 	// outstanding principal, collected interest and realized loss apart,
 	// and uncollected interest is never withdrawable cash.
+	return vaultLedgers(ctx, rpc, vault, block.Number, checks)
+}
+
+// vaultLedgers appends the vault's four separate ledgers.
+//
+// Separate on purpose: `docs/05` keeps idle cash, outstanding principal,
+// collected interest and realized loss apart, and uncollected interest is
+// never withdrawable cash.
+func vaultLedgers(
+	ctx context.Context,
+	rpc *chain.RPC,
+	vault string,
+	blockNumber uint64,
+	checks []check,
+) ([]check, error) {
 	for _, ledger := range []struct{ call, name string }{
 		{"idleCash()", "vault idle cash"},
 		{"outstandingPrincipal()", "vault principal outstanding"},
 		{"realizedLoss()", "vault realized loss"},
 	} {
-		v, err := callUint(ctx, rpc, vault, ledger.call, block.Number)
+		v, err := callUint(ctx, rpc, vault, ledger.call, blockNumber)
 		if err != nil {
 			continue
 		}
