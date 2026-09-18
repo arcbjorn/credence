@@ -171,6 +171,53 @@ export interface Comparison {
   profiles: Profile[];
 }
 
+/**
+ * A loan as the Envio indexer reconstructed it, from events alone.
+ *
+ * Every amount is a STRING. These are uint256 base units and JSON numbers
+ * are doubles: a realistic principal loses precision silently on the way
+ * through, which is the one kind of error a ledger screen must not make.
+ * `units()` takes strings for the same reason.
+ */
+export interface IndexedLoan {
+  id: string;
+  chainId: number;
+  loanId: string;
+  account: string;
+  principal: string;
+  status: string;
+  principalRepaid: string;
+  interestCollected: string;
+  principalLoss: string;
+  unpaidInterest: string;
+  originatedAt: string;
+  /** Null until recovery opens, and for a loan that repaid normally. */
+  recoveryOpenedAt: string | null;
+  resolvedAt: string | null;
+  heldSeconds: string | null;
+}
+
+/** One lifecycle event, exactly as the log carried it. */
+export interface IndexedEvent {
+  id: string;
+  loan_id: string;
+  chainId: number;
+  kind: string;
+  blockNumber: string;
+  blockTimestamp: string;
+  logIndex: number;
+  txHash: string;
+  principal: string | null;
+  interest: string | null;
+  principalLoss: string | null;
+  unpaidInterest: string | null;
+}
+
+export interface Indexed {
+  loans: IndexedLoan[];
+  events: IndexedEvent[];
+}
+
 const cache = new Map<string, unknown>();
 
 async function fetchJSON<T>(path: string): Promise<T> {
@@ -207,6 +254,16 @@ export const loadComparison = () =>
 
 export const loadPolicy = (run: string) =>
   fetchJSON<unknown>(`data/${run}-policy.json`);
+
+/**
+ * What the Envio indexer stored, written by
+ * `scripts/build-indexed-data.sh`.
+ *
+ * Absent when the indexer has not been run. That is a different state
+ * from "a chain with no loans", and the screen says so rather than
+ * rendering an empty lifecycle.
+ */
+export const loadIndexed = () => fetchJSON<Indexed>("data/indexed.json");
 
 /** Base units to a readable decimal. Never rounds a displayed amount. */
 export function units(raw: string | number | undefined, decimals = 6): string {

@@ -6,6 +6,7 @@ import { Enforcement } from "./screens/Enforcement";
 import { EvidenceInspector } from "./screens/EvidenceInspector";
 import { Lender } from "./screens/Lender";
 import { Lifecycle } from "./screens/Lifecycle";
+import { IndexedLifecycle } from "./screens/Indexed";
 import { Replay } from "./screens/Replay";
 import "./styles/app.css";
 
@@ -20,6 +21,12 @@ import "./styles/app.css";
  * The rest are listed in `docs/09` and deliberately NOT stubbed with empty
  * shells: a nav item that opens a blank page reads as broken, where an
  * absent one reads as unbuilt.
+ *
+ * "Indexed" is a ninth, beyond `docs/09`'s list: the lifecycle rebuilt
+ * from the event log by the Envio indexer (`docs/08`). It is separate
+ * from "Loan lifecycle" on purpose — that screen renders what the gateway
+ * retained, this one what the log alone can prove, and merging them would
+ * hide which source each figure came from.
  */
 export default function App() {
   return (
@@ -31,6 +38,7 @@ export default function App() {
         <NavLink to="/compare">Three agents</NavLink>
         <NavLink to="/assessment">Assessment detail</NavLink>
         <NavLink to="/lifecycle">Loan lifecycle</NavLink>
+        <NavLink to="/indexed">Indexed</NavLink>
         <NavLink to="/evidence">Evidence</NavLink>
         <NavLink to="/lender">Lender</NavLink>
         <NavLink to="/enforcement">Enforcement</NavLink>
@@ -43,6 +51,7 @@ export default function App() {
           <Route path="/compare" element={<Comparison_ />} />
           <Route path="/assessment" element={<AssessmentDetail />} />
           <Route path="/lifecycle" element={<Lifecycle />} />
+          <Route path="/indexed" element={<IndexedLifecycle />} />
           <Route path="/evidence" element={<EvidenceInspector />} />
           <Route path="/lender" element={<Lender />} />
           <Route path="/enforcement" element={<Enforcement />} />
