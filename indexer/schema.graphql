@@ -4,8 +4,10 @@
 # sit beside one. The feature here is lifecycle reconstruction: the
 # gateway reads loan STRUCTS over eth_call, which answers "what is true
 # now" and cannot answer "how did it get here". A struct read at maturity
-# shows a repaid loan; it does not show when recovery opened, what was
-# collected on the way, or how long the account actually held the money.
+# shows a repaid loan; it does not show when recovery opened, how many
+# collections there were, or what each one took. The contract keeps only
+# running totals and the first and last timestamps -- enough for an
+# outcome, not for a history.
 # Those facts exist only in the event log.
 #
 # Every field below is carried by an event this contract already emits.

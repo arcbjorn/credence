@@ -54,10 +54,13 @@ export const originated = (
  * Close a loan.
  *
  * `heldSeconds` is origination to resolution in block time -- the span
- * the agent actually controlled the capital. `docs/06` publishes it as a
- * signal, and it is the clearest thing a struct read cannot reconstruct:
- * by the time the loan is terminal, the contract no longer carries when
- * it began.
+ * the agent actually controlled the capital, which `docs/06` publishes
+ * as a signal.
+ *
+ * The contract retains `originatedAt` and `resolvedAt` deliberately, so
+ * this particular number IS derivable from a struct read; `credence-
+ * publish` derives it that way. Computing it here keeps the row a pure
+ * function of the log rather than saving a call.
  */
 const resolve = (
   loan: LoanState,

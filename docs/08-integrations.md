@@ -214,11 +214,18 @@ Being precise, because "CRE integration" reads broader than what holds:
 
 The gateway reads loan **structs** over `eth_call`. That answers "what is
 true now" and cannot answer "how did it get here": a struct read at
-maturity shows a repaid loan, not when recovery opened, what was
-collected on the way, or how long the account actually held the money.
-Those facts exist only in the log. `docs/06` publishes held duration as a
-signal, and after resolution the contract no longer carries the origin
-timestamp to compute it from.
+maturity shows a repaid loan, not when recovery opened, how many
+collections it took, or what each one recovered. The contract keeps
+running totals and two timestamps — enough to report an outcome, not
+enough to reconstruct the path to it. Those intermediate facts exist only
+in the log.
+
+> Stated carefully, because an earlier draft of this section overstated
+> it. Held duration **is** derivable from a struct: the contract retains
+> `originatedAt` and `resolvedAt` on purpose, and `credence-publish`
+> computes `held` from exactly those. The indexer's claim is narrower and
+> still true — the *sequence* is not recoverable from state, only the
+> endpoints.
 
 So the indexer is the only component that can reconstruct a lifecycle,
 which is the `docs/11` row it serves — "replay an indexed loan after

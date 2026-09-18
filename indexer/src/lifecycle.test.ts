@@ -47,8 +47,7 @@ describe("repayment", () => {
     expect(loan.status).toBe(Status.Repaid);
     expect(loan.principalRepaid).toBe(PRINCIPAL);
     expect(loan.interestCollected).toBe(12_860_305n);
-    // Origination to resolution, which is the number `docs/06` publishes
-    // and the one a struct read cannot reconstruct afterwards.
+    // Origination to resolution, the number `docs/06` publishes.
     expect(loan.heldSeconds).toBe(433_000n - ORIGINATED_AT);
   });
 });
