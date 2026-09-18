@@ -121,6 +121,24 @@ describe("default", () => {
   });
 });
 
+describe("a final collection and recovery in one transaction", () => {
+  it("keeps both, which is why LoanEvent keys on logIndex", () => {
+    // `collect` emits `Collected` and then, when the debt reaches zero,
+    // `Recovered` -- both in the same transaction. Keying the event rows
+    // on a transaction hash would collide and drop one; they key on
+    // `<chain>-<block>-<logIndex>` instead. The fold has to survive the
+    // pair arriving back to back.
+    let loan = recoveryOpened(openLoan(), 2_000n);
+    loan = collected(loan, PRINCIPAL, 900n);
+    loan = recovered(loan, 2_400n);
+
+    expect(loan.status).toBe(Status.Recovered);
+    expect(loan.principalRepaid).toBe(PRINCIPAL);
+    expect(loan.interestCollected).toBe(900n);
+    expect(loan.resolvedAt).toBe(2_400n);
+  });
+});
+
 describe("the fold is a fold", () => {
   it("never mutates the row it is given", () => {
     // Every handler reads a row, applies a transition and writes it back.

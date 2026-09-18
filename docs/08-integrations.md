@@ -241,7 +241,7 @@ rather than left to default.
   functions with no Envio context, and `lifecycle.test.ts` pins them
   against what `docs/05` requires: repeated collections accumulate rather
   than overwrite, a collection is not terminal, and collected plus
-  written off accounts for the whole principal. Ten tests. Reverting the
+  written off accounts for the whole principal. Eleven tests. Reverting the
   accumulation to an assignment fails the collections one.
 - **Handlers typecheck against the generated schema**, so an entity field
   that does not exist is a build error rather than a silent null.

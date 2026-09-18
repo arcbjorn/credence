@@ -37,6 +37,20 @@ if [ "$screens" -lt 1 ]; then
   fail "no screens found under web/src/screens"
 fi
 
+# --- indexer lifecycle test count ---
+# Spelled as a word in prose ("Eleven tests"), so the words this can
+# reach are listed rather than parsed. Added the moment the count drifted
+# for the first time, which is the only honest moment to add it.
+actual=$(grep -c '^\s*it(' "$ROOT/indexer/src/lifecycle.test.ts" 2>/dev/null || echo 0)
+words=(zero one two three four five six seven eight nine ten eleven twelve
+  thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty)
+expected=${words[$actual]:-}
+cited=$(grep -oiE '(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty) tests\.' \
+  "$ROOT/docs/08-integrations.md" 2>/dev/null | head -1 | awk '{print tolower($1)}' || true)
+if [ -n "$cited" ] && [ -n "$expected" ] && [ "$cited" != "$expected" ]; then
+  fail "docs/08 says $cited indexer tests, there are $actual ($expected)"
+fi
+
 if [ "$failed" -eq 0 ]; then
   echo "docs: cited counts match"
 else
