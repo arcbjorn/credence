@@ -15,3 +15,6 @@ config.local.yaml
 .env
 .env.*
 !.env.example
+
+# Generated per-run by scripts/index-testnet.sh.
+config.testnet.yaml
