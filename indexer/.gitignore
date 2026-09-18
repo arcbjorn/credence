@@ -4,3 +4,8 @@ generated/
 # Local indexer state: a Postgres volume and the run's own logs.
 .envio/
 logs/
+
+# Generated per-run by scripts/index-local.sh from config.yaml: it
+# carries the local chain address and a skip flag, neither of which
+# belongs in the deployed config.
+config.local.yaml
