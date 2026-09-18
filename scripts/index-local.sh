@@ -183,23 +183,41 @@ open(path, "w").write("\n".join(lines) + "\n")
 PY
 fi
 
-# `envio dev` serves GraphQL on :8080 and keeps syncing.
-#
-# `-r` resets the stored data first. A local run indexes whatever chain
-# the demos just deployed, and anvil gives that a fresh address every
-# time, so "resume where it left off" means resuming against a contract
-# that no longer exists. Resetting is also what makes the chain list
-# changeable: toggling `skip` on 10143 is otherwise rejected as
-# "config changes are incompatible with the existing indexer data".
-# The binary directly, not `pnpm exec`. Under `pnpm exec` the wrapper
-# starts and then never spawns envio at all -- the run sits at "Waiting
-# for Hasura" forever with no node process behind it, which looks like a
-# sync that found nothing rather than one that never began.
-# Codegen AFTER the config is final, and against the SAME file the
-# indexer will run. Generating from the committed `config.yaml` while
-# running `config.local.yaml` bakes in the chain list that config has --
-# including the testnet chain this run skips -- and envio then stalls
-# before it ever binds its port.
+# Codegen against the SAME config the indexer will run. Generating from
+# the committed `config.yaml` while running `config.local.yaml` bakes in
+# a different chain list than the one being indexed.
 ./node_modules/.bin/envio codegen --config "$CONFIG"
 
+# Bring Postgres and Hasura up FIRST, and only then start indexing.
+#
+# This is the one that cost the most to find. When `envio dev` has to
+# create its own containers, it reports "Waiting for Hasura ... ready"
+# and then sits forever without binding its port or creating a table --
+# no error, no log line, just a process that never proceeds. Run again
+# once the containers are up and it syncs in under a second.
+#
+# So the containers are started by a throwaway invocation whose hang is
+# expected and ignored, and the real run follows against a warm
+# environment.
+if ! docker ps --format '{{.Names}}' | grep -qx envio-postgres ||
+  ! docker ps --format '{{.Names}}' | grep -qx envio-hasura; then
+  echo "starting Postgres and Hasura (the first run only brings them up)"
+  ./node_modules/.bin/envio dev -r --config "$CONFIG" >/dev/null 2>&1 &
+  starter=$!
+  for _ in $(seq 60); do
+    if docker ps --format '{{.Names}}\t{{.Status}}' |
+      grep -q "^envio-hasura.*healthy"; then
+      break
+    fi
+    sleep 2
+  done
+  kill "$starter" 2>/dev/null || true
+  wait "$starter" 2>/dev/null || true
+  # envio leaves the node process behind when killed this way.
+  pkill -f "envio/bin.mjs" 2>/dev/null || true
+  sleep 1
+fi
+
+# The binary directly rather than `pnpm exec`: under the pnpm wrapper the
+# child is never spawned at all, which looks identical to the hang above.
 exec ./node_modules/.bin/envio dev -r --config "$CONFIG"
