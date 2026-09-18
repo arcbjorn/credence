@@ -17,7 +17,7 @@ Status: `Unverified` · `Proven in spike` · `Integrated` · `Accepted` · `Defe
 | Monad RPC | Chain, tokens, read consistency, transactions, explorer | Full state plus a successful and a reverting transaction | Another RPC; selected-chain deployment still required |
 | Execution venue | Assets, custody, approvals, liquidity, pricing, bounded exit | Trade and unwind, proceeds to account | Labeled scenario venue; no external-market claim |
 | ERC-8004 | Registry addresses, ABI, binding and feedback permissions | Registered identity, attributable feedback, transfer handling, independent reader on the selected network | Local adapter for development only; integration incomplete and release identity gate remains open |
-| Envio | Events, lag, reorg handling, hosting | Reconstruct lifecycle with evidence links | Direct log indexer is baseline. **Built and synced on a local chain, 18 Sep**; the deployed-chain path needs an API token |
+| Envio | Events, lag, reorg handling, hosting | Reconstruct lifecycle with evidence links | Direct log indexer is baseline. **Synced against Monad testnet over HyperSync, 18 Sep**, and rendered on screen; reorg replay still unproven |
 | Perpl | Supported endpoints on chosen network | A documented field changes an assessment | Feature absent |
 | Nansen | Account coverage, quotas | A sourced feature demonstrably affects a decision | Omit, disclose coverage |
 | CRE | Deployment access, network and forwarder, consumer path | Valid report accepted; invalid bounds and wrong routes rejected | Separate development-attested baseline; an existing CRE facility blocks new risk and cannot fall back to a development key |
@@ -313,11 +313,38 @@ rather than left to default.
   origination rendered last. Fixed by sorting on the numeric column and
   casting only in the projection.
 
-> The honest sentence: **the indexer syncs a real chain, its output
-> reconciles against that chain, and a screen renders it — but only
-> against a local chain. The deployed 10143 config is written and
-> unexercised, because HyperSync needs an Envio API token this project
-> does not have.**
+### The deployed chain, over HyperSync — 18 September
+
+With an API token in `indexer/.env`, `scripts/index-testnet.sh` indexes
+**Monad testnet itself**, not a local double. What it read:
+
+```
+   id    | status | principal  | principalRepaid | interestCollected | heldSeconds
+ 10143-1 | Repaid | 4000000000 |      4000000000 |               625 |          41
+ 10143-2 | Active | 4000000000 |               0 |                 0 |
+```
+
+Both loans on the manager the manifest names. Loan 1 repaid in full;
+loan 2 is open, and carries no resolution rather than a zeroed one. The
+41-second hold is the `HOLD_SECONDS=45` the testnet run used — the same
+short hold `docs/11` records as the reason the repricing story does not
+reproduce there.
+
+**Checked against the chain rather than trusted.** The indexed `Repaid`
+row's transaction hash resolves on Monad testnet to block 62,425,571,
+status success, `to` the manifest's loan manager `0x40dc8Dd6…`. A reader
+can repeat that with `cast receipt` and no Credence service.
+
+**~1.1 million blocks in about 2.5 seconds**, from the manager's deploy
+block to the head. The same range over the public RPC is impossible in
+practice: it caps `eth_getLogs` at 100 blocks, so this is ~11,000
+sequential requests. That gap is the integration's argument.
+
+> The honest sentence: **the indexer syncs the deployed chain, its output
+> reconciles against that chain transaction by transaction, and a screen
+> renders it.** What remains unproven is reorg handling: `rollback_on_reorg`
+> is set and `docs/11` asks for a replay after a simulated reorganization,
+> which has not been performed.
 
 ## Kuru — gated extension
 
