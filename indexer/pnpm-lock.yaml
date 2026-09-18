@@ -4,6 +4,9 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+overrides:
+  type-fest: 5.9.0
+
 importers:
 
   .:
@@ -1440,8 +1443,8 @@ packages:
     engines: {node: '>=18.0.0'}
     hasBin: true
 
-  type-fest@5.10.0:
-    resolution: {integrity: sha512-NoSdpq/WEiAg5sjmBkmV/hfxv6HJH4NqPNrqjtSO5CwRmpsDfaf4begxW34KdJykH/l1yHtwBWQkCRdoXO8mPA==}
+  type-fest@5.9.0:
+    resolution: {integrity: sha512-yANm3Jr3GiJ1qgJlxGAVxTOIcEOk1rhQHamlXtnrCK7EHP4HeM9OGxtMg/W7HFdrVzw/ZWJKGVIJusVH85sLtw==}
     engines: {node: '>=20'}
 
   type-is@1.6.18:
@@ -2404,7 +2407,7 @@ snapshots:
       stack-utils: 2.0.6
       string-width: 8.2.2
       terminal-size: 4.0.1
-      type-fest: 5.10.0
+      type-fest: 5.9.0
       widest-line: 6.0.0
       wrap-ansi: 9.0.2
       ws: 8.21.3
@@ -2878,7 +2881,7 @@ snapshots:
     optionalDependencies:
       fsevents: 2.3.3
 
-  type-fest@5.10.0:
+  type-fest@5.9.0:
     dependencies:
       tagged-tag: 1.0.0
 
