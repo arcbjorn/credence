@@ -135,6 +135,16 @@ if [ "$NEED_DEMOS" -eq 1 ]; then
     exit 1
   }
   echo "  demo-monitor: replay $(grep -oE '^MATCH|^DIFFERENCE' /tmp/credence-web-monitor.log | head -1)"
+
+  # The defaulted epoch. Without it the lender screen's "realized loss"
+  # can only ever read zero, which demonstrates nothing: `docs/09` beat 7
+  # asks for a loss that is realised rather than asserted.
+  bash "$ROOT/scripts/demo-default.sh" > /tmp/credence-web-default.log 2>&1 || {
+    echo "  demo-default failed; see /tmp/credence-web-default.log" >&2
+    tail -20 /tmp/credence-web-default.log >&2
+    exit 1
+  }
+  echo "  demo-default: $(grep -oE 'realized_loss=[0-9]+' /tmp/credence-web-default.log | head -1)"
 else
   step "reusing the evidence already in /tmp (pass --fresh to re-run)"
 fi

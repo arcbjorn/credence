@@ -256,6 +256,10 @@ jobs:
           bash scripts/setup.sh
           LOANS=3 bash scripts/demo-repay.sh
           bash scripts/demo-monitor.sh
+          # The defaulted epoch. Without it `default.json` is absent, the
+          # lender-loss suite skips itself, and CI reports green while the
+          # one screen that shows a lender loss goes unchecked.
+          bash scripts/demo-default.sh
       - name: bundle the evidence
         run: bash scripts/build-web-data.sh
 
