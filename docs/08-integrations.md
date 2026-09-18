@@ -206,6 +206,57 @@ Being precise, because "CRE integration" reads broader than what holds:
 > The honest sentence: **CRE authentication is built and simulated. No CRE
 > facility has originated or monitored on chain.**
 
+## Envio — lifecycle from the log, 18 September
+
+`indexer/` is a HyperIndex project over the `LoanManager` event log.
+
+### Why it is not a bolt-on
+
+The gateway reads loan **structs** over `eth_call`. That answers "what is
+true now" and cannot answer "how did it get here": a struct read at
+maturity shows a repaid loan, not when recovery opened, what was
+collected on the way, or how long the account actually held the money.
+Those facts exist only in the log. `docs/06` publishes held duration as a
+signal, and after resolution the contract no longer carries the origin
+timestamp to compute it from.
+
+So the indexer is the only component that can reconstruct a lifecycle,
+which is the `docs/11` row it serves — "replay an indexed loan after
+cursor rollback or simulated reorganization". `rollback_on_reorg` is set
+rather than left to default.
+
+### The capability check, run rather than read
+
+| Item | Result |
+|---|---|
+| HyperSync supports Monad testnet | **Yes.** `chain_id` 10143, tier GOLD, confirmed against `chains.hyperquery.xyz/active_chains` |
+| Public RPC `eth_getLogs` range | **Capped at 100 blocks** (`-32614`), which is the plainest argument for HyperSync: the manager deployed at block 62,425,291, so reconstructing its lifecycle over that RPC is ~620,000 sequential requests |
+| Manager deploy block | 62,425,291, found by bisecting `cast code` because the log range cap makes a scan impractical |
+| anvil | No HyperSync endpoint, so 31337 syncs over RPC. HyperSync serves the chain it actually supports; the throwaway local chain is read directly |
+
+### What is verified, and what is not
+
+- **The fold is tested.** `indexer/src/lifecycle.ts` holds the whole of
+  the reasoning — what a `Loan` row looks like after each event — as pure
+  functions with no Envio context, and `lifecycle.test.ts` pins them
+  against what `docs/05` requires: repeated collections accumulate rather
+  than overwrite, a collection is not terminal, and collected plus
+  written off accounts for the whole principal. Ten tests. Reverting the
+  accumulation to an assignment fails the collections one.
+- **Handlers typecheck against the generated schema**, so an entity field
+  that does not exist is a build error rather than a silent null.
+- **No sync has been run end to end.** HyperIndex runs Postgres in
+  Docker, which was not available on this machine. `scripts/index-local.sh`
+  is the command; until it has been run against a chain carrying demo
+  data, this integration is **built and unit-tested, not demonstrated**,
+  and by the rule at the top of this document that is not yet an
+  integration claim.
+- **Nothing on screen reads it.** `docs/08` requires visible product use.
+  A lifecycle view over the indexed rows is the remaining work.
+
+> The honest sentence: **the indexer is written and its arithmetic is
+> tested; it has not yet synced a chain, and no screen consumes it.**
+
 ## Kuru — gated extension
 
 **Feasibility experiment by 15 September:** bounded test of market creation for an existing token, settlement-token quote, fill, holder redemption. Produces an estimate; commits nothing.

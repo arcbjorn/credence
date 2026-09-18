@@ -29,6 +29,7 @@ Three languages, one job each:
 | `gateway/` | Go. Gathers evidence, retains it, delivers assessments. |
 | `contracts/` | Solidity. Enforces custody and authorization envelopes. |
 | `cre/` | A Chainlink CRE workflow, the alternative authorization route. |
+| `indexer/` | Envio HyperIndex. Reconstructs the loan lifecycle from events. |
 | `tools/reader/` | Standalone readers. Import nothing from this repository. |
 
 ## Live on Monad testnet
