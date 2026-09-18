@@ -31,7 +31,13 @@ mkdir -p "$ROOT/contracts/deployments"
 
 echo
 echo "building"
-(cd "$ROOT/contracts" && forge build --offline >/dev/null)
+# NOT `--offline`. This script exists for the clean-checkout case, which
+# is precisely the case where solc has never been downloaded: on a fresh
+# runner `--offline` fails with "can't install missing solc 0.8.28 in
+# offline mode" before anything is built. It only ever succeeded on a
+# machine that had already built once, which is the opposite of what the
+# reproducibility row checks.
+(cd "$ROOT/contracts" && forge build >/dev/null)
 (cd "$ROOT/risk" && cargo build --quiet)
 (cd "$ROOT/gateway" && go build ./...)
 
