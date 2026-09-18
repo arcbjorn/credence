@@ -6,7 +6,7 @@
 # than reading ten filenames and guessing which one starts.
 
 .DEFAULT_GOAL := help
-.PHONY: help web web-build demos index test fmt clean
+.PHONY: help web web-build demos index index-testnet verify-reorg test fmt clean
 
 help: ## Show this list
 	@printf '\nCredence — autonomous credit markets for AI agents\n\n'
@@ -27,6 +27,12 @@ demos: ## Run the demos that produce the evidence
 
 index: ## Index the local chain's loan lifecycle (needs Docker)
 	@bash scripts/index-local.sh
+
+index-testnet: ## Index the deployed chain (needs Docker and an Envio token)
+	@bash scripts/index-testnet.sh
+
+verify-reorg: ## Reorganise a repayment away and check the indexer follows
+	@bash scripts/verify-reorg.sh
 
 test: ## Every suite, the way CI runs them
 	@echo "== contracts ==" && cd contracts && forge fmt --check && forge lint && forge clean && forge test
