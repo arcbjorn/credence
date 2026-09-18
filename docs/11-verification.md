@@ -74,7 +74,23 @@ The final release requires evidence in every row below. A tagged development bas
 | Integration honesty | Claimed capabilities backed by artifacts; modes labeled |
 | Reproducibility | Clean setup completes the documented scenario without private data |
 
-## Evidence status — 13 September
+## Evidence status — 13 September, re-verified 18 September
+
+> **Every row below was re-run on 18 September** against the pinned
+> toolchain (Foundry v1.8.3), from a clean chain, and the figures are
+> those the commands produced on that run rather than the ones recorded
+> when each row was first written. Thirteen of fourteen reproduce. The
+> exception is the independent-reader row, corrected above.
+>
+> Two notes for a reader following this table verbatim:
+>
+> - `forge test …` runs from `contracts/`, and `cargo test …` from
+>   `risk/`. Run bare from the repository root they fail to resolve
+>   `forge-std`, which looks like a broken suite rather than a wrong
+>   directory.
+> - `cargo test --test ablation` reports **1 ignored**. That is
+>   `emit_comparison`, a fixture generator rather than a claim; no
+>   acceptance row rests on it.
 
 Where each row stands against the **baseline**, and the command that
 reproduces it. Rows without evidence are named as pending rather than
