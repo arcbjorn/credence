@@ -252,17 +252,48 @@ rather than left to default.
   accumulation to an assignment fails the collections one.
 - **Handlers typecheck against the generated schema**, so an entity field
   that does not exist is a build error rather than a silent null.
-- **No sync has been run end to end.** HyperIndex runs Postgres in
-  Docker, which was not available on this machine. `scripts/index-local.sh`
-  is the command; until it has been run against a chain carrying demo
-  data, this integration is **built and unit-tested, not demonstrated**,
-  and by the rule at the top of this document that is not yet an
-  integration claim.
-- **Nothing on screen reads it.** `docs/08` requires visible product use.
-  A lifecycle view over the indexed rows is the remaining work.
+- **A full sync has now been run, 18 September.** Against the local chain
+  the `demo-default.sh` run left behind — deliberately the default path
+  rather than the simple repayment, because it exercises recovery,
+  partial collection and write-off. Envio reported `All chains are caught
+  up` and `The indexer is ready`, and the stored rows were read back from
+  Postgres:
 
-> The honest sentence: **the indexer is written and its arithmetic is
-> tested; it has not yet synced a chain, and no screen consumes it.**
+  ```
+     id    |  status   | principalRepaid | principalLoss | heldSeconds
+   31337-1 | Defaulted |      1400000000 |    2600000000 |      432002
+
+   Originated  b30/i4 · RecoveryOpened b36/i1 · Collected b37/i3 · Defaulted b38/i2
+  ```
+
+  `principalRepaid + principalLoss` is exactly the 4,000,000,000
+  principal, and `principalLoss` matches the `realized_loss=2600000000`
+  the demo printed from chain state — derived here from the log alone,
+  with no `eth_call`. The GraphQL API serves the same rows including the
+  `events` relation, and the `Defaulted` row's transaction hash resolves
+  on chain to block 38 against the manager the manifest names, so an
+  indexed row is checkable without trusting the indexer.
+
+- **`scripts/index-local.sh` is not yet reliable.** The sync above was
+  produced by running `envio dev` directly. The script performs the same
+  steps and works up to the point of launching it, but its redirected
+  output swallows envio's own logging, so a run that stalls is
+  indistinguishable from one that is working. Four environment
+  collisions are handled in it and each was hit for real on this
+  machine — Postgres port 5433 held by another project, IPv4 8080 held
+  by an unrelated server while Docker publishes on IPv6, a leftover
+  indexer on 9898, and codegen running against a different config than
+  the indexer. **Treat the script as a record of those traps rather than
+  a one-command path**, and run `envio dev -r --config config.local.yaml`
+  from `indexer/` when it misbehaves.
+
+- **Nothing on screen reads it.** `docs/08` requires visible product use.
+  A lifecycle view over the indexed rows is the remaining work, and it is
+  what stands between this and an integration claim.
+
+> The honest sentence: **the indexer syncs a real chain and its output
+> reconciles against that chain, but no screen consumes it yet, so the
+> "visible product use" deliverable is still open.**
 
 ## Kuru — gated extension
 
