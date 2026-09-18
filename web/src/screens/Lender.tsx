@@ -16,10 +16,19 @@ import { loadRun, units, type Check, type Run } from "../lib/data";
  */
 export function Lender() {
   const [run, setRun] = useState<Run | null>(null);
+  const [lossRun, setLossRun] = useState<Run | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     loadRun("repay").then(setRun).catch((e: Error) => setError(e.message));
+    // The defaulted epoch, if `demo-default.sh` retained one. Optional:
+    // absent it the screen shows the clean epoch alone, which is what it
+    // did before. Not optional in what it proves -- a "realized loss"
+    // figure that can only ever read zero demonstrates nothing, and this
+    // is the run where a lender actually loses money.
+    loadRun("default")
+      .then(setLossRun)
+      .catch(() => setLossRun(null));
   }, []);
 
   if (error) return <div className="error">{error}</div>;
@@ -92,6 +101,53 @@ export function Lender() {
           </p>
         </div>
       </div>
+
+      {lossRun && (() => {
+        const lost = (lossRun.checks ?? []).filter((c) => c.beat === "lender");
+        const lossOf = (needle: string) =>
+          lost.find((c) => c.name.includes(needle));
+        const realized = amount(lossOf("realized loss"));
+        if (realized === "-" || realized === "0") return null;
+        return (
+          <>
+            <h3 style={{ marginTop: 28 }}>An epoch that lost money</h3>
+            <p className="lede">
+              The same ledgers from <code>scripts/demo-default.sh</code>,
+              where the asset fell far enough to break principal. Shown
+              beside the clean epoch because a realized-loss figure that
+              can only ever read zero proves nothing about loss accounting.
+            </p>
+            <div className="grid">
+              <div className="card rail rail-machine">
+                <h3>Idle cash</h3>
+                <p className="figure">{amount(lossOf("idle cash"))}</p>
+                <p className="lede" style={{ margin: 0 }}>
+                  What recovery actually collected, returned to the vault.
+                </p>
+              </div>
+              <div className="card rail rail-alarm">
+                <h3>Realized loss</h3>
+                <p className="figure figure-alarm">{realized}</p>
+                <p className="lede" style={{ margin: 0 }}>
+                  Principal the market destroyed, borne by the vault after
+                  the borrower's equity was exhausted. Written off on
+                  chain, not asserted here.
+                </p>
+              </div>
+              <div className="card rail rail-machine">
+                <h3>Principal outstanding</h3>
+                <p className="figure">
+                  {amount(lossOf("principal outstanding"))}
+                </p>
+                <p className="lede" style={{ margin: 0 }}>
+                  Zero: the loan resolved. The loss is recorded as loss,
+                  not left sitting as exposure.
+                </p>
+              </div>
+            </div>
+          </>
+        );
+      })()}
 
       <details>
         <summary>Every ledger read, verbatim</summary>
