@@ -47,7 +47,7 @@ Foundry unit plus invariant and fuzz tests. **Test observable failures, not priv
 - Normalize a recorded provider response; verify units, coverage, provenance
 - Exercise timeouts, partial responses, unexpected asset IDs, stale and conflicting prices
 - Restart Go during a submitted transaction; reconcile without resubmitting an already-funded loan
-- Replay an indexed loan after cursor rollback or simulated reorganization
+- Replay an indexed loan after cursor rollback or simulated reorganization — **`scripts/verify-reorg.sh`, 18 September.** A repayment is reorganized away, the indexer rolls `Repaid` back to `Active` (`fromBlock: 16, toBlock: 6, rollbackedEvents: 2`), and the replayed repayment returns at the new block rather than the discarded one. See [08 · Integrations](08-integrations.md#reorg-handling-demonstrated--18-september)
 - **Run the demo with no optional APIs and confirm the scenario baseline still works**
 - Restore retained SQLite data and reproduce a selected historical assessment
 - Reject invalid CRE report paths and bindings; distinguish simulated from deployed execution

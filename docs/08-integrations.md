@@ -17,7 +17,7 @@ Status: `Unverified` · `Proven in spike` · `Integrated` · `Accepted` · `Defe
 | Monad RPC | Chain, tokens, read consistency, transactions, explorer | Full state plus a successful and a reverting transaction | Another RPC; selected-chain deployment still required |
 | Execution venue | Assets, custody, approvals, liquidity, pricing, bounded exit | Trade and unwind, proceeds to account | Labeled scenario venue; no external-market claim |
 | ERC-8004 | Registry addresses, ABI, binding and feedback permissions | Registered identity, attributable feedback, transfer handling, independent reader on the selected network | Local adapter for development only; integration incomplete and release identity gate remains open |
-| Envio | Events, lag, reorg handling, hosting | Reconstruct lifecycle with evidence links | Direct log indexer is baseline. **Synced against Monad testnet over HyperSync, 18 Sep**, and rendered on screen; reorg replay still unproven |
+| Envio | Events, lag, reorg handling, hosting | Reconstruct lifecycle with evidence links | Direct log indexer is baseline. **Synced against Monad testnet over HyperSync, rendered on screen, and rollback demonstrated through a simulated reorg — 18 Sep** |
 | Perpl | Supported endpoints on chosen network | A documented field changes an assessment | Feature absent |
 | Nansen | Account coverage, quotas | A sourced feature demonstrably affects a decision | Omit, disclose coverage |
 | CRE | Deployment access, network and forwarder, consumer path | Valid report accepted; invalid bounds and wrong routes rejected | Separate development-attested baseline; an existing CRE facility blocks new risk and cannot fall back to a development key |
@@ -340,11 +340,50 @@ block to the head. The same range over the public RPC is impossible in
 practice: it caps `eth_getLogs` at 100 blocks, so this is ~11,000
 sequential requests. That gap is the integration's argument.
 
+### Reorg handling, demonstrated — 18 September
+
+`docs/11` asks for a replay after a cursor rollback or a simulated
+reorganization. `scripts/verify-reorg.sh` performs one and asserts the
+outcome:
+
+```
+=== before ===
+  loan 1 is Repaid, 3 event(s) indexed
+=== reorganising ===
+  Repaid is in block 11, head is 16 -- rewinding 6 block(s)
+  block 11 was replaced (hash changed)
+=== waiting for the rollback ===
+  loan 1 is Active again -- the withdrawn repayment was withdrawn
+  chain holds 2 log(s) for this manager
+=== replaying the repayment ===
+  loan 1 is Repaid again, now from block 22 (was 11)
+
+PASS  indexed state followed the chain through a reorganisation
+```
+
+**A terminal outcome is inverted, which is the strongest version of this
+test.** `Repaid` is the state a lender acts on: an indexer that does not
+roll back keeps serving a repayment the chain no longer has, and looks
+identical to a correct one until exactly that moment. The indexer's own
+log names the range it discarded — `fromBlock: 16, toBlock: 6,
+rollbackedEvents: 2` — and block 6 is precisely the last block the
+reorganization left intact.
+
+Both directions are checked. Rolling back alone would pass if the
+indexer simply dropped everything, so the replay asserts the repayment
+returns **at the new block 22 rather than the reorganized-away block
+11**, and the event count is compared against `eth_getLogs` on the same
+manager.
+
+The mechanism is `anvil_reorg`, so this is anvil-only by construction and
+the script refuses any other chain id — asking a public chain to
+reorganize would be asking it to rewrite someone else's history.
+
 > The honest sentence: **the indexer syncs the deployed chain, its output
-> reconciles against that chain transaction by transaction, and a screen
-> renders it.** What remains unproven is reorg handling: `rollback_on_reorg`
-> is set and `docs/11` asks for a replay after a simulated reorganization,
-> which has not been performed.
+> reconciles against that chain transaction by transaction, a screen
+> renders it, and it follows the chain through a reorganization.** The
+> reorg check runs against anvil; no reorganization has been observed on
+> Monad testnet, because one cannot be requested.
 
 ## Kuru — gated extension
 
