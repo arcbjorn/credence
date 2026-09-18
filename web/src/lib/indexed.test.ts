@@ -23,7 +23,22 @@ import type { Indexed } from "./data";
 const ROOT = resolve(process.cwd(), "..");
 const INDEXED = `${ROOT}/web/public/data/indexed.json`;
 
-describe.skipIf(!existsSync(INDEXED))("the indexed lifecycle", () => {
+// Name the skip in the suite title, so it appears in the run.
+//
+// `fixtures.ts` exists because a silent skip reads exactly like a pass:
+// a clean run once reported 19 passed and 19 SKIPPED, green, while
+// testing half the interface. This suite legitimately cannot run in CI
+// -- it needs Docker and a synced indexer -- so it stays a skip rather
+// than a failure, but it must not be invisible. A module-scope
+// `console.warn` is not enough: vitest swallows it, so the reason goes in
+// the title, which every reporter prints.
+const HAVE_INDEXED = existsSync(INDEXED);
+const TITLE = HAVE_INDEXED
+  ? "the indexed lifecycle"
+  : "the indexed lifecycle [SKIPPED: no indexed.json -- run " +
+    "scripts/index-local.sh then scripts/build-indexed-data.sh, both need Docker]";
+
+describe.skipIf(!HAVE_INDEXED)(TITLE, () => {
   const load = (): Indexed => JSON.parse(readFileSync(INDEXED, "utf8"));
 
   it("carries every amount as a string", () => {
