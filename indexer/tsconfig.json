@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "types": ["node"],
+
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "exactOptionalPropertyTypes": true,
+
+    "noEmit": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  // `envio-env.d.ts` pulls in `.envio/types.d.ts`, which codegen writes
+  // from config.yaml and schema.graphql. Both are gitignored, so a fresh
+  // checkout typechecks only after `pnpm codegen` has run.
+  "include": ["src/**/*.ts", "envio-env.d.ts"]
+}

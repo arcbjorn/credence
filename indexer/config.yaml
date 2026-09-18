@@ -1,0 +1,67 @@
+# Envio HyperIndex — the loan lifecycle, from events.
+#
+# Two chains, one handler set:
+#
+#   10143  Monad testnet, the deployed manifest. HyperSync serves it at
+#          GOLD tier, verified against chains.hyperquery.xyz rather than
+#          taken from documentation (`docs/08`'s capability-check rule).
+#   31337  the local anvil the demos run against, so the same indexer is
+#          exercised in CI without a public endpoint.
+#
+# `start_block` on 10143 is the block the loan manager's code first
+# appears at, found by bisecting `cast code` because the public RPC caps
+# `eth_getLogs` at a 100-block range -- which is also the plainest
+# argument for HyperSync here: reconstructing a lifecycle over that RPC
+# means ~620,000 sequential requests.
+name: credence
+description: Loan lifecycle reconstructed from LoanManager events
+
+# Reorgs are the point of the `docs/11` row this satisfies ("replay an
+# indexed loan after cursor rollback or simulated reorganization"), so
+# rollback is on rather than left to the default.
+rollback_on_reorg: true
+
+# The transaction hash is not selected by default, and every LoanEvent
+# row carries one: without it a reader cannot take a row back to the
+# transaction that produced it, which is the whole point of indexing the
+# log rather than reading the struct.
+field_selection:
+  transaction_fields:
+    - hash
+
+contracts:
+  - name: LoanManager
+    abi_file_path: ./abis/LoanManager.json
+    handler: ./src/EventHandlers.ts
+    events:
+      - event: Originated(uint256 indexed loanId, address indexed account, uint256 principal)
+      - event: Repaid(uint256 indexed loanId, uint256 principal, uint256 interest)
+      - event: RecoveryOpened(uint256 indexed loanId, uint64 at)
+      - event: Collected(uint256 indexed loanId, uint256 principal, uint256 interest)
+      - event: Recovered(uint256 indexed loanId)
+      - event: Defaulted(uint256 indexed loanId, uint256 principalLoss, uint256 unpaidInterest)
+
+chains:
+  - id: 10143
+    start_block: 62425291
+    contracts:
+      - name: LoanManager
+        address:
+          - 0x40dc8Dd6f677c37DF05959BE5F7656CbF0fd16bB
+
+  - id: 31337
+    start_block: 0
+    # Anvil has no HyperSync endpoint, so the local chain syncs over RPC.
+    # That split is the honest arrangement rather than a workaround:
+    # HyperSync serves the public chain it actually supports, and the
+    # throwaway local chain is read directly.
+    rpc:
+      url: http://127.0.0.1:8546
+      for: sync
+    # Left empty on purpose: anvil redeploys at a fresh address every run,
+    # so `scripts/index-local.sh` writes the address from the manifest
+    # before starting. A hardcoded one would index a contract that no
+    # longer exists and report an empty lifecycle as success.
+    contracts:
+      - name: LoanManager
+        address: []

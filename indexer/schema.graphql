@@ -1,0 +1,75 @@
+# The loan lifecycle, reconstructed from events alone.
+#
+# `docs/08` requires an integration to power a core feature rather than
+# sit beside one. The feature here is lifecycle reconstruction: the
+# gateway reads loan STRUCTS over eth_call, which answers "what is true
+# now" and cannot answer "how did it get here". A struct read at maturity
+# shows a repaid loan; it does not show when recovery opened, what was
+# collected on the way, or how long the account actually held the money.
+# Those facts exist only in the event log.
+#
+# Every field below is carried by an event this contract already emits.
+# Nothing is derived from an eth_call, so the indexer stays independently
+# checkable against the chain: a reader can replay the same logs and get
+# the same rows.
+
+type Loan {
+  # `<chainId>-<loanId>`. Loan ids restart at 1 per deployment, so the
+  # chain has to be in the key for the same reason the ERC-8004 tag is
+  # scoped to the manager (`docs/06`).
+  id: ID!
+  chainId: Int!
+  loanId: BigInt!
+  account: String!
+  principal: BigInt!
+
+  # The terminal state, or Active while none has been reached. Derived
+  # from WHICH event last arrived rather than from a status read, so the
+  # row reflects the log and only the log.
+  status: String!
+
+  # Repayment. Interest is cumulative across collections.
+  principalRepaid: BigInt!
+  interestCollected: BigInt!
+
+  # Loss, written once at default.
+  principalLoss: BigInt!
+  unpaidInterest: BigInt!
+
+  # Lifecycle timestamps, from the block each event landed in. Held is
+  # the span the agent actually controlled the capital -- the number
+  # `docs/06` publishes as a signal and the one a struct read cannot
+  # reconstruct after the fact.
+  originatedAt: BigInt!
+  recoveryOpenedAt: BigInt
+  resolvedAt: BigInt
+  heldSeconds: BigInt
+
+  # Every event in order, so a reader can audit the summary above
+  # against the log it came from rather than trusting these fields.
+  events: [LoanEvent!]! @derivedFrom(field: "loan")
+}
+
+# One row per lifecycle event, in block order.
+#
+# Kept as raw rows next to the summary because `docs/11` requires replay
+# after a cursor rollback: a summary that cannot be rebuilt from its
+# inputs is a claim, not evidence.
+type LoanEvent {
+  # `<chainId>-<blockNumber>-<logIndex>`, which is unique and orders
+  # naturally. A tx hash is not enough: one transaction can emit several.
+  id: ID!
+  loan: Loan!
+  chainId: Int!
+  kind: String!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  logIndex: Int!
+  txHash: String!
+
+  # Event payload, present only where the event carries it.
+  principal: BigInt
+  interest: BigInt
+  principalLoss: BigInt
+  unpaidInterest: BigInt
+}
