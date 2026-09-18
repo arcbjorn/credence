@@ -106,7 +106,7 @@ assumed; a green suite is not evidence for a behavioural claim.
 | **Three stress cases** | evidence | reported in every assessment; `cargo test -p risk-core --test stress` |
 | Forecast evaluation | evidence | `LOANS=4 scripts/demo-repay.sh` commits before funding and scores on resolution; `go test ./store/ -run Brier` pins the arithmetic |
 | Custody protection | evidence | `forge test --match-test ownerHasNoBypass` |
-| Default handling | evidence | `scripts/demo-default.sh` |
+| Default handling | evidence | `scripts/demo-default.sh` — a 2.6e9 realized loss, written off on chain and **now visible on the lender screen**. Until 18 September that run retained nothing, so the interface read the clean epoch and its realized-loss figure was structurally always zero |
 | Replay | evidence | `scripts/demo-monitor.sh` (beat 8, with its tampering control) |
 | Missing / stale data | evidence | `forge test --match-test ExecuteRequiresStandingPermission`; engine blocks on stale required evidence |
 | **Independent reputation reader** | **pending re-run** | Held against the canonical registries on 14 September, but does not reproduce against the current manifest: the loans on its manager are bound to placeholder agent 184. Cause and the exact re-run in [Independent reader](#independent-reader--erc-8004-14-september) |
