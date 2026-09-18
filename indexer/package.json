@@ -6,6 +6,7 @@
   "engines": {
     "node": ">=22.12.0"
   },
+  "packageManager": "pnpm@11.27.0",
   "scripts": {
     "codegen": "envio codegen",
     "dev": "envio dev",
@@ -21,11 +22,5 @@
     "@types/node": "^26.6.1",
     "typescript": "7.0.2",
     "vitest": "5.0.0"
-  },
-  "//": "type-fest reaches here only through envio's CLI (ink). Resolution picked 5.10.0, published hours before this lockfile, which pnpm's minimum-release-age policy rejects in CI -- a freshly published package is the shape a compromised one takes. 5.9.0 predates that window and is a terminal, type-only dependency, so it is pinned rather than the policy relaxed.",
-  "pnpm": {
-    "overrides": {
-      "type-fest": "5.9.0"
-    }
   }
 }

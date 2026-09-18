@@ -1,0 +1,23 @@
+# pnpm settings for the indexer.
+#
+# This file rather than a `pnpm` field in package.json: pnpm 11 stopped
+# reading that field, and CI runs pnpm 11 while a developer may still be
+# on 10. The split is invisible locally -- 10 honours the field, 11 warns
+# and ignores it, and the frozen install then fails with
+# ERR_PNPM_LOCKFILE_CONFIG_MISMATCH because the lockfile records an
+# override the config no longer declares.
+#
+# type-fest reaches this project only through envio's CLI (ink).
+# Resolution picked 5.10.0, published hours before this lockfile, which
+# pnpm's minimum-release-age policy rejects: a freshly published package
+# is the shape a compromised one takes. 5.9.0 predates that window and is
+# a terminal, type-only dependency, so it is pinned rather than the
+# policy relaxed.
+overrides:
+  type-fest: 5.9.0
+
+# esbuild ships a platform binary its postinstall unpacks; vitest cannot
+# run without it. Named explicitly so a new package asking to run scripts
+# is a visible decision rather than a silent one.
+allowBuilds:
+  esbuild: true

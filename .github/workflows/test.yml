@@ -170,9 +170,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # No `version:` -- action-setup then takes it from the project's
+      # `packageManager` field, so CI and a developer run the same pnpm.
+      # They did not: pnpm 11 stopped reading the `pnpm` field in
+      # package.json that pnpm 10 still honoured, and the frozen install
+      # failed on a config the lockfile recorded and the config no longer
+      # declared.
       - uses: pnpm/action-setup@v4
         with:
-          version: 11
+          package_json_file: indexer/package.json
       - uses: actions/setup-node@v4
         with:
           node-version: 22
