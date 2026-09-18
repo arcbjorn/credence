@@ -17,7 +17,7 @@ Status: `Unverified` · `Proven in spike` · `Integrated` · `Accepted` · `Defe
 | Monad RPC | Chain, tokens, read consistency, transactions, explorer | Full state plus a successful and a reverting transaction | Another RPC; selected-chain deployment still required |
 | Execution venue | Assets, custody, approvals, liquidity, pricing, bounded exit | Trade and unwind, proceeds to account | Labeled scenario venue; no external-market claim |
 | ERC-8004 | Registry addresses, ABI, binding and feedback permissions | Registered identity, attributable feedback, transfer handling, independent reader on the selected network | Local adapter for development only; integration incomplete and release identity gate remains open |
-| Envio | Events, lag, reorg handling, hosting | Reconstruct lifecycle with evidence links | Direct log indexer is baseline |
+| Envio | Events, lag, reorg handling, hosting | Reconstruct lifecycle with evidence links | Direct log indexer is baseline. **Built and synced on a local chain, 18 Sep**; the deployed-chain path needs an API token |
 | Perpl | Supported endpoints on chosen network | A documented field changes an assessment | Feature absent |
 | Nansen | Account coverage, quotas | A sourced feature demonstrably affects a decision | Omit, disclose coverage |
 | CRE | Deployment access, network and forwarder, consumer path | Valid report accepted; invalid bounds and wrong routes rejected | Separate development-attested baseline; an existing CRE facility blocks new risk and cannot fall back to a development key |
@@ -287,13 +287,37 @@ rather than left to default.
   a one-command path**, and run `envio dev -r --config config.local.yaml`
   from `indexer/` when it misbehaves.
 
-- **Nothing on screen reads it.** `docs/08` requires visible product use.
-  A lifecycle view over the indexed rows is the remaining work, and it is
-  what stands between this and an integration claim.
+- **A screen reads it — the "Indexed" view, added 18 September.** It
+  renders the loan beside the ordered event log that produced it, and
+  prints the conservation check in words:
+  `1,400 recovered + 2,600 written off = 4,000 principal`. Deliberately
+  separate from "Loan lifecycle", which renders what the gateway
+  retained: merging them would hide which source each figure came from,
+  and the point of this one is that the figures came from the log alone.
 
-> The honest sentence: **the indexer syncs a real chain and its output
-> reconciles against that chain, but no screen consumes it yet, so the
-> "visible product use" deliverable is still open.**
+  It follows the same rule as every other screen. `scripts/build-indexed-data.sh`
+  reads the rows the indexer stored into the bundle, and the page renders
+  the bundle — a screen querying a local GraphQL endpoint would show
+  nothing in the submitted static folder. The bundle step is the only
+  optional one, because it is the only one needing Docker; absent it, the
+  screen says the sync has not been run and gives the command, rather
+  than rendering an empty lifecycle that reads like a loan with no
+  events.
+
+- **The export is tested, and the tests caught a real defect.**
+  `web/src/lib/indexed.test.ts` pins that amounts stay strings, that a
+  resolved loan reconciles, that every loan opens with `Originated`, and
+  that events are in block order. The ordering test failed on first run:
+  the export cast `blockNumber` to text before sorting, so Postgres
+  ordered it lexicographically and block 6 landed after block 14 —
+  origination rendered last. Fixed by sorting on the numeric column and
+  casting only in the projection.
+
+> The honest sentence: **the indexer syncs a real chain, its output
+> reconciles against that chain, and a screen renders it — but only
+> against a local chain. The deployed 10143 config is written and
+> unexercised, because HyperSync needs an Envio API token this project
+> does not have.**
 
 ## Kuru — gated extension
 

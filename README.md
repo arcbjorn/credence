@@ -71,9 +71,11 @@ refusals and the vault's ledgers among them.
 
 ### The interface
 
-`docs/09`'s eight screens, rendering what the demos retained. One command
-does the whole path — toolchain check, a local chain, the demos, the
-WebAssembly engine, the data bundle, and the dev server:
+`docs/09`'s eight screens, rendering what the demos retained, plus a
+ninth — the lifecycle rebuilt from the event log by the Envio indexer,
+which needs Docker and is skipped without it. One command does the whole
+path — toolchain check, a local chain, the demos, the WebAssembly engine,
+the data bundle, and the dev server:
 
 ```sh
 scripts/web.sh          # or: make web
