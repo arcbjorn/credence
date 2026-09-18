@@ -89,6 +89,13 @@ function LoanCard({ loan, events }: { loan: IndexedLoan; events: IndexedEvent[] 
   // comment: what came back plus what was written off is the principal.
   // `docs/05` requires collections and losses to reconcile, and this is
   // the arithmetic a reader can do by eye.
+  //
+  // Only for a RESOLVED loan. An open one has nothing recovered and
+  // nothing written off because it has not ended, and holding it to the
+  // terminal arithmetic reported a healthy active loan as a
+  // reconciliation failure -- an alarm on the one loan that is simply
+  // still running.
+  const resolved = ["Repaid", "Recovered", "Defaulted"].includes(loan.status);
   const repaid = BigInt(loan.principalRepaid);
   const lost = BigInt(loan.principalLoss);
   const principal = BigInt(loan.principal);
@@ -107,7 +114,13 @@ function LoanCard({ loan, events }: { loan: IndexedLoan; events: IndexedEvent[] 
         </div>
         <div>
           <p className="lede" style={{ margin: 0 }}>Recovered</p>
-          <p className="figure figure-growth" style={{ margin: 0 }}>
+          {/* Green only when something actually came back. A zero styled
+              as growth reads as a good outcome on a loan that has simply
+              not ended. */}
+          <p
+            className={repaid > 0n ? "figure figure-growth" : "figure"}
+            style={{ margin: 0 }}
+          >
             {units(loan.principalRepaid)}
           </p>
         </div>
@@ -128,11 +141,18 @@ function LoanCard({ loan, events }: { loan: IndexedLoan; events: IndexedEvent[] 
         </div>
       </div>
 
-      <p className={reconciles ? "match" : "difference"}>
-        {reconciles
-          ? `${units(loan.principalRepaid)} recovered + ${units(loan.principalLoss)} written off = ${units(loan.principal)} principal`
-          : "These figures do not reconcile against the principal."}
-      </p>
+      {resolved ? (
+        <p className={reconciles ? "match" : "difference"}>
+          {reconciles
+            ? `${units(loan.principalRepaid)} recovered + ${units(loan.principalLoss)} written off = ${units(loan.principal)} principal`
+            : "These figures do not reconcile against the principal."}
+        </p>
+      ) : (
+        <p className="lede">
+          Still open — nothing has been recovered or written off yet, so
+          there is no final accounting to check.
+        </p>
+      )}
 
       <h4>What the log says happened</h4>
       <div className="scroll">

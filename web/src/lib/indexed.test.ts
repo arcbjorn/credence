@@ -101,6 +101,19 @@ describe.skipIf(!existsSync(INDEXED))("the indexed lifecycle", () => {
     }
   });
 
+  it("leaves an open loan with nothing recovered and nothing lost", () => {
+    // The screen must not hold an open loan to the terminal arithmetic.
+    // It did: `0 + 0 != principal` rendered "these figures do not
+    // reconcile" in alarm red on a perfectly healthy active loan, which
+    // is the most alarming thing on the page pointing at the one loan
+    // that is simply still running. Caught by looking at it.
+    for (const loan of load().loans) {
+      if (loan.status !== "Active") continue;
+      expect(loan.principalRepaid, "an open loan recovered something").toBe("0");
+      expect(loan.principalLoss, "an open loan wrote something off").toBe("0");
+    }
+  });
+
   it("resolves a terminal loan and leaves an open one unresolved", () => {
     for (const loan of load().loans) {
       const terminal = ["Repaid", "Recovered", "Defaulted"].includes(
