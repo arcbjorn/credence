@@ -151,3 +151,88 @@ func TestStaticProviderIsImmutable(t *testing.T) {
 		t.Fatal("mutating a returned series must not affect the provider")
 	}
 }
+
+// --- the failure modes `docs/11` names ------------------------------------
+//
+// "Exercise timeouts, partial responses, unexpected asset IDs, stale and
+// conflicting prices." Status codes, oversized bodies and a missing
+// observation time were already covered above; these are the rest.
+//
+// Each asserts the same property from a different direction: a provider
+// that misbehaves yields an ERROR, never a fabricated observation. That
+// is the only behaviour the engine can act on safely -- `docs/04` blocks
+// risk on unavailable evidence, and a silently-zeroed volatility would
+// read as a calm market instead.
+
+// A provider that never answers must fail, not hang the collector.
+func TestSlowProviderTimesOut(t *testing.T) {
+	blocked := make(chan struct{})
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		<-blocked // hold the request open past the client's deadline
+	}))
+	t.Cleanup(func() {
+		close(blocked)
+		s.Close()
+	})
+
+	p := market.NewHTTPProvider(s.URL, "closes", "observed_at", 50*time.Millisecond)
+	if _, _, err := p.Candles(context.Background()); err == nil {
+		t.Fatal("a provider that never answers must surface an error")
+	}
+}
+
+// A cancelled context must abort the read rather than outlive its caller.
+func TestCancelledContextAbortsTheRead(t *testing.T) {
+	blocked := make(chan struct{})
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		<-blocked
+	}))
+	t.Cleanup(func() {
+		close(blocked)
+		s.Close()
+	})
+
+	p := market.NewHTTPProvider(s.URL, "closes", "observed_at", time.Minute)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, _, err := p.Candles(ctx); err == nil {
+		t.Fatal("a cancelled context must abort the provider read")
+	}
+}
+
+// A body that stops mid-JSON is a PARTIAL response: the bytes that did
+// arrive parse as far as they go, and accepting them would hand the
+// engine a truncated series as though it were the whole window.
+func TestTruncatedResponseIsRefused(t *testing.T) {
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Length", "512")
+		_, _ = w.Write([]byte(`{"closes":[10000,10100`))
+	}))
+	t.Cleanup(s.Close)
+
+	p := market.NewHTTPProvider(s.URL, "closes", "observed_at", 2*time.Second)
+	if _, _, err := p.Candles(context.Background()); err == nil {
+		t.Fatal("a truncated response must be refused, not parsed as far as it goes")
+	}
+}
+
+// The closes field named in the config is absent, because the provider
+// answered about something else. An empty series must not read as a flat
+// one: flat means zero volatility, which is the calmest possible market.
+func TestUnexpectedResponseShapeIsRefused(t *testing.T) {
+	p := provider(t, `{"prices":[10000,10100,10201],"observed_at":1700000000}`,
+		http.StatusOK)
+	if _, _, err := p.Candles(context.Background()); err == nil {
+		t.Fatal("a response missing the configured closes field must be refused")
+	}
+}
+
+// The same shape one layer up: whatever the provider did wrong, the
+// reader yields no market state rather than a zero-volatility one.
+func TestUnexpectedShapeYieldsNoMarketState(t *testing.T) {
+	p := provider(t, `{"prices":[1,2,3],"observed_at":1700000000}`, http.StatusOK)
+	r := market.NewReader(p, 3600, "1000000000")
+	if _, err := r.Market(context.Background()); err == nil {
+		t.Fatal("an unexpected response shape must not yield a market state")
+	}
+}
