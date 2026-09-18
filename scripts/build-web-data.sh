@@ -40,10 +40,12 @@ DEFAULT_DB=${DEFAULT_DB:-$(find_db /tmp/credence-default || true)}
 
 mkdir -p "$OUT"
 
-python3 - "$OUT" "$REPAY_DB" "$MONITOR_DB" "$DEFAULT_DB" <<'PY'
+python3 - "$OUT" "$REPAY_DB" "$MONITOR_DB" "$DEFAULT_DB" \
+  /tmp/credence-repay /tmp/credence-monitor /tmp/credence-default <<'PY'
 import json, os, sqlite3, sys
 
-out, *dbs = sys.argv[1:]
+out, *rest = sys.argv[1:]
+dbs, works = rest[:3], rest[3:]
 REPO = os.path.abspath(os.path.join(out, "..", "..", ".."))
 names = ["repay", "monitor", "default"]
 
@@ -76,9 +78,35 @@ def parse(v):
 
 manifest = {"runs": [], "generated_from": []}
 
-for name, db in zip(names, dbs):
-    if not os.path.exists(db):
-        print(f"  {name:<8} (no database at {db}; skipped)")
+for name, db, work in zip(names, dbs, works):
+    # A run can retain on-chain checks WITHOUT a database.
+    #
+    # `demo-default.sh` drives the contracts directly and never starts the
+    # gateway, so it retains no SQLite -- and the whole run was therefore
+    # dropped here, taking its realised loss with it. The lender screen
+    # then read `demo-repay`, where nothing ever defaults, and its
+    # "realized loss" figure was structurally always zero: the one screen
+    # whose job is showing a lender loss could never show one.
+    checks_path = os.path.join(work, "checks.json") if work else ""
+    has_db = bool(db) and os.path.exists(db)
+    has_checks = bool(checks_path) and os.path.exists(checks_path)
+
+    if not has_db and not has_checks:
+        print(f"  {name:<8} (nothing retained; skipped)")
+        continue
+
+    if not has_db:
+        with open(checks_path) as f:
+            run = {"name": name, "checks": json.load(f), "assessments": [],
+                   "snapshots": {}, "outcomes": [], "forecasts": [],
+                   "chain_events": []}
+        with open(os.path.join(out, f"{name}.json"), "w") as f:
+            json.dump(run, f, indent=1, sort_keys=True)
+        print(f"  {name:<8} {len(run['checks'])} on-chain checks (no database)")
+        manifest["runs"].append({
+            "name": name, "assessments": 0, "snapshots": 0, "outcomes": 0,
+        })
+        manifest["generated_from"].append(checks_path)
         continue
 
     assessments = rows(db, """
@@ -129,8 +157,7 @@ for name, db in zip(names, dbs):
     # `docs/09` beat 6 is "the single most convincing moment", and it was
     # terminal-only: the interface can now show the two DIFFERENT revert
     # selectors rather than a sentence about them.
-    checks_path = os.path.join(os.path.dirname(db), "checks.json")
-    if os.path.exists(checks_path):
+    if has_checks:
         with open(checks_path) as f:
             run["checks"] = json.load(f)
         with open(os.path.join(out, f"{name}.json"), "w") as f:
