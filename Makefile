@@ -6,7 +6,7 @@
 # than reading ten filenames and guessing which one starts.
 
 .DEFAULT_GOAL := help
-.PHONY: help web web-build demos test fmt clean
+.PHONY: help web web-build demos index test fmt clean
 
 help: ## Show this list
 	@printf '\nCredence — autonomous credit markets for AI agents\n\n'
@@ -25,12 +25,16 @@ demos: ## Run the demos that produce the evidence
 	@bash scripts/demo-monitor.sh
 	@bash scripts/demo-default.sh
 
+index: ## Index the local chain's loan lifecycle (needs Docker)
+	@bash scripts/index-local.sh
+
 test: ## Every suite, the way CI runs them
 	@echo "== contracts ==" && cd contracts && forge fmt --check && forge lint && forge clean && forge test
 	@echo "== engine ==" && cd risk && cargo fmt --check && cargo clippy --all-targets -- -D warnings && cargo test
 	@echo "== gateway ==" && cd gateway && go test -race -count=1 ./...
 	@echo "== workflow ==" && cd cre && go test -race -count=1 ./underwrite/
 	@echo "== docs ==" && bash scripts/check-docs.sh
+	@echo "== indexer ==" && cd indexer && pnpm codegen && pnpm typecheck && pnpm test
 	@echo "== web ==" && cd web && pnpm test
 
 fmt: ## Format every language (all three are CI gates)

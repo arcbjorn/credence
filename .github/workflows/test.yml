@@ -165,6 +165,36 @@ jobs:
       - name: cited counts
         run: bash scripts/check-docs.sh
 
+  indexer:
+    name: indexer
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: indexer/pnpm-lock.yaml
+      - name: install
+        run: pnpm install --frozen-lockfile
+        working-directory: indexer
+      # The handlers are typed against entities codegen writes from
+      # config.yaml and schema.graphql, so this also checks that the
+      # three agree: a field renamed in the schema and not in a handler
+      # fails here rather than at sync time.
+      - name: codegen
+        run: pnpm codegen
+        working-directory: indexer
+      - name: typecheck
+        run: pnpm typecheck
+        working-directory: indexer
+      - name: test
+        run: pnpm test
+        working-directory: indexer
+
   web:
     name: web
     runs-on: ubuntu-latest
