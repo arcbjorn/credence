@@ -160,7 +160,7 @@ contract MockReputationRegistry {
     {
         Feedback[] storage all = entries[agentId];
 
-        uint256 n;
+        uint256 n = 0;
         for (uint256 i = 0; i < all.length; i++) {
             if (_matches(all[i], clientAddresses, tag1, tag2, includeRevoked)) {
                 n++;
@@ -175,7 +175,7 @@ contract MockReputationRegistry {
         tag2s = new string[](n);
         revokedStatuses = new bool[](n);
 
-        uint256 j;
+        uint256 j = 0;
         for (uint256 i = 0; i < all.length; i++) {
             if (!_matches(all[i], clientAddresses, tag1, tag2, includeRevoked)) {
                 continue;
@@ -202,7 +202,7 @@ contract MockReputationRegistry {
         // An empty filter means "every client", matching the real
         // contract: passing no addresses must not match nothing.
         if (clientAddresses.length > 0) {
-            bool found;
+            bool found = false;
             for (uint256 i = 0; i < clientAddresses.length; i++) {
                 if (clientAddresses[i] == f.client) {
                     found = true;

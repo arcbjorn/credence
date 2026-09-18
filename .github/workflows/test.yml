@@ -29,9 +29,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # Pinned, not `stable`. `stable` moved 1.7 -> 1.8 and brought new
+      # lint classes with it, which broke `master` on a day nobody
+      # touched Solidity. It also meant the lint gate could only be
+      # reproduced by pushing: locally `forge lint` emitted nothing,
+      # because 1.7 knows none of the classes 1.8 reports. Same reason
+      # forge-std is pinned below -- an unpinned dependency makes a
+      # green run mean a different thing on different days.
       - uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: stable
+          version: v1.8.3
       # forge-std is pinned rather than vendored, so a clean checkout
       # cannot compile without fetching it. Same script a developer runs.
       - name: fetch pinned dependencies
@@ -193,9 +200,11 @@ jobs:
         with:
           go-version-file: gateway/go.mod
           cache-dependency-path: gateway/go.sum
+      # Pinned to match the solidity job: the demos deploy the same
+      # contracts, so two toolchains would let them disagree.
       - uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: stable
+          version: v1.8.3
       - name: fetch pinned dependencies
         run: |
           git clone --quiet --depth 1 --branch v1.16.2 \
