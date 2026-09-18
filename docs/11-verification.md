@@ -45,8 +45,8 @@ Foundry unit plus invariant and fuzz tests. **Test observable failures, not priv
 ## Integration and operational
 
 - Normalize a recorded provider response; verify units, coverage, provenance
-- Exercise timeouts, partial responses, unexpected asset IDs, stale and conflicting prices
-- Restart Go during a submitted transaction; reconcile without resubmitting an already-funded loan
+- Exercise timeouts, partial responses, unexpected asset IDs, stale and conflicting prices — `go test ./market/ ./evidence/`. A provider that never answers, one whose context is cancelled, a body truncated mid-JSON, and a response naming a field the config does not expect each yield an **error rather than an observation**: a silently-zeroed volatility would read as the calmest possible market. Staleness is `TestMarketBeyondSkewBoundIsStale` and `TestStalePriceMakesAccountEvidenceStale`; `docs/04`'s declared `MaxSkewSeconds` is the bound, never an implicit tolerance
+- Restart Go during a submitted transaction; reconcile without resubmitting an already-funded loan — `go test ./publisher/ ./store/`. `TestCrashedSubmissionReconcilesAfterRestart` loses the process mid-submission, `TestLostJournalStillReconcilesFromChain` loses the journal as well, and both recover the outcome by **reading chain state rather than resending**: a retry that funded a second loan would be the one failure this row exists to prevent
 - Replay an indexed loan after cursor rollback or simulated reorganization — **`scripts/verify-reorg.sh`, 18 September.** A repayment is reorganized away, the indexer rolls `Repaid` back to `Active` (`fromBlock: 16, toBlock: 6, rollbackedEvents: 2`), and the replayed repayment returns at the new block rather than the discarded one. See [08 · Integrations](08-integrations.md#reorg-handling-demonstrated--18-september)
 - **Run the demo with no optional APIs and confirm the scenario baseline still works**
 - Restore retained SQLite data and reproduce a selected historical assessment
