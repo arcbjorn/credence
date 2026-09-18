@@ -231,6 +231,23 @@ with open(os.path.join(out, "manifest.json"), "w") as f:
     json.dump(manifest, f, indent=1, sort_keys=True)
 PY
 
+# The indexed lifecycle, when the indexer happens to be running.
+#
+# Optional on purpose, and the only optional part of this bundle. Every
+# other file comes from a demo, which needs nothing but a local chain;
+# this one needs Docker and a synced HyperIndex. Making it required would
+# mean a developer without Docker could not build the interface at all,
+# and CI would fail for a reason unrelated to the change under test.
+#
+# Its absence is a state the screen renders honestly -- it says the sync
+# has not been run and gives the command -- so skipping here costs a
+# screen, not correctness.
+if bash "$ROOT/scripts/build-indexed-data.sh" 2>/dev/null; then
+  :
+else
+  echo "  indexed  (no indexer running; skipped)"
+fi
+
 echo
 echo "data written to web/public/data/"
 du -sh "$OUT" | awk '{print "  total  " $1}'

@@ -40,11 +40,18 @@ mkdir -p "$OUT"
 # and 4000000000 survives that while a realistic principal does not.
 docker exec "$CONTAINER" psql -U "$USER" -d "$DB" -tAc "$(
   cat <<'SQL'
+-- Order by the NUMERIC columns, and cast to text only in the projection.
+--
+-- `order by` on the cast alias sorts lexicographically: block 6 lands
+-- after block 14, and the lifecycle renders with origination last. The
+-- sort keys are therefore carried through the subquery unconverted and
+-- dropped from the emitted row with `- 'sort_block'`.
 select json_build_object(
   'loans', coalesce((
-    select json_agg(row_to_json(l) order by l."loanId")
+    select json_agg((to_jsonb(l) - 'sort_loan') order by l.sort_loan)
     from (
       select
+        "loanId"                   as sort_loan,
         id, "chainId", "loanId"::text as "loanId", account,
         principal::text            as principal,
         status,
@@ -60,9 +67,12 @@ select json_build_object(
     ) l
   ), '[]'::json),
   'events', coalesce((
-    select json_agg(row_to_json(e) order by e."blockNumber", e."logIndex")
+    select json_agg(
+      (to_jsonb(e) - 'sort_block') order by e.sort_block, e."logIndex"
+    )
     from (
       select
+        "blockNumber"          as sort_block,
         id, loan_id, "chainId", kind,
         "blockNumber"::text    as "blockNumber",
         "blockTimestamp"::text as "blockTimestamp",
