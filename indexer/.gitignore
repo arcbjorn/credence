@@ -9,3 +9,9 @@ logs/
 # carries the local chain address and a skip flag, neither of which
 # belongs in the deployed config.
 config.local.yaml
+
+# Secrets. ENVIO_API_TOKEN authenticates HyperSync; it is a credential,
+# never a build input, and must not reach a commit.
+.env
+.env.*
+!.env.example
