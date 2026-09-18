@@ -93,7 +93,7 @@ assumed; a green suite is not evidence for a behavioural claim.
 | Default handling | evidence | `scripts/demo-default.sh` |
 | Replay | evidence | `scripts/demo-monitor.sh` (beat 8, with its tampering control) |
 | Missing / stale data | evidence | `forge test --match-test ExecuteRequiresStandingPermission`; engine blocks on stale required evidence |
-| **Independent reputation reader** | evidence | `scripts/demo-erc8004.sh` against the canonical ERC-8004 registries on Monad testnet; see [Independent reader](#independent-reader--erc-8004-14-september) |
+| **Independent reputation reader** | **pending re-run** | Held against the canonical registries on 14 September, but does not reproduce against the current manifest: the loans on its manager are bound to placeholder agent 184. Cause and the exact re-run in [Independent reader](#independent-reader--erc-8004-14-september) |
 | Integration honesty | evidence | scenario facility and test assets labelled; `TestRiskyAsset` is named *NOT ETH* |
 | Reproducibility | evidence | the three scripts run from a clean chain |
 
@@ -289,6 +289,49 @@ agent 1830: repaid   principal=4000000000 interest=746 loss=0 held=49s
 `tools/reader/read_erc8004.py` produced that last line from the chain
 alone, run from a directory outside the repository, importing only the
 Python standard library.
+
+> **That run does NOT reproduce against the current manifest, 18
+> September.** The entries above were published by a loan manager that has
+> since been replaced. Tags are scoped to the deployment
+> (`loan:<sha256(chain:manager)>:N`), so the same reader pointed at the
+> manifest's manager `0x40dc8Dd6…` — digest `1271305a` — reports:
+>
+> ```
+> agent 1830: 5 entries covering 0 obligation(s)
+>   5 entry(ies) from this client are not obligation records
+>   repaid=0  recovered=0  defaulted=0
+> ```
+>
+> The registry holds one unscoped `loan:1` from before scoping existed and
+> four `loan:d741baa0:1` entries from the superseded manager. The scoping
+> is behaving correctly: `docs/06` requires that another deployment's loan
+> 1 never be counted as this one's.
+>
+> **The cause was not the publisher.** `scripts/demo-repay.sh` defaulted
+> `AGENT_ID=184` and `IDENTITY_REGISTRY=0x…aec0`, and the 14 September
+> testnet run did not override them, so both loans on the current manager
+> are bound on chain to a made-up agent against a registry address that
+> holds no code. `agentIdOf` returns 184 for loans 1 and 2. Feedback for
+> agent 1830 could therefore never be published for them.
+>
+> Fixed in `90aff6a`: the identity now comes from the manifest's `erc8004`
+> block, and a non-local chain refuses to bind loans to the placeholder
+> rather than failing invisibly later. **The row's public-registry
+> evidence is pending a re-run** with funded keys:
+>
+> ```sh
+> export RPC=https://testnet-rpc.monad.xyz
+> export CREDENCE_DEPLOYER_KEY=... CREDENCE_SIGNER_KEY=... CREDENCE_AGENT_KEY=...
+> scripts/deploy-testnet.sh
+> TERM_SECONDS=600 HOLD_SECONDS=45 LOANS=3 scripts/demo-repay.sh
+> REPUTATION_REGISTRY=0x8004B663056A597Dffe9eCcC1965A193B7388713 \
+>   IDENTITY_REGISTRY=0x8004A818BFB912233c491871b3d84c89A494BD9e \
+>   AGENT_ID=1830 scripts/demo-erc8004.sh
+> ```
+>
+> The publish-and-read-back path itself is unaffected and still verified
+> against a local double: publish, an idempotent republish adding nothing,
+> and one obligation read back for agent 1830.
 
 ### What the standard forced
 

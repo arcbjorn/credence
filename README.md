@@ -43,9 +43,14 @@ ERC-8004 registries, and the registered agent id, which is what
 [`docs/06`](docs/06-identity-forecasts.md) requires of a release manifest.
 
 Agent `1830` is registered on the canonical ERC-8004 identity registry,
-and Credence publishes its loan outcomes to the canonical reputation
-registry. The `CREReceiver` is deployed; **no DON-signed report has
-reached it**, because deploy access is still pending.
+and Credence publishes loan outcomes to the canonical reputation
+registry. **The entries there belong to a superseded loan manager**: the
+loans on the current one were bound to a placeholder agent, so a reader
+pointed at the manifest reports zero obligations until the testnet run is
+repeated — [`docs/11`](docs/11-verification.md#independent-reader--erc-8004-14-september)
+gives the cause and the command. The `CREReceiver` is deployed; **no
+DON-signed report has reached it**, because deploy access is still
+pending.
 
 ## Running it
 
