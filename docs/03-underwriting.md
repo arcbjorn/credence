@@ -247,7 +247,47 @@ The original's climax is a shock changing risk **while a loan is open and the ag
 |---|---|
 | Owner | Go scheduler — owns reassessment timing; contracts independently check chain time |
 | Trigger | Price move beyond policy threshold, or evidence staleness |
-| Interval | Declared per deployment; measured in the latency report |
+| Interval | Declared per deployment in the gateway config's `scheduler` block; measured in the latency report |
+
+**What "declared" means, concretely — recorded 19 September.** Four
+documents referred to "the declared interval" and none said what it was,
+which makes a bound a reader cannot check. As `scripts/demo-monitor.sh`
+runs it:
+
+| Setting | Value | What it bounds |
+|---|---|---|
+| `price_move_bps` | 500 | A 5% move from the price the standing permission was computed against queues a reassessment |
+| `max_evidence_age_seconds` | 300 | Required evidence older than this cannot back a standing permission |
+| `refresh_lead_seconds` | 60 | Reassessment is queued this far BEFORE evidence goes stale, so permission is refreshed rather than lapsing |
+| `heartbeat_seconds` | 600 | The floor: permission may stand untouched no longer than this, even in a quiet market |
+
+So the worst case for an unprompted update is the heartbeat, **600
+seconds**, and a 5% price move cuts it to the next scheduler tick. These
+are the demo's values; `config/gateway.example.json` carries the same
+scheduler block with `max_evidence_age_seconds` at 3600, and a deployment
+may declare its own.
+
+The scheduler is **fail-closed**, which is what makes the bound
+meaningful rather than aspirational: if it stops, permission ages out and
+risk-increasing actions are refused on chain. Nothing here can extend
+permission by being unavailable. Fourteen tests in `gateway/scheduler/`
+pin each trigger, including `TestHeartbeatRefreshesStandingPermission`
+and `TestStalenessTriggersBeforeExpiry`.
+
+**Measured, 19 September.** From a `demo-monitor.sh` run, polling at
+800ms:
+
+```
+02:15:30  trigger=staleness   permission=Allowed  tx=0x2ce36f57…
+02:15:31  trigger=price_move  permission=Blocked  tx=0xb752fc7f…
+```
+
+The price move produced a **`Blocked` monitoring result on chain about a
+second after the observation changed**, against a 600-second worst case.
+The trigger is `price_move`, not `staleness`: a staleness cycle would
+only prove a clock runs, where this shows an observation changing a
+standing permission. Both lines carry a transaction hash, so the update
+reached the chain rather than a log.
 | Effect | Refreshes or blocks risk permission for subsequent risk-increasing actions; future draws still require a new origination assessment |
 | Explicitly not | Repricing the outstanding loan, or forcing recovery on its own |
 | Failure | Scheduler offline → evidence stales → risk-increasing actions blocked, repayment open. **Fail-closed, never fail-silent.** |
