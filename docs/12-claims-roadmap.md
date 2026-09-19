@@ -2,18 +2,23 @@
 
 ## Claims the release can earn
 
-| Claim | Required support |
-|---|---|
-| Decisions are reproducible | Retained canonical inputs plus matching replay |
-| Credit grows with demonstrated behavior | Three sequential loans under one policy, plus controlled ablation |
-| Current risk overrides reputation | Concentrated scenario with binding portfolio constraints |
-| Borrowed capital is constrained | Actual contract rejection and adapter boundaries |
-| Losses are accounted for | Realized collection and final settlement reconcile |
-| Underwriting is continuous | Unprompted reassessment reaching chain within a declared interval |
-| Forecasts are evaluated | Prior commitment, specified outcome protocol, retained resolutions |
-| Reputation is independently verifiable | Standalone reader using the accepted selected-network registry and no Credence endpoint |
-| CRE checks an assessment | Exact deployed workflow checks and report evidence |
-| A note is tradable debt exposure | Defined holder rights, market transfer, redemption |
+**Status as of 19 September.** A claim is *earned* only when the support
+beside it exists and was re-run; anything else says what is missing. Seven
+of ten are earned, and the three that are not are each blocked on
+something outside the code.
+
+| Claim | Required support | Status |
+|---|---|---|
+| Decisions are reproducible | Retained canonical inputs plus matching replay | **Earned** — `demo-monitor.sh` beat 8 reopens the retained SQLite and replays to MATCH, with a tampered control that must DIFFER |
+| Credit grows with demonstrated behavior | Three sequential loans under one policy, plus controlled ablation | **Earned** — 1200 → 1147 → 1094 bps under one policy and model hash, binding switching to `StressCapacity` at loan 3; ablation in `cargo test -p risk-core --test ablation` |
+| Current risk overrides reputation | Concentrated scenario with binding portfolio constraints | **Earned** — the Concentrated profile is `Denied` on a flawless record, on the three-agent screen and in `concentration_overrides_perfect_history` |
+| Borrowed capital is constrained | Actual contract rejection and adapter boundaries | **Earned** — beat 6 reverts on chain with two DIFFERENT selectors: `0xe9d4b4e2` for open debt, `0x72cb8533` for a stranger |
+| Losses are accounted for | Realized collection and final settlement reconcile | **Earned** — 4,000 lent = 1,400 recovered + 2,600 written off, reconciled on the lender screen since 18 September |
+| Underwriting is continuous | Unprompted reassessment reaching chain within a declared interval | **Earned** — `trigger=price_move` produced a `Blocked` result on chain ~1s after the observation moved, against a 600s heartbeat ([03](03-underwriting.md)) |
+| Forecasts are evaluated | Prior commitment, specified outcome protocol, retained resolutions | **Earned** — commitment precedes funding, and `LOANS=4` retains three resolved Brier scores. **Three observations permit an average, not a reliability claim** ([06](06-identity-forecasts.md)) |
+| Reputation is independently verifiable | Standalone reader using the accepted selected-network registry and no Credence endpoint | **Pending a funded re-run.** The reader works and the path held on 14 September, but the entries on chain belong to a superseded loan manager; the cause is fixed, the re-run is not done ([11](11-verification.md)) |
+| CRE checks an assessment | Exact deployed workflow checks and report evidence | **Not earned.** The receiver is deployed and 21 tests pass, the workflow simulates — but `cre whoami` still reports deploy access not enabled, so **no DON-signed report has reached the live receiver** |
+| A note is tradable debt exposure | Defined holder rights, market transfer, redemption | **Not earned, and not started.** `NoteSeries` does not exist. Kuru feasibility showed no blocker on 19 September, but that priced *creating a market*, not tokenising a receivable ([08](08-integrations.md)) |
 
 ## Claims the release must not make
 
