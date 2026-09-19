@@ -62,7 +62,7 @@ The final release requires evidence in every row below. A tagged development bas
 | Performer lifecycle | Account, request, assessment, execution, repayment, next assessment linked |
 | **Three sequential loans** | Same policy and model hash; limit rises, APR falls, binding constraint switches from history to stress capacity |
 | **Behavioral ablation** | Controlled runs varying only history, then only forecast evidence, each naming its binding constraint and published reference values |
-| **Continuous underwriting** | Unprompted `Monitoring` update for an open loan, with no origination terms, reaching chain within the declared interval; blocked and expired permission prevent new risk |
+| **Continuous underwriting** | Unprompted `Monitoring` update for an open loan, with no origination terms, reaching chain within the declared interval — **600s heartbeat, 5% price move, 300s evidence bound**, stated in [03 · Underwriting](03-underwriting.md); blocked and expired permission prevent new risk |
 | Concentration override | Favorable history plus a current-risk denial with cited inputs |
 | **Three stress cases** | Price, liquidity, and combined shocks reported side by side |
 | Forecast evaluation | Commit-before-funding, repeated resolved outcomes under a defined rule |
