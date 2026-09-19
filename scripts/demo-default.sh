@@ -69,6 +69,29 @@ ACCOUNT=$(forge script script/Scenario.s.sol --rpc-url "$RPC" --broadcast 2>&1 \
   | grep -o 'credit account 0x[0-9a-fA-F]\{40\}' | awk '{print $3}')
 echo "credit account $ACCOUNT"
 
+# The engine prices the loan and the agent commits a forecast before it is
+# funded.
+#
+# `docs/09` beat 7 is the OVERCONFIDENT scenario: "repeated forecasts and
+# outcomes, keeper action, actual collection, lender loss". Without
+# `-enroll` the scenario signs fixed terms and commits nothing, so this
+# demo produced the second half -- a real recovery and a real loss -- and
+# none of the first. A crash with no prior forecast is an unlucky agent,
+# not an overconfident one, and the distinction is the whole scenario.
+WORK=${WORK:-/tmp/credence-default}
+mkdir -p "$WORK"
+
+cd "$ROOT/risk"
+cargo build --quiet 2>/dev/null || true
+RISK_SERVICE_ADDR=127.0.0.1:18112 ./target/debug/credence-risk-service \
+  >"$WORK/risk-default.log" 2>&1 &
+RISK_PID=$!
+trap 'kill $RISK_PID 2>/dev/null || true' EXIT
+for _ in $(seq 40); do
+  curl -sf http://127.0.0.1:18112/health >/dev/null 2>&1 && break
+  sleep 0.25
+done
+
 # Originate and put the whole principal into the risky asset.
 cd "$ROOT/gateway"
 export CREDENCE_OPERATOR_KEY=$DEPLOYER CREDENCE_SIGNER_KEY=$SIGNER
@@ -78,7 +101,9 @@ go build -o credence-verify ./cmd/credence-verify
 ./credence-scenario -rpc "$RPC" -oracle "$ORACLE" -manager "$MANAGER" \
   -account "$ACCOUNT" -settlement "$SETTLEMENT" \
   -principal "$PRINCIPAL" -adapter "$ADAPTER" -risky "$RISKY" \
-  -chain-id "$CHAIN_ID" -deploy-bps 10000
+  -chain-id "$CHAIN_ID" -deploy-bps 10000 \
+  -enroll "$WORK/scenario.db" -vault "$VAULT" \
+  -risk http://127.0.0.1:18112 -policy "$ROOT/config/engine-policy.json"
 
 # The crash. Venue and independent price move together: this is a market
 # move, so the adapter's slippage guard correctly does not block the exit.
@@ -114,8 +139,6 @@ echo "after unwind: debt $DEBT against cash $CASH"
 #
 # The figures come from `realizedLoss()` on the vault, read back after
 # recovery settled, not from anything this script computed.
-WORK=${WORK:-/tmp/credence-default}
-mkdir -p "$WORK"
 echo
 echo "=== deployment verification ==="
 # `-ledgers-only`: the loan has resolved, so the beat-6 checks would be
