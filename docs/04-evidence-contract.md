@@ -169,6 +169,30 @@ credence evidence inspect --assessment <id>
 credence scenario compare --run <a> --run <b>
 ```
 
+### What proves determinism
+
+Added 19 September. This document stated the contract and cited nothing,
+so "no I/O, clock access, or entropy" was a promise rather than a
+checkable one. Ten tests in `gateway/canonical/` pin it:
+
+| Property | Test |
+|---|---|
+| Go and Rust agree byte for byte | `TestSnapshotHashMatchesRust`, `TestHashOfRustBytesMatches` |
+| Canonical form round-trips | `TestVectorsRoundTrip` |
+| Key order cannot change a hash | `TestKeyOrderDoesNotAffectHash` |
+
+`go test ./canonical/` runs them from `gateway/`.
+
+**The cross-language pair is the load-bearing one.** A single
+implementation agreeing with itself proves nothing about determinism —
+it would agree with its own bug just as readily. Go and Rust producing
+the same hash from the same bytes is what makes the commitment checkable
+by someone who trusts neither.
+
+The engine's freedom from I/O is enforced structurally as well: `risk/`
+is a pure library with no clock, and `docs/01` records that the crate
+takes explicit time as an input rather than reading one.
+
 ### What the envelope actually commits to
 
 `assessment_hash` is the canonical hash of the whole retained document, so
@@ -199,6 +223,15 @@ breaches each subtract a fixed slice of it.
 > policy ([12 · Claims & Roadmap](12-claims-roadmap.md)). Until then the
 > rule is coarse, but visible and conservative rather than absent.
 
+Tested on both sides of the line, in `gateway/store/`:
+`TestIndexedBindingWithNoLoansIsVerifiedEmpty` — an indexed binding with
+no loans is *verified empty*, not unproven;
+`TestUnindexedBindingHasIncompleteCoverage` — a binding enrolled late is
+incomplete; and `TestMalformedRecordMarksCoverageIncomplete` — a record
+that cannot be read makes coverage incomplete rather than silently
+shrinking the denominator. The distinction matters because "no loans"
+and "no visibility" would otherwise look identical.
+
 ### Reported evidence describes what was decided
 
 Stress cases reported beside an **approval** describe the portfolio that
@@ -207,6 +240,12 @@ effect on positions. Reporting the pre-draw book beside a positive grant
 shows a debt-free account stressed against zero debt: evidence for a loan
 that will never exist. A **denial** reports the portfolio as it stands,
 which is what a reader needs when no draw will happen.
+
+`reported_stress_describes_the_post_draw_portfolio` in
+`risk/crates/risk-core/tests/engine.rs` pins this. Reporting the pre-draw
+book beside an approval is the kind of error that reads as more
+conservative than it is — a debt-free account stressed against zero debt
+always looks safe.
 
 ## Persistence
 
