@@ -50,7 +50,7 @@ Foundry unit plus invariant and fuzz tests. **Test observable failures, not priv
 - Replay an indexed loan after cursor rollback or simulated reorganization — **`scripts/verify-reorg.sh`, 18 September.** A repayment is reorganized away, the indexer rolls `Repaid` back to `Active` (`fromBlock: 16, toBlock: 6, rollbackedEvents: 2`), and the replayed repayment returns at the new block rather than the discarded one. See [08 · Integrations](08-integrations.md#reorg-handling-demonstrated--18-september)
 - **Run the demo with no optional APIs and confirm the scenario baseline still works** — holds by construction, checked 18 September. No optional provider is wired: Nansen and Perpl appear only in test fixture names, and `grep -rn 'API_KEY' gateway/` finds nothing outside tests. The three demos need a chain and the Go toolchain and nothing else, which is what `docs/08`'s "the baseline must work with zero optional providers" promises
 - Restore retained SQLite data and reproduce a selected historical assessment — `scripts/demo-monitor.sh` beat 8. It reopens `credence.db` from disk, joins the retained assessment to the snapshot its `input_hash` names, and replays it through the engine. **A MATCH that cannot become a DIFFERENCE proves nothing**, so the same pair is replayed again with one field altered and must be rejected
-- Reject invalid CRE report paths and bindings; distinguish simulated from deployed execution — `forge test --match-contract CREReceiver` (21 tests). The receiver checks forwarder, workflow owner, workflow id, loan enrolment and report replay, each failing closed. Simulated-versus-deployed is recorded in [08 · Integrations](08-integrations.md): **no DON-signed report has reached the live receiver**, and deploy access is still pending
+- Reject invalid CRE report paths and bindings; distinguish simulated from deployed execution — `forge test --match-contract CREReceiver` (21 tests). The receiver checks forwarder, workflow owner, workflow id, loan enrolment and report replay, each failing closed. Simulated-versus-deployed is recorded in [08 · Integrations](08-integrations.md): **no DON-signed report has reached the live receiver**, and none will in this release: deploy access requires a commercial agreement, not an approval (19 Sep)
 - If the note extension is included, test ownership transfer, collection, holder redemption, and default payout conservation — **not applicable.** `NoteSeries` is not built: Kuru sits behind the 25 Sep and 2 Oct gates in [08 · Integrations](08-integrations.md), and this row is conditional on inclusion
 
 ## Release acceptance
@@ -408,7 +408,7 @@ the request is reviewed, and per Chainlink's documentation that gates
 |---|---|
 | `CREReceiver.sol` | 21 tests, `forge test --match-contract CREReceiver` |
 | `cre/underwrite` workflow | compiles to WASM, runs in the simulator |
-| Deploy to the workflow registry | **blocked on access** |
+| Deploy to the workflow registry | **not obtainable** — needs a commercial agreement with Chainlink, answered 18 Sep |
 
 ### Verified against the live chain, not documentation
 

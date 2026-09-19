@@ -136,10 +136,28 @@ Request deployment access during milestone one. Preserve the distinction between
 | KeystoneForwarder | `0xF8344CFd5c43616a4366C34E3EEE75af79a74482` — 8,592 bytes deployed |
 | MockKeystoneForwarder | `0xB9F79d863261869B234c481D1f9A7af84AeAd192` (simulation only) |
 
-Access is **gated but self-service**: `cre account access` from the CLI
-submits a request with a one-line use-case description, answered by email.
+Access is **gated, and not self-service** — corrected 19 September.
+`cre account access` submits a request from the CLI, which reads like a
+self-service approval and is not one. The answer, received 18 September,
+was an invitation to **book a call to discuss commercial conditions for
+workflow deployment**, together with a mutual NDA. That is an enterprise
+procurement path, not a switch that flips.
+
 Simulation needs no approval — `cre workflow simulate` runs immediately,
-and only `cre workflow deploy` waits on it.
+and only `cre workflow deploy` waits on the commercial conversation.
+
+**Treat deploy access as unavailable for this release.** It is not a
+matter of waiting longer: a signed MNDA and a commercial agreement are
+disproportionate for a prototype that `docs/12` forbids from claiming
+third-party adoption, and nothing about the timeline makes it land before
+13 October. `docs/10`'s failure row for this — *"CRE unresolved 2 Oct →
+freeze development attestation; describe status accurately"* — is the
+path being taken, early and deliberately rather than at the deadline.
+
+The bounty is unaffected. Chainlink's stated requirement is **"build,
+simulate, or deploy"**, and the workflow builds and simulates against the
+live forwarder. What is lost is one claim in `docs/12`, not the
+integration's eligibility.
 
 That matters for the claim ceiling. This document already distinguishes a
 **CRE policy-checked report** from a **recomputed assessment**; the further

@@ -49,8 +49,9 @@ registry. **Two repaid obligations are published there against the
 manifest's own manager**, read back on 19 September by a standalone
 script run from outside this repository, importing only the Python
 standard library and talking to nothing but a public RPC. The
-`CREReceiver` is deployed; **no DON-signed report has reached it**,
-because deploy access is still pending.
+`CREReceiver` is deployed; **no DON-signed report has reached it**, and
+none will in this release — deploy access turned out to need a commercial
+agreement with Chainlink rather than an approval.
 
 ## Running it
 
