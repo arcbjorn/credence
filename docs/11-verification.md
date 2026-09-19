@@ -109,7 +109,7 @@ assumed; a green suite is not evidence for a behavioural claim.
 | Default handling | evidence | `scripts/demo-default.sh` — a 2.6e9 realized loss, written off on chain and **now visible on the lender screen**. Until 18 September that run retained nothing, so the interface read the clean epoch and its realized-loss figure was structurally always zero |
 | Replay | evidence | `scripts/demo-monitor.sh` (beat 8, with its tampering control) |
 | Missing / stale data | evidence | `forge test --match-test ExecuteRequiresStandingPermission`; engine blocks on stale required evidence |
-| **Independent reputation reader** | **pending re-run** | Held against the canonical registries on 14 September, but does not reproduce against the current manifest: the loans on its manager are bound to placeholder agent 184. Cause and the exact re-run in [Independent reader](#independent-reader--erc-8004-14-september) |
+| **Independent reputation reader** | **evidence, 19 September** | `scripts/demo-erc8004.sh` against the canonical registries on Monad testnet. Two repaid obligations for agent **1830** on the manifest's own manager `0xe48BD505…`, read back by `tools/reader/read_erc8004.py` run from `/tmp` — outside the repository, stdlib only, no Credence endpoint. Republishing adds nothing. See [Independent reader](#independent-reader--erc-8004-14-september) |
 | Integration honesty | evidence | scenario facility and test assets labelled; `TestRiskyAsset` is named *NOT ETH* |
 | Reproducibility | evidence | the three scripts run from a clean chain |
 
@@ -306,48 +306,57 @@ agent 1830: repaid   principal=4000000000 interest=746 loss=0 held=49s
 alone, run from a directory outside the repository, importing only the
 Python standard library.
 
-> **That run does NOT reproduce against the current manifest, 18
-> September.** The entries above were published by a loan manager that has
-> since been replaced. Tags are scoped to the deployment
-> (`loan:<sha256(chain:manager)>:N`), so the same reader pointed at the
-> manifest's manager `0x40dc8Dd6…` — digest `1271305a` — reports:
+> **Corrected and re-run, 19 September.** The 14 September entries did not
+> reproduce against the manifest, and the row sat pending for five days.
+> Both causes are now fixed and the row is closed.
+>
+> **Cause one: the wrong agent.** `demo-repay.sh` defaulted `AGENT_ID=184`
+> against a registry address holding no code, and the 14 September testnet
+> run did not override them, so every loan bound to a made-up identity.
+> Fixed in `90aff6a`: the identity comes from the manifest's `erc8004`
+> block, and a non-local chain refuses the placeholder outright.
+>
+> **Cause two: the manifest lost its registry.** `Deploy.s.sol` builds the
+> manifest from scratch and overwrites the file, because Solidity cannot
+> merge JSON. That is right for the addresses it just deployed and wrong
+> for the rest: the ERC-8004 registries and the CRE forwarders describe
+> the **chain**, and survive a redeploy in reality. A redeploy deleted the
+> `erc8004` block, and the fix above then correctly refused to run —
+> having had the agent id it needed deleted out from under it. The refusal
+> was the guard working; the deletion was a second bug.
+> `scripts/lib/manifest.sh` now snapshots those blocks before the deploy
+> and merges them back after, never overwriting a key the deploy wrote.
+>
+> Observed on the canonical registry, agent **1830**, manager
+> `0xe48BD50543b122E34D956F17BC63E61252d1a7c4` — the one the manifest
+> names:
 >
 > ```
-> agent 1830: 5 entries covering 0 obligation(s)
->   5 entry(ies) from this client are not obligation records
->   repaid=0  recovered=0  defaulted=0
+> agent 1830: 13 entries covering 2 obligation(s)
+>   loan 1  repaid  principal=4000000000  interest=822  loss=0  held=54s
+>   loan 2  repaid  principal=4000000000  interest=807  loss=0  held=53s
+>   repaid=2  recovered=0  defaulted=0
 > ```
 >
-> The registry holds one unscoped `loan:1` from before scoping existed and
-> four `loan:d741baa0:1` entries from the superseded manager. The scoping
-> is behaving correctly: `docs/06` requires that another deployment's loan
-> 1 never be counted as this one's.
+> `tools/reader/read_erc8004.py` produced that from **`/tmp`**, outside the
+> repository, importing only the Python standard library and talking to
+> nothing but a public RPC. Republishing reports `already published` for
+> both and adds nothing, so a retried queue cannot double-count an
+> outcome.
 >
-> **The cause was not the publisher.** `scripts/demo-repay.sh` defaulted
-> `AGENT_ID=184` and `IDENTITY_REGISTRY=0x…aec0`, and the 14 September
-> testnet run did not override them, so both loans on the current manager
-> are bound on chain to a made-up agent against a registry address that
-> holds no code. `agentIdOf` returns 184 for loans 1 and 2. Feedback for
-> agent 1830 could therefore never be published for them.
+> **Two obligations, not three.** The run originates three loans; the
+> third had not resolved when publishing ran, and an unresolved loan has
+> no outcome to publish. The five older entries from the superseded
+> manager are still on chain and are **not counted** — the reader reports
+> them as "not obligation records", which is the deployment-scoped tag
+> doing its job rather than an omission.
 >
-> Fixed in `90aff6a`: the identity now comes from the manifest's `erc8004`
-> block, and a non-local chain refuses to bind loans to the placeholder
-> rather than failing invisibly later. **The row's public-registry
-> evidence is pending a re-run** with funded keys:
->
-> ```sh
-> export RPC=https://testnet-rpc.monad.xyz
-> export CREDENCE_DEPLOYER_KEY=... CREDENCE_SIGNER_KEY=... CREDENCE_AGENT_KEY=...
-> scripts/deploy-testnet.sh
-> TERM_SECONDS=600 HOLD_SECONDS=45 LOANS=3 scripts/demo-repay.sh
-> REPUTATION_REGISTRY=0x8004B663056A597Dffe9eCcC1965A193B7388713 \
->   IDENTITY_REGISTRY=0x8004A818BFB912233c491871b3d84c89A494BD9e \
->   AGENT_ID=1830 scripts/demo-erc8004.sh
-> ```
->
-> The publish-and-read-back path itself is unaffected and still verified
-> against a local double: publish, an idempotent republish adding nothing,
-> and one obligation read back for agent 1830.
+> One trap worth recording: an interrupted earlier run left an orphaned
+> `credence-scenario` process alive, competing for nonces on the same
+> deployer account. The second run originated nothing for twenty-five
+> minutes and looked hung. It was not — it was losing every nonce race.
+> Check for stray `credence-scenario` processes before concluding a
+> testnet run has stalled.
 
 ### What the standard forced
 
