@@ -84,10 +84,19 @@ produces a `DIFFERENCE`, so the script fails loudly if it does not.
 Lenders only lose once a fall exceeds the agent's own capital, so the
 severity is not cosmetic:
 
-| Asset falls to | Book (9,000) unwinds to | Who bears it | `realized_loss` |
+| Asset falls to | Book (14,000) unwinds to | Who bears it | `realized_loss` |
 |---|---|---|---|
-| 50% (`CRASH_BPS=5000`) | 4,500 | Agent equity absorbs all of it | 0 — lenders recover principal **plus** interest |
-| 10% (`CRASH_BPS=1000`) | 900 | Equity wiped, then lenders | 3,100,000,000 |
+| 50% (`CRASH_BPS=5000`) | 7,000 | Agent equity absorbs all of it | 0 — lenders recover principal **plus** interest |
+| 10% (`CRASH_BPS=1000`) | 1,400 | Equity wiped, then lenders | 2,600,000,000 |
+
+> **Corrected 19 September.** This table described a **9,000** book
+> losing **3,100,000,000**, which is the arithmetic for 5,000 of agent
+> equity. `Scenario.s.sol` defaults `AGENT_EQUITY` to **10,000e6**, so
+> the book is 10,000 equity plus 4,000 borrowed = 14,000, and the loss is
+> 4,000 lent less 1,400 recovered = **2,600,000,000**. Both rows above
+> were re-run on 19 September and are what the script prints. The old
+> figures were internally consistent — for a deployment this repository
+> no longer has, which is the kind of number a reader checks first.
 
 The mild case is the control: if a 50% crash also produced a lender loss,
 the demo would be manufacturing one rather than deriving it. Both figures
