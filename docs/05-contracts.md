@@ -158,6 +158,36 @@ bumped state version — would let a stale quote fund.
 12. **Recovery needs a trigger.** Maturity passed, or risk permission withdrawn. Seizing a healthy, unmatured position would make every loan callable at will, which is not the instrument the borrower agreed to
 13. **The executable class is pinned per deployment.** An oracle acts only on the class its deployment declares, by exact match. A scenario deployment issues and executes `ScenarioOnly`; a production one requires `PrototypeEligible` and refuses scenario evidence. An assessment of any other class is accepted as a record and stores no quote
 
+### What proves each one
+
+Added 19 September. Every invariant above was tested; none named its
+test, so a reader had no way to check the list without reading the whole
+suite. `docs/11` cites sixteen commands and this document cited none —
+an invariant a reader cannot verify is a claim.
+
+Run from `contracts/`:
+
+| # | Invariant | Test |
+|---|---|---|
+| 1 | Aggregate debt budget | `forge test --match-test globalCap` |
+| 2 | Replay protection | `test_replayedSequenceRejected` |
+| 3 | Expiry | `test_permissionExpires` |
+| 4 | Configuration binding | `test_unpinnedFacilityRejected` |
+| 5 | Supersession | `test_monitoringSupersedesUnusedQuote` |
+| 6 | Authorization route | `test_presentedRouteMustMatchPinned`, `forge test --match-test CREFacility` |
+| 7 | Pause | `test_pauseBlocksOriginationNotRepayment` |
+| 8 | Collection is bounded | `forge test --match-test ownerHasNoBypass`, and the close-out ordering test in `Lifecycle.t.sol` |
+| 9 | Resolution before write-off | `test_cannotDefaultWhileAssetsRemain` |
+| 10 | The receivable is the obligation | `test_settleBlockedWhileReceivableOpen` |
+| 11 | Configuration is immutable for an obligation's life | `test_AdapterCannotBeAddedUnderALiveLoan` **and** `test_AdapterCanAlwaysBeRevoked` |
+| 12 | Recovery needs a trigger | the three `LoanNotRecoverable` cases in `Lifecycle.t.sol` |
+| 13 | The executable class is pinned | `test_ScenarioDeploymentExecutesScenarioClass`, `test_ScenarioDeploymentRefusesOtherClasses`, `test_PrototypeDeploymentRefusesScenarioClass` |
+
+Invariant 11 needs **both** tests, and the pair is the point: adding a
+route under a live loan reverts, revoking one never does. A single test
+of the revert would look like coverage while leaving the asymmetry —
+"withdrawing a route only reduces what an account can do" — unproven.
+
 ### Why the class is scoped, not a threshold
 
 `docs/04` describes scenario fallback as starting a **separately bound
