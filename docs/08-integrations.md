@@ -389,6 +389,52 @@ reorganize would be asking it to rewrite someone else's history.
 
 **Feasibility experiment by 15 September:** bounded test of market creation for an existing token, settlement-token quote, fill, holder redemption. Produces an estimate; commits nothing.
 
+### The feasibility experiment SLIPPED — partial probe, 19 September
+
+**It was not run by 15 September, and nothing recorded that.** Four days
+late, no code, no spike. Recorded here rather than left implicit for the
+same reason `docs/10` records the screen-shell slip: an unflagged slip on
+a dated gate is exactly what a schedule exists to surface.
+
+What a probe on 19 September established, on chain rather than from
+documentation:
+
+| Contract | Address | Bytes |
+|---|---|---|
+| Router | `0x7EFbE105Ca7415dE98F96622173458ac1c054630` | 141 (EIP-1967 proxy) |
+| Router implementation | `0xaaa0f0c4d49d09ef33ae758d88afab810ecbe1ed` | 10,389 |
+| Margin account | `0xd029C2D98ff85D8F64799017fE00a59B1159CE02` | 141 |
+| Kuru deployer | `0xDacd06372cEb638640c9D8466A023b7362324e1A` | 6,703 |
+| Forwarder | `0x681bB1508E14433b148a2549ba2726454aDc9BB4` | 141 |
+
+The Router answers live calls: `orderBookImplementation()` returns
+`0x72caE0a99C19B574e8a6De558F43fc1D019c9374`, and `TRUSTED_FORWARDER()`
+returns the documented forwarder address, so the docs and the chain
+agree. Its implementation carries `verifiedMarket(address)`,
+`orderBookImplementation()` and `upgradeVaultImplementation(address)` —
+this is the Kuru Router, not an address that merely resolves.
+
+**What the probe did NOT establish**, and the distinction decides the
+gate:
+
+- **The market-creation ABI.** 24 selectors were extracted from the
+  deployed bytecode; ten do not resolve in the public signature database,
+  and none matches the `deployMarket` signature the SDK documents. Either
+  the docs describe an SDK wrapper rather than the raw call, or the
+  deployed contract is a different version. Resolving it needs the
+  published ABI rather than more guessing.
+- **Whether creation is permissionless.** `verifiedMarket(address)`
+  suggests a verification concept the documentation does not explain.
+- **Cost, fills, and redemption** — the parts the experiment was
+  actually for.
+
+> **The 25 September gate requires "feasibility showed no blocker", and
+> feasibility has not been run.** On the evidence above the gate cannot be
+> passed as written. The venue is real and reachable; nothing about
+> `NoteSeries` — the asset the bounty concerns — has been built or
+> costed, and `docs/08` already states that **no late baseline contract
+> rewrite is justified to include Kuru**.
+
 **Structure.** A separate `NoteSeries` funding route for one loan in an isolated deployment. **Never tokenize a receivable belonging to the baseline pooled vault** — each `LoanManager` binds to its allowed funding source. The series defines settlement asset, target principal, borrower, term, rate, maturity, recovery waterfall, and redemption method before funding. Fixed supply issued at origination; notes are a pro-rata claim on that loan's actual net collections. Early repayment pays accrued interest only — **the note does not promise unearned full-term interest.** Default can redeem below principal; pending recovery means pending redemption.
 
 **The same loan must never appear as both a redeemable pooled-vault asset and an independently redeemable note claim.** Notes are not eligible collateral in this release.
