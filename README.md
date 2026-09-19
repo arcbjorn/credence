@@ -45,13 +45,12 @@ ERC-8004 registries, and the registered agent id, which is what
 
 Agent `1830` is registered on the canonical ERC-8004 identity registry,
 and Credence publishes loan outcomes to the canonical reputation
-registry. **The entries there belong to a superseded loan manager**: the
-loans on the current one were bound to a placeholder agent, so a reader
-pointed at the manifest reports zero obligations until the testnet run is
-repeated — [`docs/11`](docs/11-verification.md#independent-reader--erc-8004-14-september)
-gives the cause and the command. The `CREReceiver` is deployed; **no
-DON-signed report has reached it**, because deploy access is still
-pending.
+registry. **Two repaid obligations are published there against the
+manifest's own manager**, read back on 19 September by a standalone
+script run from outside this repository, importing only the Python
+standard library and talking to nothing but a public RPC. The
+`CREReceiver` is deployed; **no DON-signed report has reached it**,
+because deploy access is still pending.
 
 ## Running it
 
@@ -117,8 +116,8 @@ Three worth reading before judging anything:
   prototype's, and the document says so.
 - [`docs/12 · Claims`](docs/12-claims-roadmap.md) — the ten claims this
   release may make, each marked earned or not, and the seven it **must
-  not** make whatever the demo shows. Three of the ten are not earned,
-  and the table says which and why.
+  not** make whatever the demo shows. Two of the ten are not earned, and
+  the table says which and why.
 
 ## What this is not
 

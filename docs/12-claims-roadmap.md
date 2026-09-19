@@ -3,9 +3,10 @@
 ## Claims the release can earn
 
 **Status as of 19 September.** A claim is *earned* only when the support
-beside it exists and was re-run; anything else says what is missing. Seven
-of ten are earned, and the three that are not are each blocked on
-something outside the code.
+beside it exists and was re-run; anything else says what is missing. Eight
+of ten are earned. The two that are not — a deployed CRE workflow and a
+tradable note — are blocked on Chainlink deploy access and on scope
+respectively, not on anything unwritten here.
 
 | Claim | Required support | Status |
 |---|---|---|
@@ -16,7 +17,7 @@ something outside the code.
 | Losses are accounted for | Realized collection and final settlement reconcile | **Earned** — 4,000 lent = 1,400 recovered + 2,600 written off, reconciled on the lender screen since 18 September |
 | Underwriting is continuous | Unprompted reassessment reaching chain within a declared interval | **Earned** — `trigger=price_move` produced a `Blocked` result on chain ~1s after the observation moved, against a 600s heartbeat ([03](03-underwriting.md)) |
 | Forecasts are evaluated | Prior commitment, specified outcome protocol, retained resolutions | **Earned** — commitment precedes funding, and `LOANS=4` retains three resolved Brier scores. **Three observations permit an average, not a reliability claim** ([06](06-identity-forecasts.md)) |
-| Reputation is independently verifiable | Standalone reader using the accepted selected-network registry and no Credence endpoint | **Pending a funded re-run.** The reader works and the path held on 14 September, but the entries on chain belong to a superseded loan manager; the cause is fixed, the re-run is not done ([11](11-verification.md)) |
+| Reputation is independently verifiable | Standalone reader using the accepted selected-network registry and no Credence endpoint | **Earned, 19 September** — two repaid obligations for agent 1830 on the canonical registry, read back from `/tmp` with no Credence endpoint. Attributable and filterable; **not** proof the referenced evidence is true, and **not** third-party adoption ([11](11-verification.md)) |
 | CRE checks an assessment | Exact deployed workflow checks and report evidence | **Not earned.** The receiver is deployed and 21 tests pass, the workflow simulates — but `cre whoami` still reports deploy access not enabled, so **no DON-signed report has reached the live receiver** |
 | A note is tradable debt exposure | Defined holder rights, market transfer, redemption | **Not earned, and not started.** `NoteSeries` does not exist. Kuru feasibility showed no blocker on 19 September, but that priced *creating a market*, not tokenising a receivable ([08](08-integrations.md)) |
 
