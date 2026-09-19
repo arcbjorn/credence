@@ -47,9 +47,9 @@ From here everything raises fidelity. **Later changes can still introduce regres
 | Strategy economic purpose | 14 Sep | **Settled 13 Sep** — see [07 · Simulation](07-simulation.md#what-the-strategy-does-and-why-it-is-financed) |
 | CRE access and verification level | Access 13 Sep; level 25 Sep | **Available 13 Sep** — CRE supports `monad-testnet`, forwarder verified on chain. Access is self-service via `cre account access`; simulation needs no approval. Level stays development attestation until a workflow is deployed |
 | ERC-8004 deployment and feedback compatibility | 15 Sep | **Resolved 13 Sep** — registries live on Monad testnet, selectors verified against the standard; see [06 · Identity](06-identity-forecasts.md#registry-compatibility--resolved-13-september). **Reader rewritten 14 September**: `tools/reader/read_erc8004.py` reads the canonical registry |
-| Policy thresholds and pricing schedule | 17 Sep | Conservative named assumptions; no calibrated-PD claim |
-| Coverage definitions | 17 Sep | Marked vs stressed; closeout deducted in both |
-| Kuru feasibility | 15 Sep | Small isolated experiment |
+| Policy thresholds and pricing schedule | 17 Sep | **Settled — recorded 19 Sep.** `config/engine-policy.json` pins every value as an exact integer: `base_rate_bps` 1200, discount and surcharge caps 400/800, APR floor and ceiling 500/4000, `base_history_cap` 6.2e9, `account_hard_cap` 12e9. Enforced in `risk-core` and pinned by the ablation, stress and engine suites. Conservative named assumptions, **no calibrated-PD claim** — `docs/12` forbids one |
+| Coverage definitions | 17 Sep | **Settled — recorded 19 Sep.** [02 · Credit Accounts](02-credit-accounts.md) gives both formulas; `min_maintenance_coverage` is 23/20 and the origination minimum sits in the stress block, both read by `engine.rs` and `stress.rs`. Closeout is deducted in both, and passing marked coverage alone cannot authorize a draw |
+| Kuru feasibility | 15 Sep | **SLIPPED — not run.** A partial probe on 19 Sep confirmed the venue is live on 10143 and the Router answers, but not the market-creation ABI, whether creation is permissionless, or cost. The 25 Sep gate requires "feasibility showed no blocker" and therefore cannot be passed as written; see [08 · Integrations](08-integrations.md#the-feasibility-experiment-slipped--partial-probe-19-september) |
 | Kuru implementation commitment | 25 Sep | Only after both gates |
 | Optional provider inclusion | 25 Sep | Only fields with measured coverage and visible product use |
 
