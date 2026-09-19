@@ -471,6 +471,50 @@ ERC20s succeed from the same caller.
 
 **The same loan must never appear as both a redeemable pooled-vault asset and an independently redeemable note claim.** Notes are not eligible collateral in this release.
 
+### Built, 19 September — `NoteSeries.sol`
+
+`contracts/src/NoteSeries.sol`, 16 tests in `NoteSeries.t.sol`. It
+implements the **same funding-source interface** `LoanManager` already
+calls on `CreditVault` — `lend`, `recordPrincipalRepaid`,
+`recordInterestCollected`, `recordLoss`, `markReceivableUnresolved`,
+`clearReceivable`, `releaseReservation` — so the manager binds to one or
+the other without knowing which, and **the manager is unchanged**. That
+matters: `docs/08` forbids a late baseline contract rewrite to include
+Kuru, and this adds a parallel funding source rather than touching the
+baseline.
+
+The double-claim rule is structural rather than checked. A `LoanManager`
+holds exactly one `vault` address, so a loan funded by a series was never
+in the pool and cannot be redeemed twice.
+
+Each rule in the paragraph above has a test that fails when it is removed:
+
+| Rule | Test |
+|---|---|
+| Fixed supply at origination | `test_cannotSubscribeBeyondTarget`, `test_cannotActivateUnderSubscribed` |
+| One series, one loan | `test_lendOnlyToTheSeriesBorrower` |
+| Pro-rata claim on **actual** collections | `test_repaidSeriesRedeemsAboveFaceValue` |
+| Default can redeem below principal | `test_defaultedSeriesRedeemsBelowFaceValue` |
+| Early repayment pays accrued interest only | `test_earlyRepaymentPaysOnlyAccruedInterest` |
+| Pending recovery means pending redemption | `test_redemptionBlockedWhileRecoveryPends` |
+| The claim is transferable | `test_transferMovesTheClaim`, `test_partialTransferSplitsTheClaimProRata` |
+
+**A test that passes is not the same as a test that bites.** Replacing
+the redemption arithmetic with face value fails five of them, including
+an underflow on the defaulted case — a face-value payout cannot be funded
+from a partial collection. The recovery-pending test initially did *not*
+bite: it left principal outstanding as well, so deleting the receivables
+guard still failed on the other one. It now repays principal first and
+isolates the receivables check, and deleting that guard fails exactly one
+test.
+
+> **What is NOT built: the market.** Nothing has been listed on Kuru, no
+> note has changed hands for consideration, and no redemption has happened
+> on chain. "Tradable" here means *transferable* — the claim moves and the
+> buyer redeems — which is a necessary part of the 2 October gate and not
+> the whole of it. That gate also wants origination through the series,
+> collection, and a tested default haircut against a live market.
+
 ### Market feedback stays informational
 
 Show fundamental assessment and market-implied pricing **separately**. Do not convert note price into real-world PD without explicit models for recovery, timing, interest, and liquidity premiums.
