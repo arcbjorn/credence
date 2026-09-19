@@ -6,7 +6,7 @@
 # than reading ten filenames and guessing which one starts.
 
 .DEFAULT_GOAL := help
-.PHONY: help web web-build demos index index-testnet verify-reorg test fmt clean
+.PHONY: help web web-build demos index index-testnet verify-reorg probe-kuru test fmt clean
 
 help: ## Show this list
 	@printf '\nCredence — autonomous credit markets for AI agents\n\n'
@@ -33,6 +33,9 @@ index-testnet: ## Index the deployed chain (needs Docker and an Envio token)
 
 verify-reorg: ## Reorganise a repayment away and check the indexer follows
 	@bash scripts/verify-reorg.sh
+
+probe-kuru: ## Kuru feasibility: is market creation permissionless, and what does it cost
+	@bash scripts/probe-kuru.sh
 
 test: ## Every suite, the way CI runs them
 	@echo "== contracts ==" && cd contracts && forge fmt --check && forge lint && forge clean && forge test
