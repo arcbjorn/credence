@@ -76,7 +76,12 @@ rm -rf broadcast/*/"$CHAIN_ID" cache/*.s.sol/"$CHAIN_ID"
 export DEPLOYER_KEY=0x$DEPLOYER
 export ATTESTOR_ADDRESS=$(cast wallet address --private-key "0x$SIGNER")
 export DEPLOYMENT_ID=7
+. "$ROOT/scripts/lib/manifest.sh"
+MANIFEST_KEEP=$(credence_manifest_snapshot \
+  "$ROOT/contracts/deployments/$CHAIN_ID.json")
 forge script script/Deploy.s.sol --rpc-url "$RPC" --broadcast >/dev/null
+credence_manifest_restore "$ROOT/contracts/deployments/$CHAIN_ID.json" \
+  "$MANIFEST_KEEP"
 MANIFEST="$ROOT/contracts/deployments/$CHAIN_ID.json"
 addr() { python3 -c "import json;print(json.load(open('$MANIFEST'))['addresses']['$1'])"; }
 ORACLE=$(addr oracle);             VAULT=$(addr vault)

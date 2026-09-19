@@ -65,6 +65,9 @@ export DEPLOYMENT_ID=${DEPLOYMENT_ID:-7}
 
 echo
 echo "deploying..."
+. "$ROOT/scripts/lib/manifest.sh"
+MANIFEST_KEEP=$(credence_manifest_snapshot \
+  "$ROOT/contracts/deployments/$CHAIN_ID.json")
 forge script script/Deploy.s.sol --rpc-url "$RPC" --broadcast --slow
 
 MANIFEST="$ROOT/contracts/deployments/$CHAIN_ID.json"
