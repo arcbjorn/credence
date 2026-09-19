@@ -40,6 +40,34 @@ Initial funding requires agent equity. **An agent with no equity receives no cre
 
 Precedent worth reading first: Gearbox's credit-account model — pools funding restricted accounts with approved execution routes and solvency checks.
 
+### What proves each restriction
+
+Added 19 September. These five rules are the whole of "borrowed capital
+is constrained", which `docs/12` lists as an earned claim — and this
+document cited nothing, so a reader had to take them on trust. Run from
+`contracts/`:
+
+| # | Restriction | Test |
+|---|---|---|
+| 1 | Whitelisted adapters only | `test_unregisteredAdapterRejected`, `test_outsiderCannotExecute` |
+| 2 | No withdrawal while debt is active | `test_withdrawBlockedWhileDebtOutstanding`, `test_ownerHasNoBypass`, `test_agentCannotWithdrawEverEvenWithoutDebt`, `test_withdrawAllowedAfterDebtClosed` |
+| 3 | Health maintained | `test_ExecuteRequiresStandingPermission`, `test_ExecuteRefusesAnUnassessedAction`, `test_ExecuteBlockedDuringRecovery` |
+| 4 | Proceeds return to the account | `test_loanManagerSweepsDuringRecovery`, `test_outsiderCannotSweep` |
+| 5 | Close-out ordering | `test_CollectCannotTakeResidualEquity` in `Lifecycle.t.sol` |
+
+**Rule 1 rests on an absence, not a check.** `grep -rn delegatecall
+contracts/src/` returns only comments: there is no `delegatecall` in any
+contract, so an adapter cannot execute in the account's storage context.
+A test can show a rejected adapter; only the absent opcode shows the
+escape hatch was never built.
+
+**Rule 2 needs all four of its tests.** Blocking the *agent* is the
+obvious half. `test_ownerHasNoBypass` is the one that matters: the owner
+has every right of ownership and still cannot withdraw while debt is
+open, which is what makes this lender protection rather than access
+control. `test_withdrawAllowedAfterDebtClosed` completes it — a lock
+that never released would be a different defect.
+
 ## Coverage — one definition
 
 ```text
