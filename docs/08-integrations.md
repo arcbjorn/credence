@@ -21,7 +21,7 @@ Status: `Unverified` · `Proven in spike` · `Integrated` · `Accepted` · `Defe
 | Perpl | Supported endpoints on chosen network | A documented field changes an assessment | Feature absent |
 | Nansen | Account coverage, quotas | A sourced feature demonstrably affects a decision | Omit, disclose coverage |
 | CRE | Deployment access, network and forwarder, consumer path | Valid report accepted; invalid bounds and wrong routes rejected | Separate development-attested baseline; an existing CRE facility blocks new risk and cannot fall back to a development key |
-| Kuru | Market creation, quote asset, fills, redemption | Tradable claim with completed redemption | Omitted from working-product claims |
+| Kuru | Market creation, quote asset, fills, redemption | Tradable claim with completed redemption | **Feasibility run 19 Sep: creation is permissionless, ~0.133 MON, no blocker.** Fills and redemption remain unbuilt, so it stays omitted from working-product claims |
 | Agent wallet | SDK and policy boundary | Agent signs permitted action; prohibited custody fails | Basic runner wallet; no plugin claim |
 
 ## Strategy — economic purpose required
@@ -389,15 +389,14 @@ reorganize would be asking it to rewrite someone else's history.
 
 **Feasibility experiment by 15 September:** bounded test of market creation for an existing token, settlement-token quote, fill, holder redemption. Produces an estimate; commits nothing.
 
-### The feasibility experiment SLIPPED — partial probe, 19 September
+### Feasibility — slipped, then run: 19 September
 
-**It was not run by 15 September, and nothing recorded that.** Four days
-late, no code, no spike. Recorded here rather than left implicit for the
-same reason `docs/10` records the screen-shell slip: an unflagged slip on
-a dated gate is exactly what a schedule exists to surface.
+**It was not run by 15 September, and nothing recorded that.** Recorded
+here rather than left implicit, for the same reason `docs/10` records the
+screen-shell slip: an unflagged slip on a dated gate is exactly what a
+schedule exists to surface. It was run on 19 September, four days late.
 
-What a probe on 19 September established, on chain rather than from
-documentation:
+Every line below was established **on chain**, not from documentation, and `scripts/probe-kuru.sh` re-runs the whole check. It sends no transaction and creates no market, so a reader needs no funded key.
 
 | Contract | Address | Bytes |
 |---|---|---|
@@ -407,33 +406,48 @@ documentation:
 | Kuru deployer | `0xDacd06372cEb638640c9D8466A023b7362324e1A` | 6,703 |
 | Forwarder | `0x681bB1508E14433b148a2549ba2726454aDc9BB4` | 141 |
 
-The Router answers live calls: `orderBookImplementation()` returns
-`0x72caE0a99C19B574e8a6De558F43fc1D019c9374`, and `TRUSTED_FORWARDER()`
-returns the documented forwarder address, so the docs and the chain
-agree. Its implementation carries `verifiedMarket(address)`,
-`orderBookImplementation()` and `upgradeVaultImplementation(address)` —
-this is the Kuru Router, not an address that merely resolves.
+`TRUSTED_FORWARDER()` on the Router returns the forwarder address above,
+so the documentation and the chain agree, and
+`orderBookImplementation()` returns
+`0x72caE0a99C19B574e8a6De558F43fc1D019c9374`.
 
-**What the probe did NOT establish**, and the distinction decides the
-gate:
+**The ABI was confirmed against the bytecode, not taken on trust.** 24
+selectors were extracted from the deployed implementation; ten did not
+resolve in the public signature database, and the signature the SDK
+*prose* documents (`deployMarket(...)`) matches none of them. The
+published ABI names `deployProxy` with eleven parameters instead, whose
+selector `ce186ec3` **is** in the extracted set, as is
+`computeAddress` at `1444ccb6`. The prose describes an SDK wrapper; the
+contract takes `deployProxy`.
 
-- **The market-creation ABI.** 24 selectors were extracted from the
-  deployed bytecode; ten do not resolve in the public signature database,
-  and none matches the `deployMarket` signature the SDK documents. Either
-  the docs describe an SDK wrapper rather than the raw call, or the
-  deployed contract is a different version. Resolving it needs the
-  published ABI rather than more guessing.
-- **Whether creation is permissionless.** `verifiedMarket(address)`
-  suggests a verification concept the documentation does not explain.
-- **Cost, fills, and redemption** — the parts the experiment was
-  actually for.
+#### What the experiment answered
 
-> **The 25 September gate requires "feasibility showed no blocker", and
-> feasibility has not been run.** On the evidence above the gate cannot be
-> passed as written. The venue is real and reachable; nothing about
-> `NoteSeries` — the asset the bounty concerns — has been built or
-> costed, and `docs/08` already states that **no late baseline contract
-> rewrite is justified to include Kuru**.
+| Question | Answer |
+|---|---|
+| Is market creation permissionless? | **Yes.** `deployProxy` simulates successfully from an ordinary unprivileged address |
+| Cost to create a market | **1,301,114 gas ≈ 0.133 MON** at the observed 102 gwei |
+| Does it accept our assets? | **Yes** — simulated with the deployment's own `TestRiskyAsset` / `TestSettlementToken`, returning market `0x3a4DEFF4029FEEc71b8AA93109DEfbE831e1cB30` |
+
+One trap worth recording: `deployProxy` reverts with **empty revert data**
+when handed addresses that hold no code. That reads exactly like an
+access-control rejection and is not one — the first attempt used
+placeholder addresses `0x1`/`0x2` and looked like a permission gate. Real
+ERC20s succeed from the same caller.
+
+> **The 25 September gate's feasibility condition is met: no blocker.**
+> The venue is live, creation is permissionless, the cost is negligible,
+> and it accepts the deployment's own tokens.
+>
+> **That is not the same as passing the gate.** The gate also requires the
+> baseline to demonstrate custody restrictions, repayment, recovery and
+> loss accounting — which it does — and the 2 October gate then requires
+> **origination, market transfer, collection, redemption and a tested
+> default haircut**. None of that exists: `NoteSeries` is not built, and
+> what this experiment priced is *creating a market*, not *tokenising a
+> receivable*. `docs/08` states that **no late baseline contract rewrite
+> is justified to include Kuru**, and a `NoteSeries` with its own
+> redemption waterfall is precisely such a rewrite. The remaining decision
+> is a scope decision, not a feasibility one.
 
 **Structure.** A separate `NoteSeries` funding route for one loan in an isolated deployment. **Never tokenize a receivable belonging to the baseline pooled vault** — each `LoanManager` binds to its allowed funding source. The series defines settlement asset, target principal, borrower, term, rate, maturity, recovery waterfall, and redemption method before funding. Fixed supply issued at origination; notes are a pro-rata claim on that loan's actual net collections. Early repayment pays accrued interest only — **the note does not promise unearned full-term interest.** Default can redeem below principal; pending recovery means pending redemption.
 
