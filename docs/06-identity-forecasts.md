@@ -31,6 +31,21 @@ Use chain timestamps for onchain history and explicitly labeled virtual timestam
 
 PnL adjusted for external cash flows. **A repayment proves an obligation was settled; it does not prove the strategy generated the repayment.** External top-ups stay visible in the outcome record.
 
+**What proves the duration rule** — added 19 September. The weight is
+computed in `gateway/store/derived.go`, not in the engine, and two tests
+in `gateway/store/` pin it: `TestSameBlockRepaymentEarnsNothing` is the
+anti-farming guarantee, and
+`TestRepaymentWeightScalesWithExposureAndDuration` checks the scaling
+between them. Run with `go test ./store/` from `gateway/`.
+
+The rule is not theoretical. The 19 September testnet run held each loan
+**45 seconds** against the 30-day cap, so each earned roughly
+1/57,600th of a full-term loan's credit — and capacity moved from
+6,200,000,000 to 6,200,320,000 across three loans. A reader seeing that
+flat line should read it as the cap working, not as repricing failing;
+[11 · Verification](11-verification.md) records the same effect on the
+14 September run.
+
 ## Published feedback
 
 Attributable events with loan IDs, amounts, durations, outcome classes, evidence references. Contract state is authoritative even if registry publication lags. Queue updates idempotently.
