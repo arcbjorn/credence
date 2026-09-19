@@ -107,7 +107,7 @@ export CREDENCE_DEPLOYER_KEY=... CREDENCE_SIGNER_KEY=...
 `docs/` is the specification, written to be checkable rather than
 promotional. Start with [`docs/README.md`](docs/README.md).
 
-Two worth reading before judging anything:
+Three worth reading before judging anything:
 
 - [`docs/11 · Verification`](docs/11-verification.md) — every release
   requirement, its status, and the command that reproduces it. Rows
@@ -115,6 +115,10 @@ Two worth reading before judging anything:
 - [`docs/05 · Contracts`](docs/05-contracts.md) — the invariants, and a
   plain statement of what the operator can do. The trust model is a
   prototype's, and the document says so.
+- [`docs/12 · Claims`](docs/12-claims-roadmap.md) — the ten claims this
+  release may make, each marked earned or not, and the seven it **must
+  not** make whatever the demo shows. Three of the ten are not earned,
+  and the table says which and why.
 
 ## What this is not
 
