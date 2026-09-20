@@ -26,9 +26,11 @@
 #     used against mainnet 404s or silently reads a different asset.
 #
 # The depth finding is the one that changes the system. `gateway/market`
-# carries a comment saying no public feed reports the depth available at
-# liquidation, so depth is declared policy rather than observation. The
-# `book` endpoint below is exactly such a feed.
+# carried a comment saying no public feed reports the depth available at
+# liquidation, so depth was declared policy rather than observation. The
+# `book` endpoint below is exactly such a feed, and `perpl.go` now reads
+# it. This script stays a check of the VENUE; `scripts/verify-perpl.sh`
+# checks that the gateway's own providers consume it correctly.
 set -euo pipefail
 
 BASE=${PERPL_BASE:-https://app.perpl.xyz/api}
@@ -126,6 +128,9 @@ echo
 echo "PASS  Perpl market data is public, and carries both engine inputs"
 echo
 echo "  Candles give realized volatility. The book gives depth on the side"
-echo "  a liquidation would actually trade into. gateway/market currently"
-echo "  declares depth as policy because no public feed reported it; this"
-echo "  endpoint is that feed."
+echo "  a liquidation would actually trade into. gateway/market once"
+echo "  declared depth as policy because no public feed reported it; this"
+echo "  endpoint is that feed, and gateway/market/perpl.go now reads it."
+echo
+echo "  This probe checks the VENUE. To check that the gateway's own"
+echo "  providers consume it correctly, run scripts/verify-perpl.sh."

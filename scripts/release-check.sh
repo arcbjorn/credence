@@ -79,6 +79,20 @@ echo "gates"
 run "Solidity format" "$ROOT/contracts" forge fmt --check || true
 run "Rust format" "$ROOT/risk" cargo fmt --check || true
 
+# Every script must at least parse. A quoting error inside an echo is
+# invisible until the line runs, and the line that runs last is the one
+# nobody waits for -- a broken `probe-perpl.sh` was committed on 20
+# September for exactly that reason, caught by eye rather than by a gate.
+syntax_bad=""
+for f in "$ROOT"/scripts/*.sh "$ROOT"/scripts/lib/*.sh; do
+  bash -n "$f" 2>/dev/null || syntax_bad="$syntax_bad $(basename "$f")"
+done
+if [ -n "$syntax_bad" ]; then
+  record FAIL "Script syntax" "does not parse:$syntax_bad"
+else
+  record PASS "Script syntax" "$(ls "$ROOT"/scripts/*.sh "$ROOT"/scripts/lib/*.sh | wc -l | tr -d ' ') scripts parse"
+fi
+
 # `forge lint` exits 0 even with warnings, so the gate is the grep that
 # CI uses rather than the exit code.
 lint_out=$(cd "$ROOT/contracts" && forge lint 2>&1)
