@@ -21,7 +21,7 @@ Status: `Unverified` · `Proven in spike` · `Integrated` · `Accepted` · `Defe
 | Perpl | Supported endpoints on chosen network | A documented field changes an assessment | Feature absent |
 | Nansen | Account coverage, quotas | A sourced feature demonstrably affects a decision | Omit, disclose coverage |
 | CRE | Deployment access, network and forwarder, consumer path | Valid report accepted; invalid bounds and wrong routes rejected | Separate development-attested baseline; an existing CRE facility blocks new risk and cannot fall back to a development key |
-| Kuru | Market creation, quote asset, fills, redemption | Tradable claim with completed redemption | **Feasibility run 19 Sep: creation is permissionless, ~0.133 MON, no blocker.** Fills and redemption remain unbuilt, so it stays omitted from working-product claims |
+| Kuru | Market creation, quote asset, fills, redemption | Tradable claim with completed redemption | **Listed on testnet 20 Sep** — market `0x874160Ca…`, `verifiedMarket() = true`, notes transferred. Redemption is tested off-market (`demo-notes.sh`). **Both participants are project-controlled**, so this stays out of working-product claims |
 | Agent wallet | SDK and policy boundary | Agent signs permitted action; prohibited custody fails | Basic runner wallet; no plugin claim |
 
 ## Strategy — economic purpose required
@@ -514,6 +514,34 @@ test.
 > buyer redeems — which is a necessary part of the 2 October gate and not
 > the whole of it. That gate also wants origination through the series,
 > collection, and a tested default haircut against a live market.
+
+### Listed on Kuru — 20 September
+
+`scripts/list-notes-kuru.sh` deploys a `NoteSeries`, issues its notes and
+creates a Kuru orderbook market for them, on Monad testnet:
+
+| | |
+|---|---|
+| Market | `0x874160CaFa8B1C4D4Ffbd8f1121c8d7491cdE38E` |
+| Note (`CNOTE`) | `0xbeAF9CB5Ac98659A0e44d6118ba5Fd02d43E631F` |
+| Settlement | `0x6b3597BFE78eAcf33d0C3D1bC5d12feD9e09c131` |
+| Cost | 0.3363 MON, all three deploys and the trades |
+
+**Kuru's own Router recognises it**, which is the check that matters:
+`verifiedMarket(0x874160Ca…)` returns `true`, and the market proxy
+resolves to `0x72caE0a9…` — exactly the address `orderBookImplementation()`
+reports. This is not a contract that merely resembles a market; the venue
+says it is one. The notes then moved: the whole 4,000,000,000 supply is
+held by the second address and none by the issuer.
+
+**What this does not establish.** Both participants are project
+controlled. Per the paragraph below, that makes this a **controlled
+market with observations lacking independent validation** — it
+demonstrates that a real on-chain orderbook accepts the instrument, not
+that anyone independent would price it. Nothing here feeds back into
+underwriting, and `docs/12` keeps the tradable-note claim unearned on
+exactly that basis: a market you are both sides of is not a market that
+has valued anything.
 
 ### Market feedback stays informational
 

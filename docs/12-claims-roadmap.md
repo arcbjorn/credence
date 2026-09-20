@@ -7,10 +7,10 @@ beside it exists and was re-run; anything else says what is missing. Eight
 of ten are earned, and the two that are not are unearned for different
 reasons. **A deployed CRE workflow is closed**: deploy access needs a
 commercial agreement with Chainlink, which is not a decision this project
-gets to make. **A tradable note is partly earned**: the
-instrument exists and its redemption arithmetic is tested, but no note has
-been listed or traded on a market, so the claim stays unearned until the
-2 October gate's market half is demonstrated.
+gets to make. **A tradable note is unearned on a narrower
+point than before**: the instrument exists, its redemption arithmetic is
+tested, and it is listed on a real orderbook — but every participant so
+far is project-controlled, and a controlled market has valued nothing.
 
 | Claim | Required support | Status |
 |---|---|---|
@@ -23,7 +23,7 @@ been listed or traded on a market, so the claim stays unearned until the
 | Forecasts are evaluated | Prior commitment, specified outcome protocol, retained resolutions | **Earned** — commitment precedes funding, and `LOANS=4` retains three resolved Brier scores. **Three observations permit an average, not a reliability claim** ([06](06-identity-forecasts.md)) |
 | Reputation is independently verifiable | Standalone reader using the accepted selected-network registry and no Credence endpoint | **Earned, 19 September** — two repaid obligations for agent 1830 on the canonical registry, read back from `/tmp` with no Credence endpoint. Attributable and filterable; **not** proof the referenced evidence is true, and **not** third-party adoption ([11](11-verification.md)) |
 | CRE checks an assessment | Exact deployed workflow checks and report evidence | **Not earned, and now closed rather than pending.** The receiver is deployed, 21 tests pass and the workflow simulates against the live forwarder — but deploy access turned out to require a commercial agreement, not an approval (19 Sep), so **no DON-signed report will reach the live receiver in this release** ([08](08-integrations.md)) |
-| A note is tradable debt exposure | Defined holder rights, market transfer, redemption | **Holder rights, transfer and redemption are built and tested, 19 September** — `NoteSeries.sol`, 16 tests. A note redeems against **actual collections**: above face on a clean repayment, below face after a default, accrued interest only on early repayment, and not at all while recovery pends. **The market half is not done** — nothing is listed on Kuru, so "tradable" means transferable here, not traded ([08](08-integrations.md)) |
+| A note is tradable debt exposure | Defined holder rights, market transfer, redemption | **Still not earned, and now for a sharper reason.** The instrument is built and tested (`NoteSeries.sol`, 16 tests) and **listed on a real Kuru orderbook on testnet, 20 Sep**, which Kuru's Router confirms with `verifiedMarket() = true`. But both participants are project-controlled, so nothing independent has priced a note. `docs/08`: *a price nothing independent produced cannot move executable credit* ([08](08-integrations.md)) |
 
 ## Claims the release must not make
 
