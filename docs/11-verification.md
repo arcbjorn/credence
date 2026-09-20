@@ -111,7 +111,7 @@ assumed; a green suite is not evidence for a behavioural claim.
 | Missing / stale data | evidence | `forge test --match-test ExecuteRequiresStandingPermission`; engine blocks on stale required evidence |
 | **Independent reputation reader** | **evidence, 19 September** | `scripts/demo-erc8004.sh` against the canonical registries on Monad testnet. Two repaid obligations for agent **1830** on the manifest's own manager `0xe48BD505…`, read back by `tools/reader/read_erc8004.py` run from `/tmp` — outside the repository, stdlib only, no Credence endpoint. Republishing adds nothing. See [Independent reader](#independent-reader--erc-8004-14-september) |
 | Integration honesty | evidence | scenario facility and test assets labelled; `TestRiskyAsset` is named *NOT ETH* |
-| Reproducibility | evidence | the three scripts run from a clean chain |
+| Reproducibility | evidence, re-verified 20 September | **From a fresh `git clone` to a temp directory**, not from a working tree: `scripts/setup.sh` then the three demos reproduce the documented figures exactly — 1200/1147/1094 bps with the binding constraint switching at loan 3, replay MATCH with its tamper control, and `realized_loss=2600000000`. `scripts/web.sh --no-serve` then builds the WebAssembly engine, the bundle and the static site |
 
 Observed on 13 September for the sequential-loans row, one policy and
 model hash throughout, only demonstrated history varying:
