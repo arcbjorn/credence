@@ -23,6 +23,8 @@ From here everything raises fidelity. **Later changes can still introduce regres
 - Extensions developed in **isolation** from it
 - All acceptance rows applicable to the current baseline and included extensions **re-run before every merge** into the demo branch; remaining release rows stay explicitly pending until completed
 
+`scripts/release-check.sh` performs that re-run in one command and writes a dated record to `releases/`, naming every row it could not reach rather than counting it as a pass. `releases/README.md` carries the tagging procedure. **A first run on 20 September reported 15 passed, 0 failed, 2 skipped** — the skips being the independent reader, which needs funded keys on a public chain, and the indexed lifecycle, which needs Docker.
+
 ## Milestone failures
 
 | Condition | Response |
