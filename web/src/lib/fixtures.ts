@@ -9,7 +9,13 @@
  *
  * `CREDENCE_REQUIRE_FIXTURES=1` — set in CI, after the bundle is
  * generated — turns a missing bundle into a failure instead. Locally it
- * stays a skip, so `pnpm test` works in a fresh clone.
+ * stays a skip, so a missing BUNDLE does not stop `pnpm test`.
+ *
+ * A missing ENGINE still does, and cannot be skipped the same way:
+ * `src/lib/engine.ts` imports `src/engine/` statically, so the failure is
+ * at compile time. `scripts/require-engine.mjs` runs before the suite and
+ * says which command builds it, rather than leaving a reader with three
+ * module-resolution errors.
  *
  * Reported by review, 15 September.
  */
