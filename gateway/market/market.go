@@ -6,6 +6,10 @@
 // collector compares the observation time against a declared bound rather
 // than assuming freshness.
 //
+// Both inputs can now be observed. Volatility always could; depth was a
+// declared policy number until `perpl.go`, because no public feed reported
+// the depth available at liquidation. Perpl's orderbook is that feed.
+//
 // Nothing here fabricates a value. A provider that fails returns an error,
 // which becomes Missing evidence, which blocks authorization. There is
 // deliberately no fallback that invents a volatility number to keep a cycle
@@ -18,6 +22,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
+	"sync"
 	"time"
 
 	"github.com/arcbjorn/credence/gateway/evidence"
@@ -39,10 +45,18 @@ type Reader struct {
 	// WindowSeconds is the declared volatility window. Published in the
 	// evidence so a reader can see what the number describes.
 	windowSeconds uint64
-	// LiquidityDepth is a policy input rather than an observation: no
-	// public feed reports the depth actually available to this protocol at
-	// liquidation, so it is declared and labelled rather than estimated.
+	// liquidityDepth is the DECLARED depth, used when nothing observes it.
+	//
+	// This was once the only option: no public feed reported the depth
+	// available to this protocol at liquidation. Perpl's orderbook is such
+	// a feed (`scripts/probe-perpl.sh`), so this is now the fallback and
+	// `depth` is preferred when set.
 	liquidityDepth string
+	// depth observes liquidation depth. Nil on a scenario facility.
+	depth DepthProvider
+
+	mu             sync.Mutex
+	fallbackReason string
 }
 
 func NewReader(p Provider, windowSeconds uint64, liquidityDepth string) *Reader {
@@ -59,11 +73,16 @@ func (r *Reader) Market(ctx context.Context) (evidence.MarketState, error) {
 	if err != nil {
 		return evidence.MarketState{}, fmt.Errorf("market: %w", err)
 	}
+	depth, reason := r.observedDepth(ctx)
+	r.mu.Lock()
+	r.fallbackReason = reason
+	r.mu.Unlock()
+
 	return evidence.MarketState{
 		ObservedAt:              observedAt,
 		RealizedVolatilityBps:   vol,
 		VolatilityWindowSeconds: r.windowSeconds,
-		LiquidityDepth:          r.liquidityDepth,
+		LiquidityDepth:          depth,
 	}, nil
 }
 
@@ -205,4 +224,61 @@ func (p StaticProvider) Candles(context.Context) ([]uint64, uint64, error) {
 	out := make([]uint64, len(p.Closes))
 	copy(out, p.Closes)
 	return out, at, nil
+}
+
+// DepthProvider reports observed liquidation depth, in settlement units,
+// with the time the observation was taken.
+//
+// Optional on purpose. A scenario facility has no venue to observe, and
+// `docs/04` permits declared inputs there so long as they are labelled;
+// an observed facility should prefer a measurement when one exists.
+type DepthProvider interface {
+	Depth(ctx context.Context) (depth uint64, observedAt uint64, err error)
+}
+
+// WithDepthProvider replaces the reader's declared depth with an observed
+// one.
+//
+// The declared value is kept as the FALLBACK rather than discarded, and
+// this is a deliberate asymmetry: depth of zero reaches the engine as
+// "undeclared", which takes the maximum liquidity haircut. So a provider
+// outage makes the system lend less, never more. Returning an error here
+// instead would block every cycle on a venue this protocol does not
+// control, which is a worse failure than falling back to the number an
+// operator wrote down.
+func (r *Reader) WithDepthProvider(d DepthProvider) *Reader {
+	r.depth = d
+	return r
+}
+
+// observedDepth returns the measured depth, or the declared fallback and
+// the reason it was used.
+func (r *Reader) observedDepth(ctx context.Context) (string, string) {
+	if r.depth == nil {
+		return r.liquidityDepth, ""
+	}
+	depth, _, err := r.depth.Depth(ctx)
+	if err != nil {
+		return r.liquidityDepth, err.Error()
+	}
+	if depth == 0 {
+		// Zero from a provider that did not error is still not an
+		// observation of an empty market -- it is a reading this code
+		// cannot distinguish from one. The declared value is used and the
+		// reason recorded.
+		return r.liquidityDepth, "provider reported zero depth"
+	}
+	return strconv.FormatUint(depth, 10), ""
+}
+
+// DepthFallbackReason names why the last read used declared depth, or ""
+// if it used an observation. Read after Market.
+//
+// Exposed so the evidence can say WHICH it used. A number that is
+// sometimes measured and sometimes declared, with no way to tell, is
+// worse than one that is always declared.
+func (r *Reader) DepthFallbackReason() string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.fallbackReason
 }

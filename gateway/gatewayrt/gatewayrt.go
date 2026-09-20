@@ -175,6 +175,31 @@ func NewRegistryStateVersion(
 // back to a static series would feed invented data into an executable
 // decision, which `docs/04` forbids outright.
 func BuildMarketReader(cfg *config.Config, rpc *chain.RPC) (evidence.MarketReader, error) {
+	// Perpl observes a real venue, so it satisfies an Observed facility.
+	// `scripts/probe-perpl.sh` records what this endpoint actually does.
+	if p := cfg.Market.Perpl; p != nil {
+		provider, err := market.NewPerplProvider(
+			p.BaseURL, p.MarketID, p.ResolutionSeconds,
+			cfg.Market.WindowSeconds, cfg.RPCTimeout,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("market: %w", err)
+		}
+		reader := market.NewReader(provider, cfg.Market.WindowSeconds,
+			cfg.Market.LiquidityDepth)
+		if p.ObserveDepth {
+			// Depth becomes an observation rather than a declaration. The
+			// declared value stays as the fallback, so a venue outage
+			// makes the engine lend LESS, never more.
+			reader = reader.WithDepthProvider(market.NewPerplDepthProvider(
+				p.BaseURL, p.MarketID,
+				p.PriceDecimals, p.SizeDecimals, p.SettlementDecimals,
+				cfg.RPCTimeout,
+			))
+		}
+		return reader, nil
+	}
+
 	if cfg.Market.ProviderURL != "" {
 		provider := market.NewHTTPProvider(
 			cfg.Market.ProviderURL,

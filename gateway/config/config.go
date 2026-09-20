@@ -116,12 +116,48 @@ type MarketPolicy struct {
 	ClosesField   string `json:"closes_field,omitempty"`
 	TimeField     string `json:"time_field,omitempty"`
 	WindowSeconds uint64 `json:"window_seconds"`
-	// LiquidityDepth is a declared policy input, not an observation: no
-	// public feed reports the depth available to this protocol at
-	// liquidation.
+	// LiquidityDepth is the DECLARED depth, used when nothing observes it.
+	//
+	// Required even with Perpl configured: it is the fallback when the
+	// venue is unreachable. Falling back keeps a provider outage from
+	// blocking every cycle, and because an unobserved depth can only
+	// make the engine lend less, the fallback cannot be exploited by
+	// taking the venue down.
 	LiquidityDepth string `json:"liquidity_depth"`
 	// StaticCloses serves scenario facilities only.
 	StaticCloses []uint64 `json:"static_closes,omitempty"`
+	// Perpl observes both market inputs from the perps venue on Monad.
+	// Omitted, the gateway behaves exactly as before.
+	Perpl *PerplPolicy `json:"perpl,omitempty"`
+}
+
+// maxPerplCandles mirrors market.MaxPerplCandles.
+//
+// Duplicated rather than imported to keep config a leaf package that
+// depends on nothing it configures. `TestPerplCandleCapMatchesTheMarketPackage`
+// fails if the two ever drift.
+const maxPerplCandles = 1000
+
+// PerplPolicy configures market observation from Perpl.
+//
+// The decimals are NOT guessed: they come from the venue's own
+// `/v1/pub/context` (`markets[id].config.price_decimals`,
+// `.size_decimals`) and its settlement token's `decimals`. They are
+// declared here rather than fetched so a venue that silently rescales
+// cannot silently change what every past decision meant --
+// `scripts/probe-perpl.sh` prints the current values to check against.
+type PerplPolicy struct {
+	BaseURL  string `json:"base_url"`
+	MarketID int    `json:"market_id"`
+	// ResolutionSeconds is an INTEGER NUMBER OF SECONDS. The venue answers
+	// HTTP 500 -- not 400 -- to the TradingView-style strings, so a wrong
+	// value here reads like an outage rather than a misconfiguration.
+	ResolutionSeconds  uint64 `json:"resolution_seconds"`
+	PriceDecimals      uint32 `json:"price_decimals"`
+	SizeDecimals       uint32 `json:"size_decimals"`
+	SettlementDecimals uint32 `json:"settlement_decimals"`
+	// ObserveDepth promotes liquidity depth from declared to observed.
+	ObserveDepth bool `json:"observe_depth"`
 }
 
 // WalletPolicy bounds what a single transaction may cost.
@@ -298,15 +334,63 @@ func (c *Config) Validate() error {
 	}
 	// An observed facility cannot fall back to a static series: that would
 	// be synthetic evidence inside an executable decision (`docs/04`).
-	if c.FacilityPolicy == "Observed" && c.Market.ProviderURL == "" {
-		return fmt.Errorf("config: market.provider_url is required for an Observed facility")
+	// Perpl counts as a provider; it observes a real venue.
+	observes := c.Market.ProviderURL != "" || c.Market.Perpl != nil
+	if c.FacilityPolicy == "Observed" && !observes {
+		return fmt.Errorf("config: market.provider_url or market.perpl is required for an Observed facility")
 	}
 	if c.FacilityPolicy == "Observed" && len(c.Market.StaticCloses) > 0 {
 		return fmt.Errorf("config: market.static_closes is not permitted for an Observed facility")
 	}
-	if c.FacilityPolicy == "Scenario" && c.Market.ProviderURL == "" &&
+	if c.FacilityPolicy == "Scenario" && !observes &&
 		len(c.Market.StaticCloses) < 2 {
 		return fmt.Errorf("config: a Scenario facility needs a provider or at least two static closes")
+	}
+	// Two providers would make the source of a published number ambiguous
+	// after the fact, which is the one thing the evidence contract cannot
+	// tolerate.
+	if c.Market.ProviderURL != "" && c.Market.Perpl != nil {
+		return fmt.Errorf("config: set market.provider_url or market.perpl, not both")
+	}
+	if p := c.Market.Perpl; p != nil {
+		if p.BaseURL == "" {
+			return fmt.Errorf("config: market.perpl.base_url is required")
+		}
+		if p.ResolutionSeconds == 0 {
+			return fmt.Errorf("config: market.perpl.resolution_seconds must be positive")
+		}
+		// Checked here so a window/resolution pair the venue would reject
+		// with HTTP 400 fails at startup, where the message is read, and
+		// not on every scheduler cycle thereafter.
+		if n := c.Market.WindowSeconds / p.ResolutionSeconds; n > maxPerplCandles {
+			return fmt.Errorf(
+				"config: market.window_seconds %d at resolution %d is %d candles, over the %d cap",
+				c.Market.WindowSeconds, p.ResolutionSeconds, n, maxPerplCandles)
+		}
+		if c.Market.WindowSeconds < p.ResolutionSeconds*2 {
+			return fmt.Errorf(
+				"config: market.window_seconds %d holds fewer than two %ds candles",
+				c.Market.WindowSeconds, p.ResolutionSeconds)
+		}
+		// A candle is stamped at its OPEN, so the newest one is up to a
+		// full resolution old even when the feed is perfectly live. The
+		// collector measures skew against that stamp, so a resolution
+		// coarser than the skew budget makes EVERY cycle Stale and the
+		// facility never authorizes anything.
+		//
+		// Found by running scripts/verify-perpl.sh against the live venue:
+		// hourly candles read 32 minutes old against a 300s budget. The
+		// unit tests could not have caught it -- their fixtures are
+		// timestamped by hand, so they never exercise a real bar's age.
+		//
+		// Stamping the candle's CLOSE would hide this, and would be worse:
+		// it would claim an observation from up to an hour in the future.
+		if c.Evidence.MaxSkewSeconds > 0 && p.ResolutionSeconds > c.Evidence.MaxSkewSeconds {
+			return fmt.Errorf(
+				"config: market.perpl.resolution_seconds %d exceeds evidence.max_skew_seconds %d; "+
+					"a candle is stamped at its open, so every observation would be Stale",
+				p.ResolutionSeconds, c.Evidence.MaxSkewSeconds)
+		}
 	}
 	if err := validateAddress(c.Addresses.Vault); err != nil {
 		return fmt.Errorf("config: addresses.vault: %w", err)

@@ -157,6 +157,18 @@ else
   record SKIP "Indexed lifecycle" "Docker not responding"
 fi
 
+# Perpl needs the public internet and nothing else -- no key, no funds, no
+# transaction -- so it runs here rather than being skipped. A venue outage
+# is recorded as a FAIL of this row and not of the release: the record
+# names what was reachable at the time it was produced.
+if (cd "$ROOT" && bash scripts/verify-perpl.sh) >/tmp/rc-perpl.log 2>&1; then
+  depth=$(grep -oE '"liquidity_depth": "[0-9]+"' /tmp/rc-perpl.log | head -1 | grep -oE '[0-9]+')
+  vol=$(grep -oE '"realized_volatility_bps": [0-9]+' /tmp/rc-perpl.log | grep -oE '[0-9]+')
+  record PASS "Perpl market observation" "vol=${vol:-?}bps depth=${depth:-?}"
+else
+  record FAIL "Perpl market observation" "see /tmp/rc-perpl.log"
+fi
+
 # --- The record --------------------------------------------------------
 
 COMMIT=$(git -C "$ROOT" rev-parse HEAD)

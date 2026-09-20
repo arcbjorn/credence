@@ -1,0 +1,86 @@
+{
+  "rpc_url": "https://testnet-rpc.monad.xyz",
+  "chain_id": 10143,
+  "addresses": {
+    "oracle": "",
+    "vault": "",
+    "loan_manager": "",
+    "settlement": ""
+  },
+  "risk_service_url": "http://127.0.0.1:18110",
+  "database_path": "",
+  "deployment_id": 7,
+  "evidence_policy_id": "0x2c3744f9aecea30351bf13f04f46cadfdb5a8a04e9533c7e35c392992564a882",
+  "facility_policy": "Observed",
+  "requested_class": "PrototypeEligible",
+  "schema_version": "v1",
+  "scheduler": {
+    "price_move_bps": 500,
+    "max_evidence_age_seconds": 300,
+    "refresh_lead_seconds": 60,
+    "heartbeat_seconds": 600
+  },
+  "evidence": {
+    "max_skew_seconds": 60,
+    "validity_seconds": 300
+  },
+  "engine_policy": {
+    "stress": {
+      "min_price_shock_bps": 3000,
+      "volatility_multiple_bps": 15000,
+      "max_price_shock_bps": 9000,
+      "liquidity_haircut_bps": 2000,
+      "execution_cost_bps": 50,
+      "keeper_fee_bps": 50,
+      "min_origination_coverage": {
+        "num": 6,
+        "den": 5
+      }
+    },
+    "pricing": {
+      "base_rate_bps": 1200,
+      "max_history_discount_bps": 400,
+      "max_portfolio_surcharge_bps": 800,
+      "min_apr_bps": 500,
+      "max_apr_bps": 4000
+    },
+    "forecast": {
+      "min_outcomes": 5,
+      "max_penalty_bps": 2000,
+      "worst_brier_ppm": 250000
+    },
+    "account_hard_cap": "12000000000",
+    "base_history_cap": "10000000000",
+    "history_growth_per_ppm": 10000,
+    "max_evidence_age_seconds": 3600,
+    "funding_rate_bps": 450,
+    "operating_rate_bps": 100,
+    "min_maintenance_coverage": {
+      "num": 23,
+      "den": 20
+    },
+    "loss_assumption": {
+      "pd_over_term_ppm": 17000,
+      "lgd_ppm": 250000
+    }
+  },
+  "tick_period_ms": 800,
+  "strategy_id": "spot-v1",
+  "market": {
+    "window_seconds": 21600,
+    "liquidity_depth": "2000000000000",
+    "perpl": {
+      "base_url": "https://app.perpl.xyz/api",
+      "market_id": 20,
+      "resolution_seconds": 60,
+      "price_decimals": 2,
+      "size_decimals": 3,
+      "settlement_decimals": 6,
+      "observe_depth": true
+    }
+  },
+  "wallet": {
+    "gas_limit_cap": 5000000,
+    "gas_price_cap_wei": 500000000000
+  }
+}

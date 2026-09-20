@@ -3,10 +3,12 @@ package config_test
 import (
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/arcbjorn/credence/gateway/config"
+	"github.com/arcbjorn/credence/gateway/market"
 )
 
 func write(t *testing.T, body string) string {
@@ -246,5 +248,124 @@ func TestOperatorKeyIsSeparateFromSigner(t *testing.T) {
 	signer, _ := config.SignerKey()
 	if string(operator) == string(signer) {
 		t.Fatal("the two keys must be read from different variables")
+	}
+}
+
+// --- Perpl ------------------------------------------------------------
+
+const perplBlock = `"perpl": {
+      "base_url": "https://app.perpl.xyz/api",
+      "market_id": 20,
+      "resolution_seconds": 60,
+      "price_decimals": 2,
+      "size_decimals": 3,
+      "settlement_decimals": 6,
+      "observe_depth": true
+    },`
+
+// withPerpl swaps the generic provider for a Perpl block.
+//
+// It also widens the window to 6 hours. `valid` uses 3600s, which at this
+// resolution is a single candle -- correctly refused, but that is a
+// different test than the one each caller here is making.
+//
+// The resolution is 60s rather than hourly because `valid` sets a 60s skew
+// budget, and a candle is stamped at its OPEN: anything coarser is Stale
+// on arrival. 60s over 6 hours is 360 candles, under the venue's cap.
+func withPerpl(body string) string {
+	body = strings.Replace(body,
+		`"provider_url": "http://127.0.0.1:9000/candles",`, perplBlock, 1)
+	return strings.Replace(body, `"window_seconds": 3600`, `"window_seconds": 21600`, 1)
+}
+
+// Perpl observes a real venue, so it satisfies an Observed facility on its
+// own -- the whole point of building it.
+func TestPerplSatisfiesAnObservedFacility(t *testing.T) {
+	if _, err := config.Load(write(t, withPerpl(valid))); err != nil {
+		t.Fatalf("a Perpl-backed observed facility must load: %v", err)
+	}
+}
+
+// Two providers would make the source of a published number ambiguous
+// after the fact. The evidence contract cannot tolerate that: a reader
+// re-deriving a decision must know which feed produced it.
+func TestPerplAndGenericProviderConflict(t *testing.T) {
+	body := strings.Replace(valid,
+		`"provider_url": "http://127.0.0.1:9000/candles",`,
+		`"provider_url": "http://127.0.0.1:9000/candles",`+perplBlock, 1)
+	_, err := config.Load(write(t, body))
+	if err == nil || !strings.Contains(err.Error(), "not both") {
+		t.Fatalf("expected a conflict refusal, got %v", err)
+	}
+}
+
+// A window/resolution pair the venue would reject with HTTP 400 must fail
+// at startup, where the message gets read -- not on every cycle after.
+func TestPerplOverCapWindowIsRefusedAtLoad(t *testing.T) {
+	body := withPerpl(valid)
+	// 60s resolution with a 3600s window is fine; widen the window to a
+	// week to exceed the candle cap.
+	body = strings.Replace(body, `"resolution_seconds": 3600`, `"resolution_seconds": 60`, 1)
+	body = strings.Replace(body, `"window_seconds": 21600`, `"window_seconds": 604800`, 1)
+
+	_, err := config.Load(write(t, body))
+	if err == nil || !strings.Contains(err.Error(), "cap") {
+		t.Fatalf("expected an over-cap refusal, got %v", err)
+	}
+}
+
+// A window too short to hold two candles can never produce a return.
+func TestPerplWindowMustHoldTwoCandles(t *testing.T) {
+	// A 60s resolution with a 90s window: not even two candles.
+	body := strings.Replace(withPerpl(valid),
+		`"window_seconds": 21600`, `"window_seconds": 90`, 1)
+
+	_, err := config.Load(write(t, body))
+	if err == nil || !strings.Contains(err.Error(), "fewer than two") {
+		t.Fatalf("expected a two-candle refusal, got %v", err)
+	}
+}
+
+// Declared depth stays REQUIRED even when Perpl observes it, because it is
+// the fallback used when the venue is unreachable. Dropping it would turn
+// a provider outage into a blocked facility.
+func TestPerplStillRequiresDeclaredDepthAsFallback(t *testing.T) {
+	body := strings.Replace(withPerpl(valid),
+		`"liquidity_depth": "50000000000"`, `"liquidity_depth": ""`, 1)
+	if _, err := config.Load(write(t, body)); err == nil {
+		t.Fatal("declared depth is the fallback and must stay required")
+	}
+}
+
+// config duplicates the candle cap to stay a leaf package. If the two ever
+// drift, a config that loads would be rejected by the venue at runtime --
+// exactly the failure the up-front check exists to prevent.
+func TestPerplCandleCapMatchesTheMarketPackage(t *testing.T) {
+	// A window one candle over the market package's cap must be refused,
+	// which is only true if config's copy of the constant agrees.
+	over := uint64(market.MaxPerplCandles+1) * 60
+	body := withPerpl(valid)
+	body = strings.Replace(body, `"resolution_seconds": 3600`, `"resolution_seconds": 60`, 1)
+	body = strings.Replace(body, `"window_seconds": 21600`,
+		`"window_seconds": `+strconv.FormatUint(over, 10), 1)
+
+	if _, err := config.Load(write(t, body)); err == nil {
+		t.Fatalf("config's cap disagrees with market.MaxPerplCandles (%d)",
+			market.MaxPerplCandles)
+	}
+}
+
+// A candle is stamped at its OPEN, so the newest one is up to a full
+// resolution old even on a live feed. A resolution coarser than the skew
+// budget makes every cycle Stale and the facility never authorizes.
+//
+// Found against the live venue, not in a fixture: hourly candles read 32
+// minutes old. See scripts/verify-perpl.sh.
+func TestPerplResolutionMustFitTheSkewBudget(t *testing.T) {
+	body := strings.Replace(withPerpl(valid),
+		`"resolution_seconds": 60`, `"resolution_seconds": 3600`, 1)
+	_, err := config.Load(write(t, body))
+	if err == nil || !strings.Contains(err.Error(), "max_skew_seconds") {
+		t.Fatalf("expected a skew-budget refusal, got %v", err)
 	}
 }
