@@ -35,6 +35,36 @@ Use bounded monotone search where the permitted action has a monotone feasible r
 
 Monitoring assessments evaluate the existing loan and current account policy, without solving or quoting a hypothetical new loan. See **Continuous underwriting** below and [04 · Evidence Contract](04-evidence-contract.md).
 
+### What proves the order
+
+Added 20 September. This document defines how every decision is made and
+cited nothing, which made the nine steps above a description rather than
+a checkable rule. Run from `risk/`:
+
+| Rule | Test |
+|---|---|
+| Step 3 in **three** forms | `price_shock_hits_positions_not_settlement`, `liquidity_impact_follows_the_square_root_law`, `combined_shock_is_the_most_severe` |
+| Step 5 on the **post-action** portfolio | `reported_stress_describes_the_post_draw_portfolio` |
+| Exact amount or deny | `eligible_request_is_approved_exactly`, `exact_capacity_is_grantable` |
+| A denial is a denial, not a smaller offer | `request_above_capacity_is_denied_not_reduced`, `denial_carries_no_terms` |
+| A denial names what bound it | `denial_names_the_lender_constraint` |
+
+`cargo test -p risk-core` runs all 152.
+
+**`combined_shock_is_the_most_severe` is the one to read first.** Three
+shocks reported side by side prove nothing if the combined case is not
+the worst of them — that would mean the price and liquidity legs were
+being netted somewhere, and the most severe scenario would be the one
+never reported.
+
+**`request_above_capacity_is_denied_not_reduced` is the second.** Silently
+reducing an over-large request to what fits is the friendlier behaviour
+and the wrong one: the agent asked a question about a specific amount,
+and answering a different question while calling it an approval hides the
+constraint that actually bound. `denial_carries_no_terms` closes the same
+gap from the other side — a denial that carried executable terms would be
+an approval wearing a refusal's label.
+
 ## The five quantities
 
 Distinct everywhere. The vision conflated them.
