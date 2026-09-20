@@ -6,7 +6,7 @@
 # than reading ten filenames and guessing which one starts.
 
 .DEFAULT_GOAL := help
-.PHONY: help web web-build demos index index-testnet verify-reorg probe-kuru notes release-check test fmt clean
+.PHONY: help web web-build demos index index-testnet verify-reorg probe-kuru notes list-notes release-check test fmt clean
 
 help: ## Show this list
 	@printf '\nCredence — autonomous credit markets for AI agents\n\n'
@@ -39,6 +39,9 @@ probe-kuru: ## Kuru feasibility: is market creation permissionless, and what doe
 
 notes: ## Fund, transfer and redeem a note series (docs/09 beat 9)
 	@bash scripts/demo-notes.sh
+
+list-notes: ## List a note series on Kuru testnet (needs funded keys)
+	@bash scripts/list-notes-kuru.sh
 
 release-check: ## Re-run every acceptance row and record it (docs/10)
 	@bash scripts/release-check.sh
