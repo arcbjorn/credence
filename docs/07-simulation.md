@@ -44,6 +44,38 @@ hidden parameters        no hidden params)
 
 Use a **development scenario set** and a **separate evaluation set** with different seeds and shock schedules. Include a shock **outside** the model's named scenarios — this demonstrates the difference between expected stress protection and guaranteed recovery.
 
+### What proves the harness
+
+Added 20 September. The separation above is the whole basis for treating
+an evaluation run as evidence, and this document cited nothing for it.
+Twenty-three tests in `gateway/sim/` do; run `go test ./sim/` from
+`gateway/`.
+
+| Claim | Test |
+|---|---|
+| The underwriter cannot see the future | `TestUnderwriterSeesNoFuture` |
+| A run reproduces from its seed | `TestRunIsReproducible` |
+| A sealed pack verifies on load | `TestLoadVerifiesOnTheWayIn` |
+| **An edited pack fails** | `TestEditedPackFailsVerification` |
+| A pack cannot be silently overwritten | `TestSaveRefusesToOverwrite` |
+| The agent can decline terms | `TestAgentDeclinesTermsItCannotJustify` |
+| A refusal is recorded, not fatal | `TestRefusalsAreRecordedNotFatal` |
+| Principal reconciles across a run | `TestPrincipalReconciles` |
+| An unnamed shock stays unnamed | `TestUnnamedShockIsReportedAsUnnamed` |
+| A shock with no live loan is not counted | `TestShockWithNoLiveLoanIsNotCounted` |
+| A lender loss requires equity exhausted first | `TestLenderLossRequiresEquityExhausted` |
+
+**`TestUnderwriterSeesNoFuture` is the load-bearing one.** An engine that
+could read the shock schedule would be trading on the generator's
+secrets, and every number in the table below would describe a system
+nobody can build. The diagram above is a claim about information flow;
+that test is what makes it checkable.
+
+**`TestEditedPackFailsVerification` protects the rest.** A sealed pack
+that could be edited after the fact would let a disappointing run be
+quietly improved, and the seal would be decoration. The pack digest is
+sha256 over its contents, so an edit changes it and the load fails.
+
 ### What the evaluation found — 14 September
 
 Both sets ran against the live engine, one policy and one model hash
