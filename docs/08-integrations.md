@@ -565,6 +565,87 @@ The honest statement: **the market feedback loop is a meaningful future capabili
 
 **Gates.** 25 Sep — proceed only if the baseline demonstrates custody restrictions, repayment, recovery, and loss accounting, and feasibility showed no blocker. 2 Oct — must demonstrate origination, market transfer, collection, redemption, and a tested default haircut, or be excluded from the recorded demo. **No late baseline contract rewrite is justified to include Kuru.**
 
+## Perpl — market observation, 20 September
+
+The engine's `MarketState` has always carried exactly two market inputs:
+`realized_volatility_bps` and `liquidity_depth` (`risk/crates/risk-core/src/input.rs`).
+Volatility was observed through a generic HTTP provider. **Depth was
+declared policy**, and `gateway/market/market.go` said why:
+
+> no public feed reports the depth actually available to this protocol at
+> liquidation, so it is declared and labelled rather than estimated
+
+Perpl's orderbook is such a feed. That sentence is now false, and depth on
+an observed facility is a measurement rather than a declaration.
+
+### The capability check, run rather than read
+
+`scripts/probe-perpl.sh`, read-only and unauthenticated. Three findings
+would have been got wrong by reading the documentation, which is the whole
+reason `docs/08` requires the check be run:
+
+| Read | Actual |
+|---|---|
+| Resolution is a TradingView string (`1h`) | Integer **seconds**. `1h` returns **HTTP 500**, which reads like an outage; `3600` on the same URL returns 200 |
+| `HTTP 400` means an unsupported resolution | It is a **candle-count cap** near 1000. `60` over 7 days fails; `60` over 6 hours returns 361 candles |
+| Market ids are stable | **They differ per network.** ETH is 20 on mainnet, 32 on testnet; mainnet has no BTC market at all |
+
+Both networks behave identically on the 500, so it is an endpoint
+contract, not a testnet data gap.
+
+### What is verified, and what is not
+
+`scripts/verify-perpl.sh` builds **the same providers the scheduler
+builds** and points them at app.perpl.xyz, because the unit tests run
+against fixtures this repository wrote: they prove the parsing matches a
+*belief* about the venue, never that the belief is right.
+
+```text
+evidence.MarketState = {
+  "observed_at": 1789947180,
+  "realized_volatility_bps": 4,
+  "volatility_window_seconds": 21600,
+  "liquidity_depth": "286232968480"
+}
+observation is 9s old by the local clock
+```
+
+Depth is the resting **bid** notional, rescaled to settlement units.
+The bid side specifically: liquidating collateral *sells*, so it trades
+into bids. Since `stress.rs` uses depth as the denominator of a
+square-root impact term, counting asks would overstate depth, understate
+impact, and over-lend.
+
+**A declared fallback remains, and remains required.** When the venue is
+unreachable the declared number is used and `DepthFallbackReason()`
+records why — the evidence never claims a measurement it did not make.
+The asymmetry is deliberate: an unobserved depth can only make the engine
+lend *less*, so taking the venue down cannot be used to extract credit.
+
+### What running it against the live venue caught
+
+A candle is stamped at its **open**, so the newest hourly candle reads up
+to 3600s old even on a perfectly live feed. Against the standard 300s skew
+budget every cycle would have been `Stale` and the facility would have
+authorized nothing.
+
+The fixtures could not have caught this — their timestamps are written by
+hand, so they never exercise a real bar's age. Stamping the candle's
+*close* would have hidden it and been worse: it would claim an observation
+from up to an hour in the future.
+
+The fix is a config refusal, not a loosened check: a resolution coarser
+than `evidence.max_skew_seconds` is rejected at load
+(`TestPerplResolutionMustFitTheSkewBudget`). At 60s the same observation
+is 9 seconds old.
+
+### Scope
+
+This is **market observation, not trading**. It feeds the three named
+stress scenarios the engine already runs; it opens no position and touches
+no custody rule. D14 and D33 are unaffected — the basis trade stays out of
+v0, and nothing here revisits it.
+
 ## Bounties
 
 **Track: Onchain Finance & Trading** ($30,000, split three ways). The track explicitly names undercollateralised lending priced on onchain credit history.
