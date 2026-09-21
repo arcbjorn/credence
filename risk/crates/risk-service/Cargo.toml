@@ -17,6 +17,14 @@ path = "src/lib.rs"
 workspace = true
 
 [dependencies]
+prost = "0.14.4"
 risk-core = { path = "../risk-core" }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order", "arbitrary_precision"] }
+tokio = { version = "1.53.1", features = ["rt-multi-thread", "macros"] }
+tonic = "0.14.6"
+tonic-prost = "0.14.6"
+
+[build-dependencies]
+tonic-build = "0.14.6"
+tonic-prost-build = "0.14.6"

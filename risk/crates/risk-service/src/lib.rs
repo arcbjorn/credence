@@ -10,8 +10,8 @@
 //! matters here, which is bounding input and refusing malformed requests
 //! before they reach the engine.
 
+pub mod grpc;
 pub mod handler;
-pub mod protobuf;
 pub mod server;
 
 pub use handler::{handle, Request, Response};

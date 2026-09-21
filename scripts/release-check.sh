@@ -274,18 +274,16 @@ else
   record SKIP "Perpl risk panel" "run scripts/build-web-data.sh first"
 fi
 
-# The transport gate (`docs/10`, 6 Oct): the protobuf codec must agree
-# with the reference implementation, and the frozen artifacts must be
-# untouched. SKIPs without protoc rather than passing -- an unavailable
-# reference decoder proves nothing.
-if (cd "$ROOT" && bash scripts/verify-protobuf.sh) >/tmp/rc-proto.log 2>&1; then
-  if grep -q '^SKIP' /tmp/rc-proto.log; then
-    record SKIP "Protobuf transport" "protoc not installed"
-  else
-    record PASS "Protobuf transport" "codec agrees with protoc"
-  fi
+# The transport gate (`docs/10`): gRPC must produce a BYTE-IDENTICAL
+# assessment to JSON for the same snapshot. Anything less and the
+# transport changed a decision, so retained evidence would stop
+# reproducing under the other one. Real tonic server, real generated Go
+# client, both from `schemas/proto/risk.proto`.
+if (cd "$ROOT" && bash scripts/verify-grpc.sh) >/tmp/rc-grpc.log 2>&1; then
+  hash=$(grep -oE 'sha256 [0-9a-f]+' /tmp/rc-grpc.log | head -1 | awk '{print $2}')
+  record PASS "gRPC transport" "byte-identical to JSON, ${hash:-matched}"
 else
-  record FAIL "Protobuf transport" "see /tmp/rc-proto.log"
+  record FAIL "gRPC transport" "see /tmp/rc-grpc.log"
 fi
 
 # --- Is the remote build green? ----------------------------------------
