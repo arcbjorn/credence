@@ -159,16 +159,60 @@ fi
 
 echo
 echo "external"
-if [ -n "${CREDENCE_DEPLOYER_KEY:-}" ] && [ "${RPC}" != "http://127.0.0.1:8546" ]; then
-  record SKIP "Independent reputation reader" "run scripts/demo-erc8004.sh against 10143"
+# Reading the registry needs no key and no funds -- that is the property
+# the row asserts -- so it runs here rather than waiting for a funded
+# operator. PUBLISHING to it does need funds; `scripts/demo-erc8004.sh`
+# does that, and this only reads what it already wrote.
+if (cd "$ROOT" && bash scripts/verify-reputation.sh) >/tmp/rc-reputation.log 2>&1; then
+  sig=$(grep -oE '[0-9]+ signal\(s\) from this client across [0-9]+ obligation' \
+    /tmp/rc-reputation.log | head -1)
+  record PASS "Independent reputation reader" "${sig:-read the registry}"
 else
-  record SKIP "Independent reputation reader" "needs funded keys and a public chain"
+  # A public chain this project does not control. An outage is a FAIL of
+  # this row and not of the release: the record names what was reachable.
+  record FAIL "Independent reputation reader" "see /tmp/rc-reputation.log"
 fi
 
-if docker info >/dev/null 2>&1; then
-  record SKIP "Indexed lifecycle" "run scripts/index-local.sh, then verify-reorg.sh"
-else
+# The indexed lifecycle needs Docker, a synced indexer and a local chain.
+# It is attempted rather than announced: a row that only ever printed
+# instructions was indistinguishable from one nobody had ever run.
+if ! docker info >/dev/null 2>&1; then
   record SKIP "Indexed lifecycle" "Docker not responding"
+elif ! curl -s -o /dev/null -m 5 http://localhost:8080/healthz; then
+  # localhost, not 127.0.0.1: Docker publishes this port on IPv6 and the
+  # IPv4 literal can miss a healthy Hasura (see scripts/index-local.sh).
+  record SKIP "Indexed lifecycle" "no indexer at :8080 -- run scripts/index-local.sh"
+else
+  # The behavioural rows above redeploy the manager at a FRESH address,
+  # so an indexer synced before this run is watching a contract that no
+  # longer exists. That is a stale indexer, not a broken one, and
+  # reporting it as a failure would make the release record accuse the
+  # code of something the harness did.
+  #
+  # Detected by comparing what the indexer indexed against what the
+  # manifest now says. Re-syncing here instead would mean the release
+  # check silently rebuilt the thing it is meant to be checking.
+  indexed_mgr=$(curl -s -m 5 -X POST http://localhost:8080/v1/graphql \
+    -H 'content-type: application/json' \
+    -d '{"query":"{Loan(limit:1){id}}"}' 2>/dev/null | grep -o '"id":"[^"]*"' | head -1)
+  live_mgr=$(python3 -c "
+import json
+try:
+    print(json.load(open('$ROOT/contracts/deployments/31337.json'))['addresses']['loan_manager'].lower())
+except Exception:
+    print('')
+" 2>/dev/null)
+
+  if [ -z "$indexed_mgr" ]; then
+    record SKIP "Indexed lifecycle" "indexer holds no loans -- re-run scripts/index-local.sh"
+  elif [ -n "$live_mgr" ] && ! echo "$indexed_mgr" | grep -qi "${live_mgr#0x}"; then
+    record SKIP "Indexed lifecycle" "indexer is on a superseded manager -- re-sync"
+  elif (cd "$ROOT" && bash scripts/verify-reorg.sh) >/tmp/rc-reorg.log 2>&1; then
+    blk=$(grep -oE 'now from block [0-9]+ \(was [0-9]+\)' /tmp/rc-reorg.log | head -1)
+    record PASS "Indexed lifecycle" "reorg survived, ${blk:-replayed}"
+  else
+    record FAIL "Indexed lifecycle" "see /tmp/rc-reorg.log"
+  fi
 fi
 
 # Perpl needs the public internet and nothing else -- no key, no funds, no

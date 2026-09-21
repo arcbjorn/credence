@@ -25,13 +25,20 @@ pkill -f 'anvil --port 8546'; anvil --port 8546 --silent &
 # 2. Every row, recorded. Fails non-zero if any row fails.
 bash scripts/release-check.sh
 
-# 3. The two rows it cannot reach locally, if you want them in the tag:
-#    - the independent reader needs funded keys on 10143
-#    - the indexed lifecycle needs Docker
-RPC=https://testnet-rpc.monad.xyz \
-  CREDENCE_DEPLOYER_KEY=… CREDENCE_SIGNER_KEY=… CREDENCE_AGENT_KEY=… \
-  bash scripts/demo-erc8004.sh
-bash scripts/index-local.sh && bash scripts/verify-reorg.sh
+# 3. The indexed lifecycle, which the check above cannot leave ready.
+#
+#    The behavioural rows redeploy the manager at a fresh address and
+#    `demo-default.sh` leaves loan 1 Defaulted, so afterwards the indexer
+#    is always watching a superseded contract. The check detects that and
+#    reports SKIP rather than FAIL -- a stale indexer is the harness's
+#    doing, not the code's. Close it by hand, in this order:
+LOANS=2 bash scripts/demo-repay.sh   # loan 1 must be Repaid
+bash scripts/index-local.sh          # sync to the CURRENT manager
+bash scripts/verify-reorg.sh
+
+#    Restart the indexer by re-running that script, never with
+#    `pkill -f envio`: that leaves Hasura up without Postgres, and the
+#    next run waits forever for a database nobody is creating.
 
 # 4. Commit the record, then tag THAT commit.
 git add releases/ && git commit -m "chore(release): record the baseline check"
@@ -51,9 +58,15 @@ the record describe code the tag does not contain.
 
 It pins a **development baseline**, not the final release. `docs/11` is
 explicit that a tagged development baseline may leave identified release
-rows pending — and two are: a deployed CRE workflow, which needs a
-commercial agreement with Chainlink, and a note traded on a market, which
-is a scope decision at the 25 September gate.
+rows pending — and one is: a deployed CRE workflow, which needs a
+commercial agreement with Chainlink.
+
+The note-on-a-market row closed on 20 September (`NoteSeries` listed on
+Kuru), and the independent reputation reader closed on 21 September. That
+last one is now checked on **every** run rather than announced as
+unreachable: reading the registry needs no key and no funds, which is
+precisely the property the row asserts, so `scripts/verify-reputation.sh`
+runs read-only against the canonical deployment.
 
 Everything after the tag is an extension, developed in isolation and
 re-checked before merging.
