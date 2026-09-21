@@ -53,3 +53,23 @@ describe("mode labels", () => {
     expect(classMode("ScenarioOnly").token).toBe("scenario");
   });
 });
+
+// The evidence inspector renders one chip PER ITEM -- account, market,
+// history, forecasts, portfolio -- so a label that names an item type is
+// wrong on four rows out of five. "Observed account state" captioned the
+// market row as account state until 21 September; "Scenario history" did
+// the same to the portfolio row.
+//
+// Origin labels answer HOW the item was obtained. The item's own name is
+// already in the adjacent column.
+it("evidence labels name the origin, never an item type", () => {
+  const itemWords = ["account", "history", "market", "forecast", "portfolio"];
+  for (const m of Object.values(EVIDENCE_MODES)) {
+    for (const word of itemWords) {
+      expect(
+        m.label.toLowerCase().includes(word),
+        `"${m.label}" names the item type "${word}"`,
+      ).toBe(false);
+    }
+  }
+});
