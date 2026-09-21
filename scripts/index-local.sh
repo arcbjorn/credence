@@ -101,19 +101,15 @@ fi
 # September: the sync hung on "Waiting for Hasura" and exited.
 #
 # So the port is checked rather than assumed, and moved when taken.
+#
+# Chosen AFTER the container cleanup below, not here: our own
+# `envio-postgres` is still up at this point in the script, so the
+# "is it ours?" test passes, the port is left at 5433, and the cleanup
+# then removes the container -- handing 5433 back to the other project
+# just in time for envio to adopt it. Observed 21 September: the sync
+# reported "Using Postgres already running on port 5433" and Hasura
+# never became healthy.
 ENVIO_PG_PORT=${ENVIO_PG_PORT:-5433}
-if lsof -iTCP:"$ENVIO_PG_PORT" -sTCP:LISTEN >/dev/null 2>&1 &&
-  ! docker ps --format '{{.Names}}' | grep -qx envio-postgres; then
-  for candidate in 5440 5441 5442 5443; do
-    if ! lsof -iTCP:"$candidate" -sTCP:LISTEN >/dev/null 2>&1; then
-      echo "port $ENVIO_PG_PORT is taken by something that is not" \
-        "envio-postgres; using $candidate"
-      ENVIO_PG_PORT=$candidate
-      break
-    fi
-  done
-fi
-export ENVIO_PG_PORT
 
 # Hasura's port, with the same problem one layer up. Docker publishes
 # 8080 on IPv6 (`*:8080`), and a process already holding IPv4
@@ -213,12 +209,31 @@ fi
 # Rather than detect it, avoid it: the volume holds nothing worth keeping
 # because this script re-indexes from scratch with `-r` regardless, and
 # the local chain it indexes is itself thrown away on every demo run.
-# Hasura goes too — it pools against the database that just disappeared.
+# Hasura goes too -- it pools against the database that just disappeared.
+#
+# Re-running this script is the supported way to restart the stack. If it
+# is ever left half-up -- `envio-hasura` running with no `envio-postgres`,
+# and "Waiting for Hasura" until it times out -- clear it explicitly:
+#
+#   docker rm -f envio-postgres envio-hasura
 if docker ps -a --format '{{.Names}}' | grep -qxE 'envio-postgres|envio-hasura'; then
   echo "clearing the previous indexer database"
   docker rm -f envio-postgres envio-hasura >/dev/null 2>&1 || true
   docker volume rm envio-postgres-data >/dev/null 2>&1 || true
 fi
+
+# Now that our own containers are gone, anything still holding the port
+# belongs to somebody else and envio must not adopt it.
+if lsof -nP -iTCP:"$ENVIO_PG_PORT" -sTCP:LISTEN >/dev/null 2>&1; then
+  for candidate in 5440 5441 5442 5443; do
+    if ! lsof -nP -iTCP:"$candidate" -sTCP:LISTEN >/dev/null 2>&1; then
+      echo "port $ENVIO_PG_PORT is held by another project; using $candidate"
+      ENVIO_PG_PORT=$candidate
+      break
+    fi
+  done
+fi
+export ENVIO_PG_PORT
 
 if ! docker ps --format '{{.Names}}' | grep -qx envio-postgres ||
   ! docker ps --format '{{.Names}}' | grep -qx envio-hasura; then
