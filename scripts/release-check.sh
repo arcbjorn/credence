@@ -183,6 +183,20 @@ else
   record FAIL "Perpl market observation" "see /tmp/rc-perpl.log"
 fi
 
+# The panel capture needs a web bundle to substitute into, so it is only
+# attempted when one exists. A missing bundle is a SKIP rather than a
+# failure: `scripts/build-web-data.sh` is a separate step.
+if [ -f "$ROOT/web/public/data/repay.json" ]; then
+  if (cd "$ROOT" && bash scripts/build-perpl-data.sh) >/tmp/rc-perplpanel.log 2>&1; then
+    src=$(grep -oE 'snapshot    [a-f0-9]+' /tmp/rc-perplpanel.log | awk '{print $2}')
+    record PASS "Perpl risk panel" "captured against snapshot ${src:-?}"
+  else
+    record FAIL "Perpl risk panel" "see /tmp/rc-perplpanel.log"
+  fi
+else
+  record SKIP "Perpl risk panel" "run scripts/build-web-data.sh first"
+fi
+
 # --- The record --------------------------------------------------------
 
 COMMIT=$(git -C "$ROOT" rev-parse HEAD)
