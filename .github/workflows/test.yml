@@ -225,14 +225,20 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
-      # This job compiles the Rust twice -- once to wasm for the engine,
-      # once natively inside `scripts/setup.sh` -- and had no cache at
-      # all, while the `rust` job did. Keyed separately from that job's:
-      # the targets differ, and sharing one key would thrash both.
+      # This job compiles the Rust TWICE -- once to wasm for the engine,
+      # once natively inside `scripts/setup.sh`, which the demos need for
+      # `credence-risk-service` and `credence-risk`. Both land in the same
+      # target directory, so one cache covers both; it is keyed apart from
+      # the `rust` job because that job's cache holds test artifacts this
+      # one never builds, and sharing would thrash both.
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: risk
-          key: wasm
+          key: wasm-and-native
+          # Cache even when the job fails: a red run still leaves a warm
+          # target directory, and the next attempt should not pay for the
+          # compile again.
+          cache-on-failure: true
       - uses: pnpm/action-setup@v4
         with:
           version: 11
@@ -296,6 +302,17 @@ jobs:
           git clone --quiet --depth 1 --branch v1.16.2 \
             https://github.com/foundry-rs/forge-std contracts/lib/forge-std
           mkdir -p contracts/deployments
+      # `scripts/setup.sh` rebuilds all three languages inside the demo
+      # step below. Rust is cached above; Solidity was not, so `forge
+      # build` recompiled 17 contracts on every run. Keyed on the sources
+      # and the pinned forge-std, so a contract change busts it.
+      - uses: actions/cache@v4
+        with:
+          path: |
+            contracts/out
+            contracts/cache
+          key: forge-${{ runner.os }}-v1.8.3-${{ hashFiles('contracts/src/**/*.sol', 'contracts/foundry.toml') }}
+          restore-keys: forge-${{ runner.os }}-v1.8.3-
       - name: run the demos
         run: |
           anvil --port 8546 --silent &

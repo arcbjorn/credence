@@ -37,9 +37,27 @@ echo "building"
 # offline mode" before anything is built. It only ever succeeded on a
 # machine that had already built once, which is the opposite of what the
 # reproducibility row checks.
-(cd "$ROOT/contracts" && forge build >/dev/null)
-(cd "$ROOT/risk" && cargo build --quiet)
-(cd "$ROOT/gateway" && go build ./...)
+# The three are INDEPENDENT -- no artifact of one feeds another -- so
+# they run concurrently. In series they took the sum of the three; the
+# wall clock is now the slowest one. Failures are collected rather than
+# swallowed: a `wait` that ignored exit codes would report "ready" after
+# a compile error.
+pids=()
+(cd "$ROOT/contracts" && forge build >/dev/null) &
+pids+=($!)
+(cd "$ROOT/risk" && cargo build --quiet) &
+pids+=($!)
+(cd "$ROOT/gateway" && go build ./...) &
+pids+=($!)
+
+failed=0
+for pid in "${pids[@]}"; do
+  wait "$pid" || failed=1
+done
+if [ "$failed" -ne 0 ]; then
+  echo "a build failed; see the output above" >&2
+  exit 1
+fi
 
 echo "ready. run scripts/demo-repay.sh"
 
