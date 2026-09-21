@@ -1,0 +1,67 @@
+// The risk service boundary, as protobuf.
+//
+// `docs/10` gates an isolated transport change: it must pass the same
+// reference vectors and acceptance matrix **without changing contracts,
+// schemas, model or fixtures**. `docs/01`: "the boundary is
+// architectural and permanent; only its wire format changes."
+//
+// **Every payload is `bytes`, not a structured message.** That is the
+// whole design. The engine hashes the snapshot and the policy exactly as
+// the gateway hands them over, so a protobuf schema that decomposed them
+// into fields would re-serialize on the way out and change the bytes
+// being hashed -- and a retained assessment would stop reproducing. The
+// canonical encoding lives in `schemas/v1/`, it is JSON, and it is
+// frozen. This transport carries it; it does not redefine it.
+//
+// So the gain here is framing and connection reuse, not a new encoding.
+// That is a smaller claim than "we moved to protobuf" and it is the
+// honest one.
+syntax = "proto3";
+
+package credence.risk.v1;
+
+option go_package = "github.com/arcbjorn/credence/gateway/riskpb";
+
+service Risk {
+  // Evaluate a snapshot under a policy.
+  rpc Assess(AssessRequest) returns (AssessResponse);
+
+  // Re-evaluate a retained assessment against its retained input.
+  rpc Replay(ReplayRequest) returns (ReplayResponse);
+
+  // Liveness. Carries the model hash so a caller can tell WHICH engine
+  // answered -- a healthy service running a different model is worse
+  // than one that is down.
+  rpc Health(HealthRequest) returns (HealthResponse);
+}
+
+message AssessRequest {
+  // Canonical JSON, byte-for-byte as the gateway retained it.
+  bytes input = 1;
+  bytes policy = 2;
+}
+
+message AssessResponse {
+  // The assessment, as canonical JSON.
+  bytes assessment = 1;
+}
+
+message ReplayRequest {
+  bytes assessment = 1;
+  bytes input = 2;
+  bytes policy = 3;
+}
+
+message ReplayResponse {
+  bool matched = 1;
+  string assessment_id = 2;
+  string input_hash = 3;
+  // Field names that differed. Empty when matched.
+  repeated string differences = 4;
+}
+
+message HealthRequest {}
+
+message HealthResponse {
+  string model_hash = 1;
+}

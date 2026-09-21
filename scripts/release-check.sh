@@ -274,6 +274,20 @@ else
   record SKIP "Perpl risk panel" "run scripts/build-web-data.sh first"
 fi
 
+# The transport gate (`docs/10`, 6 Oct): the protobuf codec must agree
+# with the reference implementation, and the frozen artifacts must be
+# untouched. SKIPs without protoc rather than passing -- an unavailable
+# reference decoder proves nothing.
+if (cd "$ROOT" && bash scripts/verify-protobuf.sh) >/tmp/rc-proto.log 2>&1; then
+  if grep -q '^SKIP' /tmp/rc-proto.log; then
+    record SKIP "Protobuf transport" "protoc not installed"
+  else
+    record PASS "Protobuf transport" "codec agrees with protoc"
+  fi
+else
+  record FAIL "Protobuf transport" "see /tmp/rc-proto.log"
+fi
+
 # --- Is the remote build green? ----------------------------------------
 #
 # Everything above re-runs the gates locally. None of it asks whether CI
