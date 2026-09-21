@@ -1,0 +1,149 @@
+# 14 · Verification report
+
+What was checked, what it produced, and what remains unproven.
+
+[`docs/11`](11-verification.md) is the **specification** — the rows a
+release must satisfy. This is the **report**: the rows re-run, the
+figures they produced, and the claims that are still open. A
+specification that is never filled in is a plan, not evidence.
+
+Produced 21 September 2026 against tag
+[`v0.1.0-baseline`](../releases/2026-09-21.md) and the commits after it.
+Every figure below was read from a run, not from memory.
+
+## The suites
+
+| Language | Tests | Command |
+|---|---|---|
+| Solidity | **202** in 14 suites | `forge test` |
+| Rust (`risk-core`) | **152** across 12 binaries | `cargo test -p risk-core` |
+| Go (`gateway`) | 22 packages, all passing | `go test -race -count=1 ./...` |
+| TypeScript (`web`) | **59** | `pnpm test` |
+| TypeScript (`indexer`) | **11** | `pnpm test` |
+
+A green suite is **not** evidence for a behavioural claim — `docs/11`
+says so, and this report keeps the two separate. The behavioural
+evidence is the acceptance matrix below.
+
+## Acceptance, re-run
+
+`scripts/release-check.sh` re-runs every row and writes a dated record to
+`releases/`. The most recent run: **20 passed, 0 failed, 0 skipped**.
+
+A **SKIP is a row the run could not reach, never a row that passed.** The
+record names its skips; a reader must check those by hand.
+
+Two rows were closed on 21 September that had been skipped for days:
+
+- **Independent reputation reader** — `scripts/verify-reputation.sh` reads
+  13 signals across 4 obligation tags for agent 1830 from the canonical
+  ERC-8004 registry on Monad testnet. **One `eth_call`, no key, no
+  funds** — which is the property the row asserts. Three tags are
+  deployment-scoped; one legacy `loan:1` predates scoping and
+  `ParseLoanTag` refuses to claim it.
+- **Indexed lifecycle** — `scripts/verify-reorg.sh` reorganises a
+  repayment away, watches the indexer roll `Repaid` back to `Active`, and
+  replays it at a new block.
+
+## Failure paths
+
+The system is only as good as what it refuses. Counted by name:
+
+| Where | Failure-path tests |
+|---|---|
+| Go gateway | **87** (crash, lost journal, stale, missing, malformed, tampered, oversized, truncated, cancelled, timeout) |
+| Solidity | **81** (revert, refuse, reject, cannot, only-owner, no-bypass) |
+
+Four that carry specific weight:
+
+- `TestCrashedSubmissionReconcilesAfterRestart` — the process dies
+  mid-submission and recovers the outcome by **reading chain state rather
+  than resending**. A retry that funded a second loan is the one failure
+  this exists to prevent.
+- `TestLostJournalStillReconcilesFromChain` — the same, with the journal
+  gone too.
+- `ownerHasNoBypass` — the account owner cannot withdraw against an open
+  debt. `scripts/demo-repay.sh` shows the owner and a stranger being
+  refused with **two different custom errors**: if they matched, the
+  first refusal would only prove access control.
+- `test_redemptionBlockedWhileRecoveryPends` — deleting the guard fails
+  exactly one test. Verified by deleting it.
+
+## Restore from retained data
+
+`scripts/demo-monitor.sh` beat 8 reopens `credence.db` **from disk**,
+joins the retained assessment to the snapshot its `input_hash` names, and
+replays it through the engine.
+
+**A MATCH that cannot become a DIFFERENCE proves nothing.** The same pair
+is replayed again with one field altered and must be rejected. Both
+outcomes are asserted; the run fails if either is missing.
+
+The same pair is reproducible in a browser: the replay screen runs the
+**same Rust compiled to WebAssembly**, and a reader can produce MATCH and
+DIFFERENCE in their own tab.
+
+## Reproducibility
+
+Verified **from a fresh `git clone` to a temporary directory**, not from a
+working tree, on 20 and 21 September:
+
+```
+loan 1: apr=1200bps capacity=6200000000 binding=HistoryGrowthCap
+loan 2: apr=1147bps capacity=7533330000 binding=HistoryGrowthCap
+loan 3: apr=1094bps capacity=8117138556 binding=StressCapacity
+realized_loss=2600000000
+MATCH, and a tampered control rejected
+```
+
+The limit rises, the rate falls, and the binding constraint **switches
+from history to stress capacity at loan 3** — the `min()` told honestly.
+
+## On chain
+
+Monad testnet, chain 10143. Addresses live in
+[`contracts/deployments/10143.json`](../contracts/deployments/10143.json),
+which is the only place they are recorded — prose copies go stale, and
+three of them did. Bytecode confirmed present at the manager (12,074
+bytes), vault and settlement token.
+
+## What is NOT proven
+
+Stated plainly, because a report that only lists successes is an
+advertisement.
+
+| Claim | Status |
+|---|---|
+| **A deployed CRE workflow** | **Not done.** The receiver is deployed and the workflow simulates, but **no DON-signed report has reached the live receiver.** Deploy access requires a commercial agreement with Chainlink — a business blocker, not a technical one. |
+| **Price discovery for notes** | **Not claimed.** A `NoteSeries` is listed on a real Kuru market, but **both sides of any trade are project-controlled.** That shows the venue accepts the instrument; it is not a price. `docs/08` keeps market feedback informational for exactly this reason. |
+| **Perpl funding in the engine** | **Deliberately not wired.** Perpl's funding rate is a positioning premium; the engine's `funding_rate_bps` is the lender's cost of capital. They share a name and nothing else. Funding is displayed as a crowding signal and never reaches a decision. |
+| **Assumed PD and LGD** | **Declared, not measured.** `loss_assumption` is policy. The sample here cannot validate a default probability, and presenting it as measured would be the dishonesty `docs/04` forbids. |
+| **The agent runner** | **Not built.** `agent/` does not exist; the demos drive the loop from scripts. |
+| **Docker deployment** | **Not built.** Everything runs from `scripts/`. |
+
+## Three defects found by looking, not by testing
+
+Recorded because they describe a gap no assertion covered.
+
+| Symptom | Cause |
+|---|---|
+| `6,200HistoryGrowthCap` on the first screen | `td.num` had `padding-right: 0`; a right-aligned figure ran into the next cell |
+| Every evidence row chipped `OBSERVED ACCOUNT STATE` | The origin label named an item type, and the inspector renders one chip **per item** |
+| Capacity identical in both Perpl columns, prose claiming the market was deep enough | Capacity is a `min()`; `HistoryGrowthCap` was binding. The engine was right, the page inferred from a zero delta instead of reading `agent_binding` |
+
+All three reached `dist/` and none failed a test: **a test asserts what it
+was told to assert.** They sat in the gap between correct data and what a
+reader would conclude from it. Two now have tests; the third is
+structural.
+
+## How to re-run this
+
+```sh
+anvil --port 8546 --silent &
+RESYNC_INDEXER=1 bash scripts/release-check.sh
+```
+
+The record lands in `releases/<date>.md` and names the commit it ran
+against. It also reports whether **CI is green on that commit** — added
+after a baseline tag was pushed onto a red build on 21 September, which
+every local row had passed.

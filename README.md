@@ -126,8 +126,11 @@ export CREDENCE_DEPLOYER_KEY=... CREDENCE_SIGNER_KEY=...
 `docs/` is the specification, written to be checkable rather than
 promotional. Start with [`docs/README.md`](docs/README.md).
 
-Three worth reading before judging anything:
+Four worth reading before judging anything:
 
+- [`docs/14 · Verification report`](docs/14-verification-report.md) —
+  what was actually checked and what it produced, with a section naming
+  what is **not** proven. Start here if you have time for one document.
 - [`docs/11 · Verification`](docs/11-verification.md) — every release
   requirement, its status, and the command that reproduces it. Rows
   without evidence are named as pending rather than assumed.
