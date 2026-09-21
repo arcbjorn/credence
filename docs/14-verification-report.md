@@ -15,11 +15,17 @@ Every figure below was read from a run, not from memory.
 
 | Language | Tests | Command |
 |---|---|---|
-| Solidity | **202** in 14 suites | `forge test` |
-| Rust (`risk-core`) | **152** across 12 binaries | `cargo test -p risk-core` |
+| Solidity | **207** in 14 suites | `forge test` |
+| Rust (`risk-core`) | **155** across 12 binaries | `cargo test -p risk-core` |
 | Go (`gateway`) | 22 packages, all passing | `go test -race -count=1 ./...` |
-| TypeScript (`web`) | **59** | `pnpm test` |
+| TypeScript (`web`) | **62** | `pnpm test` |
 | TypeScript (`indexer`) | **11** | `pnpm test` |
+
+These are checked by `scripts/check-docs.sh`, not maintained by hand.
+The Solidity and web figures went stale within hours of being written
+here -- five fixes on 21 September added tests and nobody updated the
+table -- which is the same failure this document records two sections
+down. A count nothing verifies is a claim, not evidence.
 
 A green suite is **not** evidence for a behavioural claim — `docs/11`
 says so, and this report keeps the two separate. The behavioural

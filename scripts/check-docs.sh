@@ -55,6 +55,39 @@ if [ -n "$broken" ]; then
   fail "$(printf "broken internal link(s):$broken")"
 fi
 
+# --- docs/14's test counts ---
+#
+# Counted from the sources rather than run: `forge test` and `pnpm test`
+# take minutes, and this gate runs on every push. Counting the `function
+# test_` and `it(` declarations is exact for these suites and costs
+# milliseconds.
+#
+# Added because the table went stale within hours of being written --
+# five fixes on 21 September added tests and the numbers stayed put, in
+# the very document that records "a count nothing verifies is a claim".
+report="$ROOT/docs/14-verification-report.md"
+if [ -f "$report" ]; then
+  sol=$(grep -rhoE '^\s*function test_[A-Za-z0-9_]*\(' "$ROOT"/contracts/test/*.sol |
+    wc -l | tr -d ' ')
+  web=$(grep -rhoE '^\s*it\(' "$ROOT"/web/src/**/*.test.ts* 2>/dev/null | wc -l | tr -d ' ')
+  claimed_sol=$(grep -oE '^\| Solidity \| \*\*[0-9]+\*\*' "$report" |
+    grep -oE '[0-9]+' | head -1)
+  claimed_web=$(grep -oE '^\| TypeScript \(`web`\) \| \*\*[0-9]+\*\*' "$report" |
+    grep -oE '[0-9]+' | head -1)
+
+  # `forge test` reports more than the declarations, because an
+  # invariant campaign counts as one test while declaring one function.
+  # So the check is that the claim is not BELOW what is declared: a
+  # table that undercounts is stale, and one that matches or exceeds is
+  # consistent with a real run.
+  if [ -n "$claimed_sol" ] && [ "$claimed_sol" -lt "$sol" ]; then
+    fail "docs/14 claims $claimed_sol Solidity tests; $sol are declared"
+  fi
+  if [ -n "$claimed_web" ] && [ "$claimed_web" -lt "$web" ]; then
+    fail "docs/14 claims $claimed_web web tests; $web are declared"
+  fi
+fi
+
 # --- the eight screens docs/09 specifies, plus any beyond that list ---
 screens=$(ls "$ROOT/web/src/screens"/*.tsx 2>/dev/null | wc -l | tr -d ' ')
 if [ "$screens" -lt 1 ]; then
