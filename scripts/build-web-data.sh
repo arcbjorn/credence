@@ -260,11 +260,11 @@ PY
 
 # The indexed lifecycle, when the indexer happens to be running.
 #
-# Optional on purpose, and the only optional part of this bundle. Every
-# other file comes from a demo, which needs nothing but a local chain;
-# this one needs Docker and a synced HyperIndex. Making it required would
-# mean a developer without Docker could not build the interface at all,
-# and CI would fail for a reason unrelated to the change under test.
+# Optional on purpose, like the Perpl capture below. Every other file
+# comes from a demo, which needs nothing but a local chain; this one
+# needs Docker and a synced HyperIndex. Making it required would mean a
+# developer without Docker could not build the interface at all, and CI
+# would fail for a reason unrelated to the change under test.
 #
 # Its absence is a state the screen renders honestly -- it says the sync
 # has not been run and gives the command -- so skipping here costs a
@@ -273,6 +273,22 @@ if bash "$ROOT/scripts/build-indexed-data.sh" 2>/dev/null; then
   :
 else
   echo "  indexed  (no indexer running; skipped)"
+fi
+
+# The Perpl market-risk panel, when the venue is reachable.
+#
+# Optional for the same reason and no other: it needs the public
+# internet. It needs no key, no funds and no Docker, so it is the most
+# likely of the two to succeed -- but a build on an offline machine must
+# still produce a site, and the screen says plainly when the capture has
+# not been run.
+#
+# Attempted AFTER the demos above, because it substitutes its observed
+# market into one of the snapshots they just wrote.
+if bash "$ROOT/scripts/build-perpl-data.sh" >/dev/null 2>&1; then
+  echo "  perpl    (captured from the live venue)"
+else
+  echo "  perpl    (venue unreachable; skipped)"
 fi
 
 echo

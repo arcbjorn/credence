@@ -41,7 +41,15 @@ interface StressRow {
 interface Assessment {
   outcome?: {
     decision?: string;
-    capacity?: { agent_capacity?: string; score?: number };
+    capacity?: {
+      agent_capacity?: string;
+      // Which constraint produced that number. Capacity is a min() over
+      // several, so market evidence moves it ONLY when the stress term
+      // is the one binding -- reading a zero delta as "the market is
+      // deep enough" is wrong whenever something else binds first.
+      agent_binding?: string;
+      score?: number;
+    };
   };
   stress_results?: StressRow[];
 }
@@ -127,6 +135,11 @@ export function PerplPanel() {
 
   const obsCap = observed?.outcome?.capacity?.agent_capacity;
   const baseCap = baseline?.outcome?.capacity?.agent_capacity;
+  const binding = observed?.outcome?.capacity?.agent_binding;
+  // Capacity is a min() over several constraints. Only StressCapacity
+  // reads the market, so anything else binding means the market cannot
+  // move this number no matter how thin the book is.
+  const stressBinds = binding === "StressCapacity";
   const delta =
     obsCap && baseCap && BigInt(baseCap) !== 0n
       ? Number(((BigInt(obsCap) - BigInt(baseCap)) * 10000n) / BigInt(baseCap)) /
@@ -337,7 +350,12 @@ export function PerplPanel() {
                   );
                 })}
                 <tr>
-                  <th>Agent capacity</th>
+                  <th>
+                    Agent capacity
+                    {binding && (
+                      <span className="muted"> &middot; bound by {binding}</span>
+                    )}
+                  </th>
                   <td className="num">{units(baseCap)}</td>
                   <td className="num">
                     {units(obsCap)}
@@ -366,6 +384,20 @@ export function PerplPanel() {
                 thinner than the declared placeholder, so the liquidity and
                 combined scenarios recover less and capacity falls{" "}
                 {Math.abs(delta).toFixed(1)}%.
+              </>
+            ) : !stressBinds ? (
+              <>
+                <strong>
+                  Capacity is unchanged because <code>{binding}</code> binds,
+                  not the market.
+                </strong>{" "}
+                Capacity is a <code>min()</code> over several constraints, and
+                only the stress term reads market evidence. The scenarios above
+                do differ &mdash; the observed book recovers less under
+                liquidity &mdash; but a constraint that does not read the market
+                is what sets the limit here, so a thinner book cannot lower it.
+                Reading this as &ldquo;the market is deep enough&rdquo; would be
+                wrong.
               </>
             ) : (
               <>

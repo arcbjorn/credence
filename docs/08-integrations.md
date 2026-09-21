@@ -699,6 +699,25 @@ The engine runs **in the reader's tab**, the same WebAssembly build the
 gateway uses, so the scenarios displayed are its own output rather than a
 second implementation that could drift.
 
+#### Capacity only moves when the stress term binds
+
+Capacity is a `min()` over several constraints, and **only the stress term
+reads market evidence.** A build on 21 September picked loan 1's snapshot
+— which is bound by `HistoryGrowthCap` — and the panel showed two
+identical capacities beside scenarios that plainly differed, then
+explained it with a sentence that was simply false: *"the observed market
+is at least as deep as the declared placeholder."* Real depth was seven
+times thinner.
+
+Two fixes, because there were two faults. The capture now prefers a
+snapshot whose assessment was bound by `StressCapacity` (`snapshots` is a
+dict with no meaningful order, so the choice had been arbitrary), and the
+page reads `agent_binding` instead of inferring from a zero delta — when
+something else binds it names that constraint and says the market cannot
+move the limit, which is the true statement.
+
+Found by serving the built `dist/` and reading it, not by a test.
+
 #### What the live run caught
 
 The retained fixture is dated ahead of the live venue, so substituting

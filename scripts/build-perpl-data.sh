@@ -48,13 +48,38 @@ snaps = run.get("snapshots") or {}
 # An origination snapshot, because the stress scenarios size a principal
 # there. A monitoring snapshot would stress an existing book instead,
 # which is a different and less legible question for this panel.
-for key, snap in snaps.items():
-    if (snap.get("context") or {}).get("kind") == "Origination":
-        json.dump(snap, open(sys.argv[2], "w"))
-        print(f"  snapshot    {key[:12]} (origination)")
-        break
-else:
+#
+# Among those, one whose assessment was bound by StressCapacity.
+# Capacity is a min() over several constraints and only the stress term
+# reads market evidence, so on a history-bound snapshot the panel shows
+# two identical capacities and proves nothing about the market. `snaps`
+# is a dict with no meaningful order, so without this the choice is
+# arbitrary -- and loan 1 IS history-bound, which is what the 21
+# September build picked.
+origination = {
+    k: v for k, v in snaps.items()
+    if (v.get("context") or {}).get("kind") == "Origination"
+}
+if not origination:
     raise SystemExit("  no origination snapshot in the run")
+
+# Which snapshot each assessment consumed, and what bound it.
+bound = {}
+for a in run.get("assessments") or []:
+    cap = ((a.get("payload") or {}).get("outcome") or {}).get("capacity") or {}
+    if cap.get("agent_binding") == "StressCapacity":
+        bound[a.get("input_hash")] = True
+
+key = next((k for k in origination if bound.get(k)), None)
+why = "stress-bound"
+if key is None:
+    # Still usable: the page reads the binding constraint and says so
+    # rather than claiming the market had no effect.
+    key = sorted(origination)[0]
+    why = "no stress-bound origination; the panel will name the binding"
+
+json.dump(origination[key], open(sys.argv[2], "w"))
+print(f"  snapshot    {key[:12]} ({why})")
 PY
 
 cd "$ROOT/gateway"

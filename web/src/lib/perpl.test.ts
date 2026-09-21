@@ -85,6 +85,29 @@ describe.skipIf(missing)("the Perpl capture", () => {
     );
   });
 
+  it("uses a snapshot the market can actually move", () => {
+    const p = load();
+    const snap = p.snapshot as {
+      context?: { kind?: string };
+    };
+    // An origination snapshot: the stress scenarios size a principal
+    // there. A monitoring one would stress an existing book instead.
+    expect(snap.context?.kind).toBe("Origination");
+
+    // Capacity is a min() over several constraints and only the stress
+    // term reads market evidence. On a history-bound snapshot the panel
+    // shows two identical capacities and proves nothing about the
+    // market -- which is exactly what a build produced on 21 September,
+    // because `snapshots` is a dict with no meaningful order and loan 1
+    // is history-bound. The capture now prefers a stress-bound one.
+    //
+    // Not asserted as REQUIRED: a run with no stress-bound origination
+    // is legitimate, and the page then names the binding constraint
+    // instead of claiming the market had no effect. What must hold is
+    // that the file records which snapshot was chosen.
+    expect(p.snapshot_source).toBeTruthy();
+  });
+
   it("names the run rather than a scratch path", () => {
     const p = load();
     // A mktemp path rendered as "tmp.nbcHaDQ3zO" on the page and told a
