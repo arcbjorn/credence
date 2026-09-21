@@ -25,20 +25,21 @@ pkill -f 'anvil --port 8546'; anvil --port 8546 --silent &
 # 2. Every row, recorded. Fails non-zero if any row fails.
 bash scripts/release-check.sh
 
-# 3. The indexed lifecycle, which the check above cannot leave ready.
-#
+#    For all twenty rows including the indexed lifecycle, which needs
+#    Docker and costs an extra demo run plus a sync:
+RESYNC_INDEXER=1 bash scripts/release-check.sh
+
 #    The behavioural rows redeploy the manager at a fresh address and
-#    `demo-default.sh` leaves loan 1 Defaulted, so afterwards the indexer
-#    is always watching a superseded contract. The check detects that and
-#    reports SKIP rather than FAIL -- a stale indexer is the harness's
-#    doing, not the code's. Close it by hand, in this order:
+#    `demo-default.sh` leaves loan 1 Defaulted, so by the time the
+#    indexed row is reached the indexer is always watching a superseded
+#    contract. Without the flag the check reports that as SKIP rather
+#    than FAIL -- a stale indexer is the harness's doing, not the
+#    code's. With it, the check restores the precondition itself.
+
+# 3. Or close the indexed row by hand, in this order:
 LOANS=2 bash scripts/demo-repay.sh   # loan 1 must be Repaid
 bash scripts/index-local.sh          # sync to the CURRENT manager
 bash scripts/verify-reorg.sh
-
-#    Restart the indexer by re-running that script, never with
-#    `pkill -f envio`: that leaves Hasura up without Postgres, and the
-#    next run waits forever for a database nobody is creating.
 
 # 4. Commit the record, then tag THAT commit.
 git add releases/ && git commit -m "chore(release): record the baseline check"

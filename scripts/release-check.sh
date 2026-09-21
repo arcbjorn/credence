@@ -190,8 +190,15 @@ else
   # code of something the harness did.
   #
   # Detected by comparing what the indexer indexed against what the
-  # manifest now says. Re-syncing here instead would mean the release
-  # check silently rebuilt the thing it is meant to be checking.
+  # manifest now says.
+  #
+  # With RESYNC_INDEXER=1 the check restores the precondition itself:
+  # a repaid loan 1 and an indexer on the current manager. That is not
+  # "rebuilding what is under test" -- the indexer is a precondition like
+  # the anvil chain, and the thing being tested is whether indexed state
+  # FOLLOWS A REORG, which the re-sync does not touch. It is opt-in only
+  # because it costs a demo run plus a sync, and the default path should
+  # stay fast enough to run often.
   indexed_mgr=$(curl -s -m 5 -X POST http://localhost:8080/v1/graphql \
     -H 'content-type: application/json' \
     -d '{"query":"{Loan(limit:1){id}}"}' 2>/dev/null | grep -o '"id":"[^"]*"' | head -1)
@@ -203,10 +210,36 @@ except Exception:
     print('')
 " 2>/dev/null)
 
+  stale=""
   if [ -z "$indexed_mgr" ]; then
-    record SKIP "Indexed lifecycle" "indexer holds no loans -- re-run scripts/index-local.sh"
+    stale="indexer holds no loans"
   elif [ -n "$live_mgr" ] && ! echo "$indexed_mgr" | grep -qi "${live_mgr#0x}"; then
-    record SKIP "Indexed lifecycle" "indexer is on a superseded manager -- re-sync"
+    stale="indexer is on a superseded manager"
+  fi
+
+  # The behavioural rows leave loan 1 Defaulted (demo-default.sh ran
+  # last), and verify-reorg.sh needs it Repaid. So the re-sync redoes the
+  # repayment demo first, then indexes THAT deployment.
+  if [ -n "$stale" ] && [ "${RESYNC_INDEXER:-0}" = "1" ]; then
+    echo "  re-syncing the indexer (RESYNC_INDEXER=1)"
+    : >/tmp/rc-resync.log
+    if (cd "$ROOT" && LOANS=2 bash scripts/demo-repay.sh) >>/tmp/rc-resync.log 2>&1; then
+      # index-local.sh ends in `exec envio dev`, which never returns, so
+      # it runs in the background and readiness is read from its log.
+      (cd "$ROOT" && bash scripts/index-local.sh) >>/tmp/rc-resync.log 2>&1 &
+      for _ in $(seq 40); do
+        sleep 10
+        if grep -q 'indexer is ready' /tmp/rc-resync.log 2>/dev/null; then
+          stale=""
+          break
+        fi
+      done
+    fi
+    [ -n "$stale" ] && stale="$stale (re-sync failed, see /tmp/rc-resync.log)"
+  fi
+
+  if [ -n "$stale" ]; then
+    record SKIP "Indexed lifecycle" "$stale -- re-run with RESYNC_INDEXER=1"
   elif (cd "$ROOT" && bash scripts/verify-reorg.sh) >/tmp/rc-reorg.log 2>&1; then
     blk=$(grep -oE 'now from block [0-9]+ \(was [0-9]+\)' /tmp/rc-reorg.log | head -1)
     record PASS "Indexed lifecycle" "reorg survived, ${blk:-replayed}"
