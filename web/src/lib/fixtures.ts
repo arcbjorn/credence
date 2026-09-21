@@ -18,6 +18,15 @@
  * module-resolution errors.
  *
  * Reported by review, 15 September.
+ *
+ * **Only for fixtures a demo produces.** `fixtureMissing` makes a missing
+ * file a CI failure, which is right for anything a local chain and the Go
+ * toolchain can always generate. It is wrong for a capture that depends
+ * on a THIRD PARTY being reachable: `perpl.json` used this helper and
+ * turned a green build into a hostage of app.perpl.xyz, reddening CI on
+ * 21 September over something no change here could cause or fix. Such a
+ * capture skips with a plain `existsSync`, and its liveness is checked by
+ * `scripts/release-check.sh` against the real venue instead.
  */
 import { existsSync } from "node:fs";
 
