@@ -250,6 +250,20 @@ jobs:
 
       # The engine is a build artifact of risk/crates/risk-wasm, not a
       # committed file: a second copy could fall behind the first.
+      # Go and Foundry are hoisted ABOVE the engine build on purpose:
+      # they are pure downloads, and sitting after it meant 22s of tool
+      # installs ran strictly after a 20s compile rather than beside it.
+      # The demos below need both.
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: gateway/go.mod
+          cache-dependency-path: gateway/go.sum
+      # Pinned to match the solidity job: the demos deploy the same
+      # contracts, so two toolchains would let them disagree.
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: v1.8.3
+
       # A prebuilt binary, not `cargo install`.
       #
       # Compiling wasm-bindgen-cli from source took 190s -- HALF this
@@ -288,15 +302,6 @@ jobs:
       # assertion about the comparison screen and the replay pair. The
       # demos need a chain and the Go toolchain, so this installs both;
       # `build-web-data.sh` then bundles whatever they retained.
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: gateway/go.mod
-          cache-dependency-path: gateway/go.sum
-      # Pinned to match the solidity job: the demos deploy the same
-      # contracts, so two toolchains would let them disagree.
-      - uses: foundry-rs/foundry-toolchain@v1
-        with:
-          version: v1.8.3
       - name: fetch pinned dependencies
         run: |
           git clone --quiet --depth 1 --branch v1.16.2 \
