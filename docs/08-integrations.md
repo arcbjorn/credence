@@ -460,12 +460,16 @@ ERC20s succeed from the same caller.
 > baseline to demonstrate custody restrictions, repayment, recovery and
 > loss accounting — which it does — and the 2 October gate then requires
 > **origination, market transfer, collection, redemption and a tested
-> default haircut**. None of that exists: `NoteSeries` is not built, and
-> what this experiment priced is *creating a market*, not *tokenising a
-> receivable*. `docs/08` states that **no late baseline contract rewrite
-> is justified to include Kuru**, and a `NoteSeries` with its own
-> redemption waterfall is precisely such a rewrite. The remaining decision
-> is a scope decision, not a feasibility one.
+> default haircut**. At the time this experiment ran, none of that
+> existed, and what it priced is *creating a market*, not *tokenising a
+> receivable*. The remaining decision was a scope decision, not a
+> feasibility one.
+>
+> **Resolved, 19–21 September — see below.** `NoteSeries` was built as a
+> separate funding route in an isolated deployment, so the prohibition on
+> a late baseline contract rewrite is respected: `LoanManager`,
+> `CreditVault` and `CreditAccount` are untouched, and the series
+> implements the funding-source interface the manager already calls.
 
 **Structure.** A separate `NoteSeries` funding route for one loan in an isolated deployment. **Never tokenize a receivable belonging to the baseline pooled vault** — each `LoanManager` binds to its allowed funding source. The series defines settlement asset, target principal, borrower, term, rate, maturity, recovery waterfall, and redemption method before funding. Fixed supply issued at origination; notes are a pro-rata claim on that loan's actual net collections. Early repayment pays accrued interest only — **the note does not promise unearned full-term interest.** Default can redeem below principal; pending recovery means pending redemption.
 
@@ -774,7 +778,7 @@ Both are additive. Neither touches `risk-core`, the contracts, or the schedule b
 
 | Sponsor | Prize | Requirement | Condition |
 |---|---|---|---|
-| Kuru | $5,000 | **New assets and markets** — a new tradable class *plus the infrastructure to make it viable* | `NoteSeries` tokenized agent debt is literally a new asset class. Behind the 25 Sep and 2 Oct gates above. |
+| Kuru | $5,000 | **New assets and markets** — a new tradable class *plus the infrastructure to make it viable* | `NoteSeries` tokenized agent debt is literally a new asset class. **Both gates met 21 September (D34)**: the instrument is built, tested and listed on a real Kuru market. The claim is the instrument and the venue accepting it — **not price discovery**, since both sides of any trade here are project-controlled. |
 | Nansen | $5,000 | A product experience **beyond exposing raw data** | Provenance-tagged enrichment that demonstrably changes an underwriting decision |
 
 ### Pursue last — vault hedging automation

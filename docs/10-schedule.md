@@ -7,8 +7,8 @@
 | **11–13 Sep · milestone one** | Demo script; freeze v0 conventions; specify custody and accounting; confirm event rules and CRE access | Example snapshots, state diagrams, capability checklist, ~~first screen shell~~ **slipped** |
 | **14–17 Sep · milestone two** | risk-core skeleton, virtual clock, vault/account/loan lifecycle on local chain; probe venue, registry, and Kuru | Deterministic scenario plus borrow, trade, repay, prohibited withdrawal, loss-accounting tests |
 | **18–22 Sep · baseline milestone** | Connect gateway, contracts, interface; deploy prototype network | One complete performer path and one failure path with retained evidence and transaction references |
-| **23–25 Sep** | Other two scenarios, forecast scoring, identity continuity, registry publication and independent reader, event reconciliation | Same engine handles all agents; release identity evidence complete; Kuru gate decision |
-| **26 Sep–2 Oct** | Selected provider integrations and CRE; Kuru only after its gate | Each claimed integration passes acceptance; note redemption complete if included |
+| **23–25 Sep** | Other two scenarios, forecast scoring, identity continuity, registry publication and independent reader, event reconciliation | Same engine handles all agents; release identity evidence complete; **Kuru gate decided 21 Sep — included (D34)** |
+| **26 Sep–2 Oct** | Selected provider integrations and CRE; Kuru only after its gate | Each claimed integration passes acceptance; **note redemption complete — met 21 Sep, 11 days early** |
 | **3–5 Oct** | Resolve cross-component issues; **freeze contracts, schemas, model, fixtures**; prepare isolated transport change | Working JSON release candidate; no blocker on mandatory paths |
 | **6 Oct** | Gate the isolated protobuf/gRPC transport change against frozen artifacts | Same reference vectors and applicable acceptance matrix pass; otherwise retain JSON |
 | **7–9 Oct** | Exercise failures, restore from retained data, rehearse, record | Verification report, accessible deployment, both recordings |
