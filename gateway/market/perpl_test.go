@@ -460,3 +460,53 @@ func TestFundingNegativeWindowIsAlsoCrowded(t *testing.T) {
 		t.Fatalf("max is an ABSOLUTE reading, got %d", f.MaxAbsBps)
 	}
 }
+
+// A close beyond any real price is a venue fault, not an observation.
+//
+// `C` arrives as an unbounded uint64. It feeds `RealizedVolatilityBps`,
+// where an enormous value used to wrap the bps multiply and report a
+// violent market as calm -- the direction that understates the stress
+// shock and over-lends. The arithmetic is checked now; this refuses the
+// input as well, because `docs/04` makes a misbehaving source Missing
+// evidence rather than a substituted number.
+func TestPerplImplausibleCloseIsRefused(t *testing.T) {
+	body := `{"d":[{"t":1700000000000,"c":18446744073709551615},` +
+		`{"t":1700003600000,"c":101}]}`
+	url := perplServer(t, map[string]string{"/candles/": body})
+	p, _ := market.NewPerplProvider(url, 20, 3600, 7200, 2*time.Second)
+
+	_, _, err := p.Candles(context.Background())
+	if err == nil {
+		t.Fatal("expected a close of 2^64-1 to be refused")
+	}
+	if !strings.Contains(err.Error(), "ceiling") {
+		t.Fatalf("the error should name the ceiling, got %v", err)
+	}
+}
+
+// The candle cap is enforced on the REQUEST, but the venue chooses what
+// it returns. A response can carry far more within the 1 MiB body limit,
+// so one side of the exchange must not set the size of the work the
+// other does.
+func TestPerplOversizedResponseIsRefused(t *testing.T) {
+	var b strings.Builder
+	b.WriteString(`{"d":[`)
+	for i := 0; i <= market.MaxPerplCandles; i++ {
+		if i > 0 {
+			b.WriteString(",")
+		}
+		fmt.Fprintf(&b, `{"t":%d,"c":100}`, 1700000000000+int64(i)*1000)
+	}
+	b.WriteString(`]}`)
+
+	url := perplServer(t, map[string]string{"/candles/": b.String()})
+	p, _ := market.NewPerplProvider(url, 20, 60, 21600, 2*time.Second)
+
+	_, _, err := p.Candles(context.Background())
+	if err == nil {
+		t.Fatal("expected an over-cap response to be refused")
+	}
+	if !strings.Contains(err.Error(), "cap") {
+		t.Fatalf("the error should name the cap, got %v", err)
+	}
+}

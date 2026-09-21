@@ -236,3 +236,60 @@ func TestUnexpectedShapeYieldsNoMarketState(t *testing.T) {
 		t.Fatal("an unexpected response shape must not yield a market state")
 	}
 }
+
+// A move large enough to wrap the multiply must not read as calm.
+//
+// `delta * 10_000` overflows u64 for delta > 2^64/10_000, and the
+// product wrapped to a small number: closes representing a ~1,100% move
+// reported 0 bps, which slipped past the uint32 guard below it because
+// the guard only catches values that are too LARGE.
+//
+// The direction is what makes it matter. Volatility feeds
+// `effective_price_shock`, so understating it understates the stress
+// shock and sizes loans above what the policy intends -- the direction
+// that costs the lender. The shipped 3000bps floor bounds the damage
+// (a hostile venue suppresses the shock TO the floor, not to zero), so
+// this is a real weakening rather than a total bypass.
+//
+// `delta` comes from `perplCandle.C`, an unbounded uint64 decoded from
+// a third-party venue, so the input is attacker-influenced.
+func TestHugeMoveDoesNotWrapToCalm(t *testing.T) {
+	// A 12x move, with closes far above the ~11,000 this file used to
+	// test with. delta is 11 * 2^59, and delta * 10_000 exceeds 2^64.
+	const base uint64 = 1 << 59
+	vol, err := market.RealizedVolatilityBps([]uint64{base, base * 12})
+
+	if err != nil {
+		// Refusing is the correct fail-closed answer.
+		return
+	}
+	if vol == 0 {
+		t.Fatalf("a 1,100%% move reported %d bps: the multiply wrapped", vol)
+	}
+	if vol < 10_000 {
+		t.Fatalf("a 1,100%% move reported %d bps, far below the true 110,000", vol)
+	}
+}
+
+// The running total must not wrap either. Up to 1000 candles accumulate
+// into `totalBps`, so a series of large moves can overflow the sum even
+// when each term is sound.
+func TestAccumulatedVolatilityDoesNotWrap(t *testing.T) {
+	const base uint64 = 1 << 40
+	closes := make([]uint64, 0, 64)
+	for i := 0; i < 64; i++ {
+		if i%2 == 0 {
+			closes = append(closes, base)
+		} else {
+			closes = append(closes, base*9)
+		}
+	}
+
+	vol, err := market.RealizedVolatilityBps(closes)
+	if err != nil {
+		return // refusing is fail-closed
+	}
+	if vol < 10_000 {
+		t.Fatalf("alternating 800%% moves reported %d bps", vol)
+	}
+}

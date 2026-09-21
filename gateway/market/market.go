@@ -119,8 +119,27 @@ func RealizedVolatilityBps(closes []uint64) (uint32, error) {
 		} else {
 			delta = previous - current
 		}
-		// bps = |delta| * 10_000 / previous
-		totalBps += delta * 10_000 / previous
+		// bps = |delta| * 10_000 / previous, checked.
+		//
+		// `delta * 10_000` wrapped for delta > 2^64/10_000, and the
+		// wrapped product reported a ~1,100% move as 16 bps -- past the
+		// uint32 guard below, which only catches values that are too
+		// LARGE. `delta` derives from an unbounded uint64 decoded from a
+		// third-party venue, so the input is attacker-influenced, and
+		// understating volatility understates the stress shock: the
+		// direction that costs the lender.
+		//
+		// Refuse rather than saturate. Every other fallback in this file
+		// is biased toward lending less, and a saturated reading would
+		// be a number nothing measured.
+		scaled, err := mulChecked(delta, 10_000)
+		if err != nil {
+			return 0, fmt.Errorf("return %d is too large to scale: %w", i, err)
+		}
+		totalBps, err = addChecked(totalBps, scaled/previous)
+		if err != nil {
+			return 0, fmt.Errorf("volatility sum overflows at return %d: %w", i, err)
+		}
 		samples++
 	}
 

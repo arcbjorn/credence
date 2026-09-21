@@ -45,6 +45,14 @@ type PerplProvider struct {
 // rejected resolution.
 const MaxPerplCandles = 1000
 
+// MaxPerplClose bounds a single candle close.
+//
+// Prices arrive as scaled integers (ETH at 2 decimals is ~264,000), so
+// 2^53 is many orders of magnitude above anything real while leaving
+// room for a 1000-candle series to accumulate without overflow. A value
+// beyond it is a venue fault, not a price.
+const MaxPerplClose = 1 << 53
+
 // NewPerplProvider fetches `window` seconds of history at `resolution`.
 //
 // The candle count is checked here rather than left to the venue: a 400
@@ -104,12 +112,38 @@ func (p *PerplProvider) Candles(ctx context.Context) ([]uint64, uint64, error) {
 		// decision (`docs/04`).
 		return nil, 0, fmt.Errorf("perpl: got %d candles, need at least 2", len(doc.D))
 	}
+	// The cap is enforced on the REQUEST in `NewPerplProvider`, but the
+	// venue chooses what it returns: a response could carry far more
+	// within the 1 MiB body limit. Bounded here too, so one side of the
+	// exchange cannot set the size of the work the other does.
+	if len(doc.D) > MaxPerplCandles {
+		return nil, 0, fmt.Errorf(
+			"perpl: got %d candles, over the %d cap", len(doc.D), MaxPerplCandles)
+	}
 
 	closes := make([]uint64, 0, len(doc.D))
 	var newest uint64
 	for i, c := range doc.D {
 		if c.C == 0 {
 			return nil, 0, fmt.Errorf("perpl: candle %d has a zero close", i)
+		}
+		// A plausibility ceiling, not a saturation point.
+		//
+		// `C` is an unbounded uint64 straight off the wire, and it feeds
+		// `RealizedVolatilityBps`, where an enormous close used to wrap
+		// the bps multiply and report a violent market as calm. That
+		// arithmetic is checked now, but a close beyond any real price
+		// is still not an observation -- it is a venue misbehaving, and
+		// `docs/04` says a misbehaving source yields Missing evidence
+		// rather than a substituted number.
+		//
+		// The ceiling is 2^53, above every price this venue quotes in
+		// its scaled integers by many orders of magnitude, and low
+		// enough that the whole series cannot overflow the accumulator.
+		if c.C > MaxPerplClose {
+			return nil, 0, fmt.Errorf(
+				"perpl: candle %d close %d exceeds the plausible ceiling %d",
+				i, c.C, MaxPerplClose)
 		}
 		closes = append(closes, c.C)
 		if c.T > newest {
