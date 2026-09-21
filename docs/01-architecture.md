@@ -77,10 +77,11 @@ dependencies the repository does not have is a reader's first wrong turn.
 | Frontend | TypeScript + Next.js, viem/wagmi | **React 19 + Vite 8 + TypeScript 7**, not Next.js. All eight of `docs/09`'s screens are built, plus two beyond that list: an indexed-lifecycle ninth over the Envio rows, and a tenth showing observed Perpl market data driving the three stress scenarios. Next.js was dropped deliberately: its value is SSR, routing and data fetching, and this interface renders a generated static bundle |
 | Deployment | Docker Compose onto a small persistent VM | **Not built.** Everything runs from `scripts/`, against anvil or Monad testnet |
 
-**On transport — resolved, see D35.** The wire format exists as
-`schemas/proto/risk.proto` with a dependency-free codec verified against
-`protoc`, and the frozen artifacts are byte-identical. The running path
-stays JSON, which is what this section's own fallback prescribes.
+**On transport — resolved, see D35.** Both transports are built.
+HTTP/JSON is the default; gRPC over tonic starts alongside it when
+`RISK_SERVICE_GRPC_ADDR` is set, and the demos still run on JSON so the
+acceptance matrix is unchanged. The frozen artifacts are byte-identical,
+verified.
 
 > **gRPC is built, and it passes.** `scripts/verify-grpc.sh` evaluates
 > one retained snapshot over both transports and compares the bytes:
