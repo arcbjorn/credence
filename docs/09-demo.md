@@ -114,6 +114,23 @@ Never edit the frontend to make the expected story appear. If the agent declines
 
 Live transactions, historical fixtures, and simulated outcomes must be **visually distinguishable at all times.**
 
+### Read the built site, not the dev server — 21 September
+
+Three defects reached `dist/` and none of them failed a test. Each was
+found by serving the static bundle and walking the screens a judge walks.
+
+| What it looked like | What it was |
+|---|---|
+| `6,200HistoryGrowthCap` on the first screen | `td.num` had `padding-right: 0`, correct for a trailing figure and wrong beside any following column. A right-aligned number ran straight into the next cell and read as one token |
+| Every evidence row chipped `OBSERVED ACCOUNT STATE` | The origin label named an item type. The inspector renders one chip **per item**, so the market, history, forecasts and portfolio rows were each captioned "account state" — a violation of the rule directly above |
+| Capacity identical in both Perpl columns, with prose claiming the market was deep enough | Capacity is a `min()` and `HistoryGrowthCap` was binding. The engine was right; the page inferred from a zero delta instead of reading `agent_binding` |
+
+The lesson is specific rather than general: **a test asserts what it was
+told to assert.** All three sat in the gap between correct data and what
+a reader would conclude from it, which no assertion covered because none
+had been written to. The label bug now has a test that fails if any
+origin label names an item type; the others are structural.
+
 ## Recordings
 
 A short primary recording and a longer technical walkthrough. Adjust lengths to the verified submission rules.
