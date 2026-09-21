@@ -74,7 +74,7 @@ dependencies the repository does not have is a reader's first wrong turn.
 | Data plane | Go, SQLite/WAL | As planned |
 | Internal transport | HTTP/JSON baseline; isolated protobuf/gRPC gate on 6 Oct | **HTTP/JSON only.** The gRPC gate is not built; it sits after the freeze by design |
 | Indexer | Envio | **Built** (`indexer/`). HyperIndex over HyperSync on 10143, RPC on anvil. It reconstructs the loan lifecycle from the event log, which is a different question from the one the gateway answers: the gateway reads loan **structs** over `eth_call` — current state — and a struct cannot say when recovery opened or what was collected on the way. An earlier version of this row said the gateway "follows contract events directly". It does not; it reads state. |
-| Frontend | TypeScript + Next.js, viem/wagmi | **React 19 + Vite 8 + TypeScript 7**, not Next.js. All eight of `docs/09`'s screens are built, plus an indexed-lifecycle ninth over the Envio rows. Next.js was dropped deliberately: its value is SSR, routing and data fetching, and this interface renders a generated static bundle |
+| Frontend | TypeScript + Next.js, viem/wagmi | **React 19 + Vite 8 + TypeScript 7**, not Next.js. All eight of `docs/09`'s screens are built, plus two beyond that list: an indexed-lifecycle ninth over the Envio rows, and a tenth showing observed Perpl market data driving the three stress scenarios. Next.js was dropped deliberately: its value is SSR, routing and data fetching, and this interface renders a generated static bundle |
 | Deployment | Docker Compose onto a small persistent VM | **Not built.** Everything runs from `scripts/`, against anvil or Monad testnet |
 
 **On transport:** the boundary is architectural and permanent; only its wire format changes. Freeze contracts, schemas, model, fixtures, and a working JSON release candidate on 5 October. On 6 October, accept the isolated gRPC transport change only if it passes identical canonicalization vectors and the applicable acceptance matrix without changing those frozen artifacts. Otherwise ship JSON. The architecture diagram is unchanged either way.
@@ -104,7 +104,8 @@ Signing credentials stay in a restricted backend. Scenario identities and fundin
 this layout did not anticipate — `cre/` (the CRE workflow) and
 `tools/reader/` (standalone readers that import nothing from this
 repository). `web/` now exists — React 19 on Vite 8, with all eight of
-`docs/09`'s screens built plus an indexed-lifecycle ninth; the demo is
+`docs/09`'s screens built plus an indexed-lifecycle ninth and a Perpl
+market-risk tenth; the demo is
 still the scripts in
 `scripts/`, and the interface reads what they retained rather than
 driving them. One planned path does not exist: `agent/`, whose

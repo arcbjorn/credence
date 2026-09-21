@@ -31,10 +31,44 @@ for doc in docs/08-integrations.md docs/11-verification.md; do
   fi
 done
 
-# --- the eight screens docs/09 specifies ---
+# --- the eight screens docs/09 specifies, plus any beyond that list ---
 screens=$(ls "$ROOT/web/src/screens"/*.tsx 2>/dev/null | wc -l | tr -d ' ')
 if [ "$screens" -lt 1 ]; then
   fail "no screens found under web/src/screens"
+fi
+
+# The count is spelled as an ordinal in prose ("a ninth", "a tenth"), and
+# it drifted TWICE unnoticed -- `docs/01` still said "ninth" after the
+# tenth screen shipped, and the README still said "eight screens" after
+# the ninth did. A reader who counts the nav and finds more than the docs
+# admit has no reason to trust the next count either.
+#
+# So the ordinal for the HIGHEST screen must appear wherever the extras
+# are described. `docs/09` itself is exempt: it specifies eight and says
+# so deliberately.
+# Either phrasing is fine -- the ordinal for the highest screen ("tenth"),
+# or the count of extras beyond the eight ("plus two"). What must not
+# happen is a document describing the extras while naming a SMALLER
+# number than exists.
+ordinals=(zero first second third fourth fifth sixth seventh eighth ninth
+  tenth eleventh twelfth thirteenth fourteenth fifteenth)
+numbers=(zero one two three four five six seven eight nine ten)
+extra=$((screens - 8))
+if [ "$extra" -gt 0 ]; then
+  highest=${ordinals[$screens]:-}
+  count=${numbers[$extra]:-}
+  # Scoped to the LINES that mention screens, not the whole file: an
+  # earlier version grepped file-wide and passed on wrong text because
+  # `docs/01` says "plus two" about DIRECTORIES elsewhere. A check that
+  # can be satisfied by an unrelated sentence checks nothing.
+  for f in "$ROOT/docs/01-architecture.md" "$ROOT/README.md"; do
+    lines=$(grep -i "screens" "$f" || true)
+    [ -n "$lines" ] || continue
+    if ! echo "$lines" | grep -qi "$highest" &&
+      ! echo "$lines" | grep -qi "plus $count"; then
+      fail "$(basename "$f") describes screens but names neither \"$highest\" nor \"plus $count\"; $screens exist"
+    fi
+  done
 fi
 
 # --- indexer lifecycle test count ---
