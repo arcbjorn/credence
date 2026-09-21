@@ -274,6 +274,37 @@ else
   record SKIP "Perpl risk panel" "run scripts/build-web-data.sh first"
 fi
 
+# --- Is the remote build green? ----------------------------------------
+#
+# Everything above re-runs the gates locally. None of it asks whether CI
+# AGREES, and on 21 September that gap let a baseline tag land on a red
+# build: `web` had been failing for two commits because a test required a
+# fixture that depends on a third-party venue, which no local run could
+# have shown -- locally the file was always present.
+#
+# Reported, never enforced by exit code: a tag is a human decision, and a
+# release check that refused to produce a record because GitHub was slow
+# would be worse than one that says plainly what it found.
+echo
+echo "remote"
+if ! command -v gh >/dev/null 2>&1; then
+  record SKIP "CI on this commit" "gh not installed"
+elif ! git -C "$ROOT" rev-parse --abbrev-ref '@{upstream}' >/dev/null 2>&1; then
+  record SKIP "CI on this commit" "no upstream branch"
+else
+  SHA=$(git -C "$ROOT" rev-parse HEAD)
+  CI=$(gh run list --limit 20 \
+    --json headSha,status,conclusion \
+    --jq ".[] | select(.headSha==\"$SHA\") | \"\(.status) \(.conclusion // \"pending\")\"" \
+    2>/dev/null | head -1 | sed 's/[[:space:]]*$//')
+  case "$CI" in
+    "completed success") record PASS "CI on this commit" "green on ${SHA:0:8}" ;;
+    "completed "*) record FAIL "CI on this commit" "${CI#completed } on ${SHA:0:8}" ;;
+    "") record SKIP "CI on this commit" "no run for ${SHA:0:8} yet -- push first" ;;
+    *) record SKIP "CI on this commit" "$CI on ${SHA:0:8}" ;;
+  esac
+fi
+
 # --- The record --------------------------------------------------------
 
 COMMIT=$(git -C "$ROOT" rev-parse HEAD)

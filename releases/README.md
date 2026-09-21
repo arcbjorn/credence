@@ -41,7 +41,21 @@ LOANS=2 bash scripts/demo-repay.sh   # loan 1 must be Repaid
 bash scripts/index-local.sh          # sync to the CURRENT manager
 bash scripts/verify-reorg.sh
 
-# 4. Commit the record, then tag THAT commit.
+# 4. Push, and wait for CI to go green on the commit you will tag.
+#
+#    The check's "CI on this commit" row reports this. It is a SKIP
+#    while the run is queued or in progress, so a record produced
+#    immediately after pushing says nothing about the build -- re-run
+#    it, or read `gh run list`, before tagging.
+#
+#    On 21 September a baseline tag landed on a RED build: `web` had
+#    been failing for two commits because a test required a fixture
+#    that depends on a third-party venue. No local run could have
+#    shown it, because locally the file is always present.
+git push origin master
+gh run watch
+
+# 5. Commit the record, then tag THAT commit.
 git add releases/ && git commit -m "chore(release): record the baseline check"
 git tag -a v0.1.0-baseline -m "Baseline, 22 September
 
