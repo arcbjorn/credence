@@ -23,6 +23,10 @@ import {OracleHarness} from "./OracleHarness.sol";
 /// Minimal adapter used to advance an account's state version.
 contract NoopAdapter {
     function act() external {}
+
+    /// A second entry point, so a test can present an action the
+    /// origination assessment never pinned.
+    function other() external {}
 }
 
 /// An adapter whose action fails, standing in for a trade that cannot be
@@ -712,6 +716,53 @@ contract LifecycleTest is Test {
             uint8(manager.status(loanId)), uint8(LoanManager.Status.Active), "the loan is live"
         );
         assertEq(account.stateVersion(), 1, "and the action ran inside the same transaction");
+    }
+
+    /// Permission, not the pinned hash, gates what comes after.
+    ///
+    /// Driven through `LoanManager` because that is the only production
+    /// caller of `openDebt`. `CreditAccount.t.sol` used to isolate this by
+    /// calling `openDebt` a second time to re-pin the same action -- a
+    /// path that cannot occur, and the reason a loan frozen to one action
+    /// for its life went unnoticed.
+    function test_ExecuteAfterOriginationRestsOnPermission() public {
+        vm.prank(OPERATOR);
+        manager.setAccountAdapter(account, address(noop), true);
+
+        Binding memory b = _publish(
+            oracle,
+            account,
+            1_000e6,
+            1_200,
+            10 days,
+            keccak256(abi.encode(address(noop), abi.encodeCall(NoopAdapter.act, ())))
+        );
+
+        vm.prank(AGENT);
+        manager.originateAndExecute(b, 1_000e6, address(noop), abi.encodeCall(NoopAdapter.act, ()));
+
+        // The action bumped `stateVersion`, which voids the permission it
+        // ran under -- invariant 3: the portfolio that assessment was
+        // computed against no longer exists. A second action needs a
+        // FRESH monitoring result, not a standing bit.
+        vm.prank(AGENT);
+        vm.expectRevert(CreditAccount.RiskNotPermitted.selector);
+        account.execute(address(noop), abi.encodeCall(NoopAdapter.other, ()));
+
+        // The continuous-underwriting loop re-assesses the account as it
+        // now stands, which is what grants standing permission.
+        Binding memory rb = _bindingFor(account, account.stateVersion());
+        Assessment memory ok =
+            OracleHarness.monitoringAllowed(rb, ++seq, DEPLOYMENT, uint64(block.timestamp));
+        oracle.accept(ok, OracleHarness.sign(oracle, ok, SIGNER_KEY));
+
+        // Now a DIFFERENT action runs (`docs/05`:76). Before the fix this
+        // reverted `ActionNotPermitted` however fresh the assessment was:
+        // the pinned hash gated the life of the loan, not just its
+        // origination.
+        vm.prank(AGENT);
+        account.execute(address(noop), abi.encodeCall(NoopAdapter.other, ()));
+        assertEq(account.stateVersion(), 2, "the second action ran");
     }
 
     /// A trade that cannot be filled unwinds the draw with it.

@@ -368,19 +368,103 @@ contract CreditAccountTest is Test {
         vm.prank(AGENT);
         account.execute(address(adapter), abi.encodeCall(OkAdapter.act, ()));
 
-        // Anything after it is a new risk decision. Re-pinning the same
-        // action isolates the permission gate from the action gate.
-        vm.prank(LOAN_MANAGER);
-        account.openDebt(
-            KEY, BINDING_HASH, _actionHash(), uint64(block.timestamp + 1 hours), QUOTE_SEQ
-        );
+        // Anything after it rests on live permission, which the stub
+        // still grants -- so a DIFFERENT action runs without any re-pin.
+        // An earlier version called `openDebt` again here to re-pin the
+        // same hash, a path `LoanManager` never takes, and that artificial
+        // setup is why a loan frozen to one action went unnoticed.
+        // `Lifecycle.t.sol::test_ExecuteAfterOriginationRestsOnPermission`
+        // drives the same property through the real manager.
         vm.prank(AGENT);
-        account.execute(address(adapter), abi.encodeCall(OkAdapter.act, ()));
+        account.execute(address(adapter), abi.encodeCall(OkAdapter.other, ()));
 
         oracle.setAllowed(false);
         vm.prank(AGENT);
         vm.expectRevert(CreditAccount.RiskNotPermitted.selector);
         account.execute(address(adapter), abi.encodeCall(OkAdapter.act, ()));
+    }
+
+    // --- A loan is not frozen to one action for its life ---
+
+    /// A HOLD-ONLY loan can still act later, under live permission.
+    ///
+    /// `docs/05`:9 makes holding settlement a terminal origination state,
+    /// and `LoanManager` pins `bytes32(0)` for it. Zero means "no action
+    /// authorized", so the quote covers nothing -- but it must not mean
+    /// "no action ever". `keccak256(abi.encode(...))` is never zero, so an
+    /// unconditional hash check froze these loans permanently: every
+    /// `execute` reverted `ActionNotPermitted` for the life of the debt,
+    /// with valid monitoring permission sitting right there.
+    function test_HoldOnlyLoanCanActUnderLivePermission() public {
+        vm.prank(LOAN_MANAGER);
+        account.openDebt(
+            KEY, BINDING_HASH, bytes32(0), uint64(block.timestamp + 1 hours), QUOTE_SEQ
+        );
+
+        // Permission is live, the adapter is allowlisted: `docs/05`:76 says
+        // this is exactly what a post-origination action rests on.
+        vm.prank(AGENT);
+        account.execute(address(adapter), abi.encodeCall(OkAdapter.act, ()));
+        assertEq(adapter.calls(), 1, "a hold-only loan must not be frozen");
+    }
+
+    /// And it is still GATED. The fix must move the gate, not remove it.
+    ///
+    /// The selector matters: `RiskNotPermitted` proves the permission gate
+    /// refused, where `ActionNotPermitted` would mean the freeze is back.
+    function test_HoldOnlyLoanStillNeedsPermission() public {
+        vm.prank(LOAN_MANAGER);
+        account.openDebt(
+            KEY, BINDING_HASH, bytes32(0), uint64(block.timestamp + 1 hours), QUOTE_SEQ
+        );
+
+        oracle.setAllowed(false);
+        vm.prank(AGENT);
+        vm.expectRevert(CreditAccount.RiskNotPermitted.selector);
+        account.execute(address(adapter), abi.encodeCall(OkAdapter.act, ()));
+    }
+
+    /// A live quote is not a blanket licence.
+    ///
+    /// The quote authorizes ONE atomic action (`docs/05`:119). A different
+    /// call, even on an allowlisted adapter and even while the quote is
+    /// live, is a new risk decision -- and with permission refused it must
+    /// revert rather than ride the quote.
+    function test_LiveQuoteDoesNotCoverADifferentAction() public {
+        vm.prank(LOAN_MANAGER);
+        account.openDebt(
+            KEY, BINDING_HASH, _actionHash(), uint64(block.timestamp + 1 hours), QUOTE_SEQ
+        );
+
+        oracle.setAllowed(false);
+        vm.prank(AGENT);
+        vm.expectRevert();
+        account.execute(address(adapter), abi.encodeCall(OkAdapter.other, ()));
+        assertEq(adapter.calls(), 0, "an unauthorized action must not run");
+    }
+
+    /// After the pinned action is consumed, a DIFFERENT legitimate action
+    /// runs on live permission.
+    ///
+    /// This is the case the freeze made impossible. Invariant 3 names
+    /// permission as the gate; nothing in it freezes an account to the one
+    /// trade its origination happened to authorize.
+    function test_DifferentActionRunsOnLivePermission() public {
+        vm.prank(LOAN_MANAGER);
+        account.openDebt(
+            KEY, BINDING_HASH, _actionHash(), uint64(block.timestamp + 1 hours), QUOTE_SEQ
+        );
+
+        // The pinned action, on the quote's authority.
+        vm.prank(AGENT);
+        account.execute(address(adapter), abi.encodeCall(OkAdapter.act, ()));
+
+        // A different one, on the oracle's. No re-pin: `openDebt` has no
+        // production caller but `LoanManager._originate`, so a test that
+        // re-pins is testing a path that cannot happen.
+        vm.prank(AGENT);
+        account.execute(address(adapter), abi.encodeCall(OkAdapter.other, ()));
+        assertEq(adapter.calls(), 2, "a new action must run under permission");
     }
 
     /// The action origination authorized is single-use. A second identical

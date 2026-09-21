@@ -263,7 +263,6 @@ contract CreditAccount {
 
         if (debtOutstanding && !deRisking) {
             bytes32 action = keccak256(abi.encode(adapter, data));
-            require(action == permittedActionHash, ActionNotPermitted(permittedActionHash, action));
 
             // The origination assessment authorized this exact action, so
             // performing it once needs no separate monitoring result --
@@ -287,7 +286,31 @@ contract CreditAccount {
             // forge-lint: disable-next-line(block-timestamp)
                 !actionConsumed && block.timestamp < permittedActionValidUntil && !superseded;
 
-            if (!coveredByQuote) {
+            // The pinned hash binds the ORIGINATION action, not the life
+            // of the loan. `docs/05` says so in three places -- ":9" makes
+            // holding settlement a terminal state, ":76" rests later
+            // risk-increasing actions on current monitoring permission,
+            // and ":119" calls a repeat "a new risk decision" -- and
+            // invariant 3 above names permission as the gate without
+            // mentioning a frozen action.
+            //
+            // Checking the hash unconditionally contradicted all four. A
+            // hold-only loan pins `bytes32(0)` and `keccak256` never
+            // returns zero, so every action reverted `ActionNotPermitted`
+            // for the life of the debt, with valid permission available.
+            // An action-bound loan could repeat its one calldata but never
+            // place a different trade.
+            //
+            // So the hash gates only what the quote covers. The
+            // `!= bytes32(0)` guard is load-bearing: zero authorizes no
+            // action, so a hold-only loan must fall through to permission
+            // rather than be compared against zero on its first call,
+            // when `coveredByQuote` is still true.
+            if (coveredByQuote && permittedActionHash != bytes32(0)) {
+                require(
+                    action == permittedActionHash, ActionNotPermitted(permittedActionHash, action)
+                );
+            } else {
                 require(
                     IRiskOracle(riskOracle)
                         .riskAllowedFor(boundBindingKey, boundBindingHash, stateVersion),
