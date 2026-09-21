@@ -522,21 +522,30 @@ test.
 ### Listed on Kuru — 20 September
 
 `scripts/list-notes-kuru.sh` deploys a `NoteSeries`, issues its notes and
-creates a Kuru orderbook market for them, on Monad testnet:
+creates a Kuru orderbook market for them, on Monad testnet.
 
-| | |
-|---|---|
-| Market | `0x874160CaFa8B1C4D4Ffbd8f1121c8d7491cdE38E` |
-| Note (`CNOTE`) | `0xbeAF9CB5Ac98659A0e44d6118ba5Fd02d43E631F` |
-| Settlement | `0x6b3597BFE78eAcf33d0C3D1bC5d12feD9e09c131` |
-| Cost | 0.3363 MON, all three deploys and the trades |
+The addresses live in the **`kuru` block of
+[`contracts/deployments/10143.json`](../contracts/deployments/10143.json)**,
+which is where every address in this project is recorded. They were
+copied into prose here until 21 September, against the rule `README.md`
+states: prose copies go stale the first time anything is redeployed, and
+three of them already had.
+
+Cost: 0.3363 MON for all three deploys and the trades.
 
 **Kuru's own Router recognises it**, which is the check that matters:
-`verifiedMarket(0x874160Ca…)` returns `true`, and the market proxy
-resolves to `0x72caE0a9…` — exactly the address `orderBookImplementation()`
-reports. This is not a contract that merely resembles a market; the venue
-says it is one. The notes then moved: the whole 4,000,000,000 supply is
-held by the second address and none by the issuer.
+`verifiedMarket(<market>)` returns `true`, and the market proxy resolves
+to exactly the address `orderBookImplementation()` reports. Re-check it
+against the manifest:
+
+```sh
+cast call <kuru.router> 'verifiedMarket(address)(bool)' <kuru.market> \
+  --rpc-url https://testnet-rpc.monad.xyz
+```
+
+This is not a contract that merely resembles a market; the venue says it
+is one. The notes then moved: the whole 4,000,000,000 supply is held by
+the second address and none by the issuer.
 
 **What this does not establish.** Both participants are project
 controlled. Per the paragraph below, that makes this a **controlled

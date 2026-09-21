@@ -29,5 +29,14 @@
     "mock_forwarder": "0xB9F79d863261869B234c481D1f9A7af84AeAd192",
     "chain_selector": "2183018362218727504",
     "status": "receiver deployed; no DON-signed report has reached it"
+  },
+  "kuru": {
+    "router": "0x7EFbE105Ca7415dE98F96622173458ac1c054630",
+    "market": "0x874160CaFa8B1C4D4Ffbd8f1121c8d7491cdE38E",
+    "note": "0xbeAF9CB5Ac98659A0e44d6118ba5Fd02d43E631F",
+    "settlement": "0x6b3597BFE78eAcf33d0C3D1bC5d12feD9e09c131",
+    "order_book_implementation": "0x72caE0a99C19B574e8a6De558F43fc1D019c9374",
+    "status": "listed and verified by the router; CONTROLLED market -- both participants are project-controlled, so this shows the venue accepts the instrument, not that anyone independent priced it",
+    "isolated_from_baseline": "the series has its own settlement token, not addresses.settlement: docs/08 forbids tokenizing a receivable of the baseline pooled vault"
   }
 }

@@ -131,6 +131,17 @@ cast send "$SERIES" "transfer(address,uint256)" "$BUYER" "$SUPPLY" \
   --private-key "0x$DEPLOYER" --rpc-url "$RPC" >/dev/null
 echo "  buyer holds   $(cast call "$SERIES" "balanceOf(address)(uint256)" "$BUYER" --rpc-url "$RPC" | awk '{print $1}')"
 
+# Record them. The script printed these and nothing kept them, so the
+# addresses survived only in a terminal and then in `docs/08` prose --
+# which is the copy `README.md` warns about, and the reason three
+# earlier address copies went stale.
+MANIFEST="$ROOT/contracts/deployments/$CHAIN_ID.json"
+if [ -f "$MANIFEST" ]; then
+  IMPL=$(cast call "$ROUTER" "orderBookImplementation()(address)" --rpc-url "$RPC" 2>/dev/null)
+  python3 "$ROOT/scripts/lib/record-kuru.py" \
+    "$MANIFEST" "$ROUTER" "$MARKET" "$SERIES" "$SETTLEMENT" "${IMPL:-}"
+fi
+
 echo
 echo "PASS  a note series is listed on Kuru and its notes have moved"
 echo
