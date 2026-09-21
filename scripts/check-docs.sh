@@ -31,6 +31,30 @@ for doc in docs/08-integrations.md docs/11-verification.md; do
   fi
 done
 
+# --- every internal link resolves ---
+#
+# A broken link in the README is the first thing a judge hits and the
+# last thing anyone notices: nothing fails, the page just 404s. Checked
+# mechanically because checking it by hand is how it rots.
+broken=""
+while read -r src target; do
+  # Strip any #anchor; the file is what must exist.
+  path=${target%%#*}
+  [ -n "$path" ] || continue
+  case "$path" in
+    http*|mailto:*) continue ;;
+  esac
+  dir=$(dirname "$src")
+  [ -e "$dir/$path" ] || broken="$broken\n  $src -> $target"
+done < <(
+  grep -oHE '\]\([^)]+\)' "$ROOT/README.md" "$ROOT"/docs/*.md 2>/dev/null |
+    sed -E 's/\]\(/ /; s/\)$//' | tr -d '\]'
+)
+if [ -n "$broken" ]; then
+  # shellcheck disable=SC2059
+  fail "$(printf "broken internal link(s):$broken")"
+fi
+
 # --- the eight screens docs/09 specifies, plus any beyond that list ---
 screens=$(ls "$ROOT/web/src/screens"/*.tsx 2>/dev/null | wc -l | tr -d ' ')
 if [ "$screens" -lt 1 ]; then
