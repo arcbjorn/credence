@@ -1,6 +1,5 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { fixtureMissing } from "./fixtures";
 import type { Perpl } from "./data";
 
 /**
@@ -10,9 +9,21 @@ import type { Perpl } from "./data";
  * moved would break them, and a hand-edited file would too. Pinning exact
  * figures would fail on every refresh instead, which trains a reader to
  * regenerate rather than to look.
+ *
+ * **Skipped when absent, even under `CREDENCE_REQUIRE_FIXTURES=1`.**
+ * Every other bundle file comes from a demo that needs only a local
+ * chain, so `fixtureMissing` rightly turns a missing one into a CI
+ * failure. This one needs a THIRD PARTY to be reachable: using the same
+ * helper made a green build depend on app.perpl.xyz being up, and it
+ * broke CI on 21 September for exactly that reason -- a red build over
+ * something no change in this repository could cause or fix.
+ *
+ * The capture's own row in `scripts/release-check.sh` is where a missing
+ * or stale capture is reported, and that runs against the live venue on
+ * purpose.
  */
 const PATH = "public/data/perpl.json";
-const missing = fixtureMissing(PATH);
+const missing = !existsSync(PATH);
 
 const load = (): Perpl => JSON.parse(readFileSync(PATH, "utf8")) as Perpl;
 
