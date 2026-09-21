@@ -28,10 +28,18 @@ evidence is the acceptance matrix below.
 ## Acceptance, re-run
 
 `scripts/release-check.sh` re-runs every row and writes a dated record to
-`releases/`. The most recent run: **20 passed, 0 failed, 0 skipped**.
+`releases/`. **The record is the figure**, not this document: read the
+newest file in [`releases/`](../releases/), which names the commit it
+ran against and every row's result.
 
 A **SKIP is a row the run could not reach, never a row that passed.** The
 record names its skips; a reader must check those by hand.
+
+This paragraph used to quote a count. It said "20 passed, 0 failed, 0
+skipped" while the record said 21 passed and **1 skipped** -- a
+document restating its own rule about skips, one line after
+under-reporting one. A number copied out of a record goes stale the
+next time the record is written, so it is not copied any more.
 
 Two rows were closed on 21 September that had been skipped for days:
 

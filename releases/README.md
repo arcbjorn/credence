@@ -25,7 +25,7 @@ pkill -f 'anvil --port 8546'; anvil --port 8546 --silent &
 # 2. Every row, recorded. Fails non-zero if any row fails.
 bash scripts/release-check.sh
 
-#    For all twenty rows including the indexed lifecycle, which needs
+#    For every row including the indexed lifecycle, which needs
 #    Docker and costs an extra demo run plus a sync:
 RESYNC_INDEXER=1 bash scripts/release-check.sh
 
