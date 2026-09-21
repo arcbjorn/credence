@@ -639,12 +639,95 @@ than `evidence.max_skew_seconds` is rejected at load
 (`TestPerplResolutionMustFitTheSkewBudget`). At 60s the same observation
 is 9 seconds old.
 
+### The risk panel — 21 September
+
+The bounty names three inputs: orderbook depth, funding rates, and
+realized volatility, feeding the three named stress scenarios. Depth and
+volatility reach the engine. **Funding does not, and the distinction is
+the substantive design decision here.**
+
+`pricing.rs` already has a `funding_rate_bps`. It is the **lender's cost
+of capital**, deducted from gross interest over the loan term. Perpl's
+funding rate is the **premium longs pay shorts** to hold a perp near its
+index. They share a name and nothing else, and wiring one into the other
+would silently corrupt every loan's economics while looking plausible.
+
+So funding is observed, summarised and displayed, and never reaches the
+engine. What it legitimately indicates is **crowding**: over seven days of
+ETH, 78% of the non-zero samples shared the window's direction. Persistent
+one-sided funding is leveraged positioning, and leveraged positioning
+unwinds faster than it accumulates — a reason to read a calm volatility
+number with suspicion, not a number to feed a model. `docs/08` keeps
+market feedback informational; this is market feedback.
+
+Zero samples are excluded from that measure. Roughly half of ETH's samples
+were zero, and counting a flat reading as agreement would make a dead
+market look maximally crowded — the exact inversion the measure exists to
+avoid (`TestFundingZeroSamplesDoNotCountAsAgreement`).
+
+#### Why the engine was not extended
+
+`MarketState` sits inside the canonical snapshot that is **hashed** and
+pinned in `schemas/v1/snapshot-vector.json`. Adding a field to it breaks
+the v1 schema, invalidates every retained `input_hash`, and cascades
+through four test files — verified by trying it. Two days before the
+baseline tag, that is the wrong trade for a display feature, and the
+honest version of this integration does not need it.
+
+#### Two snapshots, one clock
+
+A single capacity number proves nothing. The panel evaluates the **same
+retained origination snapshot twice** — once with Perpl's market, once
+with the declared placeholder the fixture shipped — at the same clock,
+with only the market evidence differing:
+
+| | Declared | Perpl, observed |
+|---|---|---|
+| Depth | 2,000,000 | 280,381.09 |
+| Volatility | 20.00% | 0.07% |
+| Agent capacity | 8,117,138,556 | 7,660,993,694 (**-5.6%**) |
+| Decision | ApprovedOrigination | ApprovedOrigination |
+
+Real depth is **7× thinner** than the placeholder, so the liquidity and
+combined scenarios recover less and capacity falls. The *price* shock is
+identical in both columns because the declared floor binds: 0.07%
+volatility scaled by the policy multiple sits far below it. That is the
+floor doing its job — `docs/03` says a calm window must not make the
+stress test assert nothing, and here it visibly does not.
+
+The engine runs **in the reader's tab**, the same WebAssembly build the
+gateway uses, so the scenarios displayed are its own output rather than a
+second implementation that could drift.
+
+#### What the live run caught
+
+The retained fixture is dated ahead of the live venue, so substituting
+today's observation made the evidence read **8.2 days stale** and the
+engine returned `Unavailable` with `StaleRequired { age_seconds: 710300 }`.
+Correct behaviour, wrong question: a decision made on today's market is
+made *now*. The builder moves the assessment clock and the proposal window
+to the observation, and moves the baseline's with it — otherwise the
+comparison would differ by the clock rather than by the market.
+
+Loosening `max_evidence_age_seconds` would have "fixed" it too, and was
+never on the table: that is the one check stopping stale market data from
+authorizing a loan.
+
+Two smaller ones, both found by looking at the rendered page rather than
+by a test: the hash component renders a `<div>` and was nested inside a
+`<p>` (an invalid-DOM console error), and the snapshot source displayed as
+`tmp.nbcHaDQ3zO` because the capture recorded a `mktemp` path.
+
 ### Scope
 
 This is **market observation, not trading**. It feeds the three named
 stress scenarios the engine already runs; it opens no position and touches
 no custody rule. D14 and D33 are unaffected — the basis trade stays out of
 v0, and nothing here revisits it.
+
+The panel is a **tenth screen**, beyond `docs/09`'s eight. It answers a
+different question from the assessment screens: not "what did this account
+get" but "what does today's market do to it".
 
 ## Bounties
 
