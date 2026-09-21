@@ -53,9 +53,16 @@ jobs:
       - name: forge fmt
         run: forge fmt --check
         working-directory: contracts
-      - name: forge build
-        run: forge build
-        working-directory: contracts
+      # Lint BEFORE build, so the build it leaves behind is the one the
+      # tests use.
+      #
+      # `forge lint` was once able to leave the build cache in a state
+      # where `forge test` silently discovered fewer suites -- 191 tests
+      # dropping to 131 with no error -- and the fix was `forge clean &&
+      # forge test`, which threw away a 43s build on every run. Running
+      # lint first makes the clean unnecessary: verified on 1.8.3 that
+      # lint -> build -> test finds all 14 suites and 202 tests.
+      #
       # Zero warnings, so a new one is visible instead of lost in a wall
       # of accepted ones. Every current exemption is annotated in place
       # with its reason; `docs/05` records the block.timestamp rationale.
@@ -68,12 +75,21 @@ jobs:
             exit 1
           fi
         working-directory: contracts
-      # `forge lint` can leave the build cache in a state where `forge
-      # test` silently discovers fewer suites -- observed twice, 191 tests
-      # dropping to 131 with no error. A clean build makes the count
-      # trustworthy.
+      - name: forge build
+        run: forge build
+        working-directory: contracts
+      # The suite count is asserted, not assumed: if the cache ever
+      # silently drops suites again, this fails loudly rather than
+      # reporting green on half the tests.
       - name: forge test
-        run: forge clean && forge test -vv
+        run: |
+          out=$(forge test -vv 2>&1)
+          echo "$out"
+          suites=$(echo "$out" | grep -oE 'Ran [0-9]+ test suites' | grep -oE '[0-9]+' | tail -1)
+          if [ "${suites:-0}" -lt 14 ]; then
+            echo "::error::expected at least 14 test suites, ran ${suites:-0}" >&2
+            exit 1
+          fi
         working-directory: contracts
 
   engine:
@@ -209,6 +225,14 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
+      # This job compiles the Rust twice -- once to wasm for the engine,
+      # once natively inside `scripts/setup.sh` -- and had no cache at
+      # all, while the `rust` job did. Keyed separately from that job's:
+      # the targets differ, and sharing one key would thrash both.
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: risk
+          key: wasm
       - uses: pnpm/action-setup@v4
         with:
           version: 11
@@ -220,8 +244,34 @@ jobs:
 
       # The engine is a build artifact of risk/crates/risk-wasm, not a
       # committed file: a second copy could fall behind the first.
+      # A prebuilt binary, not `cargo install`.
+      #
+      # Compiling wasm-bindgen-cli from source took 190s -- HALF this
+      # workflow's wall-clock time, since `web` is the long pole and the
+      # other six jobs finish inside it. The published musl binary for
+      # the same pinned version installs in about a second.
+      #
+      # Falls back to building from source if the download fails: a
+      # release CDN can 504 (the foundry toolchain did exactly that on
+      # 21 September), and a transient outage should cost time, not a
+      # red build.
       - name: install wasm-bindgen
-        run: cargo install wasm-bindgen-cli --version 0.2.128 --locked
+        run: |
+          set -euo pipefail
+          VERSION=0.2.128
+          TARBALL=wasm-bindgen-$VERSION-x86_64-unknown-linux-musl
+          URL=https://github.com/wasm-bindgen/wasm-bindgen/releases/download/$VERSION/$TARBALL.tar.gz
+          if curl --retry 3 --retry-connrefused --fail --silent --show-error \
+            --location "$URL" -o /tmp/wasm-bindgen.tar.gz; then
+            tar -xzf /tmp/wasm-bindgen.tar.gz -C /tmp
+            install -m755 "/tmp/$TARBALL/wasm-bindgen" "$HOME/.cargo/bin/wasm-bindgen"
+          else
+            echo "prebuilt download failed; building from source"
+            cargo install wasm-bindgen-cli --version "$VERSION" --locked
+          fi
+          # Whichever path ran, the version must be the pinned one: the
+          # engine artifact this produces is hashed and compared.
+          wasm-bindgen --version
       - name: build the engine
         run: bash scripts/build-wasm.sh
 
