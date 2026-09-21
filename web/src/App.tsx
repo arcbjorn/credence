@@ -7,6 +7,7 @@ import { EvidenceInspector } from "./screens/EvidenceInspector";
 import { Lender } from "./screens/Lender";
 import { Lifecycle } from "./screens/Lifecycle";
 import { IndexedLifecycle } from "./screens/Indexed";
+import { PerplPanel } from "./screens/Perpl";
 import { Replay } from "./screens/Replay";
 import "./styles/app.css";
 
@@ -21,6 +22,12 @@ import "./styles/app.css";
  * The rest are listed in `docs/09` and deliberately NOT stubbed with empty
  * shells: a nav item that opens a blank page reads as broken, where an
  * absent one reads as unbuilt.
+ *
+ * "Perpl risk" is a tenth: observed market data from the perps venue
+ * driving the same three stress scenarios (`docs/08`). It is separate
+ * from the assessment screens because it answers a different question --
+ * not "what did this account get" but "what does today's market do to
+ * it" -- and the comparison only means anything with both columns shown.
  *
  * "Indexed" is a ninth, beyond `docs/09`'s list: the lifecycle rebuilt
  * from the event log by the Envio indexer (`docs/08`). It is separate
@@ -42,6 +49,7 @@ export default function App() {
         <NavLink to="/evidence">Evidence</NavLink>
         <NavLink to="/lender">Lender</NavLink>
         <NavLink to="/enforcement">Enforcement</NavLink>
+        <NavLink to="/perpl">Perpl risk</NavLink>
         <NavLink to="/replay">Replay</NavLink>
       </nav>
       <main className="main">
@@ -55,6 +63,7 @@ export default function App() {
           <Route path="/evidence" element={<EvidenceInspector />} />
           <Route path="/lender" element={<Lender />} />
           <Route path="/enforcement" element={<Enforcement />} />
+          <Route path="/perpl" element={<PerplPanel />} />
           <Route path="/replay" element={<Replay />} />
         </Routes>
       </main>

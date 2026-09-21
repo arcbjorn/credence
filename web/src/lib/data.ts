@@ -213,6 +213,67 @@ export interface IndexedEvent {
   unpaidInterest: string | null;
 }
 
+/** One orderbook level, in the venue's scaled integers. */
+export interface PerplLevel {
+  price: number;
+  size: number;
+}
+
+/**
+ * Recent perpetual funding.
+ *
+ * NOT the engine's `funding_rate_bps`, which is the lender's cost of
+ * capital. This is the premium longs pay shorts to hold a perp near its
+ * index -- a positioning signal, displayed and never fed to the engine.
+ */
+export interface PerplFunding {
+  samples: number;
+  latest_bps: number;
+  mean_bps: number;
+  max_abs_bps: number;
+  /** Share of NON-ZERO samples agreeing with the window's direction. */
+  one_sided_pct: number;
+  window_seconds: number;
+  observed_at: number;
+}
+
+export interface PerplBook {
+  price_decimals: number;
+  size_decimals: number;
+  bids: PerplLevel[];
+  asks: PerplLevel[];
+  /** The WHOLE book's level count, not the visible rows. */
+  bid_levels: number;
+  ask_levels: number;
+}
+
+export interface PerplMarket {
+  observed_at: number;
+  realized_volatility_bps: number;
+  volatility_window_seconds: number;
+  liquidity_depth: string;
+}
+
+export interface Perpl {
+  captured_at: number;
+  venue: {
+    base_url: string;
+    market_id: number;
+    symbol: string;
+    resolution_seconds: number;
+    window_seconds: number;
+  };
+  market: PerplMarket;
+  funding: PerplFunding;
+  book: PerplBook;
+  /** The retained snapshot with observed market evidence substituted. */
+  snapshot: unknown;
+  /** The same snapshot with its declared market evidence, same clock. */
+  baseline: unknown;
+  baseline_market: PerplMarket;
+  snapshot_source: string;
+}
+
 export interface Indexed {
   loans: IndexedLoan[];
   events: IndexedEvent[];
@@ -264,6 +325,15 @@ export const loadPolicy = (run: string) =>
  * rendering an empty lifecycle.
  */
 export const loadIndexed = () => fetchJSON<Indexed>("data/indexed.json");
+
+/**
+ * Live Perpl market data, captured by `credence-perplpanel`.
+ *
+ * Absent until the capture is run. That is a different state from "the
+ * venue reported nothing", and the screen says so rather than rendering
+ * an empty book that reads like a dead market.
+ */
+export const loadPerpl = () => fetchJSON<Perpl>("data/perpl.json");
 
 /** Base units to a readable decimal. Never rounds a displayed amount. */
 export function units(raw: string | number | undefined, decimals = 6): string {
