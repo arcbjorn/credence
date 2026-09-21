@@ -1,0 +1,131 @@
+# Publish the interface to GitHub Pages.
+#
+# `docs/10` requires an **accessible deployment** for the 7-9 October
+# window: a judge should be able to open the interface without installing
+# a toolchain, a chain, or Docker. Everything else in this repository is
+# reproducible from source; this is the one artifact whose value is that
+# it is already running.
+#
+# The site is a static bundle with `base: "./"`, so it works from a
+# subpath with no build change.
+#
+# **It carries the same evidence a local run would.** The demos run here
+# exactly as they do in the `web` CI job, so every figure on the deployed
+# site comes from a transaction this workflow actually made, not from a
+# fixture checked into the repository. `docs/09`'s rule -- every
+# displayed number comes from a retained fixture or a transaction-derived
+# record -- holds for the deployment too.
+name: pages
+
+on:
+  # Manual, and on a release tag. NOT on every push: a deployment that
+  # changes under a judge mid-review is worse than one that lags.
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deployment at a time, and never cancel one in flight: a half-
+# published site is worse than an old one.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: risk
+          key: wasm
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: gateway/go.mod
+          cache-dependency-path: gateway/go.sum
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: v1.8.3
+
+      # The prebuilt binary, for the same reason the test workflow uses
+      # it: compiling wasm-bindgen-cli from source cost 190s.
+      - name: install wasm-bindgen
+        run: |
+          set -euo pipefail
+          VERSION=0.2.128
+          TARBALL=wasm-bindgen-$VERSION-x86_64-unknown-linux-musl
+          URL=https://github.com/wasm-bindgen/wasm-bindgen/releases/download/$VERSION/$TARBALL.tar.gz
+          if curl --retry 3 --retry-connrefused --fail --silent --show-error \
+            --location "$URL" -o /tmp/wasm-bindgen.tar.gz; then
+            tar -xzf /tmp/wasm-bindgen.tar.gz -C /tmp
+            install -m755 "/tmp/$TARBALL/wasm-bindgen" "$HOME/.cargo/bin/wasm-bindgen"
+          else
+            cargo install wasm-bindgen-cli --version "$VERSION" --locked
+          fi
+          wasm-bindgen --version
+
+      - name: fetch pinned dependencies
+        run: |
+          git clone --quiet --depth 1 --branch v1.16.2 \
+            https://github.com/foundry-rs/forge-std contracts/lib/forge-std
+          mkdir -p contracts/deployments
+
+      # The evidence. Without these the site renders its empty states,
+      # which is honest but useless to a judge.
+      - name: run the demos
+        run: |
+          anvil --port 8546 --silent &
+          for _ in $(seq 40); do
+            cast chain-id --rpc-url http://127.0.0.1:8546 >/dev/null 2>&1 && break
+            sleep 0.5
+          done
+          bash scripts/setup.sh
+          LOANS=3 bash scripts/demo-repay.sh
+          bash scripts/demo-monitor.sh
+          bash scripts/demo-default.sh
+
+      - name: build the site
+        run: bash scripts/web.sh --no-serve
+
+      # A deployment that silently lost its data would look like a broken
+      # product rather than a missing step, so this fails instead.
+      - name: the bundle carries its evidence
+        run: |
+          for f in repay.json monitor.json default.json comparison.json; do
+            [ -s "web/dist/data/$f" ] || {
+              echo "::error::web/dist/data/$f is missing or empty" >&2
+              exit 1
+            }
+          done
+          ls -la web/dist/data/
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
