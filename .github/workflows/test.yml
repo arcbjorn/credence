@@ -178,6 +178,37 @@ jobs:
         run: go test -count=1 ./underwrite/
         working-directory: cre
 
+  transport:
+    name: transport
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # gRPC must return a BYTE-IDENTICAL assessment to JSON for the same
+      # snapshot (`docs/10`). Anything less means the transport changed a
+      # decision, and retained evidence would stop reproducing under the
+      # other one.
+      #
+      # Its own job, for the reason the others are separate: a transport
+      # failure must not hide a Rust one. Until now this ran only in
+      # `release-check.sh`, so a regression would have surfaced at a tag
+      # rather than at the commit that caused it -- the same gap that let
+      # a baseline land on a red build.
+      - uses: arduino/setup-protoc@v3
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: risk
+          key: transport
+          cache-on-failure: true
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: gateway/go.mod
+          cache-dependency-path: gateway/go.sum
+      - name: gRPC and JSON agree byte for byte
+        run: bash scripts/verify-grpc.sh
+
   docs:
     name: docs
     runs-on: ubuntu-latest

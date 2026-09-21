@@ -54,6 +54,7 @@ test: ## Every suite, the way CI runs them
 	@echo "== docs ==" && bash scripts/check-docs.sh
 	@echo "== indexer ==" && cd indexer && pnpm codegen && pnpm typecheck && pnpm test
 	@echo "== web ==" && cd web && pnpm test
+	@echo "== transport ==" && bash scripts/verify-grpc.sh
 
 fmt: ## Format every language (all three are CI gates)
 	@cd risk && cargo fmt
