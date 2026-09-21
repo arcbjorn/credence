@@ -1,13 +1,23 @@
 //! Protobuf wire encoding for the risk boundary, in ~200 lines of
 //! dependency-free Rust.
 //!
-//! **Why not `tonic`/`prost`.** `docs/10` gates the transport change on
-//! passing the acceptance matrix *without changing frozen artifacts*, and
-//! `docs/01` calls the engine the part "whose output is hashed and
-//! signed". `risk-service` today pulls **31 crates** and opens its socket
-//! with `std::net`; `tonic` would bring tokio, hyper and roughly a
-//! hundred more into that component. Adding them to pass a transport
-//! gate would change the thing the gate exists to protect.
+//! **Why not `tonic`/`prost`.** Measured, not assumed: adding both takes
+//! `risk-service` from **31 crates to 77**, and it builds in 12 seconds.
+//! That cost alone would not decide it -- an earlier version of this
+//! comment said "roughly a hundred more", which was wrong.
+//!
+//! Two things decide it. First, `risk-service` today has **no async
+//! runtime**, and its own crates forbid `unsafe`; tonic brings tokio and
+//! `mio` (33 files containing `unsafe`) into the process that evaluates
+//! every credit decision -- the component `docs/01` singles out as
+//! "hashed and signed". Second, and more simply: there is **one client**
+//! (the Go gateway) talking to **one server** over localhost. gRPC earns
+//! its keep with polyglot clients, streaming and service meshes, none of
+//! which exist here.
+//!
+//! This is a judgment call for this system, not a claim that gRPC is
+//! wrong. If a second language ever calls this boundary, the proto is
+//! already written and `protoc`-verified, and the trade flips.
 //!
 //! The wire format here is real protobuf, matching
 //! `schemas/proto/risk.proto`. What it is NOT is gRPC: there is no HTTP/2
