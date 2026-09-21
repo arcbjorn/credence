@@ -354,17 +354,18 @@ jobs:
           git clone --quiet --depth 1 --branch v1.16.2 \
             https://github.com/foundry-rs/forge-std contracts/lib/forge-std
           mkdir -p contracts/deployments
-      # `scripts/setup.sh` rebuilds all three languages inside the demo
-      # step below. Rust is cached above; Solidity was not, so `forge
-      # build` recompiled 17 contracts on every run. Keyed on the sources
-      # and the pinned forge-std, so a contract change busts it.
-      - uses: actions/cache@v4
-        with:
-          path: |
-            contracts/out
-            contracts/cache
-          key: forge-${{ runner.os }}-v1.8.3-${{ hashFiles('contracts/src/**/*.sol', 'contracts/foundry.toml') }}
-          restore-keys: forge-${{ runner.os }}-v1.8.3-
+      # NO `contracts/out` cache here, deliberately.
+      #
+      # One was added on 21 September to save the ~40s `forge build`
+      # inside `scripts/setup.sh`. Its `restore-keys` fell back to any
+      # older entry, so a run could start with artifacts built from
+      # different sources -- and on the very next contract change the
+      # demo died at `forge script` with "Detected artifacts built from
+      # source files that no longer exist", every word of the error
+      # swallowed by the pipeline it ran in.
+      #
+      # A cache that can make a green commit fail is not worth 40
+      # seconds on a job that already runs real transactions.
       - name: run the demos
         run: |
           anvil --port 8546 --silent &

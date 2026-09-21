@@ -116,8 +116,25 @@ export AGENT_ADDRESS=$(cast wallet address --private-key \
   "0x${CREDENCE_AGENT_KEY:-59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d}")
 export SETTLEMENT_TOKEN=$SETTLEMENT VAULT_ADDRESS=$VAULT
 export LOAN_MANAGER_ADDRESS=$MANAGER RISKY_ASSET=$RISKY STRATEGY_ADAPTER=$ADAPTER
-ACCOUNT=$(forge script script/Scenario.s.sol --rpc-url "$RPC" --broadcast 2>&1 \
-  | grep -o 'credit account 0x[0-9a-fA-F]\{40\}' | awk '{print $3}')
+# Captured rather than piped straight into grep. When this script failed
+# in CI on 21 September the log ended at the line above: `forge script`
+# had reverted, `grep` matched nothing, `ACCOUNT` was empty, and `set -e`
+# killed the run with every word of the actual error discarded inside the
+# pipeline. A failure nobody can read costs more than the few lines this
+# takes.
+SCENARIO_LOG="$WORK/scenario-deploy.log"
+if ! forge script script/Scenario.s.sol --rpc-url "$RPC" --broadcast \
+  >"$SCENARIO_LOG" 2>&1; then
+  echo "the scenario script failed:" >&2
+  tail -40 "$SCENARIO_LOG" >&2
+  exit 1
+fi
+ACCOUNT=$(grep -o 'credit account 0x[0-9a-fA-F]\{40\}' "$SCENARIO_LOG" | awk '{print $3}')
+if [ -z "$ACCOUNT" ]; then
+  echo "the scenario script ran but printed no credit account:" >&2
+  tail -40 "$SCENARIO_LOG" >&2
+  exit 1
+fi
 echo "credit account $ACCOUNT"
 
 # The engine prices every loan. Without it the scenario signs fixed terms

@@ -42,6 +42,14 @@ echo "building"
 # wall clock is now the slowest one. Failures are collected rather than
 # swallowed: a `wait` that ignored exit codes would report "ready" after
 # a compile error.
+# Scripting artifacts from a previous run, if any. `forge script` writes
+# `foundry-pp/DeployHelper*.sol`, and a restored cache can leave them
+# behind pointing at sources that no longer exist -- forge then warns
+# "Detected artifacts built from source files that no longer exist" and
+# the scenario deploy fails. Cheap to clear, and it removes a whole
+# class of "works locally, fails in CI".
+rm -rf "$ROOT/contracts/foundry-pp"
+
 pids=()
 (cd "$ROOT/contracts" && forge build >/dev/null) &
 pids+=($!)
