@@ -1,0 +1,18 @@
+{
+  "name": "@credence/metamask-plugin",
+  "version": "0.1.0",
+  "description": "Credit for a MetaMask agent: assess, borrow, check, repay",
+  "type": "module",
+  "license": "MIT",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3",
+    "vitest": "3.2.4"
+  }
+}

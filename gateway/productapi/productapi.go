@@ -21,6 +21,12 @@
 //   - There is no path here that mints permission, alters a binding, or
 //     bypasses the wallet's gas caps.
 //
+// Demonstrated rather than asserted, 21 September: a repay request from
+// a key holding no settlement tokens came back
+// `publish_failed: execution reverted: custom error 0x90b8ec18`, which
+// is `TransferFailed()`. The chain refused, and the API said so -- it
+// did not report a repayment that never happened.
+//
 // So the API can only ASK. The contracts still decide, which is the
 // claim `docs/02` and `docs/05` rest on. If this package could originate
 // a loan the chain would refuse, the thesis would be broken to serve a
