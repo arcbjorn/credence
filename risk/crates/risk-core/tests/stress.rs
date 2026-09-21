@@ -572,11 +572,16 @@ fn extreme_liquidity_ratio_does_not_panic() {
     let _ = evaluate_all(Amount(0), &positions, Amount(1), &shallow, &p);
 }
 
-/// The integer square root must be exact, including at the boundary that
-/// used to overflow. An approximation here silently mis-scales every
-/// liquidity haircut.
+/// A position exactly at depth takes the full base haircut and no more.
+///
+/// This asserts the HAIRCUT at one ratio, not the exactness of the square
+/// root underneath it. It was named for the latter and did not test it:
+/// `size == depth` is `isqrt(10^8)`, one of the few values the old
+/// two-truncation step got right, so it passed while the root was wrong
+/// for ~35% of inputs. The root's exactness is now asserted directly, in
+/// `stress::isqrt_tests` beside the private function.
 #[test]
-fn isqrt_is_exact_including_at_the_ceiling() {
+fn full_base_haircut_when_size_equals_depth() {
     // Exposed through the impact it produces: a position exactly at depth
     // takes the full base haircut, because sqrt(1) == 1.
     let p = policy();

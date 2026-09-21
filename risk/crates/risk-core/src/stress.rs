@@ -179,8 +179,14 @@ fn isqrt(n: u128) -> u128 {
     // the HTTP service down, since evaluation has no panic boundary.
     let mut x = 1u128 << ((128 - n.leading_zeros()).div_ceil(2));
     loop {
-        // Both halves are <= x, so the sum cannot overflow.
-        let y = (x / 2) + (n / x / 2);
+        // Halve the SUM, not each term. Dividing `x` and `n / x`
+        // separately truncates twice, which costs up to 1 per step and
+        // converges one short of the root for ~35% of inputs --
+        // `isqrt(9)` returned 2 and `isqrt(100)` returned 9. The seed
+        // above is a power of two with `x * x >= n`, so `n / x <= x` and
+        // the sum is bounded by `2 * x`, which cannot overflow: the seed
+        // exponent is at most 64, so `x <= 2^64` and `2 * x <= 2^65`.
+        let y = (x + n / x) / 2;
         if y >= x {
             return x;
         }
@@ -457,4 +463,72 @@ pub fn debt_headroom_capacity(available_credit: Amount, apr: Bps, term_seconds: 
         }
     }
     Amount(lo)
+}
+
+#[cfg(test)]
+mod isqrt_tests {
+    use super::*;
+
+    /// Reference root, by a method that shares no code with `isqrt`.
+    fn reference(n: u128) -> u128 {
+        if n < 2 {
+            return n;
+        }
+        let mut lo = 0u128;
+        let mut hi = (1u128 << 64) - 1;
+        while lo < hi {
+            let mid = lo + (hi - lo).div_ceil(2);
+            match mid.checked_mul(mid) {
+                Some(sq) if sq <= n => lo = mid,
+                _ => hi = mid - 1,
+            }
+        }
+        lo
+    }
+
+    /// `isqrt(k * k)` must be exactly `k`.
+    ///
+    /// The suite-level `full_base_haircut_when_size_equals_depth`
+    /// exercises only `size == depth`, i.e. `isqrt(10^8)`, which is one of
+    /// the few values the old two-truncation step got RIGHT. Dividing `x` and
+    /// `n / x` separately understated the root for ~35% of inputs --
+    /// `isqrt(9)` gave 2 and `isqrt(100)` gave 9 -- so this asserts the
+    /// property directly rather than through the haircut it scales.
+    /// `isqrt` is private, which is why this lives beside it.
+    #[test]
+    fn perfect_squares_are_exact() {
+        for k in [2u128, 3, 4, 5, 7, 10, 99, 100, 5_000, 7_071, 10_000, 65_535] {
+            assert_eq!(isqrt(k * k), k, "isqrt({}^2)", k);
+        }
+    }
+
+    /// Exhaustive against an independent reference over a dense range,
+    /// plus the call site's own argument shape (`ratio_bps * 10_000`).
+    #[test]
+    fn matches_the_reference_root() {
+        for n in 0u128..20_000 {
+            assert_eq!(isqrt(n), reference(n), "isqrt({n})");
+        }
+        for ratio_bps in (1u128..200_000).step_by(97) {
+            let arg = ratio_bps * 10_000;
+            assert_eq!(isqrt(arg), reference(arg), "isqrt({arg})");
+        }
+    }
+
+    /// The root must satisfy its defining inequality everywhere, including
+    /// at the ceiling the bit-length seed exists to keep from overflowing.
+    #[test]
+    fn bounds_hold_at_the_ceiling() {
+        for n in [0u128, 1, 2, u64::MAX as u128, u128::MAX / 2, u128::MAX] {
+            let r = isqrt(n);
+            assert!(
+                r.checked_mul(r).is_some_and(|sq| sq <= n),
+                "isqrt({n}) = {r} squares above n"
+            );
+            // r + 1 may overflow when squared; that is itself proof it is
+            // above the root.
+            let above = (r + 1).checked_mul(r + 1).is_none_or(|sq| sq > n);
+            assert!(above, "isqrt({n}) = {r} is not maximal");
+        }
+    }
 }
