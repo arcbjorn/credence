@@ -62,6 +62,7 @@ anvil --port 8546 &       # a local chain
 LOANS=3 scripts/demo-repay.sh   # three loans; the limit rises, the rate falls
 scripts/demo-default.sh         # a crash, unwound, with a real loss
 scripts/demo-monitor.sh         # continuous underwriting, and replay
+scripts/demo-notes.sh           # a loan sold as a note, and redeemed
 scripts/demo-erc8004.sh         # publish and read back, no Credence endpoint
 ```
 
@@ -69,13 +70,27 @@ Each script prints what it proves. `demo-repay` ends with ten checks run
 against the deployment rather than against its own log — the withdrawal
 refusals and the vault's ledgers among them.
 
+Three read-only checks need no chain, no key and no funds:
+
+```sh
+scripts/verify-reputation.sh   # this agent's history, straight from ERC-8004
+scripts/probe-perpl.sh         # what Perpl's public market data actually does
+scripts/verify-perpl.sh        # the gateway's own providers, against the venue
+```
+
+`scripts/release-check.sh` runs every acceptance row and writes a dated
+record to `releases/`. A **SKIP is a row it could not reach, never a row
+that passed.**
+
 ### The interface
 
-`docs/09`'s eight screens, rendering what the demos retained, plus a
-ninth — the lifecycle rebuilt from the event log by the Envio indexer,
-which needs Docker and is skipped without it. One command does the whole
-path — toolchain check, a local chain, the demos, the WebAssembly engine,
-the data bundle, and the dev server:
+`docs/09`'s eight screens, rendering what the demos retained, plus two
+more: **Indexed**, the lifecycle rebuilt from the event log by the Envio
+indexer (needs Docker, skipped without it), and **Perpl risk**, live
+orderbook depth, funding and volatility from the perps venue driving the
+three stress scenarios. One command does the whole path — toolchain
+check, a local chain, the demos, the WebAssembly engine, the data bundle,
+and the dev server:
 
 ```sh
 scripts/web.sh          # or: make web
@@ -86,7 +101,11 @@ the demos, `--no-serve` builds the static site instead of serving it.
 
 The replay screen runs the **actual engine** — the same Rust the gateway
 uses, compiled to WebAssembly — so a reader can reproduce a retained
-assessment in their own tab, and watch a tampered one fail.
+assessment in their own tab, and watch a tampered one fail. The Perpl
+screen runs it too, evaluating one retained snapshot twice: once against
+the market the venue reports, once against the declared placeholder, with
+only the market evidence differing (`scripts/build-perpl-data.sh` captures
+it; the page never fetches).
 
 `make` on its own lists the other entry points; every one of them is a
 script under `scripts/`, so make is a convenience rather than a
