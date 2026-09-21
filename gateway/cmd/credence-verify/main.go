@@ -148,10 +148,26 @@ func run(
 			heldAsset, held = risky, riskyBalance
 		}
 	}
+	// The DECIMALS travel with the figure.
+	//
+	// The detail string carried the asset address but not its scale, and
+	// the two assets differ: settlement is 6, the risky test asset is 18.
+	// A reader had to know which branch above ran in order to scale the
+	// number, and the enforcement screen guessed 18 while the lender
+	// screen defaulted to 6 for this identical format -- so whenever the
+	// account held settlement, which is the first branch and the common
+	// case, the headline figure was understated by 10^12.
+	//
+	// Read from the token rather than assumed, so a third asset cannot
+	// reintroduce the same bug.
+	decimals, err := callUint(ctx, rpc, heldAsset, "decimals()", block.Number)
+	if err != nil {
+		return nil, fmt.Errorf("read decimals of %s: %w", heldAsset, err)
+	}
 	checks = append(checks, check{
 		beat: "6", name: "account holds withdrawable value",
 		passed: held.Sign() > 0,
-		detail: fmt.Sprintf("%s base units of %s", held, heldAsset),
+		detail: fmt.Sprintf("%s base units of %s at %s decimals", held, heldAsset, decimals),
 	})
 
 	// Beat 6: the owner — not merely a stranger — is refused while debt is

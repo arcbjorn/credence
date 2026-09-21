@@ -346,5 +346,25 @@ export function units(raw: string | number | undefined, decimals = 6): string {
   return frac ? `${Number(whole).toLocaleString()}.${frac}` : Number(whole).toLocaleString();
 }
 
+/**
+ * The scale of the held asset, read from the check's own detail.
+ *
+ * `credence-verify` emits "<amount> base units of <address> at <n>
+ * decimals". This screen used to hardcode 18 while `Lender.tsx` defaulted
+ * to 6 for the identical format, so the two disagreed about the same
+ * string -- and the account holds SETTLEMENT (6) in the common case,
+ * which made the headline figure understated by 10^12. The committed
+ * fixture happened to hold the risky token, which is 18, so it looked
+ * right.
+ *
+ * Falls back to 6 rather than 18: settlement is what the first branch of
+ * the verifier reads, so an older record with no decimals is far more
+ * likely to be denominated in it.
+ */
+export function heldDecimals(detail: string): number {
+  const match = detail.match(/at (\d+) decimals/);
+  return match ? Number(match[1]) : 6;
+}
+
 export const bps = (v: number | undefined): string =>
   v === undefined ? "-" : `${(v / 100).toFixed(2)}%`;

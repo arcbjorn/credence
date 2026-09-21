@@ -2,7 +2,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { fixtureMissing } from "./fixtures";
 import { describe, expect, it } from "vitest";
-import type { Check } from "./data";
+import { heldDecimals, units, type Check } from "./data";
 
 /**
  * `docs/09` beat 6 turns on the two refusals being DIFFERENT.
@@ -90,5 +90,33 @@ describe.skipIf(fixtureMissing(REPAY))("the lender ledgers", () => {
     const loss = checks().find((c) => c.name.includes("realized loss"));
     expect(loss).toBeDefined();
     expect(loss!.passed).toBe(true);
+  });
+});
+
+describe("the held figure is scaled by the asset, not by a guess", () => {
+  // `credence-verify` reads the SETTLEMENT balance first and only falls
+  // back to the risky token when settlement is zero. Settlement is 6
+  // decimals, risky is 18, and the enforcement screen hardcoded 18 --
+  // so in the common case the headline figure was understated by 10^12.
+  //
+  // It was masked because the committed fixture happens to hold the
+  // risky token, which is the branch the hardcoded value got right.
+  it("reads 6 decimals for the settlement token", () => {
+    const detail = "9993569855 base units of 0xabc at 6 decimals";
+    expect(heldDecimals(detail)).toBe(6);
+    expect(units(detail.split(" ")[0], heldDecimals(detail))).toBe("9,993.569855");
+  });
+
+  it("reads 18 decimals for the risky asset", () => {
+    const detail = "6993569855000000000 base units of 0xdef at 18 decimals";
+    expect(heldDecimals(detail)).toBe(18);
+    expect(units(detail.split(" ")[0], heldDecimals(detail))).toBe("6.993569855");
+  });
+
+  // An older record predates the decimals suffix. Falling back to 6
+  // rather than 18 matches the verifier's own first branch, so the
+  // likelier denomination wins.
+  it("falls back to settlement scale on an older record", () => {
+    expect(heldDecimals("123 base units of 0xabc")).toBe(6);
   });
 });

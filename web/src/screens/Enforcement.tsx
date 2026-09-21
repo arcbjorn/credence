@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { loadRun, units, type Check, type Run } from "../lib/data";
+import { loadRun, units, heldDecimals, type Check, type Run } from "../lib/data";
 
 /**
  * `docs/09` beat 6: a prohibited withdrawal.
@@ -63,7 +63,7 @@ export function Enforcement() {
         <div className="card rail rail-growth" style={{ marginBottom: 18 }}>
           <h3>What the account holds</h3>
           <p className="figure figure-growth">
-            {units(held.detail.split(" ")[0], 18)}
+            {units(held.detail.split(" ")[0], heldDecimals(held.detail))}
           </p>
           <p className="lede" style={{ margin: 0 }}>
             Withdrawable in principle — the balance is really there. The
