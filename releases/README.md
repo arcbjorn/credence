@@ -51,9 +51,21 @@ commit; see releases/<date>.md for the record and its skips."
 git push origin master --follow-tags
 ```
 
-**Tag the commit the record names.** The record prints the commit it ran
-against and whether the tree was dirty; tagging a different commit makes
-the record describe code the tag does not contain.
+**Tag the commit the record names — or the commit that adds it, having
+verified the two differ only by the record file.** The record prints the
+commit it ran against and whether the tree was dirty; tagging a different
+commit makes the record describe code the tag does not contain.
+
+There is an unavoidable circularity here: committing the record changes
+HEAD, so a record can never name the commit that carries it. Resolve it
+by checking that the record commit touches nothing else —
+
+```sh
+git diff --name-only <record-commit-parent> <record-commit> | grep -v '^releases/'
+```
+
+— and tagging the record commit when that prints nothing. The tag then
+contains both the code the record describes and the evidence for it.
 
 ## What the baseline does and does not pin
 
