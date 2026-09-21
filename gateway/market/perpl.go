@@ -313,3 +313,181 @@ func getJSONBounded(ctx context.Context, client *http.Client, url string, out an
 	}
 	return nil
 }
+
+// --- funding ----------------------------------------------------------
+
+// perplFunding is one funding observation. `rate` is the per-interval
+// funding in bps, signed: positive means longs pay shorts.
+type perplFunding struct {
+	Rate int64 `json:"rate"`
+	At   struct {
+		T uint64 `json:"t"` // milliseconds
+	} `json:"at"`
+}
+
+type perplFundingResponse struct {
+	D []perplFunding `json:"d"`
+}
+
+// FundingSummary describes recent perpetual funding on one market.
+//
+// **This is a positioning signal, not a cost.** It must not be confused
+// with the engine's `funding_rate_bps`, which is the LENDER'S cost of
+// capital and is deducted from gross interest in `pricing.rs`. Perpl's
+// funding is the premium longs pay shorts to hold a perp near its index.
+// Wiring one into the other would silently corrupt loan pricing, so
+// nothing here reaches the engine: `docs/08` keeps market feedback
+// informational, and this is market feedback.
+//
+// What it legitimately indicates is CROWDING. Persistently one-sided
+// funding means leveraged positioning in one direction, and leveraged
+// positioning unwinds faster than it accumulates -- which is a reason to
+// read a calm volatility number with suspicion, not a reason to change a
+// number the engine already computed.
+type FundingSummary struct {
+	// Samples counted in the window.
+	Samples int `json:"samples"`
+	// LatestBps is the most recent observation.
+	LatestBps int64 `json:"latest_bps"`
+	// MeanBps is the arithmetic mean over the window, signed.
+	MeanBps int64 `json:"mean_bps"`
+	// MaxAbsBps is the largest absolute reading in the window.
+	MaxAbsBps int64 `json:"max_abs_bps"`
+	// OneSidedPct is the share of NON-ZERO samples sharing the sign of the
+	// window's mean, as a percentage.
+	//
+	// The crowding measure. Funding that flips sign constantly is a market
+	// finding its level; funding that stays one-sided is accumulated
+	// positioning. Zero samples are excluded because a market with no
+	// premium is neither crowded nor balanced, and counting them as
+	// agreement would make a dead market look one-sided.
+	OneSidedPct int `json:"one_sided_pct"`
+	// WindowSeconds is what the figures describe.
+	WindowSeconds uint64 `json:"window_seconds"`
+	// ObservedAt is the newest sample, in seconds.
+	ObservedAt uint64 `json:"observed_at"`
+}
+
+// PerplFundingProvider reads recent funding for one market.
+type PerplFundingProvider struct {
+	baseURL  string
+	marketID int
+	window   uint64
+	http     *http.Client
+}
+
+func NewPerplFundingProvider(baseURL string, marketID int, window uint64, timeout time.Duration) *PerplFundingProvider {
+	return &PerplFundingProvider{
+		baseURL:  baseURL,
+		marketID: marketID,
+		window:   window,
+		http:     &http.Client{Timeout: timeout},
+	}
+}
+
+// Funding summarises the window. Returns an error rather than a zeroed
+// summary when nothing is available: a flat zero reads as a perfectly
+// balanced market, which is the opposite of "not observed".
+func (p *PerplFundingProvider) Funding(ctx context.Context) (FundingSummary, error) {
+	now := uint64(time.Now().UnixMilli())
+	from := now - p.window*1000
+	url := fmt.Sprintf("%s/v1/market-data/%d/funding/%d-%d",
+		p.baseURL, p.marketID, from, now)
+
+	var doc perplFundingResponse
+	if err := getJSONBounded(ctx, p.http, url, &doc); err != nil {
+		return FundingSummary{}, err
+	}
+	if len(doc.D) == 0 {
+		return FundingSummary{}, fmt.Errorf("perpl: no funding samples in the window")
+	}
+
+	out := FundingSummary{
+		Samples:       len(doc.D),
+		WindowSeconds: p.window,
+	}
+
+	var sum int64
+	for _, f := range doc.D {
+		sum += f.Rate
+		if abs64(f.Rate) > out.MaxAbsBps {
+			out.MaxAbsBps = abs64(f.Rate)
+		}
+		if f.At.T/1000 > out.ObservedAt {
+			out.ObservedAt = f.At.T / 1000
+			out.LatestBps = f.Rate
+		}
+	}
+	if out.ObservedAt == 0 {
+		return FundingSummary{}, fmt.Errorf("perpl: no funding sample carries a timestamp")
+	}
+	out.MeanBps = sum / int64(len(doc.D))
+
+	// Crowding: of the samples that expressed a premium at all, how many
+	// agreed with the window's direction.
+	var nonZero, agreeing int
+	for _, f := range doc.D {
+		if f.Rate == 0 {
+			continue
+		}
+		nonZero++
+		if (f.Rate > 0) == (out.MeanBps > 0) && out.MeanBps != 0 {
+			agreeing++
+		}
+	}
+	if nonZero > 0 {
+		out.OneSidedPct = agreeing * 100 / nonZero
+	}
+
+	return out, nil
+}
+
+func abs64(v int64) int64 {
+	if v < 0 {
+		return -v
+	}
+	return v
+}
+
+// --- book, for display ------------------------------------------------
+
+// BookLevel is one price level.
+type BookLevel struct {
+	Price uint64
+	Size  uint64
+}
+
+// BookLevels is a parsed orderbook.
+type BookLevels struct {
+	Bids       []BookLevel
+	Asks       []BookLevel
+	ObservedAt uint64 // seconds
+}
+
+// FetchBookLevels reads the raw book.
+//
+// Exported so a display can show the levels that `Depth` summed, using
+// the SAME parsing. A second decoder would let the panel disagree with
+// the number the engine consumed, which is exactly the drift a panel is
+// supposed to make visible.
+func FetchBookLevels(ctx context.Context, baseURL string, marketID int, timeout time.Duration) (BookLevels, error) {
+	client := &http.Client{Timeout: timeout}
+	url := fmt.Sprintf("%s/v1/market-data/%d/book", baseURL, marketID)
+
+	var doc perplBook
+	if err := getJSONBounded(ctx, client, url, &doc); err != nil {
+		return BookLevels{}, err
+	}
+	if len(doc.Bid) == 0 {
+		return BookLevels{}, fmt.Errorf("perpl: book has no bids")
+	}
+
+	out := BookLevels{ObservedAt: doc.At.T / 1000}
+	for _, l := range doc.Bid {
+		out.Bids = append(out.Bids, BookLevel{Price: l.P, Size: l.S})
+	}
+	for _, l := range doc.Ask {
+		out.Asks = append(out.Asks, BookLevel{Price: l.P, Size: l.S})
+	}
+	return out, nil
+}

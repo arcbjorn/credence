@@ -322,3 +322,141 @@ func TestReaderWithoutDepthProviderUsesDeclaredDepth(t *testing.T) {
 			r.DepthFallbackReason())
 	}
 }
+
+// --- funding ----------------------------------------------------------
+
+// fundingBody builds a response from (rate, seconds) pairs.
+func fundingBody(rows ...[2]int64) string {
+	var parts []string
+	for _, r := range rows {
+		parts = append(parts, fmt.Sprintf(`{"rate":%d,"at":{"t":%d}}`, r[0], r[1]*1000))
+	}
+	return `{"d":[` + strings.Join(parts, ",") + `]}`
+}
+
+// Persistently one-sided funding is the crowding signal: leveraged
+// positioning in one direction, which unwinds faster than it accumulates.
+func TestFundingOneSidedWindowReadsAsCrowded(t *testing.T) {
+	body := fundingBody([2]int64{30, 100}, [2]int64{20, 200}, [2]int64{40, 300})
+	url := perplServer(t, map[string]string{"/funding/": body})
+	f, err := market.NewPerplFundingProvider(url, 20, 3600, 2*time.Second).
+		Funding(context.Background())
+	if err != nil {
+		t.Fatalf("funding: %v", err)
+	}
+	if f.OneSidedPct != 100 {
+		t.Fatalf("all three agree, expected 100, got %d", f.OneSidedPct)
+	}
+	if f.MeanBps != 30 {
+		t.Fatalf("expected mean 30, got %d", f.MeanBps)
+	}
+	if f.MaxAbsBps != 40 {
+		t.Fatalf("expected max 40, got %d", f.MaxAbsBps)
+	}
+}
+
+// Funding that flips sign is a market finding its level, not crowding.
+func TestFundingAlternatingSignIsNotCrowded(t *testing.T) {
+	body := fundingBody([2]int64{30, 100}, [2]int64{-30, 200},
+		[2]int64{30, 300}, [2]int64{-20, 400})
+	url := perplServer(t, map[string]string{"/funding/": body})
+	f, err := market.NewPerplFundingProvider(url, 20, 3600, 2*time.Second).
+		Funding(context.Background())
+	if err != nil {
+		t.Fatalf("funding: %v", err)
+	}
+	if f.OneSidedPct > 60 {
+		t.Fatalf("an alternating window is not crowded, got %d%%", f.OneSidedPct)
+	}
+}
+
+// Zero samples are EXCLUDED from the crowding measure. A market with no
+// premium is neither crowded nor balanced, and counting flat readings as
+// agreement would make a dead market look maximally one-sided -- the
+// exact inversion this measure exists to avoid.
+//
+// Live data makes this concrete: roughly half of ETH's samples over seven
+// days were zero (`scripts/probe-perpl.sh`).
+func TestFundingZeroSamplesDoNotCountAsAgreement(t *testing.T) {
+	// Two real one-sided readings among many flat ones.
+	body := fundingBody([2]int64{0, 100}, [2]int64{0, 200}, [2]int64{0, 300},
+		[2]int64{0, 400}, [2]int64{30, 500}, [2]int64{30, 600})
+	url := perplServer(t, map[string]string{"/funding/": body})
+	f, err := market.NewPerplFundingProvider(url, 20, 3600, 2*time.Second).
+		Funding(context.Background())
+	if err != nil {
+		t.Fatalf("funding: %v", err)
+	}
+	// Both NON-ZERO samples agree, so 100% -- computed over 2, not 6.
+	if f.OneSidedPct != 100 {
+		t.Fatalf("expected the measure over non-zero samples, got %d", f.OneSidedPct)
+	}
+	if f.Samples != 6 {
+		t.Fatalf("the sample count still reports the whole window, got %d", f.Samples)
+	}
+}
+
+// An entirely flat window divides by zero if the guard is missing.
+func TestFundingAllZeroWindowIsNotCrowded(t *testing.T) {
+	body := fundingBody([2]int64{0, 100}, [2]int64{0, 200})
+	url := perplServer(t, map[string]string{"/funding/": body})
+	f, err := market.NewPerplFundingProvider(url, 20, 3600, 2*time.Second).
+		Funding(context.Background())
+	if err != nil {
+		t.Fatalf("a flat window is legitimate: %v", err)
+	}
+	if f.OneSidedPct != 0 {
+		t.Fatalf("no premium is not crowding, got %d", f.OneSidedPct)
+	}
+}
+
+// The latest reading is the NEWEST sample, not the last in array order.
+func TestFundingLatestIsTheNewestSample(t *testing.T) {
+	// Deliberately out of order: the newest (t=900) sits first.
+	body := fundingBody([2]int64{99, 900}, [2]int64{10, 100}, [2]int64{20, 200})
+	url := perplServer(t, map[string]string{"/funding/": body})
+	f, err := market.NewPerplFundingProvider(url, 20, 3600, 2*time.Second).
+		Funding(context.Background())
+	if err != nil {
+		t.Fatalf("funding: %v", err)
+	}
+	if f.LatestBps != 99 {
+		t.Fatalf("expected the newest sample 99, got %d", f.LatestBps)
+	}
+	if f.ObservedAt != 900 {
+		t.Fatalf("expected seconds 900, got %d", f.ObservedAt)
+	}
+}
+
+// An empty window is refused rather than summarised as zero: a flat zero
+// reads as a perfectly balanced market, which is the opposite of "not
+// observed".
+func TestFundingEmptyWindowIsRefused(t *testing.T) {
+	url := perplServer(t, map[string]string{"/funding/": `{"d":[]}`})
+	_, err := market.NewPerplFundingProvider(url, 20, 3600, 2*time.Second).
+		Funding(context.Background())
+	if err == nil {
+		t.Fatal("expected an empty funding window to be refused")
+	}
+}
+
+// Negative funding (shorts paying longs) is crowding too, in the other
+// direction. The measure is about one-sidedness, not about sign.
+func TestFundingNegativeWindowIsAlsoCrowded(t *testing.T) {
+	body := fundingBody([2]int64{-30, 100}, [2]int64{-20, 200}, [2]int64{-40, 300})
+	url := perplServer(t, map[string]string{"/funding/": body})
+	f, err := market.NewPerplFundingProvider(url, 20, 3600, 2*time.Second).
+		Funding(context.Background())
+	if err != nil {
+		t.Fatalf("funding: %v", err)
+	}
+	if f.OneSidedPct != 100 {
+		t.Fatalf("expected 100%% one-sided, got %d", f.OneSidedPct)
+	}
+	if f.MeanBps >= 0 {
+		t.Fatalf("the mean must keep its sign, got %d", f.MeanBps)
+	}
+	if f.MaxAbsBps != 40 {
+		t.Fatalf("max is an ABSOLUTE reading, got %d", f.MaxAbsBps)
+	}
+}
