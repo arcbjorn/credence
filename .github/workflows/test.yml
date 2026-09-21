@@ -97,6 +97,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # `risk-service` generates its tonic stubs at build time from
+      # `schemas/proto/risk.proto`, so protoc must be present. Committing
+      # the generated stubs instead would leave a second copy that can
+      # fall behind the schema. Caught locally by building with a minimal
+      # PATH rather than by a red CI run.
+      - uses: arduino/setup-protoc@v3
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt
@@ -222,6 +230,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # `risk-service` generates its tonic stubs at build time from
+      # `schemas/proto/risk.proto`, so protoc must be present. Committing
+      # the generated stubs instead would leave a second copy that can
+      # fall behind the schema. Caught locally by building with a minimal
+      # PATH rather than by a red CI run.
+      - uses: arduino/setup-protoc@v3
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
