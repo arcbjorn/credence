@@ -111,7 +111,12 @@ export function AgentOverview() {
       )}
 
       <details>
-        <summary>Model and policy, identical across all three</summary>
+        {/* Counted, not hardcoded. The bundle holds however many loans
+            the demo that produced it ran, and a release check ending on
+            LOANS=2 left this reading "all three" beside two rows. */}
+        <summary>
+          Model and policy, identical across all {originations.length}
+        </summary>
         <pre>
 {`model_hash   ${originations[0]?.model_hash ?? "-"}
 policy_hash  ${originations[0]?.policy_hash ?? "-"}`}
