@@ -72,10 +72,29 @@ dependencies the repository does not have is a reader's first wrong turn.
 | Contracts | Solidity + Foundry, OpenZeppelin (pin after first green build) | Solidity + Foundry. **No OpenZeppelin** — `forge-std` is the only submodule; the contracts implement their own access control and reentrancy discipline, which `docs/05` specifies and tests |
 | Risk engine | Rust, `rust_decimal` or integer base units | Rust, **integer base units only**. No `rust_decimal`: the engine must hash byte-identically against Go and Solidity, and a decimal type with its own rounding would break that |
 | Data plane | Go, SQLite/WAL | As planned |
-| Internal transport | HTTP/JSON baseline; isolated protobuf/gRPC gate on 6 Oct | **HTTP/JSON only.** The gRPC gate is not built; it sits after the freeze by design |
+| Internal transport | HTTP/JSON baseline; isolated protobuf/gRPC gate on 6 Oct | **HTTP/JSON in the running path, with a protobuf codec built and verified against `protoc`** (D35). Not gRPC: measured, `tonic` takes this crate from 31 crates to 77 and brings an async runtime into the component whose output is hashed. The codec adds **zero** dependencies; `scripts/verify-protobuf.sh` proves interop with the reference implementation |
 | Indexer | Envio | **Built** (`indexer/`). HyperIndex over HyperSync on 10143, RPC on anvil. It reconstructs the loan lifecycle from the event log, which is a different question from the one the gateway answers: the gateway reads loan **structs** over `eth_call` — current state — and a struct cannot say when recovery opened or what was collected on the way. An earlier version of this row said the gateway "follows contract events directly". It does not; it reads state. |
 | Frontend | TypeScript + Next.js, viem/wagmi | **React 19 + Vite 8 + TypeScript 7**, not Next.js. All eight of `docs/09`'s screens are built, plus two beyond that list: an indexed-lifecycle ninth over the Envio rows, and a tenth showing observed Perpl market data driving the three stress scenarios. Next.js was dropped deliberately: its value is SSR, routing and data fetching, and this interface renders a generated static bundle |
 | Deployment | Docker Compose onto a small persistent VM | **Not built.** Everything runs from `scripts/`, against anvil or Monad testnet |
+
+**On transport — resolved, see D35.** The wire format exists as
+`schemas/proto/risk.proto` with a dependency-free codec verified against
+`protoc`, and the frozen artifacts are byte-identical. The running path
+stays JSON, which is what this section's own fallback prescribes.
+
+> **The case for gRPC, stated fairly.** It is the standard, it generates
+> clients in any language, and `prost` is far better tested than 200
+> lines written here — which is code a reader now has to trust.
+> Measured, `tonic` costs 46 extra crates and 12 seconds of build, not
+> the "hundred crates" an earlier draft of this document claimed.
+>
+> It is not adopted because `risk-service` has no async runtime and
+> forbids `unsafe` in its own crates, while tonic brings tokio and `mio`
+> into the process that evaluates every credit decision; and because
+> **one client talks to one server over localhost**, where gRPC's
+> polyglot, streaming and mesh advantages do not apply. If a second
+> language ever calls this boundary, that trade flips and the proto is
+> already written.
 
 **On transport:** the boundary is architectural and permanent; only its wire format changes. Freeze contracts, schemas, model, fixtures, and a working JSON release candidate on 5 October. On 6 October, accept the isolated gRPC transport change only if it passes identical canonicalization vectors and the applicable acceptance matrix without changing those frozen artifacts. Otherwise ship JSON. The architecture diagram is unchanged either way.
 
