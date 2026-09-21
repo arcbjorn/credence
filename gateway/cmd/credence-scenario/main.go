@@ -28,6 +28,7 @@ import (
 	"github.com/arcbjorn/credence/gateway/canonical"
 	"github.com/arcbjorn/credence/gateway/chain"
 	"github.com/arcbjorn/credence/gateway/evidence"
+	loanabi "github.com/arcbjorn/credence/gateway/loans"
 	"github.com/arcbjorn/credence/gateway/publisher"
 	"github.com/arcbjorn/credence/gateway/riskclient"
 	"github.com/arcbjorn/credence/gateway/store"
@@ -431,7 +432,7 @@ func run(
 			originateData = encodeOriginateAndExecute(
 				bindingForDraw, principal, deployAdapter, deployAction)
 		} else {
-			originateData = encodeOriginate(bindingForDraw, principal)
+			originateData = loanabi.EncodeOriginate(bindingForDraw, principal)
 		}
 
 		originateTx, err := w.Send(ctx, manager, originateData)
@@ -442,7 +443,11 @@ func run(
 			return fmt.Errorf("loan %d: originate: %w", i, err)
 		}
 
-		loanID, err := readActiveLoan(ctx, rpc, manager, account)
+		head, err := rpc.LatestBlock(ctx)
+		if err != nil {
+			return fmt.Errorf("loan %d: read head: %w", i, err)
+		}
+		loanID, err := loanabi.ActiveLoan(ctx, rpc, manager, account, head.Number)
 		if err != nil {
 			return fmt.Errorf("loan %d: read active loan: %w", i, err)
 		}
@@ -559,7 +564,7 @@ func run(
 				}
 				log.Printf("loan %d: closed strategy position", i)
 			}
-			repayTx, err := w.Send(ctx, manager, encodeRepay(loanID))
+			repayTx, err := w.Send(ctx, manager, loanabi.EncodeRepay(loanID))
 			if err != nil {
 				return fmt.Errorf("loan %d: repay: %w", i, err)
 			}
@@ -779,12 +784,12 @@ func navSample(
 	// now matches it. Reported by review, 15 September.
 	debt := big.NewInt(0)
 	if manager != "" {
-		loanID, err := readActiveLoan(ctx, rpc, manager, account)
+		loanID, err := loanabi.ActiveLoan(ctx, rpc, manager, account, at.Number)
 		if err != nil {
 			return 0, 0, false
 		}
 		if loanID != 0 {
-			d, err := readDebtDue(ctx, rpc, manager, loanID, at.Number)
+			d, err := loanabi.DebtDue(ctx, rpc, manager, loanID, at.Number)
 			if err != nil {
 				return 0, 0, false
 			}
@@ -805,23 +810,6 @@ func navSample(
 
 // readDebtDue reads what a loan currently owes, principal plus unpaid
 // accrued interest, at a pinned block.
-func readDebtDue(
-	ctx context.Context,
-	rpc *chain.RPC,
-	manager string,
-	loanID, blockNumber uint64,
-) (*big.Int, error) {
-	data := append(attest.Selector("debtDue(uint256)"),
-		attest.Word(new(big.Int).SetUint64(loanID))...)
-	out, err := rpc.CallContract(ctx, manager, data, blockNumber)
-	if err != nil {
-		return nil, err
-	}
-	if len(out) < 32 {
-		return nil, fmt.Errorf("short debtDue result")
-	}
-	return new(big.Int).SetBytes(out[:32]), nil
-}
 
 // bindEngineOutput replaces the envelope's placeholders with the engine's
 // own identity, content hash, and authorization class.
@@ -1136,28 +1124,6 @@ func readStateVersion(ctx context.Context, rpc *chain.RPC, account string) (uint
 	return new(big.Int).SetBytes(out).Uint64(), nil
 }
 
-func readActiveLoan(
-	ctx context.Context,
-	rpc *chain.RPC,
-	manager, account string,
-) (uint64, error) {
-	block, err := rpc.LatestBlock(ctx)
-	if err != nil {
-		return 0, err
-	}
-	accountAddr, err := toAddress(account)
-	if err != nil {
-		return 0, err
-	}
-	data := append(attest.Selector("activeLoan(address)"),
-		attest.AddressWord(accountAddr)...)
-	out, err := rpc.CallContract(ctx, manager, data, block.Number)
-	if err != nil {
-		return 0, err
-	}
-	return new(big.Int).SetBytes(out).Uint64(), nil
-}
-
 // advanceTime moves a development chain forward.
 //
 // Only works against a node that exposes evm_increaseTime, which is the
@@ -1208,34 +1174,9 @@ func advanceTime(ctx context.Context, rpc *chain.RPC, seconds uint64) error {
 	return rpc.Call(ctx, "evm_mine", []any{}, nil)
 }
 
-func encodeRepay(loanID uint64) []byte {
-	out := append([]byte{}, attest.Selector("repay(uint256)")...)
-	return append(out, attest.Word(new(big.Int).SetUint64(loanID))...)
-}
-
 // encodeOriginate builds calldata for originate(Binding, uint256).
 //
 // Binding is entirely static, so it inlines with no offset.
-func encodeOriginate(b attest.Binding, principal uint64) []byte {
-	selector := attest.KeccakBytes([]byte(
-		"originate((uint256,address,uint256,address,address,uint256,uint64," +
-			"uint64,bytes32,uint64,bytes32),uint256)"))
-
-	out := append([]byte{}, selector[:4]...)
-	out = append(out, attest.Word(b.IdentityRegistryChainID)...)
-	out = append(out, attest.AddressWord(b.IdentityRegistry)...)
-	out = append(out, attest.Word(b.AgentID)...)
-	out = append(out, attest.AddressWord(b.Operator)...)
-	out = append(out, attest.AddressWord(b.CreditAccount)...)
-	out = append(out, attest.Word(b.FacilityID)...)
-	out = append(out, attest.Uint64Word(b.AccountStateVersion)...)
-	out = append(out, attest.Uint64Word(b.ConfigVersion)...)
-	out = append(out, b.ConfigHash[:]...)
-	out = append(out, attest.Uint64Word(b.PolicyEpoch)...)
-	out = append(out, b.PolicyHash[:]...)
-	out = append(out, attest.Word(new(big.Int).SetUint64(principal))...)
-	return out
-}
 
 // waitMined polls until the receipt exists, so a later step cannot run
 // against state the previous one has not yet produced.
