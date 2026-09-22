@@ -1,51 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, NavLink, useLocation } from "react-router";
-
-const ROOMS = [
-  { to: "/observatory", label: "Observatory", bearing: "N" },
-  { to: "/atlas", label: "Atlas", bearing: "E" },
-  { to: "/moons", label: "Moons", bearing: "S" },
-  { to: "/body", label: "Body", bearing: "W" },
-];
-const RECORDS = [
-  ["/agent", "Growth"], ["/compare", "Profiles"], ["/assessment", "Assessment"],
-  ["/lifecycle", "Arc"], ["/lender", "Core"], ["/enforcement", "Limits"],
-  ["/evidence", "Evidence"], ["/indexed", "Chain log"], ["/perpl", "Weather"], ["/replay", "Replay"],
-];
-
-/**
- * Page titles come from the routes that exist, never from the URL.
- *
- * Capitalising the path segment made the tab and the browser history
- * name a page for whatever was typed: `/asdf` became "Asdf — Credence",
- * `/a%20b` kept its percent-encoding, and `/observatory/extra` claimed
- * to be a real room. The body said "This coordinate is empty" while the
- * title disagreed.
- */
-const TITLES: Record<string, string> = {
-  "/": "The credit body",
-  "/observatory": "Observatory",
-  "/atlas": "Atlas",
-  "/moons": "Moons",
-  "/body": "Body",
-  "/log": "Log",
-  "/guide": "Field guide",
-  // Named for the page, not for the nav label above it: the records nav
-  // calls `/lender` "Core" because it sits beside "Growth" and "Limits",
-  // but the page itself is headed "Lender" and that is what belongs in
-  // the tab and in browser history.
-  "/agent": "Agent overview",
-  "/compare": "Three agents",
-  "/assessment": "Assessment detail",
-  "/lifecycle": "Loan lifecycle",
-  "/arc": "Loan lifecycle",
-  "/indexed": "Indexed lifecycle",
-  "/evidence": "Evidence",
-  "/lender": "Lender",
-  "/enforcement": "Enforcement",
-  "/perpl": "Perpl market risk",
-  "/replay": "Replay",
-};
+import { SECTIONS, screenForPath, sectionForScreen } from "../lib/navigation";
+import { RecordLinks } from "./RecordLinks";
 
 export function BrandMark() {
   return <svg viewBox="0 0 32 32" fill="none" aria-hidden="true"><circle cx="16" cy="16" r="12" stroke="currentColor" strokeWidth="1.2" /><ellipse cx="16" cy="16" rx="5.4" ry="12" stroke="currentColor" strokeWidth="1.1" transform="rotate(34 16 16)" /><path d="M4 16h24M7 8.5c5 4 13 4 18 0M7 23.5c5-4 13-4 18 0" stroke="currentColor" strokeWidth=".8" /><circle cx="25.5" cy="8.5" r="2.7" fill="var(--bg)" stroke="currentColor" /></svg>;
@@ -53,59 +9,125 @@ export function BrandMark() {
 
 export function Shell({ children }: { children: React.ReactNode }) {
   const { pathname } = useLocation();
-  const landing = pathname === "/";
-  const room = ROOMS.some(r => r.to === pathname) || pathname === "/log";
-  const [atTop, setAtTop] = useState(true);
+  const screen = screenForPath(pathname);
+  const section = sectionForScreen(screen);
+  const landing = screen.layout === "landing";
+  const room = screen.layout === "world";
+  const record = Boolean(section && screen.path !== section.path);
   const [open, setOpen] = useState(false);
   const [whisper, setWhisper] = useState(false);
   const [dark, setDark] = useState(() => {
     try { return localStorage.getItem("credence-theme") === "dark"; } catch { return false; }
   });
+  const menuButton = useRef<HTMLButtonElement>(null);
+  const header = useRef<HTMLElement>(null);
+  const previousPath = useRef(pathname);
 
   useEffect(() => {
-    const onScroll = () => setAtTop(window.scrollY <= 24);
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
-  useEffect(() => {
     setOpen(false);
-    setAtTop(window.scrollY <= 24);
-    document.documentElement.scrollTop = 0;
-    document.body.scrollTop = 0;
-    const name = TITLES[pathname] ?? "This coordinate is empty";
-    document.title = `${name} — Credence`;
-  }, [pathname]);
+    // Preserve a restored scroll position on load, but enter a new screen
+    // at its beginning. The header itself never changes with scroll.
+    if (previousPath.current !== pathname) {
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+      previousPath.current = pathname;
+    }
+    document.title = `${screen.title} — Credence`;
+  }, [pathname, screen.title]);
+
   useEffect(() => {
     document.documentElement.dataset.theme = dark ? "dark" : "light";
     try { localStorage.setItem("credence-theme", dark ? "dark" : "light"); } catch { /* Storage is optional. */ }
   }, [dark]);
-  useEffect(() => {
-    const down = (e: KeyboardEvent) => { if (e.key === "Alt") setWhisper(true); if (e.key === "Escape") setOpen(false); };
-    const up = (e: KeyboardEvent) => { if (e.key === "Alt") setWhisper(false); };
-    const reset = () => setWhisper(false);
-    window.addEventListener("keydown", down); window.addEventListener("keyup", up); window.addEventListener("blur", reset);
-    return () => { window.removeEventListener("keydown", down); window.removeEventListener("keyup", up); window.removeEventListener("blur", reset); };
-  }, []);
 
-  return <div className={`shell ${landing ? "shell-landing" : ""} ${room ? "shell-room" : ""} ${whisper ? "whisper" : ""}`}>
-    <a className="skip-link" href="#main-content" onClick={event => { event.preventDefault(); document.getElementById("main-content")?.focus(); }}>Skip to content</a>
-    <header className={`bar ${landing && atTop ? "bar-quiet" : ""}`}>
-      <NavLink to="/" className="bar-mark" end aria-label="Credence home"><BrandMark /><span>credence<span className="wordmark-period">.</span></span></NavLink>
-      <nav aria-label="Primary navigation" id="primary-navigation" className={`bar-links ${open ? "bar-open" : ""}`}>
-        {landing ? <><Link to="/observatory">The protocol</Link><Link to="/guide">Field guide <span>↗</span></Link></> : ROOMS.map(r => <NavLink to={r.to} key={r.to}><span className="nav-bearing">{r.bearing}</span>{r.label}</NavLink>)}
-      </nav>
-      <div className="bar-actions">
-        <button type="button" className="theme-switch" aria-label={dark ? "Use paper theme" : "Use night theme"} onClick={() => setDark(!dark)}><span aria-hidden="true">◐</span></button>
-        {landing ? <Link className="bar-enter" to="/observatory">Enter the atlas <span>↗</span></Link> : <Link className="guide-link" to="/guide">Field guide ↗</Link>}
-        <button type="button" className="bar-toggle" aria-expanded={open} aria-controls="primary-navigation" aria-label={open ? "Close navigation" : "Open navigation"} onClick={() => setOpen(!open)}>{open ? "Close" : "Menu"}</button>
-      </div>
-    </header>
-    <main id="main-content" tabIndex={-1} className={`stage ${landing || room ? "" : "stage-inner"}`}>
-      {!landing && !room && <div className="record-heading"><Link to="/observatory">Observatory</Link><span>/</span><span>Field records</span></div>}
-      {!landing && !room && pathname !== "/guide" && <nav className="record-nav" aria-label="Field records">{RECORDS.map(([to, label]) => <NavLink key={to} to={to!}>{label}</NavLink>)}</nav>}
-      {children}
-    </main>
-    {!landing && !room && <footer className="inner-footer"><Link to="/observatory">Return to the observatory ↗</Link><span>Credit has a memory.</span></footer>}
-  </div>;
+  useEffect(() => {
+    const down = (event: KeyboardEvent) => {
+      if (event.key === "Alt") setWhisper(true);
+      if (event.key === "Escape" && open) {
+        setOpen(false);
+        menuButton.current?.focus();
+      }
+    };
+    const up = (event: KeyboardEvent) => { if (event.key === "Alt") setWhisper(false); };
+    const reset = () => setWhisper(false);
+    window.addEventListener("keydown", down);
+    window.addEventListener("keyup", up);
+    window.addEventListener("blur", reset);
+    return () => {
+      window.removeEventListener("keydown", down);
+      window.removeEventListener("keyup", up);
+      window.removeEventListener("blur", reset);
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const dismiss = (event: PointerEvent) => {
+      if (event.target instanceof Node && !header.current?.contains(event.target)) setOpen(false);
+    };
+    document.addEventListener("pointerdown", dismiss);
+    return () => document.removeEventListener("pointerdown", dismiss);
+  }, [open]);
+
+  const leaveMenu = () => {
+    setOpen(false);
+    if (open) document.getElementById("main-content")?.focus({ preventScroll: true });
+  };
+
+  return (
+    <div className={`shell ${landing ? "shell-landing" : ""} ${room ? "shell-room" : ""} ${whisper ? "whisper" : ""}`}>
+      <a className="skip-link" href="#main-content" onClick={event => {
+        event.preventDefault();
+        document.getElementById("main-content")?.focus();
+      }}>Skip to content</a>
+
+      <header className="bar" ref={header}>
+        <NavLink to="/" className="bar-mark" end aria-label="Credence home" onClick={leaveMenu}>
+          <BrandMark /><span>credence<span className="wordmark-period">.</span></span>
+        </NavLink>
+        <nav aria-label="Primary navigation" id="primary-navigation" className={`bar-links ${open ? "bar-open" : ""}`}>
+          {SECTIONS.map(item => {
+            const active = section?.id === item.id;
+            return (
+              <Link
+                key={item.id}
+                to={item.path}
+                className={active ? "active" : undefined}
+                aria-current={active ? (screen.path === item.path ? "page" : "location") : undefined}
+                onClick={leaveMenu}
+              >{item.label}</Link>
+            );
+          })}
+        </nav>
+        <div className="bar-actions">
+          <button type="button" className="theme-switch" aria-label={dark ? "Use paper theme" : "Use night theme"} onClick={() => setDark(!dark)}>
+            <span aria-hidden="true">◐</span>
+          </button>
+          <button ref={menuButton} type="button" className="bar-toggle" aria-expanded={open} aria-controls="primary-navigation" aria-label={open ? "Close navigation" : "Open navigation"} onClick={() => setOpen(!open)}>
+            {open ? "Close" : "Menu"}
+          </button>
+        </div>
+      </header>
+
+      <main id="main-content" tabIndex={-1} className={`stage ${landing || room ? "" : "stage-inner"}`}>
+        {record && !room && section && (
+          <nav className="record-breadcrumb" aria-label="Breadcrumb">
+            <ol>
+              <li><Link to={section.path}>{section.label}</Link></li>
+              <li><span aria-current="page">{screen.title}</span></li>
+            </ol>
+          </nav>
+        )}
+        {children}
+        {screen.layout === "document" && section && <RecordLinks section={section} currentPath={screen.path} />}
+      </main>
+
+      {!landing && !room && (
+        <footer className="inner-footer">
+          <Link to={section?.path ?? "/observatory"}>Return to {section?.label ?? "Observatory"} <span aria-hidden="true">↗</span></Link>
+          <span>Credit has a memory.</span>
+        </footer>
+      )}
+    </div>
+  );
 }
