@@ -56,7 +56,16 @@ export interface GlobePoint {
 const SIZE = 360;
 const CENTER = SIZE / 2;
 /** Where the limit ring sits; the body is scaled inside it. */
-const LIMIT_R = 136;
+/**
+ * Where the limit ring sits. Set above the body's own maximum so that
+ * even a fully drawn facility leaves daylight between shell and limit:
+ * at equal radii the limit, the body's edge and the rim light stacked
+ * into one bright hoop, which read as a heavy outline rather than as a
+ * body approaching its bound.
+ */
+const LIMIT_R = 150;
+/** The largest the body itself gets, inside that ring. */
+const BODY_MAX_R = 128;
 const TILT = 16;
 
 /** Latitudes and meridians of the wireframe. */
@@ -86,6 +95,9 @@ export function CreditGlobe({
   points,
   peakOverride,
   still = false,
+  atmosphere = null,
+  core = null,
+  scar = null,
 }: {
   points: GlobePoint[];
   /** Scale against a figure outside this series, so several bodies drawn
@@ -93,6 +105,13 @@ export function CreditGlobe({
   peakOverride?: number;
   /** A single state: no stepper, no walk-through. */
   still?: boolean;
+  /** `1 - utilization` in [0,1]. Thick haze is a lightly used book.
+   *  `null` draws the default rim rather than inventing health. */
+  atmosphere?: number | null;
+  /** Idle cash against the whole book, in [0,1]: the core's brightness. */
+  core?: number | null;
+  /** Realized loss against the book, in [0,1]: a crater that stays. */
+  scar?: number | null;
 }) {
   const motion = useMotionAllowed();
   const { ref, seen } = useInView<HTMLDivElement>();
@@ -147,7 +166,7 @@ export function CreditGlobe({
   const denied = cap === 0;
 
   // Area-proportional, so the ink matches the figure.
-  const bodyR = peak > 0 ? Math.sqrt(cap / peak) * LIMIT_R : 0;
+  const bodyR = peak > 0 ? Math.sqrt(cap / peak) * BODY_MAX_R : 0;
 
   const score = current.score ?? 0;
   const warmth = Math.max(0, Math.min(1, (score - 560) / 200));
@@ -163,6 +182,33 @@ export function CreditGlobe({
   // form from LIGHT, so the edge is barely there and the rim light
   // below does the work.
   const rateWeight = denied ? 1 : Math.max(0.6, (current.apr / 1200) * 1.5);
+
+  // Atmosphere. A thick haze starts further in and burns brighter; a
+  // thin one is a hairline at the limb. Clamped so even a fully drawn
+  // book keeps an edge -- an object with NO rim reads as a hole.
+  const haze = atmosphere;
+  const rimStart = haze === null ? 88 : 94 - haze * 8;
+  const rimStrength =
+    haze === null
+      ? denied
+        ? 0.22
+        : 0.42
+      : Number((0.16 + haze * 0.34).toFixed(3));
+
+  // The instrument readout, from loaded figures only.
+  const readout: { label: string; value: string }[] = [];
+  if (current.score !== undefined) {
+    readout.push({ label: "score", value: String(current.score) });
+  }
+  if (atmosphere !== null) {
+    readout.push({
+      label: "util",
+      value: `${Math.round((1 - atmosphere) * 100)}%`,
+    });
+  }
+  if (scar !== null) {
+    readout.push({ label: "scar", value: `${(scar * 100).toFixed(1)}%` });
+  }
 
   // The wireframe, at the body's current size.
   const lats = LATS.map((l) => latitudeLine(l, spin, TILT, CENTER, CENTER, bodyR));
@@ -206,12 +252,32 @@ export function CreditGlobe({
           {/* Atmosphere: brightest exactly at the limb and gone a few
               pixels in. This is the whole trick -- an object with a
               rim light looks lit, an object with an outline looks
-              drawn. */}
+              drawn.
+
+              Its THICKNESS is `1 - utilization`. A lightly used book
+              looks padded; a heavily used one looks vacuum-thin, and
+              you can read the book's health from across the room. With
+              no figure the default rim is drawn rather than a
+              reassuring one. */}
           <radialGradient id={`${gradientId}-rim`} cx="50%" cy="50%" r="50%">
-            <stop offset="88%" stopColor={hue} stopOpacity="0" />
-            <stop offset="97%" stopColor={hue} stopOpacity={denied ? 0.22 : 0.42} />
+            <stop offset={`${rimStart}%`} stopColor={hue} stopOpacity="0" />
+            <stop offset="97%" stopColor={hue} stopOpacity={rimStrength} />
             <stop offset="100%" stopColor={hue} stopOpacity="0" />
           </radialGradient>
+
+          {/* The core: the lender's idle cash, felt rather than
+              tabulated. It dims as the vault lends its cash out. */}
+          {core !== null && (
+            <radialGradient id={`${gradientId}-core`} cx="50%" cy="50%" r="50%">
+              <stop
+                offset="0%"
+                stopColor={hue}
+                stopOpacity={(0.1 + core * 0.4).toFixed(3)}
+              />
+              <stop offset="45%" stopColor={hue} stopOpacity="0.04" />
+              <stop offset="100%" stopColor={hue} stopOpacity="0" />
+            </radialGradient>
+          )}
 
           {/* A soft shadow under the body, so it sits in space rather
               than floating on the page. */}
@@ -255,6 +321,18 @@ export function CreditGlobe({
           fill={`url(#${gradientId})`}
           className="globe-shell"
         />
+
+        {/* The core. Drawn inside the body, so it reads as something
+            the shell contains rather than a highlight on it. */}
+        {core !== null && bodyR > 0 && (
+          <circle
+            cx={CENTER}
+            cy={CENTER}
+            r={bodyR * 0.62}
+            fill={`url(#${gradientId}-core)`}
+            className="globe-core"
+          />
+        )}
 
         {/* Far side of the wireframe, seen through the body. */}
         <g stroke={hue} fill="none" strokeWidth="0.4" opacity="0.12">
@@ -326,6 +404,36 @@ export function CreditGlobe({
           );
         })}
 
+        {/* The scar. A default is a permanent mark on the body, placed
+            on the shell so it turns with it and passes out of sight
+            rather than hovering. `docs/brand/physics.md`: it does not
+            heal, and nothing here fades it with time. */}
+        {scar !== null && bodyR > 0 && (() => {
+          const at = project(
+            rotate(onSphere(-28, 58), spin, TILT),
+            CENTER,
+            CENTER,
+            bodyR,
+          );
+          if (at.z < 0) return null;
+          // Foreshortened: a crater near the limb is seen at an angle.
+          const rx = Math.max(3, Math.sqrt(scar) * bodyR * 0.5);
+          return (
+            <ellipse
+              cx={at.x}
+              cy={at.y}
+              rx={rx * Math.max(0.15, at.z)}
+              ry={rx}
+              fill="var(--alarm)"
+              fillOpacity="0.5"
+              stroke="var(--alarm)"
+              strokeOpacity="0.7"
+              strokeWidth="0.75"
+              className="globe-scar"
+            />
+          );
+        })()}
+
         {/* Each loan, a point of light. Dimmed when it swings behind. */}
         {nodes.map((p, n) => (
           <circle
@@ -347,6 +455,22 @@ export function CreditGlobe({
           loan {i + 1}
         </text>
       </svg>
+
+      {/* The instrument. Only figures that were loaded: a utilization
+          the book reported and a score the assessment carried. No
+          coordinate is shown, because the sites on the shell are a
+          layout choice and printing them as latitude would dress a
+          decoration up as a measurement. */}
+      {(readout.length > 0) && (
+        <p className="globe-readout">
+          {readout.map((r) => (
+            <span key={r.label}>
+              <span className="globe-readout-label">{r.label}</span>
+              {r.value}
+            </span>
+          ))}
+        </p>
+      )}
 
       <p
         className={

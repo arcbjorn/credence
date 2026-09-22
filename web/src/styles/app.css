@@ -726,6 +726,27 @@ code { font-family: var(--mono); font-size: 0.94em; }
   fill: var(--text-dim);
 }
 
+/* The instrument. Mono, tabular, quiet -- a cockpit readout rather than
+   a set of stat cards. */
+.globe-readout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.globe-readout-label {
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 9px;
+  margin-right: 6px;
+}
+
 .globe-caption {
   display: flex;
   align-items: baseline;

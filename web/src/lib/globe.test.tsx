@@ -136,9 +136,43 @@ describe("the object's geometry", () => {
       />,
     );
     const r = Number(container.querySelector(".globe-edge")?.getAttribute("r"));
-    // Half the peak by area, so sqrt(0.5) of the limit radius. 136 is
-    // the globe's LIMIT_R, where the limit ring is drawn.
-    expect(r).toBeCloseTo(Math.sqrt(0.5) * 136, 1);
+    // Half the peak by area, so sqrt(0.5) of the body's maximum. 128 is
+    // BODY_MAX_R; the limit ring sits further out at 150, so a full
+    // facility still leaves daylight between shell and bound.
+    expect(r).toBeCloseTo(Math.sqrt(0.5) * 128, 1);
+  });
+
+  it("prints only the instrument figures it was given", () => {
+    // The readout is a measurement, not decoration. With no book state
+    // there is nothing to report, and a globe that printed UTIL 0% or
+    // SCAR 0.0% would be asserting a healthy book it never measured.
+    document.body.innerHTML = "";
+    const { container } = render(
+      <CreditGlobe
+        still
+        points={[
+          { capacity: "6000000000", apr: 1200, binding: "HistoryGrowthCap" },
+        ]}
+      />,
+    );
+    expect(container.textContent).not.toContain("UTIL");
+    expect(container.textContent).not.toContain("SCAR");
+    expect(container.textContent).not.toContain("SCORE");
+  });
+
+  it("reports utilization as the inverse of the atmosphere", () => {
+    document.body.innerHTML = "";
+    const { container } = render(
+      <CreditGlobe
+        still
+        atmosphere={0.92}
+        points={[
+          { capacity: "6000000000", apr: 1200, binding: "HistoryGrowthCap" },
+        ]}
+      />,
+    );
+    // A thick atmosphere is a lightly used book.
+    expect(container.textContent).toContain("8%");
   });
 
   it("renders nothing without points", () => {

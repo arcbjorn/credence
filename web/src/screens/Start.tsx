@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { loadRun, units, type Check, type Run } from "../lib/data";
 import { bindingPhrase } from "../lib/bindings";
+import { atmosphere, core, readBook, scar } from "../lib/book";
 import { CLAIMS, EARNED, REFUSED, UNEARNED, type Claim } from "../lib/claims";
 import { CreditGlobe } from "../components/CreditGlobe";
 import { Deployment } from "../components/Deployment";
@@ -135,6 +136,15 @@ export function Start() {
   const switched = loans.length > 1 && first?.binding !== last?.binding;
   const loss = check(fault, "vault realized loss");
 
+  // The book's physical state, from the same retained checks the lender
+  // screen tabulates. `docs/brand/physics.md`: the core is idle cash,
+  // the atmosphere is `1 - utilization`, the scar is realized loss. The
+  // scar comes from the DEFAULT run, because that is the run where a
+  // loan actually went bad -- reading it from the repay run would draw a
+  // crater on a book that never lost anything.
+  const book = readBook(repay);
+  const faultBook = readBook(fault);
+
   return (
     <div className="split">
       {/* LEFT: the argument. Sticky on a wide screen, so it stays put
@@ -153,6 +163,9 @@ export function Start() {
             stat cards before meeting the thing itself. */}
         {loans.length > 0 && (
           <CreditGlobe
+            atmosphere={atmosphere(book)}
+            core={core(book)}
+            scar={scar(faultBook)}
             points={loans.map((l) => ({
               capacity: l.capacity,
               apr: l.apr,
