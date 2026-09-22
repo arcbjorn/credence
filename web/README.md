@@ -1,7 +1,9 @@
 # `web` — the interface
 
-The eight screens `docs/09` specifies, all built. The optional note view
-is not, and `docs/09` marks it optional.
+The eight screens `docs/09` specifies, all built,
+plus five beyond that list: the four observatory rooms
+and the field guide. The optional note view is not built,
+and `docs/09` marks it optional.
 
 | Screen | `docs/09` beat |
 |---|---|
@@ -13,6 +15,12 @@ is not, and `docs/09` marks it optional.
 | Lender | the epoch's ledgers, kept separate |
 | Enforcement | 6 — the prohibited withdrawal, reverted on chain |
 | Replay | 8 — does retained input reproduce the assessment? |
+
+Thirteenth and last, the field guide. Five screens sit outside
+`docs/09`'s list: the observatory, atlas, moons and body rooms are one
+component (`Observatory.tsx`) serving four routes, and the guide explains
+the physics. None of them assert a beat, and each reads the same retained
+evidence the tables above do.
 
 Beat 6 is the one `docs/09` calls **"the single most convincing moment"**.
 The screen renders what `credence-verify` recorded against the live
