@@ -1,6 +1,6 @@
 /* Credit body: paper, teal, moss and vermilion, with orbital instruments. */
-@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Space+Grotesk:wght@400;500;600;700&display=swap');
-:root { --sans:'Space Grotesk',Arial,sans-serif; --serif:'Instrument Serif',Georgia,serif; --display:var(--sans); --truck:cubic-bezier(.22,1,.36,1); --gold:#c4a574; }
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;1,400&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+:root { --sans:'Space Grotesk',Arial,sans-serif; --serif:'Playfair Display',Georgia,serif; --display:var(--sans); --truck:cubic-bezier(.22,1,.36,1); --gold:#c4a574; }
 
 /* Spacing.
  *
@@ -41,7 +41,16 @@
 :root {
   --t1:10px; --t2:12px; --t3:14px; --t4:16px; --t5:20px; --t6:24px;
   --lh-tight:1.1; --lh-snug:1.35; --lh-body:1.7;
-  /* Instrument Serif carries tall ascenders and deep descenders, so
+  /* The display serif was Instrument Serif, a CONDENSED face: at the
+     same size it set 'How it works.' 28% narrower than the sans
+     (461px against 637px at 100px) and 25% narrower than Georgia.
+     That narrowness is in the glyphs, so no line-height or
+     tracking value fixes it -- tracking only moves narrow letters
+     further apart. Playfair Display keeps the high-contrast
+     editorial character at normal width (611px).
+
+     The leading below still matters: a display serif carries tall
+     ascenders and deep descenders, so
      at 1.1 its lines nearly collide and the type reads as squeezed
      vertically. The sans tolerates 1.1; this face needs the room.
 
