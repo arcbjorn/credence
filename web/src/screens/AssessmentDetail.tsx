@@ -40,7 +40,7 @@ export function AssessmentDetail() {
 
   return (
     <>
-      <h2>Assessment detail</h2>
+      <h1 className="record-title">Assessment detail</h1>
       <p className="lede">
         What bounded this decision, and the evidence behind it.
       </p>
