@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
-import { MemoryRouter } from "react-router";
+import { MemoryRouter, useLocation } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "../App";
 import { FieldGuide, EmptyCoordinate } from "../screens/FieldGuide";
@@ -35,6 +35,11 @@ beforeEach(() => {
   vi.mocked(useSurvey).mockReturnValue({ run, comparison, indexed: { loans: [], events: [] }, loading: false, unavailable: [] });
 });
 const room = (path: string) => render(<MemoryRouter initialEntries={[path]}><App /></MemoryRouter>);
+
+function LocationReadout() {
+  const { pathname, search, hash } = useLocation();
+  return <output aria-label="Current route">{pathname}{search}{hash}</output>;
+}
 
 describe("dismissing the dock", () => {
   /**
@@ -78,6 +83,41 @@ describe("dismissing the dock", () => {
 });
 
 describe("the credit rooms", () => {
+  it("keeps old loan links working at one canonical destination", () => {
+    render(<MemoryRouter initialEntries={["/lifecycle?loan=2#terms"]}><App /><LocationReadout /></MemoryRouter>);
+    expect(screen.getByLabelText("Current route")).toHaveTextContent("/arc?loan=2#terms");
+    expect(document.title).toBe("Loan lifecycle — Credence");
+  });
+  it("enters the observatory from the homepage and keeps the same navigation", () => {
+    room("/");
+    const before = within(screen.getByRole("navigation", { name: "Primary navigation" })).getAllByRole("link").map(link => link.textContent);
+    fireEvent.click(screen.getByRole("link", { name: "Enter the observatory" }));
+    expect(screen.getByRole("heading", { name: "Observatory", level: 1 })).toBeInTheDocument();
+    expect(within(screen.getByRole("navigation", { name: "Primary navigation" })).getAllByRole("link").map(link => link.textContent)).toEqual(before);
+  });
+
+  it("changes the projection without changing rooms or the evidence source", () => {
+    room("/observatory");
+    fireEvent.click(screen.getByRole("button", { name: "Map projection" }));
+    expect(screen.getByRole("heading", { name: "Observatory", level: 1 })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Map projection" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Globe projection" })).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("img", { name: /Credit body, atlas projection/ })).toHaveAccessibleName(/1 profile/);
+    fireEvent.click(within(screen.getByRole("navigation", { name: "Primary navigation" })).getByRole("link", { name: "Atlas" }));
+    expect(screen.getByRole("heading", { name: "Atlas", level: 1 })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /Credit body, atlas projection/ })).toHaveAccessibleName(/3 profiles/);
+  });
+
+  it("makes the room's records discoverable and keeps Log inside Observatory", () => {
+    room("/observatory");
+    fireEvent.click(screen.getByText("Explore records"));
+    const records = screen.getByRole("navigation", { name: "Observatory records" });
+    fireEvent.click(within(records).getByRole("link", { name: /Log Follow the indexed journeys/ }));
+    expect(screen.getByRole("heading", { name: "Log", level: 1 })).toBeInTheDocument();
+    expect(within(screen.getByRole("navigation", { name: "Primary navigation" })).getByRole("link", { name: "Observatory" })).toHaveAttribute("aria-current", "location");
+    expect(within(screen.getByRole("navigation", { name: "Breadcrumb" })).getByRole("link", { name: "Observatory" })).toHaveAttribute("href", "/observatory");
+  });
+
   it.each([["/observatory", "Observatory"], ["/atlas", "Atlas"], ["/moons", "Moons"], ["/body", "Retained agent."], ["/log", "Log"]])("renders a usable room at %s", (path, title) => {
     room(path!);
     expect(screen.getByRole("heading", { name: title, level: 1 })).toBeInTheDocument();
