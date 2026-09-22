@@ -44,7 +44,7 @@ export function Comparison_() {
 
   return (
     <>
-      <h2>Three agents</h2>
+      <h1 className="record-title">Three agents</h1>
       <p className="lede">
         The same policy and the same model, applied to three accounts that
         differ in one respect at a time. What separates them is what they
