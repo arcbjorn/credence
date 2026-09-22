@@ -1,4 +1,5 @@
-import { NavLink, Route, Routes } from "react-router";
+import { Route, Routes } from "react-router";
+import { Shell } from "./components/Shell";
 import { AgentOverview } from "./screens/AgentOverview";
 import { AssessmentDetail } from "./screens/AssessmentDetail";
 import { Comparison_ } from "./screens/Comparison";
@@ -38,23 +39,7 @@ import "./styles/app.css";
  */
 export default function App() {
   return (
-    <div className="app">
-      <nav className="nav">
-        <h1>Credence</h1>
-        <p className="tagline">Autonomous credit markets for AI agents</p>
-        <NavLink to="/" end>Start here</NavLink>
-        <NavLink to="/agent">Agent overview</NavLink>
-        <NavLink to="/compare">Three agents</NavLink>
-        <NavLink to="/assessment">Assessment detail</NavLink>
-        <NavLink to="/lifecycle">Loan lifecycle</NavLink>
-        <NavLink to="/indexed">Indexed</NavLink>
-        <NavLink to="/evidence">Evidence</NavLink>
-        <NavLink to="/lender">Lender</NavLink>
-        <NavLink to="/enforcement">Enforcement</NavLink>
-        <NavLink to="/perpl">Perpl risk</NavLink>
-        <NavLink to="/replay">Replay</NavLink>
-      </nav>
-      <main className="main">
+    <Shell>
         <Routes>
           <Route path="/" element={<Start />} />
           <Route path="/agent" element={<AgentOverview />} />
@@ -68,7 +53,6 @@ export default function App() {
           <Route path="/perpl" element={<PerplPanel />} />
           <Route path="/replay" element={<Replay />} />
         </Routes>
-      </main>
-    </div>
+    </Shell>
   );
 }
