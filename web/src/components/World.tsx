@@ -3,6 +3,7 @@ import { useMotionAllowed } from "./Motion";
 import type { Assessment } from "../lib/data";
 import type { BookState } from "../lib/book";
 import type { Projection, WorldNode } from "../lib/observatory";
+import { canvasResolution } from "../lib/canvas";
 
 const TAU = Math.PI * 2;
 const rad = Math.PI / 180;
@@ -44,7 +45,7 @@ export function World({ book, nodes = [], loans = [], projection = "globe", sele
     const ctx = el.getContext("2d");
     if (!ctx) return;
     let frame = 0;
-    let size = 800;
+    let resizeFrame = 0;
     let rotation = -0.22;
     let last = 0;
     let visible = true;
@@ -58,22 +59,29 @@ export function World({ book, nodes = [], loans = [], projection = "globe", sele
     let lastReplay = 0;
     let theme = { machine: "#00706f", paper: "#f9f5ef", ink: "#1b1d1e", growth: "#4a6b3d", alarm: "#bf3a14" };
     const resize = () => {
-      size = el.clientWidth || 800;
-      const scale = Math.min(window.devicePixelRatio || 1, 2);
-      el.width = size * scale;
-      el.height = size * scale;
-      ctx.setTransform(scale * size / 800, 0, 0, scale * size / 800, 0, 0);
+      const pixels = canvasResolution(wrapper.current?.clientWidth ?? 800, window.devicePixelRatio);
+      if (el.width !== pixels || el.height !== pixels) {
+        el.width = pixels;
+        el.height = pixels;
+        ctx.setTransform(pixels / 800, 0, 0, pixels / 800, 0, 0);
+      }
       const style = getComputedStyle(el);
       theme = { machine: style.getPropertyValue("--machine").trim(), paper: style.getPropertyValue("--bg").trim(), ink: style.getPropertyValue("--text").trim(), growth: style.getPropertyValue("--growth").trim(), alarm: style.getPropertyValue("--alarm").trim() };
     };
-    const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(resize) : null;
-    observer?.observe(el);
+    // Defer writes until after the observer's delivery cycle, and observe
+    // the CSS wrapper rather than the bitmap whose dimensions we change.
+    const scheduleResize = () => {
+      if (resizeFrame) return;
+      resizeFrame = requestAnimationFrame(() => { resizeFrame = 0; resize(); });
+    };
+    const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(scheduleResize) : null;
+    if (wrapper.current) observer?.observe(wrapper.current);
     const intersection = typeof IntersectionObserver !== "undefined" ? new IntersectionObserver(entries => { visible = entries[0]?.isIntersecting ?? true; }) : null;
     intersection?.observe(el);
-    const themeObserver = new MutationObserver(resize);
+    const themeObserver = new MutationObserver(scheduleResize);
     themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
     const scheme = window.matchMedia?.("(prefers-color-scheme: dark)");
-    scheme?.addEventListener("change", resize);
+    scheme?.addEventListener("change", scheduleResize);
     resize();
 
     const draw = (now: number) => {
@@ -178,6 +186,23 @@ export function World({ book, nodes = [], loans = [], projection = "globe", sele
       }
       ctx.globalAlpha = 1;
 
+      if (layer > 0.001) {
+        ctx.save();
+        ctx.globalAlpha = layer * 0.85;
+        for (let i = 0; i < 4; i++) {
+          const ringY = cy - 114 + i * 76;
+          const ringRadius = radius * (0.72 + (i % 2) * 0.1);
+          ctx.beginPath();
+          ctx.ellipse(cx, ringY, ringRadius, 44, -0.08, 0, TAU);
+          ctx.fillStyle = "rgba(121, 158, 143, 0.08)";
+          ctx.fill();
+          ctx.strokeStyle = theme.machine;
+          ctx.lineWidth = 1.15;
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+
       // A retained origination draws from the lender pole to this borrower.
       // These are replay paths, not claims of currently live chain activity.
       const shownLoans = state.loans.slice(-12);
@@ -222,7 +247,7 @@ export function World({ book, nodes = [], loans = [], projection = "globe", sele
       for (const node of state.nodes) {
         const p = project(point(node.latitude, node.longitude), node.latitude, node.longitude);
         const button = buttons.current.get(node.id);
-        const nodeRadius = node.denied ? 4 : 3 + Math.sqrt(Number(node.capacity) / nodePeak) * 4;
+        const nodeRadius = node.denied ? 4 : Math.max(2, Math.sqrt(Number(node.capacity) / nodePeak) * 7);
         if (button) {
           button.style.left = `${p.x / 8}%`; button.style.top = `${p.y / 8}%`;
           button.style.opacity = String(p.z < 0 ? 0.45 : 1);
@@ -231,12 +256,12 @@ export function World({ book, nodes = [], loans = [], projection = "globe", sele
       }
     };
     frame = requestAnimationFrame(draw);
-    return () => { cancelAnimationFrame(frame); observer?.disconnect(); intersection?.disconnect(); themeObserver.disconnect(); scheme?.removeEventListener("change", resize); };
+    return () => { cancelAnimationFrame(frame); cancelAnimationFrame(resizeFrame); observer?.disconnect(); intersection?.disconnect(); themeObserver.disconnect(); scheme?.removeEventListener("change", scheduleResize); };
   }, [motion]);
 
   return (
-    <div className={`credit-world world-${projection} ${labels ? "" : "world-whisper"}`} ref={wrapper} onPointerEnter={() => setHovered(true)} onPointerLeave={() => setHovered(false)} onFocus={() => setFocused(true)} onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) setFocused(false); }}>
-      <canvas ref={canvas} className="world-canvas" role="img" aria-label={`Credit body, ${projection} projection. ${book.utilization === null ? "Book measurements unavailable." : `${(book.utilization * 100).toFixed(1)}% utilization.`} ${nodes.length} ${nodes.length === 1 ? "profile" : "profiles"}. Surface texture is illustrative.`} />
+    <div className={`credit-world world-${projection} ${labels ? "" : "world-whisper"}`} ref={wrapper} style={{ position: "relative", width: "100%", aspectRatio: "1 / 1", minWidth: 0 }} onPointerEnter={() => setHovered(true)} onPointerLeave={() => setHovered(false)} onFocus={() => setFocused(true)} onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) setFocused(false); }}>
+      <canvas ref={canvas} width={800} height={800} className="world-canvas" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} role="img" aria-label={`Credit body, ${projection} projection. ${book.utilization === null ? "Book measurements unavailable." : `${(book.utilization * 100).toFixed(1)}% utilization.`} ${nodes.length} ${nodes.length === 1 ? "profile" : "profiles"}. Surface texture is illustrative.`} />
       <div className="world-pole world-pole-n" aria-hidden="true">N</div><div className="world-pole world-pole-s" aria-hidden="true">S</div>
       {nodes.map((node, i) => <button key={node.id} ref={el => { if (el) buttons.current.set(node.id, el); else buttons.current.delete(node.id); }} type="button" className={`world-node ${node.denied ? "node-hollow" : ""} ${selected === node.id ? "node-selected" : ""} ${node.score !== null && node.score >= 800 ? "node-exceptional" : ""}`} style={{ left: `${35 + i * 18}%`, top: `${36 + i * 12}%` }} aria-label={`${node.label}, score ${node.score ?? "unmeasured"}${node.denied ? ", denied" : ""}`} aria-pressed={selected === node.id} onClick={() => onSelect?.(node.id)}>
         <span className="node-point" /><span className="node-label">{node.label}<small>{node.denied ? "RESTRICTED" : node.score !== null ? `SCORE ${node.score}` : "UNMEASURED"}</small></span>
