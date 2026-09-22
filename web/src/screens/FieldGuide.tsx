@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { World } from "../components/World";
 import { readBook } from "../lib/book";
 import { borrowerNode, originations, useSurvey, type Projection } from "../lib/observatory";
@@ -14,11 +14,12 @@ const CHAPTERS: { title: string; subtitle: string; copy: string; projection: Pro
 ];
 
 export function FieldGuide() {
+  const navigate = useNavigate();
   const survey = useSurvey();
   const loans = originations(survey.run);
   const [chapter, setChapter] = useState(0);
   const current = CHAPTERS[chapter]!;
-  return <section className="field-guide"><header><p className="eyebrow">A FIELD GUIDE TO AGENT CREDIT</p><h1>Learn the physics.</h1><p>One body. A few laws. Everything follows.</p></header><div className="guide-layout"><nav aria-label="Field guide chapters">{CHAPTERS.map((c, i) => <button key={c.title} type="button" aria-pressed={chapter === i} onClick={() => setChapter(i)}><span>{String(i + 1).padStart(2, "0")}</span>{c.title}<span>↗</span></button>)}</nav><article><span className="instrument-label">CHAPTER {String(chapter + 1).padStart(2, "0")}</span><h2>{current.subtitle}</h2><p>{current.copy}</p><Link className="text-link" to={current.to}>{current.link} ↗</Link><div className="guide-footnote">Survey source: retained development run. Surface texture and chart coordinates are illustrative.</div></article><div className="guide-world"><World book={readBook(survey.run)} nodes={borrowerNode(loans.at(-1))} loans={loans} projection={current.projection} labels={false} /></div></div><div className="guide-appendix"><span className="eyebrow">READ THE RECORDS</span><Link to="/assessment">The assessment ↗</Link><Link to="/lifecycle">The arc ↗</Link><Link to="/indexed">The chain log ↗</Link><Link to="/replay">The replay ↗</Link></div></section>;
+  return <section className="field-guide"><header><p className="eyebrow">A FIELD GUIDE TO AGENT CREDIT</p><h1>Learn the physics.</h1><p>One body. A few laws. Everything follows.</p></header><div className="guide-layout"><nav aria-label="Field guide chapters">{CHAPTERS.map((c, i) => <button key={c.title} type="button" aria-label={`Chapter ${i + 1}: ${c.title}`} aria-pressed={chapter === i} onClick={() => setChapter(i)}><span>{String(i + 1).padStart(2, "0")}</span>{c.title}<span>↗</span></button>)}</nav><article><span className="instrument-label">CHAPTER {String(chapter + 1).padStart(2, "0")}</span><h2>{current.subtitle}</h2><p>{current.copy}</p><Link className="text-link" to={current.to}>{current.link} ↗</Link><div className="guide-footnote">Survey source: retained development run. Surface texture and chart coordinates are illustrative.</div></article><div className="guide-world"><World book={readBook(survey.run)} nodes={borrowerNode(loans.at(-1))} loans={loans} projection={current.projection} labels={false} onSelect={id => navigate(id === "facility" ? "/moons" : "/body")} /></div></div><div className="guide-appendix"><span className="eyebrow">READ THE RECORDS</span><Link to="/assessment">The assessment ↗</Link><Link to="/lifecycle">The arc ↗</Link><Link to="/indexed">The chain log ↗</Link><Link to="/replay">The replay ↗</Link></div></section>;
 }
 
 export function EmptyCoordinate() {
