@@ -206,7 +206,7 @@ export function IndexedLifecycle() {
   if (error) {
     return (
       <>
-        <h2>Indexed lifecycle</h2>
+        <h1 className="record-title">Indexed lifecycle</h1>
         <p className="lede">
           The indexer has not been run against this chain.
         </p>
@@ -229,7 +229,7 @@ export function IndexedLifecycle() {
 
   return (
     <>
-      <h2>Indexed lifecycle</h2>
+      <h1 className="record-title">Indexed lifecycle</h1>
       <p className="lede">
         Rebuilt from the contract's event log by the Envio indexer, with no
         state read at all. A loan struct records running totals and two
