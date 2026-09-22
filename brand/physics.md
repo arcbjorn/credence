@@ -44,10 +44,31 @@ loan ordinal, or use a result from one to mark the other's loan repaid.
 - **Log**: indexed journeys first, with a route to the full chain-derived log.
 - **Field guide**: Survey, Shell, Core, Weather, Moons and Scars.
 
-All existing assessment, comparison, lender, enforcement, market, evidence,
-indexer and deterministic replay records remain available from the field
-navigation. Detailed capacity diagrams retain their explicit loan labels;
-their history markers must not be mistaken for an agent population.
+The same header appears on the introduction, in every room and on every
+record: Observatory, Atlas, Moons, Body and Field guide. The logo returns
+to the introduction. A record keeps its parent section highlighted.
+
+| Section | Records |
+| --- | --- |
+| Observatory | Log, Loan lifecycle, Indexed lifecycle |
+| Atlas | Three agents |
+| Moons | Lender, Perpl market risk |
+| Body | Agent overview, Assessment detail, Enforcement |
+| Field guide | Evidence, Replay |
+
+Rooms expose their records through “Explore records” beside their
+introduction. Detailed pages show a parent breadcrumb, one page heading,
+and related records after the content. Never add a second global menu of
+all records. Titles, navigation and relationships come from
+`web/src/lib/navigation.ts`.
+
+The homepage enters the Observatory. A link naming the Atlas opens the
+Atlas. Globe and Map controls change the current projection only; they
+never pretend to be navigation to another room. `/arc` is the canonical
+loan record; `/lifecycle` preserves old links by redirecting there.
+
+Detailed capacity diagrams retain their explicit loan labels; their
+history markers must not be mistaken for an agent population.
 
 ## Colour and type
 
