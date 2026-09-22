@@ -146,14 +146,30 @@ export function Start() {
           A credit score is just <em>compressed</em> history.
         </h1>
 
+        {/* THE OBJECT LEADS. It is the product in one shape -- a limit,
+            what sets it, and what that costs -- and it says all three
+            before a word is read. The figures and the reasoning used to
+            sit above it, which meant a visitor met a paragraph and three
+            stat cards before meeting the thing itself. */}
+        {loans.length > 0 && (
+          <CreditBody
+            points={loans.map((l) => ({
+              capacity: l.capacity,
+              apr: l.apr,
+              binding: l.binding,
+              ...(l.score !== undefined ? { score: l.score } : {}),
+            }))}
+          />
+        )}
+
         <p className="hero-lede">
-          Agents trade, hedge and pay for their own compute. None of them
-          can borrow, because underwriting expects a salary, an address and
-          a credit file, and an agent has none of those. But it has
-          something a human borrower never does: every action it ever took,
-          already onchain, already signed. That is the credit file. We
-          compile it into a limit and a price.
+          An agent has no salary and no credit file. It has every action it
+          ever took, signed and onchain. We price that.
         </p>
+
+        <Link to="/compare" className="start-enter">
+          See who gets credit <span>&rarr;</span>
+        </Link>
 
         {missing && (
           <p className="empty">
@@ -162,8 +178,9 @@ export function Start() {
           </p>
         )}
 
-        {/* The three figures that carry the argument, in a row: a reader
-            should take them in at once rather than scroll past them. */}
+        {/* Everything past here is for a reader who has decided to look.
+            Three figures, then the reasoning behind the shape above --
+            available, not insisted on. */}
         <div className="figures">
           <Link to="/agent" className="figure figure-growth">
             <span className="figure-value">
@@ -206,31 +223,19 @@ export function Start() {
           </Link>
         </div>
 
-        {loans.length > 0 && (
-          <CreditBody
-            points={loans.map((l) => ({
-              capacity: l.capacity,
-              apr: l.apr,
-              binding: l.binding,
-              ...(l.score !== undefined ? { score: l.score } : {}),
-            }))}
-          />
-        )}
-
         {loans.length > 1 && (
-          <p className="hero-note">
-            Three loans, same policy, same model hash. The only input that
-            changed is the history, and the limit goes {units(first?.capacity)}{" "}
-            &rarr; {units(last?.capacity)}
-            {switched
-              ? ". Notice where it bends: past that point the binding constraint is no longer the agent's record but what its book survives in a crash. Good behaviour stops buying you more."
-              : `, still limited by ${bindingPhrase(last?.binding)}.`}
-          </p>
+          <details className="hero-why">
+            <summary>Why the shape changes</summary>
+            <p className="hero-note">
+              Three loans, same policy, same model hash. The only input
+              that changed is the history, and the limit goes{" "}
+              {units(first?.capacity)} &rarr; {units(last?.capacity)}
+              {switched
+                ? ". Past loan 3 the ring stops being set by the agent's record and starts being set by what its book survives in a crash. Good behaviour stops buying you more."
+                : `, still limited by ${bindingPhrase(last?.binding)}.`}
+            </p>
+          </details>
         )}
-
-        <Link to="/compare" className="start-enter">
-          See who gets credit <span>&rarr;</span>
-        </Link>
 
         <Deployment />
       </aside>
@@ -241,10 +246,8 @@ export function Start() {
         <header className="ledger-head">
           <h2>What it does</h2>
           <p>
-            Every capability, and what it runs on.{" "}
             <strong>{EARNED} of {EARNED + UNEARNED} work today.</strong>{" "}
-            The other {UNEARNED} are still being built and say so here
-            rather than in a footnote. Open any row to see it in action.
+            Open a row to see it.
           </p>
         </header>
 
@@ -254,21 +257,21 @@ export function Start() {
           ))}
         </div>
 
-        <div className="refused">
-          <h3>What this does not claim</h3>
+        <details className="refused">
+          <summary>
+            <h3>What this does not claim</h3>
+          </summary>
           <ul>
             {REFUSED.map((r) => (
               <li key={r}>{r}</li>
             ))}
           </ul>
           <p className="refused-note">
-            Worth being precise about the last one, because it is the easy
-            thing to overclaim: determinism buys you auditability, not
-            accuracy. Every decision here replays byte-for-byte, which
-            proves the model did what it says. It does not prove the model
-            is right.
+            Determinism buys auditability, not accuracy. Every decision
+            replays byte-for-byte, which proves the model did what it
+            says — not that it is right.
           </p>
-        </div>
+        </details>
 
         <div className="ledger-cta">
           <div>

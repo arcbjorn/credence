@@ -649,6 +649,53 @@ code { font-family: var(--mono); font-size: 0.94em; }
   overflow: visible;
 }
 
+/* As the landing hero the object runs large: it is the first thing on
+   the page and carries the argument alone, so it gets the room a
+   headline would. */
+.shell-landing .split-left > .body {
+  margin: 4px 0 30px;
+  align-items: flex-start;
+}
+
+.shell-landing .split-left > .body svg { max-width: 400px; }
+
+.shell-landing .split-left > .body .body-caption,
+.shell-landing .split-left > .body .body-steps {
+  align-self: flex-start;
+}
+
+/* --- the deferred explanation ---
+
+   Available, not insisted on. A visitor sees the object and the one
+   sentence; the reasoning is one click away for whoever wants it. */
+
+.hero-why {
+  margin: 4px 0 24px;
+}
+
+.hero-why > summary {
+  cursor: pointer;
+  list-style: none;
+  font-size: 11.5px;
+  color: var(--text-dim);
+  padding: 4px 0;
+  transition: color 140ms ease;
+}
+
+.hero-why > summary::-webkit-details-marker { display: none; }
+.hero-why > summary::marker { content: ""; }
+
+.hero-why > summary::after {
+  content: " +";
+  font-size: 12px;
+}
+
+.hero-why[open] > summary::after { content: " −"; }
+
+.hero-why > summary:hover { color: var(--machine); }
+
+.hero-why .hero-note { margin-top: 8px; }
+
 /* The three animated properties. `r` is transitioned rather than a
    transform so the stroke keeps its true width at every radius. */
 .body-disc,
@@ -935,6 +982,27 @@ code { font-family: var(--mono); font-size: 0.94em; }
   border-radius: var(--radius);
   margin-bottom: 26px;
 }
+
+.refused > summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.refused > summary::-webkit-details-marker { display: none; }
+.refused > summary::marker { content: ""; }
+
+.refused > summary h3 {
+  display: inline;
+  margin: 0;
+}
+
+.refused > summary::after {
+  content: " +";
+  color: var(--text-dim);
+}
+
+.refused[open] > summary::after { content: " −"; }
+.refused[open] > summary { margin-bottom: 12px; }
 
 .refused h3 { margin: 0 0 12px; }
 
