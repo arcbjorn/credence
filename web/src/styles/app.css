@@ -481,6 +481,50 @@ code { font-family: var(--mono); font-size: 0.94em; }
 
 .start { max-width: 62rem; }
 
+/* --- the split ---
+
+   A fixed argument beside a scrolling ledger. The landing page was a
+   column read top to bottom, which is an essay's shape no matter what
+   goes in it: the claims were below the fold, and a reader who wanted
+   to know what this system actually proves had to scroll past the
+   pitch to find out.
+
+   Two columns, sized so the left holds a display-size headline without
+   the right becoming a gutter. The ratio is deliberate -- an even split
+   would make the ledger look like a sidebar, and the ledger is the
+   evidence. */
+
+.split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+  gap: 0;
+  align-items: start;
+}
+
+/* Not sticky by default. The left column carries a headline, a lede,
+   three figures and the capacity curve -- about 1060px of content --
+   and a sticky element taller than the viewport simply scrolls, which
+   is the same behaviour with a misleading declaration attached. It
+   sticks only where it actually fits, which is what the media query
+   below asserts. */
+.split-left {
+  padding: 0 46px 40px 0;
+}
+
+@media (min-height: 1180px) {
+  .split-left {
+    position: sticky;
+    /* Clears the fixed bar. */
+    top: 92px;
+  }
+}
+
+.split-right {
+  border-left: 1px solid var(--border);
+  padding: 0 0 40px 46px;
+  min-width: 0;
+}
+
 .kicker {
   color: var(--text-dim);
   text-transform: uppercase;
@@ -510,82 +554,276 @@ code { font-family: var(--mono); font-size: 0.94em; }
   line-height: 1.65;
   max-width: 46rem;
   color: var(--text);
-  margin-bottom: 34px;
+  margin-bottom: 30px;
 }
 
-/* --- the three proofs --- */
+.hero-note {
+  font-size: 12.5px;
+  line-height: 1.65;
+  color: var(--text-dim);
+  margin: 18px 0 26px;
+}
 
-.proofs {
+/* --- the three figures ---
+
+   A row rather than cards: these are the argument in three numbers, and
+   a reader should take them in at once. Each keeps its own semantic
+   register, which is why they are not styled identically. */
+
+.figures {
   display: grid;
-  gap: var(--gap);
-  grid-template-columns: repeat(auto-fit, minmax(258px, 1fr));
-  margin-bottom: 40px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 30px;
 }
 
-.proof {
+.figure {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 20px 20px 22px;
-  background: var(--surface);
+  gap: 6px;
+  padding: 14px 14px 15px;
   border: 1px solid var(--border);
-  border-left-width: 3px;
+  border-top-width: 2px;
   border-radius: var(--radius);
+  background: var(--surface);
   text-decoration: none;
   color: inherit;
-  /* Moves on hover, so a card reads as a door rather than a panel. */
   transition: transform 120ms ease, border-color 120ms ease;
 }
 
-.proof:hover,
-.proof:focus-visible {
+.figure:hover,
+.figure:focus-visible {
   transform: translateY(-2px);
   border-color: var(--rule);
 }
 
-.proof-growth  { border-left-color: var(--growth); }
-.proof-alarm   { border-left-color: var(--alarm); }
-.proof-machine { border-left-color: var(--machine); }
+.figure-growth  { border-top-color: var(--growth); }
+.figure-alarm   { border-top-color: var(--alarm); }
+.figure-machine { border-top-color: var(--machine); }
 
-.proof-label {
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  font-size: 10px;
-  color: var(--text-dim);
-}
-
-.proof-figure {
-  font-size: 30px;
+.figure-value {
+  font-size: 23px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   line-height: 1.1;
+  letter-spacing: -0.01em;
 }
 
-.proof-growth  .proof-figure { color: var(--growth); }
-.proof-alarm   .proof-figure { color: var(--alarm); }
-.proof-machine .proof-figure { color: var(--machine); }
+.figure-growth  .figure-value { color: var(--growth); }
+.figure-alarm   .figure-value { color: var(--alarm); }
+.figure-machine .figure-value { color: var(--machine); }
 
-.proof-note {
-  font-size: 12.5px;
-  line-height: 1.6;
+.figure-label {
+  font-size: 10.5px;
+  line-height: 1.45;
   color: var(--text-dim);
 }
 
-.proof-note code {
-  font-size: 11px;
-  word-break: break-all;
+/* --- the ledger ---
+
+   Ten claims with their support. The unearned rows sit in the same list
+   at the same weight as the rest: a page that lists only what works
+   reads as marketing, and the limitations are what make the earned
+   claims believable. */
+
+.ledger-head {
+  margin-bottom: 20px;
 }
 
-/* --- two ways deeper --- */
+.ledger-head h2 {
+  margin: 0 0 8px;
+}
 
-.start-paths {
-  display: grid;
-  gap: var(--gap);
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+.ledger-head p {
+  font-size: 12.5px;
+  line-height: 1.65;
+  color: var(--text-dim);
+  margin: 0;
+  max-width: 44rem;
+}
+
+.ledger {
+  border-top: 1px solid var(--border);
   margin-bottom: 34px;
 }
 
-.start-paths h3 { margin-bottom: 10px; }
+.claim {
+  border-bottom: 1px solid var(--border);
+}
+
+.claim > summary {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 13px 0;
+  cursor: pointer;
+  list-style: none;
+  transition: color 120ms ease;
+}
+
+/* The default disclosure triangle, removed in both engines. */
+.claim > summary::-webkit-details-marker { display: none; }
+.claim > summary::marker { content: ""; }
+
+.claim > summary:hover .claim-title { color: var(--machine); }
+
+.claim-title {
+  font-size: 13.5px;
+  font-weight: 500;
+  line-height: 1.4;
+  transition: color 120ms ease;
+}
+
+/* The status, and the affordance. A "+" that becomes "−" when open is
+   the cheapest possible signal that a row has more behind it. */
+.claim-status {
+  flex-shrink: 0;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-dim);
+}
+
+.claim-status::after {
+  content: " +";
+  font-size: 12px;
+  letter-spacing: 0;
+}
+
+.claim[open] .claim-status::after { content: " −"; }
+
+.claim-earned .claim-status { color: var(--growth); }
+/* Vermilion would read as a failure. An unearned claim is not a fault:
+   it is work that has not been done, and the declared register for a
+   thing the system will not assert is the dim one. */
+.claim-unearned .claim-status { color: var(--mode-declared); }
+
+.claim-body {
+  padding: 0 0 16px;
+  max-width: 44rem;
+}
+
+.claim-detail {
+  font-size: 12.5px;
+  line-height: 1.7;
+  margin: 0 0 10px;
+  color: var(--text);
+}
+
+.claim-support {
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--text-dim);
+  margin: 0 0 10px;
+  padding-left: 11px;
+  border-left: 2px solid var(--border);
+}
+
+.claim-support-label {
+  display: block;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 9.5px;
+  color: var(--text-dim);
+  margin-bottom: 2px;
+}
+
+.claim-link {
+  font-size: 11.5px;
+  color: var(--machine);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+}
+
+.claim-link:hover { border-bottom-color: var(--machine); }
+
+/* --- what it refuses to claim --- */
+
+.refused {
+  padding: 18px 20px 20px;
+  background: var(--sunken);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 26px;
+}
+
+.refused h3 { margin: 0 0 12px; }
+
+.refused ul {
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 5px 18px;
+}
+
+.refused li {
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--text-dim);
+  padding-left: 15px;
+  position: relative;
+}
+
+/* A struck-through bullet: these are the claims NOT being made. */
+.refused li::before {
+  content: "—";
+  position: absolute;
+  left: 0;
+  color: var(--alarm);
+}
+
+.refused-note {
+  font-size: 11.5px;
+  line-height: 1.65;
+  color: var(--text-dim);
+  margin: 0;
+  padding-top: 11px;
+  border-top: 1px solid var(--border);
+}
+
+/* --- the closing call --- */
+
+.ledger-cta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 22px;
+  flex-wrap: wrap;
+  padding-top: 22px;
+  border-top: 1px solid var(--rule);
+}
+
+.ledger-cta h3 { margin: 0 0 5px; }
+
+.ledger-cta p {
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-dim);
+  margin: 0;
+  max-width: 30rem;
+}
+
+/* Solid, and the only one on the page: a single unmistakable way
+   forward beats three competing links. */
+.cta-button {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 11px 19px;
+  background: var(--text);
+  color: var(--bg);
+  border-radius: var(--radius);
+  text-decoration: none;
+  font-size: 12.5px;
+  font-weight: 500;
+  transition: gap 140ms ease, opacity 140ms ease;
+}
+
+.cta-button:hover { gap: 14px; opacity: 0.88; }
 
 .path {
   margin: 0;
@@ -602,8 +840,6 @@ code { font-family: var(--mono); font-size: 0.94em; }
 }
 
 .path a:hover { border-bottom-color: var(--machine); }
-
-.start-honest { max-width: 46rem; }
 
 /* A narrow screen gets one column and a smaller hero, rather than a
    grid that reflows into something nobody designed. */
@@ -899,34 +1135,33 @@ code { font-family: var(--mono); font-size: 0.94em; }
   .bar { padding-left: 22px; padding-right: 22px; }
 }
 
-/* --- the landing, without a sidebar competing for it ------------------
-   With the nav gone the hero can take the width it needs. The old
-   `.start` was 62rem inside a 232px-indented column; this is the page. */
+/* --- the landing ------------------------------------------------------
+   The split runs full width and starts just below the bar. The hero is
+   sized to the LEFT COLUMN rather than to the page: at 86px it set two
+   words per line in a half-width column, which is a poster, not a
+   headline. */
 
 .shell-landing .start { max-width: none; }
 
 .shell-landing .hero {
-  font-size: clamp(38px, 7.2vw, 86px);
-  line-height: 1.04;
+  font-size: clamp(32px, 3.6vw, 52px);
+  line-height: 1.06;
   letter-spacing: -0.02em;
-  max-width: 18ch;
-  margin-bottom: 28px;
+  margin-bottom: 22px;
 }
 
 .shell-landing .hero-lede {
-  font-size: 16px;
+  font-size: 14.5px;
   line-height: 1.7;
-  /* Wider than the default 46rem: beside an 86px hero a narrow column
-     reads as a caption rather than as the claim's explanation. */
-  max-width: 62ch;
-  margin-bottom: 40px;
+  max-width: 52ch;
+  margin-bottom: 28px;
 }
 
-.shell-landing .kicker { margin-bottom: 26px; }
+.shell-landing .kicker { margin-bottom: 20px; }
 
-/* A rule that draws itself across the page as it opens, marking where
-   the claim ends and the evidence begins. */
-.shell-landing .proofs::before {
+/* A rule that draws itself across the figures as they open, marking
+   where the claim ends and the evidence begins. */
+.shell-landing .figures::before {
   content: "";
   grid-column: 1 / -1;
   height: 1px;
@@ -938,7 +1173,7 @@ code { font-family: var(--mono); font-size: 0.94em; }
   transform-origin: left;
   animation: sweep 900ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
   animation-delay: 160ms;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 
 @keyframes sweep {
@@ -946,21 +1181,18 @@ code { font-family: var(--mono); font-size: 0.94em; }
   to   { transform: scaleX(1); }
 }
 
-.shell-landing .proof-figure { font-size: 38px; }
-
-/* The entry point sits under the proofs, not in a nav: on the landing
-   page the ONLY chrome is the argument itself. */
+/* The entry point sits under the argument, as its conclusion. */
 .start-enter {
   display: inline-flex;
   align-items: baseline;
   gap: 10px;
-  margin: 8px 0 44px;
-  padding: 12px 20px;
+  margin: 4px 0 0;
+  padding: 11px 19px;
   border: 1px solid var(--machine);
   border-radius: var(--radius);
   color: var(--machine);
   text-decoration: none;
-  font-size: 13px;
+  font-size: 12.5px;
   letter-spacing: 0.04em;
   transition: background 160ms ease, transform 160ms ease;
 }
@@ -974,10 +1206,10 @@ code { font-family: var(--mono); font-size: 0.94em; }
 .start-enter:hover span { transform: translateX(3px); }
 
 @media (prefers-reduced-motion: reduce) {
-  .shell-landing .proofs::before { transform: none !important; }
+  .shell-landing .figures::before { transform: none !important; }
 }
 
-/* The bar on the landing page: present but recessive, so the hero opens
+/* The bar on the landing page: present but recessive, so the page opens
    on the claim rather than on chrome -- while still giving a reader
    somewhere to click. An earlier version hid it there entirely and
    produced a page with no way off it. */
@@ -990,7 +1222,7 @@ code { font-family: var(--mono); font-size: 0.94em; }
 
 .bar-quiet .bar-group { opacity: 0.55; }
 
-/* Once the reader scrolls past the hero the bar earns its surface. */
+/* Once the reader scrolls past the top the bar earns its surface. */
 .bar-quiet:hover {
   background: color-mix(in srgb, var(--bg) 86%, transparent);
   backdrop-filter: blur(12px) saturate(140%);
@@ -998,5 +1230,35 @@ code { font-family: var(--mono); font-size: 0.94em; }
   border-bottom-color: var(--border);
 }
 
-/* The landing hero starts below the bar rather than under it. */
-.shell-landing .stage { padding-top: 15vh; }
+/* The split needs the width, and starts below the bar rather than a
+   screen-height below it: the ledger's first rows should be visible
+   without scrolling, because they are the reason to stay. */
+.shell-landing .stage {
+  max-width: 1420px;
+  padding-top: 104px;
+}
+
+/* One column once the two stop fitting. The left column releases its
+   sticky position here -- a sticky element in a single-column flow
+   pins the argument over the ledger a reader is trying to scroll. */
+@media (max-width: 1080px) {
+  .split { grid-template-columns: minmax(0, 1fr); }
+
+  .split-left {
+    position: static;
+    padding: 0 0 34px;
+  }
+
+  .split-right {
+    border-left: none;
+    border-top: 1px solid var(--border);
+    padding: 30px 0 40px;
+  }
+
+  .shell-landing .hero { font-size: clamp(32px, 6.4vw, 60px); }
+}
+
+@media (max-width: 560px) {
+  .figures { grid-template-columns: minmax(0, 1fr); }
+  .ledger-cta { flex-direction: column; align-items: flex-start; }
+}
