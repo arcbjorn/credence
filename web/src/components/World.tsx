@@ -76,8 +76,19 @@ export function World({ book, nodes = [], loans = [], projection = "globe", sele
     };
     const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(scheduleResize) : null;
     if (wrapper.current) observer?.observe(wrapper.current);
-    const intersection = typeof IntersectionObserver !== "undefined" ? new IntersectionObserver(entries => { visible = entries[0]?.isIntersecting ?? true; }) : null;
-    intersection?.observe(el);
+    // Observe the WRAPPER, not the bitmap. The canvas is sized from its
+    // container and, at narrow widths, its box can sit off-viewport
+    // during first layout -- the observer then latched `false` and the
+    // draw loop stopped for good, leaving a blank plate on every room.
+    // A margin keeps a body that deliberately bleeds past an edge in
+    // view, and `visible` only ever gates work, never correctness.
+    const intersection = typeof IntersectionObserver !== "undefined"
+      ? new IntersectionObserver(
+          entries => { visible = entries.some(e => e.isIntersecting); },
+          { rootMargin: "200px" },
+        )
+      : null;
+    intersection?.observe(wrapper.current ?? el);
     const themeObserver = new MutationObserver(scheduleResize);
     themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
     const scheme = window.matchMedia?.("(prefers-color-scheme: dark)");
@@ -263,7 +274,7 @@ export function World({ book, nodes = [], loans = [], projection = "globe", sele
     <div className={`credit-world world-${projection} ${labels ? "" : "world-whisper"}`} ref={wrapper} style={{ position: "relative", width: "100%", aspectRatio: "1 / 1", minWidth: 0 }} onPointerEnter={() => setHovered(true)} onPointerLeave={() => setHovered(false)} onFocus={() => setFocused(true)} onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) setFocused(false); }}>
       <canvas ref={canvas} width={800} height={800} className="world-canvas" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} role="img" aria-label={`Credit body, ${projection} projection. ${book.utilization === null ? "Book measurements unavailable." : `${(book.utilization * 100).toFixed(1)}% utilization.`} ${nodes.length} ${nodes.length === 1 ? "profile" : "profiles"}. Surface texture is illustrative.`} />
       <div className="world-pole world-pole-n" aria-hidden="true">N</div><div className="world-pole world-pole-s" aria-hidden="true">S</div>
-      {nodes.map((node, i) => <button key={node.id} ref={el => { if (el) buttons.current.set(node.id, el); else buttons.current.delete(node.id); }} type="button" className={`world-node ${node.denied ? "node-hollow" : ""} ${selected === node.id ? "node-selected" : ""} ${node.score !== null && node.score >= 800 ? "node-exceptional" : ""}`} style={{ left: `${35 + i * 18}%`, top: `${36 + i * 12}%` }} aria-label={`${node.label}, score ${node.score ?? "unmeasured"}${node.denied ? ", denied" : ""}`} aria-pressed={selected === node.id} onClick={() => onSelect?.(node.id)}>
+      {nodes.map((node, i) => <button key={node.id} ref={el => { if (el) buttons.current.set(node.id, el); else buttons.current.delete(node.id); }} type="button" className={`world-node ${node.denied ? "node-hollow" : ""} ${selected === node.id ? "node-selected" : ""} ${node.score !== null && node.score >= 800 ? "node-exceptional" : ""} ${35 + i * 18 > 60 ? "node-flip" : ""}`} style={{ left: `${35 + i * 18}%`, top: `${36 + i * 12}%` }} aria-label={`${node.label}, score ${node.score ?? "unmeasured"}${node.denied ? ", denied" : ""}`} aria-pressed={selected === node.id} onClick={() => onSelect?.(node.id)}>
         <span className="node-point" /><span className="node-label">{node.label}<small>{node.denied ? "RESTRICTED" : node.score !== null ? `SCORE ${node.score}` : "UNMEASURED"}</small></span>
       </button>)}
       {projection === "layers" && <div className="world-layer-labels"><span>01 / Identity</span><span>02 / Reputation</span><span>03 / Escrow</span><span>04 / Settlement</span></div>}
