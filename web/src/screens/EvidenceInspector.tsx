@@ -45,7 +45,7 @@ export function EvidenceInspector() {
   if (!snapshot) {
     return (
       <>
-        <h2>Evidence</h2>
+        <h1 className="record-title">Evidence</h1>
         <p className="lede">This run retained no snapshot to inspect.</p>
       </>
     );
@@ -55,7 +55,7 @@ export function EvidenceInspector() {
 
   return (
     <>
-      <h2>Evidence</h2>
+      <h1 className="record-title">Evidence</h1>
       <p className="lede">
         Everything the engine was shown for this decision, item by item.
         Nothing here is summarized into a single status.
