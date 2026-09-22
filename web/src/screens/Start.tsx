@@ -17,7 +17,7 @@ const CHAPTERS: { title: string; label: string; copy: string; projection: Projec
   { title: "One book. Its own weather.", label: "05 / The moons", copy: "A facility has its own limits and its own exposure. Survey the retained book here. More moons arrive when more markets do.", projection: "moons", note: "Isolation begins with a boundary." },
   { title: "Lenders cast the light.", label: "06 / The eclipse", copy: "Agents cast the shadow. The overlap is utilization: capital at work, measured against capital available.", projection: "eclipse", note: "Risk, in plain sight." },
   { title: "Read the book as a map.", label: "07 / The atlas", copy: "Unroll the body. Compare its coordinates. The same evidence, seen from another angle.", projection: "atlas", note: "A different projection. The same truth." },
-  { title: "Find your coordinate.", label: "08 / The observatory", copy: "Follow the capital. Inspect an agent. Replay the evidence. The body is open for observation.", projection: "globe", note: "Enter the atlas." },
+  { title: "Find your coordinate.", label: "08 / The observatory", copy: "Follow the capital. Inspect an agent. Replay the evidence. The body is open for observation.", projection: "globe", note: "The observatory is open." },
 ];
 
 export function ClaimRow({ claim }: { claim: Claim }) {
@@ -76,14 +76,14 @@ export function Start() {
           <div className="satellite satellite-top"><span className="satellite-line" /><div><span className="instrument-label">FIG. {String(chapter + 1).padStart(2, "0")}</span><p>{current.note}</p></div></div>
           <div className="satellite satellite-bottom"><span className="instrument-label">ATMOSPHERE</span><span>{book.utilization === null ? "Awaiting measurement" : `${((1 - book.utilization) * 100).toFixed(1)}% headroom`}</span><span className="satellite-line" /></div>
           <p className="hero-lede">{current.copy}</p>
-          <Link to={chapter === 7 ? "/atlas" : "/observatory"} className="start-enter">Enter the atlas <span>↗</span></Link>
+          <Link to={chapter === 7 ? "/atlas" : "/observatory"} className="start-enter">{chapter === 7 ? "Explore the atlas" : "Enter the observatory"} <span aria-hidden="true">↗</span></Link>
           <p className="hero-access">Open to observe. Built to be verified.</p>
         </div>
         <div className="world-controls"><button type="button" onClick={() => setPaused(!paused)} aria-pressed={paused}>{paused ? "Resume rotation" : "Pause rotation"}<span aria-hidden="true">{paused ? "▷" : "Ⅱ"}</span></button>{loans.length > 0 && <button type="button" onClick={() => setReplay(v => v + 1)}>Replay an arc <span>↗</span></button>}</div>
         <div className="story-readings">
           <Link to="/lender"><span className="instrument-label">01 / AVAILABLE CAPITAL</span><strong>{book.idle === null ? "—" : units(book.idle.toString())}<small> units</small></strong></Link>
           <Link to="/agent"><span className="instrument-label">02 / LATEST RETAINED APR</span><strong>{bps(last?.payload.outcome.terms?.apr_bps)}</strong></Link>
-          <Link to="/lifecycle"><span className="instrument-label">03 / RECORDED ORIGINATIONS</span><strong>{survey.run ? String(loans.length).padStart(2, "0") : "—"}<small> arcs</small></strong></Link>
+          <Link to="/arc"><span className="instrument-label">03 / RECORDED ORIGINATIONS</span><strong>{survey.run ? String(loans.length).padStart(2, "0") : "—"}<small> arcs</small></strong></Link>
           <div className="reading-provenance"><span className="status-pin" /><span>{survey.loading ? "Reading the survey" : survey.run ? "Retained survey" : "Survey unavailable"}<small>{surveyDate(survey.run) ?? "The core awaits a measurement."}</small></span></div>
         </div>
         <div className="story-bottomline"><button type="button" onClick={() => goToChapter(chapter === 8 ? 0 : chapter + 1)}>{chapter === 8 ? "BACK TO THE SHELL ↑" : "SCROLL TO SURVEY ↓"}</button><div className="chapter-steps" role="group" aria-label="Story chapters">{CHAPTERS.map((c, i) => <button type="button" key={c.label} aria-label={c.label} aria-pressed={chapter === i} onClick={() => goToChapter(i)}><span /></button>)}</div><span>{String(chapter + 1).padStart(2, "0")} <span className="muted">/ 09</span></span></div>
@@ -94,6 +94,6 @@ export function Start() {
       <div className="proof-intro"><p className="eyebrow">09 / WEATHER THAT HAPPENED</p><h2>A record.<br /><em>Not a promise.</em></h2><p>Every figure has a source. Every decision leaves a trace. Open the records and see what this body can prove.</p><Deployment /><Link to="/replay" className="text-link">Replay a decision ↗</Link></div>
       <div><header className="ledger-head"><h3>The field record</h3><p><strong>{EARNED} of {EARNED + UNEARNED} work today.</strong></p></header><div className="ledger">{CLAIMS.map(c => <ClaimRow key={c.title} claim={c} />)}</div><details className="refused"><summary>What this does not claim</summary><ul>{REFUSED.map(r => <li key={r}>{r}</li>)}</ul><p>Determinism buys auditability, not accuracy. Replaying a decision proves what the model did.</p></details></div>
     </section>
-    <footer className="landing-footer"><div className="footer-invitation"><span className="eyebrow">THERE IS MORE TO THIS WORLD.</span><Link to="/observatory">Enter the atlas.<span>↗</span></Link></div><div className="footer-baseline"><Link className="footer-brand" to="/"><BrandMark />credence.</Link><span>Credit has a memory.</span><Link to="/guide">Read the field guide ↗</Link></div></footer>
+    <footer className="landing-footer"><div className="footer-invitation"><span className="eyebrow">THERE IS MORE TO THIS WORLD.</span><Link to="/observatory">Enter the observatory.<span aria-hidden="true">↗</span></Link></div><div className="footer-baseline"><Link className="footer-brand" to="/"><BrandMark />credence.</Link><span>Credit has a memory.</span><Link to="/guide">Read the field guide ↗</Link></div></footer>
   </>;
 }
