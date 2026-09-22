@@ -51,9 +51,11 @@ describe("the claims ledger on the landing page", () => {
   it("states the earned count the ledger actually contains", () => {
     renderStart();
     expect(screen.getAllByText("earned").length).toBe(EARNED);
-    // The summary line must agree with the rows beneath it.
+    // The summary line must agree with the rows beneath it. Matched on
+    // the COUNTS rather than on a fixed sentence, so rewording the copy
+    // does not fail this and changing a number does.
     expect(
-      screen.getByText(`${EARNED} are earned.`),
+      screen.getByText(`${EARNED} of ${EARNED + UNEARNED} are earned.`),
     ).toBeInTheDocument();
   });
 

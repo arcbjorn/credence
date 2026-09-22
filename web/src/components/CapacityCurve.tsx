@@ -171,7 +171,7 @@ export function CapacityCurve({ points }: { points: CurvePoint[] }) {
       </svg>
 
       <p className="curve-caption">
-        One policy, one model hash. Only the demonstrated history changes.
+        Capacity per loan, with the offered rate above each point.
         {switchAt > 0 && (
           <>
             {" "}
@@ -182,9 +182,7 @@ export function CapacityCurve({ points }: { points: CurvePoint[] }) {
             and starts being set by{" "}
             <span title={points[switchAt]!.binding}>
               {bindingPhrase(points[switchAt]!.binding)}
-            </span>{" "}
-            — history opens the facility until portfolio risk becomes the
-            limit.
+            </span>.
           </>
         )}
       </p>

@@ -134,15 +134,17 @@ export function Start() {
         <p className="kicker">Credit for AI agents</p>
 
         <h1 className="hero">
-          An agent borrows against what it has <em>demonstrated</em>.
+          A credit score is just a <em>compression</em> of what you did
+          before.
         </h1>
 
         <p className="hero-lede">
-          Software agents are starting to trade, hedge and pay for their own
-          compute. None of them can get credit, because nobody can price a
-          borrower with no salary, no address and no credit file. Credence
-          prices one from the only thing it has: a record of what it
-          actually did.
+          Agents trade, hedge and pay for their own compute. None of them
+          can borrow, because underwriting expects a salary, an address and
+          a credit file, and an agent has none of those. But it has
+          something a human borrower never does: every action it ever took,
+          already onchain, already signed. That is the credit file. We
+          compile it into a limit and a price.
         </p>
 
         {missing && (
@@ -169,13 +171,15 @@ export function Start() {
               )}
             </span>
             <span className="figure-label">
-              rate, across {loans.length || "—"} loans
+              cheaper by loan {loans.length || "—"}, same policy
             </span>
           </Link>
 
           <Link to="/enforcement" className="figure figure-alarm">
             <span className="figure-value">reverted</span>
-            <span className="figure-label">a withdrawal it could not make</span>
+            <span className="figure-label">
+              it tried to take its collateral back
+            </span>
           </Link>
 
           <Link to="/lender" className="figure figure-machine">
@@ -188,7 +192,9 @@ export function Start() {
                 "—"
               )}
             </span>
-            <span className="figure-label">written off, in public</span>
+            <span className="figure-label">
+              lost on a loan that went bad
+            </span>
           </Link>
         </div>
 
@@ -204,12 +210,12 @@ export function Start() {
 
         {loans.length > 1 && (
           <p className="hero-note">
-            The limit rises from {units(first?.capacity)} to{" "}
-            {units(last?.capacity)}
+            Three loans, same policy, same model hash. The only input that
+            changed is the history, and the limit goes {units(first?.capacity)}{" "}
+            &rarr; {units(last?.capacity)}
             {switched
-              ? ", and what bounds it switches from its own record to what it survives in a crash."
-              : `, still limited by ${bindingPhrase(last?.binding)}.`}{" "}
-            One policy, one model. Only the history changes.
+              ? ". Notice where it bends: past that point the binding constraint is no longer the agent's record but what its book survives in a crash. Good behaviour stops buying you more."
+              : `, still limited by ${bindingPhrase(last?.binding)}.`}
           </p>
         )}
 
@@ -224,10 +230,12 @@ export function Start() {
         <header className="ledger-head">
           <h2>What this claims</h2>
           <p>
-            Ten claims, each with the support that would earn it.{" "}
-            <strong>{EARNED} are earned.</strong> {UNEARNED} are not, and
-            they are in this list rather than in a footnote. Open a row for
-            the evidence.
+            A demo can show you anything. So here is every claim this
+            project makes, with the thing that would have to be true for it
+            to hold. <strong>{EARNED} of {EARNED + UNEARNED} are earned.</strong>{" "}
+            The other {UNEARNED} are in the same list, not a footnote —
+            burying them is how you end up with a demo that shows you
+            anything. Open a row to see what backs it.
           </p>
         </header>
 
@@ -238,25 +246,28 @@ export function Start() {
         </div>
 
         <div className="refused">
-          <h3>What it refuses to claim</h3>
+          <h3>What this does not claim</h3>
           <ul>
             {REFUSED.map((r) => (
               <li key={r}>{r}</li>
             ))}
           </ul>
           <p className="refused-note">
-            High APR does not establish profitability. Synthetic tests do
-            not establish demand. Determinism establishes auditability, not
-            accuracy.
+            Worth being precise about the last one, because it is the easy
+            thing to overclaim: determinism buys you auditability, not
+            accuracy. Every decision here replays byte-for-byte, which
+            proves the model did what it says. It does not prove the model
+            is right.
           </p>
         </div>
 
         <div className="ledger-cta">
           <div>
-            <h3>Check it yourself</h3>
+            <h3>Don't take my word for it</h3>
             <p>
-              Re-run a real decision in your browser against the retained
-              inputs, and watch a tampered copy fail.
+              The engine is the same Rust compiled to WebAssembly, running
+              in your tab. Re-run a real decision against its retained
+              inputs, then change one byte and watch it refuse to match.
             </p>
           </div>
           <Link to="/replay" className="cta-button">
