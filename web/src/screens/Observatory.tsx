@@ -55,7 +55,12 @@ export function Observatory() {
     setSelection(null); setProjectionOverride(null); setEclipse(false); setStep(null); setFilter("all"); setQuery("");
   }, [pathname]);
   useEffect(() => {
-    if (showDock) dockClose.current?.focus();
+    // Only listen while a dock is open. Bound unconditionally, Escape
+    // restored `previousFocus` even with nothing to dismiss -- so a
+    // reader typing in the profile search pressed Escape to clear it and
+    // had focus yanked to whichever node they had last selected.
+    if (!showDock) return;
+    dockClose.current?.focus();
     const close = (event: KeyboardEvent) => { if (event.key === "Escape") { setSelection(null); previousFocus.current?.focus(); } };
     window.addEventListener("keydown", close);
     return () => window.removeEventListener("keydown", close);
