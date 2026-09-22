@@ -279,6 +279,23 @@ export function CreditGlobe({
             </radialGradient>
           )}
 
+          {/* The dark side. Light comes from upper left, so the
+              opposite quarter falls away -- this is what turns a
+              filled circle into a lit sphere. */}
+          <radialGradient id={`${gradientId}-dark`} cx="72%" cy="76%" r="76%">
+            <stop offset="0%" stopColor="#000" stopOpacity="0.3" />
+            <stop offset="55%" stopColor="#000" stopOpacity="0.1" />
+            <stop offset="100%" stopColor="#000" stopOpacity="0" />
+          </radialGradient>
+
+          {/* A specular bloom where the light strikes. Small and
+              off-centre; a highlight in the middle reads as a button. */}
+          <radialGradient id={`${gradientId}-spec`} cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="#fff" stopOpacity="0.1" />
+            <stop offset="70%" stopColor="#fff" stopOpacity="0.02" />
+            <stop offset="100%" stopColor="#fff" stopOpacity="0" />
+          </radialGradient>
+
           {/* A soft shadow under the body, so it sits in space rather
               than floating on the page. */}
           <radialGradient id={`${gradientId}-shadow`} cx="50%" cy="50%" r="50%">
@@ -308,10 +325,43 @@ export function CreditGlobe({
           stroke={
             denied ? "var(--alarm)" : stress ? "var(--machine)" : "var(--border)"
           }
-          strokeWidth={denied || stress ? 1.5 : 1}
+          strokeWidth={denied || stress ? 1.2 : 1}
           strokeDasharray={denied || stress ? "none" : "2 7"}
+          /* Held back so the bound frames the body rather than
+             outshining it: at full strength the ring was the brightest
+             thing on the page and the object read as its outline. */
+          strokeOpacity={denied ? 0.72 : stress ? 0.55 : 0.85}
           className="globe-limit"
         />
+
+        {/* Headroom: the room between what this agent has drawn and
+            what it is allowed. A wide band is a facility with slack; as
+            the body grows toward its bound the band closes, and at the
+            switch it is nearly gone. Drawn as faint radial ticks so the
+            gap reads as MEASURED space rather than as background. */}
+        {bodyR > 0 && LIMIT_R - bodyR > 6 && (
+          <g className="globe-headroom">
+            {Array.from({ length: 72 }, (_, n) => {
+              const a = ((n / 72) * 360 + spin * 0.4) * (Math.PI / 180);
+              const x1 = CENTER + Math.cos(a) * (bodyR + 4);
+              const y1 = CENTER + Math.sin(a) * (bodyR + 4);
+              const x2 = CENTER + Math.cos(a) * (LIMIT_R - 3);
+              const y2 = CENTER + Math.sin(a) * (LIMIT_R - 3);
+              return (
+                <line
+                  key={n}
+                  x1={x1}
+                  y1={y1}
+                  x2={x2}
+                  y2={y2}
+                  stroke={stress ? "var(--machine)" : "var(--rule)"}
+                  strokeWidth="0.5"
+                  strokeOpacity={n % 6 === 0 ? 0.16 : 0.05}
+                />
+              );
+            })}
+          </g>
+        )}
 
         {/* The body. */}
         <circle
@@ -335,7 +385,7 @@ export function CreditGlobe({
         )}
 
         {/* Far side of the wireframe, seen through the body. */}
-        <g stroke={hue} fill="none" strokeWidth="0.4" opacity="0.12">
+        <g stroke={hue} fill="none" strokeWidth="0.4" opacity="0.16">
           {lats.map((l, n) => (
             <path key={`latf${n}`} d={l.far} />
           ))}
@@ -345,7 +395,7 @@ export function CreditGlobe({
         </g>
 
         {/* Near side. */}
-        <g stroke={hue} fill="none" strokeWidth="0.5" opacity="0.26">
+        <g stroke={hue} fill="none" strokeWidth="0.55" opacity="0.4">
           {lats.map((l, n) => (
             <path key={`latn${n}`} d={l.near} />
           ))}
@@ -365,6 +415,28 @@ export function CreditGlobe({
           strokeOpacity={denied ? 0.4 : 0.55}
           className="globe-edge"
         />
+
+        {/* Shading, over the wireframe so the lines fall into shadow
+            with the surface they sit on. */}
+        {bodyR > 0 && (
+          <>
+            <circle
+              cx={CENTER}
+              cy={CENTER}
+              r={bodyR}
+              fill={`url(#${gradientId}-dark)`}
+              className="globe-dark"
+            />
+            <ellipse
+              cx={CENTER - bodyR * 0.3}
+              cy={CENTER - bodyR * 0.36}
+              rx={bodyR * 0.42}
+              ry={bodyR * 0.3}
+              fill={`url(#${gradientId}-spec)`}
+              className="globe-spec"
+            />
+          </>
+        )}
 
         {/* The atmosphere, over the shell and under the nodes. */}
         {bodyR > 0 && (
@@ -391,16 +463,32 @@ export function CreditGlobe({
             bodyR,
           );
           const behind = pts.every((p) => p.z < 0);
+          const d = toPath(pts);
           return (
-            <path
-              key={`arc${n}`}
-              d={toPath(pts)}
-              fill="none"
-              stroke={hue}
-              strokeWidth="1.2"
-              strokeOpacity={behind ? 0.16 : 0.7}
-              className="globe-arc"
-            />
+            <g key={`arc${n}`}>
+              <path
+                d={d}
+                fill="none"
+                stroke={hue}
+                strokeWidth="1.2"
+                strokeOpacity={behind ? 0.16 : 0.7}
+                className="globe-arc"
+              />
+              {/* A charge travelling the arc, lender to borrower. Only
+                  on the near face and only when motion is allowed: a
+                  pulse nobody can see is work the browser does for
+                  nothing. The DIRECTION is the point -- capital moves
+                  one way and comes back as repayment. */}
+              {!behind && motion && (
+                <circle r="1.8" fill={hue} className="globe-pulse">
+                  <animateMotion
+                    dur={`${2.4 + n * 0.5}s`}
+                    repeatCount="indefinite"
+                    path={d}
+                  />
+                </circle>
+              )}
+            </g>
           );
         })}
 
@@ -409,28 +497,45 @@ export function CreditGlobe({
             rather than hovering. `docs/brand/physics.md`: it does not
             heal, and nothing here fades it with time. */}
         {scar !== null && bodyR > 0 && (() => {
-          const at = project(
-            rotate(onSphere(-28, 58), spin, TILT),
-            CENTER,
-            CENTER,
-            bodyR,
-          );
-          if (at.z < 0) return null;
-          // Foreshortened: a crater near the limb is seen at an angle.
-          const rx = Math.max(3, Math.sqrt(scar) * bodyR * 0.5);
+          const v = rotate(onSphere(-28, 58), spin, TILT);
+          const at = project(v, CENTER, CENTER, bodyR);
+          // Hidden well before the limb. At exactly z=0 a crater is
+          // edge-on, and drawing it there produced a sliver hanging off
+          // the silhouette that read as a rendering fault.
+          if (v.z < 0.12) return null;
+
+          const rr = Math.max(3.5, Math.sqrt(scar) * bodyR * 0.55);
+          // Foreshortened along the surface normal: a crater seen at an
+          // angle is an ellipse squashed TOWARD the centre of the disc,
+          // not one squashed horizontally regardless of where it sits.
+          const angle = (Math.atan2(at.y - CENTER, at.x - CENTER) * 180) / Math.PI;
           return (
-            <ellipse
-              cx={at.x}
-              cy={at.y}
-              rx={rx * Math.max(0.15, at.z)}
-              ry={rx}
-              fill="var(--alarm)"
-              fillOpacity="0.5"
-              stroke="var(--alarm)"
-              strokeOpacity="0.7"
-              strokeWidth="0.75"
+            <g
+              transform={`rotate(${angle.toFixed(2)} ${at.x.toFixed(2)} ${at.y.toFixed(2)})`}
               className="globe-scar"
-            />
+            >
+              <ellipse
+                cx={at.x}
+                cy={at.y}
+                rx={rr * v.z}
+                ry={rr}
+                fill="var(--alarm)"
+                fillOpacity={0.16 + v.z * 0.24}
+                stroke="var(--alarm)"
+                strokeOpacity={0.3 + v.z * 0.4}
+                strokeWidth="0.7"
+              />
+              {/* A darker floor, so it reads as a pit rather than a
+                  sticker: the crater has depth. */}
+              <ellipse
+                cx={at.x}
+                cy={at.y}
+                rx={rr * v.z * 0.5}
+                ry={rr * 0.5}
+                fill="#000"
+                fillOpacity={0.3 * v.z}
+              />
+            </g>
           );
         })()}
 

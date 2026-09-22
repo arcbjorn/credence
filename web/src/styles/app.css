@@ -707,6 +707,14 @@ code { font-family: var(--mono); font-size: 0.94em; }
 }
 
 .globe-node { transition: fill 800ms ease, r 400ms ease; }
+
+/* The charge on an arc. Faint: it marks direction, it is not a
+   headline. */
+.globe-pulse { opacity: 0.85; }
+
+/* Headroom ticks turn with the body, so the gap reads as a measured
+   band rather than a static frame. */
+.globe-headroom { transition: opacity 600ms ease; }
 .globe-arc { transition: stroke 800ms ease; }
 
 .globe-figure {
