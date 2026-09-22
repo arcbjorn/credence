@@ -97,7 +97,15 @@ export function World({ book, nodes = [], loans = [], projection = "globe", sele
 
     const draw = (now: number) => {
       frame = requestAnimationFrame(draw);
-      if (!visible || document.hidden || now - last < 32) return;
+      // A 32ms gate pinned this to exactly 30fps on a 60Hz display: rAF
+      // delivers every 16.7ms, so the second frame of every pair was
+      // always 16.7ms short and got dropped. On a body that rotates
+      // continuously that halves the frame rate and reads as judder.
+      // rAF already limits itself to the display's refresh, and `dt`
+      // below keeps rotation and the projection lerps time-correct at
+      // any rate, so the gate only needs to reject the degenerate
+      // zero-delta frame.
+      if (!visible || document.hidden || now - last < 1) return;
       const dt = Math.min((now - (last || now)) / 1000, 0.1);
       last = now;
       const state = latest.current;
