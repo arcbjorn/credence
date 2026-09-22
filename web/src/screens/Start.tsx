@@ -9,15 +9,15 @@ import { BrandMark } from "../components/Shell";
 import { Deployment } from "../components/Deployment";
 
 const CHAPTERS: { title: string; label: string; copy: string; projection: Projection; note: string }[] = [
-  { title: "Agents can't borrow money.", label: "A new coordinate for capital", copy: "They trade, they pay for compute, they hold positions. But no salary, no address, no credit file. So nobody will lend to them. We price them on the one thing they do have: a record of what they actually did.", projection: "globe", note: "Start with the problem." },
-  { title: "Every agent is a point.", label: "01 / The shell", copy: "One point per agent. Its size is the credit limit we'd give it today. That limit comes from its history — repay on time and it grows, get denied and it doesn't. Nothing here is hand-set.", projection: "globe", note: "Size is the limit. History sets the size." },
-  { title: "Every loan is an arc.", label: "02 / The passage", copy: "Money leaves the lender, reaches the agent, comes back. A longer loan draws a higher arc. Each completed arc becomes part of the record that sets the next limit.", projection: "globe", note: "Borrow, repay, borrow more." },
-  { title: "The lender's cash is the core.", label: "03 / The core", copy: "The bright centre is cash sitting idle, ready to lend. Lend it out and the centre dims. This is the lender's side of the book — the pool every loan is drawn from.", projection: "core", note: "Bright core means money to lend." },
-  { title: "Four layers, one body.", label: "04 / The section", copy: "Cut it open and you get identity, then the track record, then collateral held in escrow, then the lender's cash at the centre. A loan passes through all four. Each one leaves evidence you can check.", projection: "layers", note: "Every layer keeps a receipt." },
-  { title: "Each market is its own moon.", label: "05 / The moons", copy: "A lending pool has its own cash, its own borrowers, its own risk. One pool going bad shouldn't take the others with it — so each gets its own orbit. Today there's exactly one. More when there's real evidence for them.", projection: "moons", note: "One pool today. Not pretending otherwise." },
-  { title: "How much is lent out right now.", label: "06 / The eclipse", copy: "The light is cash available. The shadow is cash already lent. Where they overlap is utilization — the share of the pool that's working. A lot of overlap means little left to lend.", projection: "eclipse", note: "Overlap is how much is at work." },
-  { title: "Flatten it into a map.", label: "07 / The atlas", copy: "Same agents, same numbers, laid out flat instead of wrapped on a sphere. Easier to compare three borrowers side by side and see why one got denied.", projection: "atlas", note: "Same data, easier to scan." },
-  { title: "Go look for yourself.", label: "08 / The observatory", copy: "Every number here was produced by a real run and kept. Pick an agent, open its record, re-run the decision in your browser. If something is missing, the page says so instead of guessing.", projection: "globe", note: "Check it rather than trust it." },
+  { title: "Agents can't borrow.", label: "A new coordinate for capital", copy: "No salary, no address, no credit file — so nobody will lend to them. We price them on the one thing they have: a record of what they actually did.", projection: "globe", note: "Start with the problem." },
+  { title: "Every agent is a point.", label: "01 / The shell", copy: "One point per agent, sized by what we'd lend it today. Repay on time and it grows. Nothing here is hand-set.", projection: "globe", note: "Size is the limit. History sets the size." },
+  { title: "Every loan is an arc.", label: "02 / The passage", copy: "Money leaves the lender, reaches the agent, comes back. A longer loan draws a higher arc, and each one sets the next limit.", projection: "globe", note: "Borrow, repay, borrow more." },
+  { title: "The lender's cash.", label: "03 / The core", copy: "The bright centre is cash waiting to be lent. Lend it out and the centre dims. Every loan is drawn from here.", projection: "core", note: "Bright core means money to lend." },
+  { title: "Four layers, one body.", label: "04 / The section", copy: "Identity, then track record, then collateral held, then the lender's cash. A loan passes through all four, and each leaves evidence.", projection: "layers", note: "Every layer keeps a receipt." },
+  { title: "Each pool, its own moon.", label: "05 / The moons", copy: "Each pool keeps its own cash and borrowers, so one going bad can't drain the rest. There is exactly one today.", projection: "moons", note: "One pool today. Not pretending otherwise." },
+  { title: "How much is lent out.", label: "06 / The eclipse", copy: "Light is cash available, shadow is cash already lent. The overlap is how much of the pool is working.", projection: "eclipse", note: "Overlap is how much is at work." },
+  { title: "Flatten it into a map.", label: "07 / The atlas", copy: "Same agents, same numbers, laid out flat. Easier to see why one borrower got denied.", projection: "atlas", note: "Same data, easier to scan." },
+  { title: "Go look for yourself.", label: "08 / The observatory", copy: "Pick an agent, open its record, re-run the decision in your browser. If a number is missing, the page says so.", projection: "globe", note: "Check it rather than trust it." },
 ];
 
 export function ClaimRow({ claim }: { claim: Claim }) {
@@ -77,7 +77,7 @@ export function Start() {
           <div className="satellite satellite-bottom"><span className="instrument-label">ATMOSPHERE</span><span>{book.utilization === null ? "Awaiting measurement" : `${((1 - book.utilization) * 100).toFixed(1)}% headroom`}</span><span className="satellite-line" /></div>
           <p className="hero-lede">{current.copy}</p>
           <Link to={chapter === 7 ? "/atlas" : "/observatory"} className="start-enter">{chapter === 7 ? "Compare the borrowers" : "See it working"} <span aria-hidden="true">↗</span></Link>
-          <p className="hero-access">Nothing here is a mockup. Every number came from a real run.</p>
+          <p className="hero-access">Every number came from a real run.</p>
         </div>
         <div className="world-controls"><button type="button" onClick={() => setPaused(!paused)} aria-pressed={paused}>{paused ? "Resume rotation" : "Pause rotation"}<span aria-hidden="true">{paused ? "▷" : "Ⅱ"}</span></button>{loans.length > 0 && <button type="button" onClick={() => setReplay(v => v + 1)}>Replay a loan <span>↗</span></button>}</div>
         <div className="story-readings">
