@@ -1,147 +1,77 @@
 import { useEffect, useState } from "react";
-import { NavLink, useLocation } from "react-router";
+import { Link, NavLink, useLocation } from "react-router";
 
-/**
- * The frame.
- *
- * This replaced a 232px sidebar carrying eleven undifferentiated links.
- * That shape is a documentation site's, and it made the interface read
- * as documentation no matter what went inside it: every screen equally
- * weighted, the argument and the appendix side by side, and a third of
- * the viewport spent on a list nobody needed after the first click.
- *
- * Two changes, both structural:
- *
- *   1. **The bar is everywhere, including the landing page.** An
- *      earlier version hid it there on the theory that a front door
- *      needs no table of contents. What it actually produced was a page
- *      with no way off it: a reader who wanted to see the evidence had
- *      nowhere to click. A front door still needs handles.
- *   2. **Inner screens get a slim top bar** that groups the links the
- *      way `docs/09` groups them -- the nine-beat script first, the
- *      evidence a reader checks it against second. The grouping is the
- *      point: a flat list of eleven says these are eleven equal things,
- *      and they are not.
- *
- * The bar hides on scroll down and returns on scroll up, so reading a
- * long ledger is not done around a fixed header.
- */
-
-/**
- * The story, in the order it makes sense.
- *
- * Labels name what a reader SEES, not what the screen is called
- * internally. "Assessment detail" and "Indexed" are accurate and tell a
- * visitor nothing; "Why this rate?" and "Rebuilt from the chain" tell
- * them whether to click.
- */
-const ARGUMENT = [
-  { to: "/compare", label: "Who gets credit" },
-  { to: "/agent", label: "How it grows" },
-  { to: "/enforcement", label: "The limits" },
-  { to: "/lender", label: "Losses" },
-  { to: "/replay", label: "Verify" },
+const ROOMS = [
+  { to: "/observatory", label: "Observatory", bearing: "N" },
+  { to: "/atlas", label: "Atlas", bearing: "E" },
+  { to: "/moons", label: "Moons", bearing: "S" },
+  { to: "/body", label: "Body", bearing: "W" },
+];
+const RECORDS = [
+  ["/agent", "Growth"], ["/compare", "Profiles"], ["/assessment", "Assessment"],
+  ["/lifecycle", "Arc"], ["/lender", "Core"], ["/enforcement", "Limits"],
+  ["/evidence", "Evidence"], ["/indexed", "Chain log"], ["/perpl", "Weather"], ["/replay", "Replay"],
 ];
 
-/** For a reader who wants to audit rather than be told. */
-const EVIDENCE = [
-  { to: "/assessment", label: "Why this rate" },
-  { to: "/evidence", label: "Data sources" },
-  { to: "/lifecycle", label: "A loan in full" },
-  { to: "/indexed", label: "From the chain" },
-  { to: "/perpl", label: "Market risk" },
-];
+export function BrandMark() {
+  return <svg viewBox="0 0 32 32" fill="none" aria-hidden="true"><circle cx="16" cy="16" r="12" stroke="currentColor" strokeWidth="1.2" /><ellipse cx="16" cy="16" rx="5.4" ry="12" stroke="currentColor" strokeWidth="1.1" transform="rotate(34 16 16)" /><path d="M4 16h24M7 8.5c5 4 13 4 18 0M7 23.5c5-4 13-4 18 0" stroke="currentColor" strokeWidth=".8" /><circle cx="25.5" cy="8.5" r="2.7" fill="var(--bg)" stroke="currentColor" /></svg>;
+}
 
 export function Shell({ children }: { children: React.ReactNode }) {
   const { pathname } = useLocation();
   const landing = pathname === "/";
-  const [hidden, setHidden] = useState(false);
-  // At the very top the landing bar is transparent, so the page opens on
-  // the claim rather than on chrome. Past that it MUST take a surface:
-  // a transparent bar with content scrolling under it renders the nav
-  // and the page text on top of each other.
+  const room = ROOMS.some(r => r.to === pathname) || pathname === "/log";
   const [atTop, setAtTop] = useState(true);
   const [open, setOpen] = useState(false);
+  const [whisper, setWhisper] = useState(false);
+  const [dark, setDark] = useState(() => {
+    try { return localStorage.getItem("credence-theme") === "dark"; } catch { return false; }
+  });
 
-  // Hide on scroll down, return on scroll up. A fixed bar over a ledger
-  // is a bar you read around for the whole page.
   useEffect(() => {
-    let last = window.scrollY;
-    const onScroll = () => {
-      const y = window.scrollY;
-      // Near the top the bar is ALWAYS shown, whatever the last
-      // direction was. Without this an upward flick that ends at 0 can
-      // leave it hidden, and a reader at the top of a page with no
-      // navigation has no way to ask for it back.
-      setAtTop(y <= 24);
-      if (y <= 90) {
-        setHidden(false);
-        last = y;
-        return;
-      }
-      // The 6px deadband stops a trackpad's jitter from flickering it.
-      if (Math.abs(y - last) > 6) {
-        setHidden(y > last);
-        last = y;
-      }
-    };
-    // Sync once on mount. The state cannot be seeded from `useState`
-    // alone: a reload restores the previous scroll offset AFTER React
-    // mounts, so an initial `true` can be wrong and no scroll event is
-    // guaranteed to fire to correct it.
+    const onScroll = () => setAtTop(window.scrollY <= 24);
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
-
-  // A route change closes the menu and restores the bar: leaving it
-  // open over the screen a reader just asked for would hide it.
   useEffect(() => {
     setOpen(false);
-    setHidden(false);
     setAtTop(window.scrollY <= 24);
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+    const name = pathname === "/" ? "The credit body" : pathname.slice(1).replace(/^./, c => c.toUpperCase());
+    document.title = `${name} — Credence`;
   }, [pathname]);
+  useEffect(() => {
+    document.documentElement.dataset.theme = dark ? "dark" : "light";
+    try { localStorage.setItem("credence-theme", dark ? "dark" : "light"); } catch { /* Storage is optional. */ }
+  }, [dark]);
+  useEffect(() => {
+    const down = (e: KeyboardEvent) => { if (e.key === "Alt") setWhisper(true); if (e.key === "Escape") setOpen(false); };
+    const up = (e: KeyboardEvent) => { if (e.key === "Alt") setWhisper(false); };
+    const reset = () => setWhisper(false);
+    window.addEventListener("keydown", down); window.addEventListener("keyup", up); window.addEventListener("blur", reset);
+    return () => { window.removeEventListener("keydown", down); window.removeEventListener("keyup", up); window.removeEventListener("blur", reset); };
+  }, []);
 
-  return (
-    <div className={landing ? "shell shell-landing" : "shell"}>
-      {(
-        <header
-          className={
-            `bar ${hidden ? "bar-away" : ""} ${landing && atTop ? "bar-quiet" : ""}`
-          }
-        >
-          <NavLink to="/" className="bar-mark" end>
-            Credence
-          </NavLink>
-
-          <nav className={`bar-links ${open ? "bar-open" : ""}`}>
-            <span className="bar-group">Argument</span>
-            {ARGUMENT.map((l) => (
-              <NavLink key={l.to} to={l.to}>
-                {l.label}
-              </NavLink>
-            ))}
-            <span className="bar-group">Evidence</span>
-            {EVIDENCE.map((l) => (
-              <NavLink key={l.to} to={l.to}>
-                {l.label}
-              </NavLink>
-            ))}
-          </nav>
-
-          <button
-            type="button"
-            className="bar-toggle"
-            aria-expanded={open}
-            aria-label={open ? "Close navigation" : "Open navigation"}
-            onClick={() => setOpen((v) => !v)}
-          >
-            {open ? "close" : "menu"}
-          </button>
-        </header>
-      )}
-
-      <main className={landing ? "stage" : "stage stage-inner"}>{children}</main>
-    </div>
-  );
+  return <div className={`shell ${landing ? "shell-landing" : ""} ${room ? "shell-room" : ""} ${whisper ? "whisper" : ""}`}>
+    <a className="skip-link" href="#main-content">Skip to content</a>
+    <header className={`bar ${landing && atTop ? "bar-quiet" : ""}`}>
+      <NavLink to="/" className="bar-mark" end aria-label="Credence home"><BrandMark /><span>credence<span className="wordmark-period">.</span></span></NavLink>
+      <nav aria-label="Primary navigation" id="primary-navigation" className={`bar-links ${open ? "bar-open" : ""}`}>
+        {landing ? <><Link to="/observatory">The protocol</Link><Link to="/guide">Field guide <span>↗</span></Link></> : ROOMS.map(r => <NavLink to={r.to} key={r.to}><span className="nav-bearing">{r.bearing}</span>{r.label}</NavLink>)}
+      </nav>
+      <div className="bar-actions">
+        <button type="button" className="theme-switch" aria-label={dark ? "Use paper theme" : "Use night theme"} onClick={() => setDark(!dark)}><span aria-hidden="true">◐</span></button>
+        {landing ? <Link className="bar-enter" to="/observatory">Enter the atlas <span>↗</span></Link> : <Link className="guide-link" to="/guide">Field guide ↗</Link>}
+        <button type="button" className="bar-toggle" aria-expanded={open} aria-controls="primary-navigation" aria-label={open ? "Close navigation" : "Open navigation"} onClick={() => setOpen(!open)}>{open ? "Close" : "Menu"}</button>
+      </div>
+    </header>
+    <main id="main-content" className={`stage ${landing || room ? "" : "stage-inner"}`}>
+      {!landing && !room && <div className="record-heading"><Link to="/observatory">Observatory</Link><span>/</span><span>Field records</span></div>}
+      {!landing && !room && pathname !== "/guide" && <nav className="record-nav" aria-label="Field records">{RECORDS.map(([to, label]) => <NavLink key={to} to={to!}>{label}</NavLink>)}</nav>}
+      {children}
+    </main>
+    {!landing && !room && <footer className="inner-footer"><Link to="/observatory">Return to the observatory ↗</Link><span>Credit has a memory.</span></footer>}
+  </div>;
 }
