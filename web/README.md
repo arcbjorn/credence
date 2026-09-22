@@ -66,7 +66,12 @@ judging, nothing to fail.
 The credit body is the interface: a persistent globe on the landing page
 moves through shell, arcs, core, section, moons, eclipse and atlas views.
 The Observatory, Atlas, Moons, Body and Log rooms use the same renderer.
-The field guide explains the laws and links to the original evidence screens.
+The field guide explains the laws and links to the original evidence screens. The same five destinations appear in the header
+on every page. Each record belongs to a room, keeps that room active in the
+header, and provides a breadcrumb back. `src/lib/navigation.ts` defines the
+shared titles and relationships. Room introductions expose their records;
+detailed pages offer related records after the content. Globe/Map controls
+change projection without changing rooms.
 
 The original paper, graphite, teal, moss and vermilion palette is preserved,
 including a remembered night theme. Space Grotesk carries the world,
