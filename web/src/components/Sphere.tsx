@@ -71,6 +71,11 @@ export function project(
  * keeps the arc ON the surface. Lifting it by `lift` raises it off the
  * shell so a loan reads as an arc over the body rather than a scratch on
  * it.
+ *
+ * The lift is small on purpose. At 0.18 an arc between sites 80 degrees
+ * apart peaked a fifth of a radius outside the body -- roughly 25px at
+ * this size -- and hung off the limb like a loose wire. An arc should
+ * clear the surface and still belong to the sphere.
  */
 export function arcPoints(
   from: Vec3,
@@ -80,7 +85,7 @@ export function arcPoints(
   cx: number,
   cy: number,
   r: number,
-  lift = 0.18,
+  lift = 0.06,
   samples = 40,
 ): { x: number; y: number; z: number }[] {
   const out: { x: number; y: number; z: number }[] = [];

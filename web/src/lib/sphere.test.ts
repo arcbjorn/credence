@@ -144,6 +144,20 @@ describe("loan arcs", () => {
     expect(lastPt).toBeDefined();
   });
 
+  it("keeps the arc close to the body", () => {
+    // The lift was 0.18, which put the midpoint of an arc between sites
+    // 80 degrees apart a fifth of a radius outside the sphere -- about
+    // 25px at the rendered size, hanging off the limb like a loose
+    // wire. An arc must clear the surface and still belong to it.
+    const from = onSphere(18, -34);
+    const to = onSphere(30, 40);
+    const pts = arcPoints(from, to, 90, 0, 0, 0, 1);
+    for (const p of pts) {
+      const r = Math.hypot(p.x, -p.y, p.z);
+      expect(r).toBeLessThan(1.1);
+    }
+  });
+
   it("never emits NaN", () => {
     const pts = arcPoints(onSphere(0, 0), onSphere(0, 0), 30, 16, 180, 180, 120);
     for (const p of pts) {

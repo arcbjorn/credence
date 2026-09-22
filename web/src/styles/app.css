@@ -526,11 +526,18 @@ code { font-family: var(--mono); font-size: 0.94em; }
    background in both themes, so the argument sits on the page and the
    evidence sits on a thing. */
 .split-right {
-  padding: 26px 28px 30px;
+  padding: 28px 30px 32px;
   min-width: 0;
   background: var(--surface);
+  /* A lit top edge and a shadow beneath: the panel is a surface with a
+     light above it, not a rectangle outlined in the same grey as the
+     page. This is most of what separates a product panel from a div. */
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-top-color: color-mix(in srgb, var(--rule) 70%, transparent);
+  border-radius: 10px;
+  box-shadow:
+    0 1px 0 color-mix(in srgb, #fff 6%, transparent) inset,
+    0 18px 50px -24px rgba(0, 0, 0, 0.7);
 }
 
 .kicker {
@@ -689,6 +696,7 @@ code { font-family: var(--mono); font-size: 0.94em; }
 /* The body and its limit change size as capacity does. `r` transitions
    rather than a transform, so strokes keep their true width. */
 .globe-shell,
+.globe-rim,
 .globe-edge {
   transition: r 1000ms cubic-bezier(0.22, 0.61, 0.36, 1),
     stroke 800ms ease, stroke-width 800ms ease;
@@ -761,11 +769,11 @@ code { font-family: var(--mono); font-size: 0.94em; }
 /* As the landing hero the body runs large and sits left, under the
    headline it belongs to. */
 .shell-landing .split-left > .globe {
-  margin: 4px 0 30px;
+  margin: -18px 0 22px -26px;
   align-items: flex-start;
 }
 
-.shell-landing .split-left > .globe svg { max-width: 420px; }
+.shell-landing .split-left > .globe svg { max-width: 460px; }
 
 @media (prefers-reduced-motion: reduce) {
   .globe-shell,
@@ -976,24 +984,36 @@ code { font-family: var(--mono); font-size: 0.94em; }
   align-items: baseline;
   justify-content: space-between;
   gap: 16px;
-  padding: 13px 0;
+  padding: 15px 12px 15px 14px;
+  margin: 0 -12px 0 -14px;
+  border-radius: 6px;
   cursor: pointer;
   list-style: none;
-  transition: color 120ms ease;
+  transition: background 140ms ease;
+}
+
+/* The whole row lights up, not just its text: a 10-row list where only
+   the label changed colour read as a table of contents. */
+.claim > summary:hover {
+  background: color-mix(in srgb, var(--rule) 12%, transparent);
+}
+
+.claim[open] > summary {
+  background: color-mix(in srgb, var(--rule) 8%, transparent);
 }
 
 /* The default disclosure triangle, removed in both engines. */
 .claim > summary::-webkit-details-marker { display: none; }
 .claim > summary::marker { content: ""; }
 
-.claim > summary:hover .claim-title { color: var(--machine); }
-
 .claim-title {
   font-size: 13.5px;
   font-weight: 500;
   line-height: 1.4;
-  transition: color 120ms ease;
+  letter-spacing: -0.005em;
 }
+
+.claim[open] .claim-title { color: var(--machine); }
 
 /* The status, and the affordance. A "+" that becomes "−" when open is
    the cheapest possible signal that a row has more behind it. */
@@ -1409,7 +1429,7 @@ code { font-family: var(--mono); font-size: 0.94em; }
   display: flex;
   align-items: baseline;
   gap: 22px;
-  padding: 13px 38px;
+  padding: 15px 38px;
   background: color-mix(in srgb, var(--bg) 86%, transparent);
   backdrop-filter: blur(12px) saturate(140%);
   -webkit-backdrop-filter: blur(12px) saturate(140%);
@@ -1433,12 +1453,25 @@ code { font-family: var(--mono); font-size: 0.94em; }
 .bar-links {
   display: flex;
   align-items: baseline;
-  gap: 14px;
-  font-size: 11.5px;
+  gap: 18px;
+  font-size: 12px;
   /* No wrap: the labels are sentences now, and a header that reflows
      into two lines pushes the hero down the page. Below the breakpoint
      they collapse behind a toggle instead. */
   flex-wrap: nowrap;
+}
+
+/* The group markers are dividers, not labels. "ARGUMENT" and
+   "EVIDENCE" set in caps between the links read as two more items in a
+   row that already has eleven. A rule says the same thing silently. */
+.bar-group {
+  width: 1px;
+  height: 11px;
+  padding: 0;
+  overflow: hidden;
+  text-indent: -999px;
+  background: var(--border);
+  flex-shrink: 0;
 }
 
 .bar-links a {
@@ -1516,10 +1549,15 @@ code { font-family: var(--mono); font-size: 0.94em; }
    shares the row with a ledger, and past ~76 it sets three words a
    line and reads as a poster. */
 .shell-landing .hero {
-  font-size: clamp(34px, 4.6vw, 76px);
-  line-height: 1.0;
-  letter-spacing: -0.035em;
-  margin-bottom: 26px;
+  /* Sized to sit WITH the globe rather than over it. At 76px the
+     headline took three lines and pushed the object into the lower
+     third, so the page opened on type and you had to scroll to meet the
+     thing the page is about. */
+  font-size: clamp(32px, 3.5vw, 54px);
+  line-height: 1.04;
+  letter-spacing: -0.03em;
+  margin-bottom: 18px;
+  max-width: 15ch;
 }
 
 .shell-landing .hero-lede {
@@ -1607,7 +1645,7 @@ code { font-family: var(--mono); font-size: 0.94em; }
    without scrolling, because they are the reason to stay. */
 .shell-landing .stage {
   max-width: 1420px;
-  padding-top: 104px;
+  padding-top: 88px;
 }
 
 /* One column once the two stop fitting. The left column releases its

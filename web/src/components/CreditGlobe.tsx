@@ -64,12 +64,18 @@ const LATS = [-60, -30, 0, 30, 60];
 const MERIDIANS = [0, 30, 60, 90, 120, 150];
 
 /** Where each loan sits on the shell. Fixed, so a loan keeps its place. */
+/**
+ * Sites are kept within about 45 degrees of each other so the arcs
+ * between them read as spans across the near face. Antipodal sites
+ * produce an arc that spends most of its length behind the body, which
+ * looks like a line vanishing for no reason.
+ */
 const LOAN_SITES: [number, number][] = [
-  [24, -46],
-  [-12, 22],
-  [44, 88],
-  [-38, 140],
-  [8, -128],
+  [18, -34],
+  [-8, 4],
+  [30, 40],
+  [-20, 74],
+  [6, 108],
 ];
 
 function bindingIsStress(binding: string): boolean {
@@ -151,8 +157,12 @@ export function CreditGlobe({
       ? "var(--machine)"
       : "var(--growth)";
 
-  // A cheaper loan wears a thinner ring: the price is weight.
-  const rateWeight = denied ? 2 : Math.max(1.5, (current.apr / 1200) * 6);
+  // The rate, as the weight of the body's own edge. Kept to a hairline
+  // range: a 6px stroke at full saturation read as a cyan hoop stuck
+  // around a sphere -- clip art, not an object. A premium body gets its
+  // form from LIGHT, so the edge is barely there and the rim light
+  // below does the work.
+  const rateWeight = denied ? 1 : Math.max(0.6, (current.apr / 1200) * 1.5);
 
   // The wireframe, at the body's current size.
   const lats = LATS.map((l) => latitudeLine(l, spin, TILT, CENTER, CENTER, bodyR));
@@ -184,12 +194,43 @@ export function CreditGlobe({
         }
       >
         <defs>
-          <radialGradient id={gradientId} cx="38%" cy="32%" r="72%">
-            <stop offset="0%" stopColor={hue} stopOpacity={denied ? 0.06 : 0.3} />
-            <stop offset="70%" stopColor={hue} stopOpacity={denied ? 0.02 : 0.1} />
+          {/* The body's own surface, lit from upper left. The light
+              falls off toward the terminator rather than ending at a
+              stroke, which is what makes it read as a sphere. */}
+          <radialGradient id={gradientId} cx="34%" cy="28%" r="78%">
+            <stop offset="0%" stopColor={hue} stopOpacity={denied ? 0.05 : 0.26} />
+            <stop offset="55%" stopColor={hue} stopOpacity={denied ? 0.02 : 0.1} />
+            <stop offset="100%" stopColor={hue} stopOpacity={denied ? 0 : 0.02} />
+          </radialGradient>
+
+          {/* Atmosphere: brightest exactly at the limb and gone a few
+              pixels in. This is the whole trick -- an object with a
+              rim light looks lit, an object with an outline looks
+              drawn. */}
+          <radialGradient id={`${gradientId}-rim`} cx="50%" cy="50%" r="50%">
+            <stop offset="88%" stopColor={hue} stopOpacity="0" />
+            <stop offset="97%" stopColor={hue} stopOpacity={denied ? 0.22 : 0.42} />
             <stop offset="100%" stopColor={hue} stopOpacity="0" />
           </radialGradient>
+
+          {/* A soft shadow under the body, so it sits in space rather
+              than floating on the page. */}
+          <radialGradient id={`${gradientId}-shadow`} cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="#000" stopOpacity="0.5" />
+            <stop offset="100%" stopColor="#000" stopOpacity="0" />
+          </radialGradient>
         </defs>
+
+        {/* The body sits in space rather than on the page. */}
+        {bodyR > 0 && (
+          <ellipse
+            cx={CENTER}
+            cy={CENTER + bodyR * 0.96}
+            rx={bodyR * 0.78}
+            ry={bodyR * 0.14}
+            fill={`url(#${gradientId}-shadow)`}
+          />
+        )}
 
         {/* The limit. Dotted while history bounds it; solid once stress
             does, because that edge does not move by behaving well. */}
@@ -216,7 +257,7 @@ export function CreditGlobe({
         />
 
         {/* Far side of the wireframe, seen through the body. */}
-        <g stroke={hue} fill="none" strokeWidth="0.5" opacity="0.2">
+        <g stroke={hue} fill="none" strokeWidth="0.4" opacity="0.12">
           {lats.map((l, n) => (
             <path key={`latf${n}`} d={l.far} />
           ))}
@@ -226,7 +267,7 @@ export function CreditGlobe({
         </g>
 
         {/* Near side. */}
-        <g stroke={hue} fill="none" strokeWidth="0.7" opacity="0.5">
+        <g stroke={hue} fill="none" strokeWidth="0.5" opacity="0.26">
           {lats.map((l, n) => (
             <path key={`latn${n}`} d={l.near} />
           ))}
@@ -243,9 +284,20 @@ export function CreditGlobe({
           fill="none"
           stroke={hue}
           strokeWidth={rateWeight}
-          strokeOpacity={denied ? 0.5 : 0.85}
+          strokeOpacity={denied ? 0.4 : 0.55}
           className="globe-edge"
         />
+
+        {/* The atmosphere, over the shell and under the nodes. */}
+        {bodyR > 0 && (
+          <circle
+            cx={CENTER}
+            cy={CENTER}
+            r={bodyR}
+            fill={`url(#${gradientId}-rim)`}
+            className="globe-rim"
+          />
+        )}
 
         {/* Loans, as arcs between the points they landed on. An arc on
             the far side is drawn faintly rather than over the body. */}
