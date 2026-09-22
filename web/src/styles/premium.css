@@ -69,13 +69,24 @@ td { padding-top:15px;padding-bottom:15px; }
 .credit-world { position:relative;width:100%;aspect-ratio:1;cursor:crosshair; }
 .world-canvas { display:block;width:100%;height:100%; }
 .world-pole { position:absolute;left:50%;transform:translateX(-50%);font:9px var(--mono);color:var(--text-dim); }
-.world-pole-n { top:2%; }.world-pole-s { bottom:2%; }
+/* The globe is drawn at cy 400, radius 258 in an 800-unit space, so
+   its edge is always at 17.75% of the container whatever size that
+   container is. The labels sit just outside it; at 2% they floated
+   in empty space and the S read as a stray character. */
+.world-pole-n { top:12%; }.world-pole-s { bottom:12%; }
+/* A flattened map has no poles to label, and the markers read as
+   stray characters floating above and below the plate. */
+.world-atlas .world-pole,.world-moons .world-pole,.world-layers .world-pole { opacity:0; }
 .world-node { position:absolute;transform:translate(-50%,-50%);width:36px;height:36px;padding:0;border:0;border-radius:50%;background:none;display:grid;place-items:center;color:var(--growth); }
 .world-node:hover { border:0; }
 .node-point { display:block;width:var(--node-size,10px);height:var(--node-size,10px);border-radius:50%;background:#d9e4ce;box-shadow:0 0 10px #afdbc499; }
 .node-hollow .node-point { background:transparent;border:1.5px solid var(--alarm);box-shadow:none; }
 .node-selected .node-point { outline:1px solid var(--growth);outline-offset:6px; }
 .node-exceptional .node-point { background:var(--gold); }
+/* A node in the right-hand third opens its label leftward; opening
+   right ran 'Concentrated / RESTRICTED' off the edge at narrow
+   widths. */
+.node-flip .node-label { left:auto;right:32px;text-align:right;border-left:0;border-right:1px solid var(--machine); }
 .node-label { position:absolute;left:32px;top:8px;background:var(--bg);border-left:1px solid var(--machine);padding:6px 10px;white-space:nowrap;text-align:left;color:var(--text);font:11px var(--sans); }
 .node-label small { display:block;font:9px var(--mono);letter-spacing:.05em;color:var(--text-dim);margin-top:3px; }
 .world-node:not(.node-selected) .node-label { opacity:0;transition:opacity .2s;pointer-events:none; }
