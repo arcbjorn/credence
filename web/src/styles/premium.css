@@ -198,7 +198,7 @@ td { padding-top:15px;padding-bottom:15px; }
 .moon-satellite span { display:block;margin-top:6px;color:var(--machine); }
 /* The gap was 12%, about 155px here, which pushed the claim and its
    evidence apart until they read as two unrelated sections. */
-.survey-proof { display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,1fr);gap:var(--s11);padding:var(--s11) var(--gutter);border-top:1px solid var(--border);align-items:start; }
+.survey-proof { display:grid;grid-template-columns:minmax(0,.72fr) minmax(0,1fr);gap:var(--s10);padding:var(--s11) var(--gutter);border-top:1px solid var(--border);align-items:start; }
 /* One owner for the record header's spacing. The title carried its
    own top and bottom margin and every screen re-stated the gap to
    its lede; the wrapper holds both now. */
@@ -210,9 +210,9 @@ td { padding-top:15px;padding-bottom:15px; }
 .proof-intro .deployment { margin:var(--s7) 0 var(--s7);font-family:var(--mono);flex-direction:column;align-items:flex-start;border:0;border-left:1px solid var(--border);padding:var(--s1) 0 var(--s1) var(--s4);gap:var(--s2); }
 .ledger-head { margin:0 0 22px;padding:0;display:flex;justify-content:space-between;align-items:center;gap:15px; }
 .ledger-head h3,.ledger-head p { margin:0;font:var(--t1) var(--mono); }
-/* Overrode the row's horizontal padding to zero, so the hover plate
-   hugged the text and the title clipped against its own edge. */
-.claim>summary { padding:var(--s3) var(--s4); }
+/* Rows scale from one rule: a fixed vertical rhythm, symmetric inset,
+   and the plate bleeding evenly past the text on both sides. */
+.claim>summary { padding:var(--s4) var(--s4);margin:0 calc(var(--s4) * -1);min-height:0; }
 
 /* The grouped ledger.
  *
@@ -220,10 +220,19 @@ td { padding-top:15px;padding-bottom:15px; }
  * group now names itself and carries one sentence saying why it exists,
  * in its own column beside the items -- so a reader can enter anywhere
  * instead of starting at row one. */
-.claim-group { display:grid;grid-template-columns:minmax(0,.72fr) minmax(0,1fr);gap:var(--s7);padding:var(--s9) 0 0; }
-.claim-group-intro h4 { font:400 var(--t6)/var(--lh-snug) var(--serif);letter-spacing:0;margin:0 0 var(--s3);color:var(--text); }
-.claim-group-intro p { font:var(--t3)/var(--lh-body) var(--sans);color:var(--text-dim);margin:0;max-width:30ch; }
-.claim-group-rows { display:flex;flex-direction:column;gap:var(--s2); }
+/* The group heading sits ABOVE its rows, not beside them.
+ *
+ * It was a two-column grid nested inside the section's own two-column
+ * grid -- four text columns across the page, each too narrow, and the
+ * intro cell stretched to match its rows: a two-sentence blurb given a
+ * 514px column with a void beneath it. One column per group, heading
+ * first, rows under it. */
+.claim-group { padding:var(--s8) 0 0; }
+.claim-group:first-of-type { padding-top:var(--s6); }
+.claim-group-intro { display:flex;align-items:baseline;gap:var(--s4);flex-wrap:wrap;margin:0 0 var(--s4);padding:0 0 var(--s3);border-bottom:1px solid var(--border); }
+.claim-group-intro h4 { font:400 var(--t5)/var(--lh-snug) var(--serif);letter-spacing:0;margin:0;color:var(--text);flex:none; }
+.claim-group-intro p { font:var(--t2)/var(--lh-snug) var(--sans);color:var(--text-dim);margin:0;flex:1 1 22ch;min-width:0; }
+.claim-group-rows { display:flex;flex-direction:column; }
 .claim-title { font:var(--t2) var(--sans); }
 .claim-status { font:var(--t1) var(--mono); }
 .claim-body { padding:0 0 20px;font:var(--t2)/var(--lh-body) var(--sans); }
