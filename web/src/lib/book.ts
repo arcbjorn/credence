@@ -1,7 +1,7 @@
 /**
  * The state of the book, as the physics needs it.
  *
- * `docs/brand/physics.md` gives the core, the atmosphere and the scar a
+ * `brand/physics.md` gives the core, the atmosphere and the scar a
  * physical form on the credit body. Each one has to come from a loaded
  * figure, because a shader driven by an invented number is a claim the
  * bundle never made -- and this project spends its credibility on not
@@ -100,9 +100,9 @@ export function core(book: BookState): number | null {
  * Whether the book carries a scar, and how deep.
  *
  * Returned as loss against the book's own size, so the crater is
- * proportionate rather than absolute. A default is a permanent mark:
- * `docs/brand/physics.md` says it does not heal, and nothing here fades
- * it with time.
+ * proportionate rather than absolute. These checks have no default
+ * timestamp, so the 90-day minimum retention cannot be evaluated and
+ * nothing here infers that the scar has healed.
  */
 export function scar(book: BookState): number | null {
   if (book.loss === null || book.loss === 0n) return null;
