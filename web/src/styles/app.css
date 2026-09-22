@@ -1573,9 +1573,7 @@ code { font-family: var(--mono); font-size: 0.94em; }
    weighted, the argument and the appendix side by side, and a third of
    the viewport spent on a list nobody needed after the first click.
 
-   The landing page now has NO chrome. Inner screens get a slim bar that
-   groups the links the way `docs/09` groups them -- the nine-beat
-   script, then the evidence a sceptic checks it against. */
+   Navigation is shared by every screen and styled in premium.css. */
 
 .shell { min-height: 100vh; }
 
@@ -1593,123 +1591,6 @@ code { font-family: var(--mono); font-size: 0.94em; }
 }
 
 .stage-inner { padding-top: 92px; }
-
-/* --- the bar --- */
-
-.bar {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 20;
-  display: flex;
-  align-items: baseline;
-  gap: 22px;
-  padding: 15px 38px;
-  background: color-mix(in srgb, var(--bg) 86%, transparent);
-  backdrop-filter: blur(12px) saturate(140%);
-  -webkit-backdrop-filter: blur(12px) saturate(140%);
-  border-bottom: 1px solid var(--border);
-  transition: transform 260ms cubic-bezier(0.22, 0.61, 0.36, 1);
-}
-
-/* Away on scroll down, back on scroll up. A fixed bar over a ledger is
-   a bar you read around for the whole page. */
-.bar-away { transform: translateY(-100%); }
-
-.bar-mark {
-  font-family: var(--display);
-  font-size: 16px;
-  letter-spacing: 0.04em;
-  text-decoration: none;
-  color: var(--text);
-  white-space: nowrap;
-}
-
-.bar-links {
-  display: flex;
-  align-items: baseline;
-  gap: 18px;
-  font-size: 12px;
-  /* No wrap: the labels are sentences now, and a header that reflows
-     into two lines pushes the hero down the page. Below the breakpoint
-     they collapse behind a toggle instead. */
-  flex-wrap: nowrap;
-}
-
-/* The group markers are dividers, not labels. "ARGUMENT" and
-   "EVIDENCE" set in caps between the links read as two more items in a
-   row that already has eleven. A rule says the same thing silently. */
-.bar-group {
-  width: 1px;
-  height: 11px;
-  padding: 0;
-  overflow: hidden;
-  text-indent: -999px;
-  background: var(--border);
-  flex-shrink: 0;
-}
-
-.bar-links a {
-  color: var(--text-dim);
-  text-decoration: none;
-  padding-bottom: 2px;
-  border-bottom: 1px solid transparent;
-  transition: color 140ms ease, border-color 140ms ease;
-  white-space: nowrap;
-}
-
-.bar-links a:hover { color: var(--text); }
-
-.bar-links a.active {
-  color: var(--machine);
-  border-bottom-color: var(--machine);
-}
-
-/* The grouping is the point: a flat list of eleven says these are
-   eleven equal things, and they are not. */
-.bar-group {
-  font-size: 9.5px;
-  text-transform: uppercase;
-  letter-spacing: 0.13em;
-  color: var(--rule);
-  margin-left: 6px;
-}
-
-.bar-group:first-child { margin-left: 0; }
-
-.bar-toggle {
-  display: none;
-  margin-left: auto;
-  background: none;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  color: var(--text-dim);
-  font: inherit;
-  font-size: 11px;
-  padding: 5px 10px;
-  cursor: pointer;
-}
-
-/* Below this the eleven links cannot sit on one line, so they collapse
-   behind a toggle rather than wrapping into a four-line header. */
-@media (max-width: 1360px) {
-  .bar { flex-wrap: wrap; }
-  .bar-toggle { display: block; }
-
-  .bar-links {
-    display: none;
-    width: 100%;
-    flex-direction: column;
-    gap: 9px;
-    padding: 14px 0 6px;
-  }
-
-  .bar-links.bar-open { display: flex; }
-  .bar-group { margin: 6px 0 0; }
-  .stage { padding-left: 22px; padding-right: 22px; }
-  .bar { padding-left: 22px; padding-right: 22px; }
-}
 
 /* --- the landing ------------------------------------------------------
    The split runs full width and starts just below the bar. The hero is
@@ -1789,27 +1670,6 @@ code { font-family: var(--mono); font-size: 0.94em; }
 
 @media (prefers-reduced-motion: reduce) {
   .shell-landing .figures::before { transform: none !important; }
-}
-
-/* The bar on the landing page: present but recessive, so the page opens
-   on the claim rather than on chrome -- while still giving a reader
-   somewhere to click. An earlier version hid it there entirely and
-   produced a page with no way off it. */
-.bar-quiet {
-  background: transparent;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-  border-bottom-color: transparent;
-}
-
-.bar-quiet .bar-group { opacity: 0.55; }
-
-/* Once the reader scrolls past the top the bar earns its surface. */
-.bar-quiet:hover {
-  background: color-mix(in srgb, var(--bg) 86%, transparent);
-  backdrop-filter: blur(12px) saturate(140%);
-  -webkit-backdrop-filter: blur(12px) saturate(140%);
-  border-bottom-color: var(--border);
 }
 
 /* The split needs the width, and starts below the bar rather than a
