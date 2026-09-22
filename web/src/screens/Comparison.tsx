@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { loadComparison, units, bps, type Comparison } from "../lib/data";
+import { bindingPhrase } from "../lib/bindings";
 import { classMode } from "../lib/modes";
 import { reasonFields, reasonName } from "../lib/reasons";
 import { ModeChip } from "../components/ModeChip";
@@ -68,8 +69,10 @@ export function Comparison_() {
                     <td className="num">{units(o.capacity?.agent_capacity)}</td>
                   </tr>
                   <tr>
-                    <th>Bound by</th>
-                    <td>{o.capacity?.agent_binding ?? "-"}</td>
+                    <th>Limited by</th>
+                    <td title={o.capacity?.agent_binding ?? undefined}>
+                      {bindingPhrase(o.capacity?.agent_binding)}
+                    </td>
                   </tr>
                   <tr>
                     <th>APR</th>

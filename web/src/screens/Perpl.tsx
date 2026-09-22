@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { bps, loadPerpl, loadPolicy, units, type Perpl } from "../lib/data";
+import { bindingPhrase } from "../lib/bindings";
 import { loadEngine, MODEL_HASH } from "../lib/engine";
 import { Hash } from "../components/Hash";
 
@@ -353,7 +354,9 @@ export function PerplPanel() {
                   <th>
                     Agent capacity
                     {binding && (
-                      <span className="muted"> &middot; bound by {binding}</span>
+                      <span className="muted" title={binding}>
+                        {" "}&middot; limited by {bindingPhrase(binding)}
+                      </span>
                     )}
                   </th>
                   <td className="num">{units(baseCap)}</td>
@@ -388,8 +391,9 @@ export function PerplPanel() {
             ) : !stressBinds ? (
               <>
                 <strong>
-                  Capacity is unchanged because <code>{binding}</code> binds,
-                  not the market.
+                  Capacity is unchanged because the limit is set by{" "}
+                  <span title={binding}>{bindingPhrase(binding)}</span>, not by
+                  the market.
                 </strong>{" "}
                 Capacity is a <code>min()</code> over several constraints, and
                 only the stress term reads market evidence. The scenarios above

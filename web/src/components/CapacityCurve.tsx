@@ -1,3 +1,4 @@
+import { bindingPhrase } from "../lib/bindings";
 import { useInView, useMotionAllowed } from "./Motion";
 
 /**
@@ -174,10 +175,16 @@ export function CapacityCurve({ points }: { points: CurvePoint[] }) {
         {switchAt > 0 && (
           <>
             {" "}
-            At loan {switchAt + 1} the binding constraint stops being{" "}
-            <code>{points[switchAt - 1]!.binding}</code> and becomes{" "}
-            <code>{points[switchAt]!.binding}</code> — history opens the
-            facility until portfolio risk becomes the limit.
+            At loan {switchAt + 1} the limit stops being set by{" "}
+            <span title={points[switchAt - 1]!.binding}>
+              {bindingPhrase(points[switchAt - 1]!.binding)}
+            </span>{" "}
+            and starts being set by{" "}
+            <span title={points[switchAt]!.binding}>
+              {bindingPhrase(points[switchAt]!.binding)}
+            </span>{" "}
+            — history opens the facility until portfolio risk becomes the
+            limit.
           </>
         )}
       </p>

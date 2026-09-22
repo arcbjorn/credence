@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { loadRun, units, bps, type Assessment, type Run } from "../lib/data";
+import { bindingPhrase } from "../lib/bindings";
 import { classMode } from "../lib/modes";
 import { reasonText } from "../lib/reasons";
 import { ModeChip } from "../components/ModeChip";
@@ -82,9 +83,9 @@ export function AssessmentDetail() {
           <table>
             <tbody>
               <tr><th>Agent capacity</th><td className="num">{units(outcome.capacity?.agent_capacity)}</td></tr>
-              <tr><th>Bound by</th><td>{outcome.capacity?.agent_binding ?? "-"}</td></tr>
+              <tr><th>Limited by</th><td title={outcome.capacity?.agent_binding ?? undefined}>{bindingPhrase(outcome.capacity?.agent_binding)}</td></tr>
               <tr><th>Drawable</th><td className="num">{units(outcome.capacity?.drawable_capacity)}</td></tr>
-              <tr><th>Bound by</th><td>{outcome.capacity?.drawable_binding ?? "-"}</td></tr>
+              <tr><th>Limited by</th><td title={outcome.capacity?.drawable_binding ?? undefined}>{bindingPhrase(outcome.capacity?.drawable_binding)}</td></tr>
             </tbody>
           </table>
         </div>

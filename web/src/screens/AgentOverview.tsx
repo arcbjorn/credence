@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { loadRun, units, bps, type Run } from "../lib/data";
+import { bindingPhrase } from "../lib/bindings";
 import { classMode, ROUTE_MODES } from "../lib/modes";
 import { ModeChip } from "../components/ModeChip";
 
@@ -91,11 +92,14 @@ export function AgentOverview() {
                 <td className="num">{units(a.payload.outcome.requested_principal)}</td>
                 <td className="num">{units(a.payload.outcome.approved_principal)}</td>
                 <td className="num">{units(a.payload.outcome.capacity?.agent_capacity)}</td>
-                <td className={`bound-${bindingRegister(a.payload.outcome.capacity?.agent_binding)}`}>
-                  {a.payload.outcome.capacity?.agent_binding ?? "-"}
+                <td
+                  className={`bound-${bindingRegister(a.payload.outcome.capacity?.agent_binding)}`}
+                  title={a.payload.outcome.capacity?.agent_binding ?? undefined}
+                >
+                  {bindingPhrase(a.payload.outcome.capacity?.agent_binding)}
                 </td>
                 <td className="num">{units(a.payload.outcome.capacity?.drawable_capacity)}</td>
-                <td>{a.payload.outcome.capacity?.drawable_binding ?? "-"}</td>
+                <td title={a.payload.outcome.capacity?.drawable_binding ?? undefined}>{bindingPhrase(a.payload.outcome.capacity?.drawable_binding)}</td>
                 <td className="num">{bps(a.payload.outcome.terms?.apr_bps)}</td>
               </tr>
             ))}

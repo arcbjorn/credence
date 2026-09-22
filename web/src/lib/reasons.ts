@@ -13,6 +13,16 @@
  * Reported by review, 15 September.
  */
 
+import { bindingPhrase } from "./bindings";
+
+/**
+ * Fields naming a `BindingConstraint`, which render as words rather than
+ * as the serialized Rust identifier. `CapacityExceeded.limiting` is the
+ * field the comparison screen's denial rests on, and it read
+ * `StressCapacity` there.
+ */
+const BINDING_FIELDS = new Set(["limiting", "binding"]);
+
 /** A reason as the engine emits it. */
 export type Reason = string | Record<string, unknown>;
 
@@ -47,7 +57,11 @@ export function reasonFields(reason: Reason): ReasonField[] {
   return Object.entries(body as Record<string, unknown>).map(([k, v]) => ({
     label: k,
     value:
-      v !== null && typeof v === "object" ? JSON.stringify(v) : String(v),
+      v !== null && typeof v === "object"
+        ? JSON.stringify(v)
+        : BINDING_FIELDS.has(k)
+          ? bindingPhrase(String(v))
+          : String(v),
   }));
 }
 
