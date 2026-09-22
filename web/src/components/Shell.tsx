@@ -55,7 +55,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
   }, []);
 
   return <div className={`shell ${landing ? "shell-landing" : ""} ${room ? "shell-room" : ""} ${whisper ? "whisper" : ""}`}>
-    <a className="skip-link" href="#main-content">Skip to content</a>
+    <a className="skip-link" href="#main-content" onClick={event => { event.preventDefault(); document.getElementById("main-content")?.focus(); }}>Skip to content</a>
     <header className={`bar ${landing && atTop ? "bar-quiet" : ""}`}>
       <NavLink to="/" className="bar-mark" end aria-label="Credence home"><BrandMark /><span>credence<span className="wordmark-period">.</span></span></NavLink>
       <nav aria-label="Primary navigation" id="primary-navigation" className={`bar-links ${open ? "bar-open" : ""}`}>
@@ -67,7 +67,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
         <button type="button" className="bar-toggle" aria-expanded={open} aria-controls="primary-navigation" aria-label={open ? "Close navigation" : "Open navigation"} onClick={() => setOpen(!open)}>{open ? "Close" : "Menu"}</button>
       </div>
     </header>
-    <main id="main-content" className={`stage ${landing || room ? "" : "stage-inner"}`}>
+    <main id="main-content" tabIndex={-1} className={`stage ${landing || room ? "" : "stage-inner"}`}>
       {!landing && !room && <div className="record-heading"><Link to="/observatory">Observatory</Link><span>/</span><span>Field records</span></div>}
       {!landing && !room && pathname !== "/guide" && <nav className="record-nav" aria-label="Field records">{RECORDS.map(([to, label]) => <NavLink key={to} to={to!}>{label}</NavLink>)}</nav>}
       {children}
