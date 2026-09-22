@@ -91,7 +91,7 @@ describe("the credit rooms", () => {
   it("enters the observatory from the homepage and keeps the same navigation", () => {
     room("/");
     const before = within(screen.getByRole("navigation", { name: "Primary navigation" })).getAllByRole("link").map(link => link.textContent);
-    fireEvent.click(screen.getByRole("link", { name: "Enter the observatory" }));
+    fireEvent.click(screen.getByRole("link", { name: "See it working" }));
     expect(screen.getByRole("heading", { name: "Observatory", level: 1 })).toBeInTheDocument();
     expect(within(screen.getByRole("navigation", { name: "Primary navigation" })).getAllByRole("link").map(link => link.textContent)).toEqual(before);
   });
@@ -118,7 +118,7 @@ describe("the credit rooms", () => {
     expect(within(screen.getByRole("navigation", { name: "Breadcrumb" })).getByRole("link", { name: "Observatory" })).toHaveAttribute("href", "/observatory");
   });
 
-  it.each([["/observatory", "Observatory"], ["/atlas", "Atlas"], ["/moons", "Moons"], ["/body", "Retained agent."], ["/log", "Log"]])("renders a usable room at %s", (path, title) => {
+  it.each([["/observatory", "Observatory"], ["/atlas", "Atlas"], ["/moons", "Moons"], ["/body", "One agent"], ["/log", "Log"]])("renders a usable room at %s", (path, title) => {
     room(path!);
     expect(screen.getByRole("heading", { name: title, level: 1 })).toBeInTheDocument();
     expect(screen.getByRole("group", { name: "View controls" })).toBeInTheDocument();
@@ -147,15 +147,15 @@ describe("the credit rooms", () => {
   it("scrubs the borrower history without changing the latest vault measurement", () => {
     room("/body");
     expect(screen.getByRole("img", { name: /Score 705/ })).toBeInTheDocument();
-    fireEvent.change(screen.getByRole("slider", { name: /Survey history/ }), { target: { value: "0" } });
+    fireEvent.change(screen.getByRole("slider", { name: /Loan history/ }), { target: { value: "0" } });
     expect(screen.getByRole("img", { name: /Score 610/ })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: /Credit body/ })).toHaveAccessibleName(/8.0% utilization/);
-    expect(screen.getByText("Retained originations · book at latest survey")).toBeInTheDocument();
+    expect(screen.getByText("Each loan this agent has taken")).toBeInTheDocument();
   });
 
   it("dismisses a dock with Escape and restores the opening instrument's focus", () => {
     room("/moons");
-    const open = screen.getByRole("button", { name: "Dock with this book ↗" });
+    const open = screen.getByRole("button", { name: "Open this pool ↗" });
     act(() => open.focus());
     fireEvent.click(open);
     expect(screen.getByRole("button", { name: "Close spec sheet" })).toHaveFocus();
@@ -175,8 +175,8 @@ describe("the credit rooms", () => {
   it("changes the guide's chapter and its evidence destination together", () => {
     render(<MemoryRouter><FieldGuide /></MemoryRouter>);
     fireEvent.click(screen.getByRole("button", { name: "Chapter 3: Core" }));
-    expect(screen.getByRole("heading", { name: "Capital is the light inside." })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Read the lender's book ↗" })).toHaveAttribute("href", "/lender");
+    expect(screen.getByRole("heading", { name: "The lender's money." })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open the lender's books ↗" })).toHaveAttribute("href", "/lender");
   });
 
   it("gives an unknown coordinate a way back", () => {
