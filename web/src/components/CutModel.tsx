@@ -4,7 +4,7 @@ import { useInView, useMotionAllowed } from "./Motion";
 /**
  * The body in section.
  *
- * `docs/brand/physics.md` gives the body a core and a shell. This opens
+ * `brand/physics.md` gives the body a core and a shell. This opens
  * it: an architectural cut through the same object, showing what sits
  * between the outside and the middle. It is the "how it works" diagram
  * drawn in the language of the thing rather than as boxes and arrows.
