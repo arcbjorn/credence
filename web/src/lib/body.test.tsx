@@ -1,0 +1,106 @@
+import { act, render } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
+import { CreditBody, type BodyPoint } from "../components/CreditBody";
+
+/**
+ * The object's grammar.
+ *
+ * The premise is that geometry IS the data: if the shape can drift from
+ * the figures it claims to draw, it is decoration with extra steps. So
+ * these tests check the mapping rather than the markup.
+ *
+ * The area rule is the one worth pinning. A disc is read by how much ink
+ * it covers, and area grows as the square of the radius, so mapping a
+ * quantity straight to `r` shows a 31% rise as a ~70% bigger object.
+ * That is the flattering version, and it is the easy mistake to make
+ * twice.
+ */
+
+const POINTS: BodyPoint[] = [
+  { capacity: "6200000000", apr: 1200, binding: "HistoryGrowthCap", score: 610 },
+  { capacity: "7533330000", apr: 1147, binding: "HistoryGrowthCap", score: 676 },
+  { capacity: "8117138556", apr: 1094, binding: "StressCapacity", score: 705 },
+];
+
+const discR = () =>
+  Number(document.querySelector(".body-disc")?.getAttribute("r"));
+
+const limit = () => document.querySelector(".body-limit");
+
+/** Render showing one specific loan, with motion off so it does not walk. */
+const at = (i: number) => {
+  document.body.innerHTML = "";
+  const view = render(<CreditBody points={POINTS} />);
+  const steps = view.container.querySelectorAll<HTMLButtonElement>(".body-step");
+  // Wrapped: the click sets state, and without `act` the assertions
+  // below read the pre-click render and every ratio comes out as 1.
+  act(() => steps[i]!.click());
+  return view;
+};
+
+describe("the object's geometry", () => {
+  it("scales the disc by area, not by radius", () => {
+    at(0);
+    const first = discR();
+    at(2);
+    const third = discR();
+
+    const capRatio =
+      Number(BigInt(POINTS[2]!.capacity) / 1_000_000n) /
+      Number(BigInt(POINTS[0]!.capacity) / 1_000_000n);
+
+    // Covered area must rise in step with capacity. Radius alone would
+    // make this ratio the square of the real one.
+    const areaRatio = (third * third) / (first * first);
+    expect(areaRatio).toBeCloseTo(capRatio, 2);
+  });
+
+  it("never draws the disc past the limit ring", () => {
+    // Capacity is what the constraint allows, so a disc spilling over
+    // its own limit would be drawing an impossible state.
+    for (let i = 0; i < POINTS.length; i++) {
+      at(i);
+      const r = discR();
+      const limitR = Number(limit()?.getAttribute("r"));
+      expect(r, `loan ${i + 1}`).toBeLessThanOrEqual(limitR);
+    }
+  });
+
+  it("hardens the limit ring only when stress binds", () => {
+    at(0);
+    // History-bound: a soft edge, because more history moves it.
+    expect(limit()?.getAttribute("stroke-dasharray")).not.toBe("none");
+
+    at(2);
+    // Stress-bound: a hard line that behaving well does not move.
+    expect(limit()?.getAttribute("stroke-dasharray")).toBe("none");
+  });
+
+  it("grows the disc as capacity grows", () => {
+    at(0);
+    const first = discR();
+    at(1);
+    const second = discR();
+    at(2);
+    const third = discR();
+    expect(second).toBeGreaterThan(first);
+    expect(third).toBeGreaterThan(second);
+  });
+
+  it("thins the rate ring as the rate falls", () => {
+    at(0);
+    const dear = Number(
+      document.querySelector(".body-rate")?.getAttribute("stroke-width"),
+    );
+    at(2);
+    const cheap = Number(
+      document.querySelector(".body-rate")?.getAttribute("stroke-width"),
+    );
+    expect(cheap).toBeLessThan(dear);
+  });
+
+  it("renders nothing without points", () => {
+    const { container } = render(<CreditBody points={[]} />);
+    expect(container.querySelector(".body")).toBeNull();
+  });
+});

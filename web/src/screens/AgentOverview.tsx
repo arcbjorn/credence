@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { loadRun, units, bps, type Run } from "../lib/data";
 import { bindingPhrase } from "../lib/bindings";
 import { classMode, ROUTE_MODES } from "../lib/modes";
+import { CapacityCurve } from "../components/CapacityCurve";
 import { ModeChip } from "../components/ModeChip";
 
 /**
@@ -70,6 +71,19 @@ export function AgentOverview() {
           <ModeChip mode={classMode(originations[0].payload.authorization_class)} />
         )}
       </div>
+
+      {/* The trajectory, before the figures that make it up. The landing
+          page's object shows ONE state well; a series is what this
+          screen is for, so the curve lives here. */}
+      {originations.length > 1 && (
+        <CapacityCurve
+          points={originations.map((a) => ({
+            capacity: a.payload.outcome.capacity?.agent_capacity ?? "0",
+            apr: a.payload.outcome.terms?.apr_bps ?? 0,
+            binding: a.payload.outcome.capacity?.agent_binding ?? "-",
+          }))}
+        />
+      )}
 
       <div className="card scroll">
         <table>

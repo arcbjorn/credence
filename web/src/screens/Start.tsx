@@ -3,7 +3,7 @@ import { Link } from "react-router";
 import { loadRun, units, type Check, type Run } from "../lib/data";
 import { bindingPhrase } from "../lib/bindings";
 import { CLAIMS, EARNED, REFUSED, UNEARNED, type Claim } from "../lib/claims";
-import { CapacityCurve } from "../components/CapacityCurve";
+import { CreditBody } from "../components/CreditBody";
 import { Deployment } from "../components/Deployment";
 import { Counted } from "../components/Motion";
 
@@ -44,6 +44,8 @@ interface Origination {
   apr: number;
   capacity: string;
   binding: string;
+  /** The behavioural score, when the assessment carried one. */
+  score?: number;
 }
 
 function originations(run: Run | null): Origination[] {
@@ -54,6 +56,12 @@ function originations(run: Run | null): Origination[] {
       apr: a.payload.outcome.terms?.apr_bps ?? 0,
       capacity: a.payload.outcome.capacity?.agent_capacity ?? "0",
       binding: a.payload.outcome.capacity?.agent_binding ?? "-",
+      // A null score is not a zero one: it means the assessment produced
+      // no score, and the object must not colour itself as though it
+      // had measured the coldest possible agent.
+      ...(typeof a.payload.outcome.capacity?.score === "number"
+        ? { score: a.payload.outcome.capacity.score }
+        : {}),
     }));
 }
 
@@ -198,12 +206,13 @@ export function Start() {
           </Link>
         </div>
 
-        {loans.length > 1 && (
-          <CapacityCurve
+        {loans.length > 0 && (
+          <CreditBody
             points={loans.map((l) => ({
               capacity: l.capacity,
               apr: l.apr,
               binding: l.binding,
+              ...(l.score !== undefined ? { score: l.score } : {}),
             }))}
           />
         )}
