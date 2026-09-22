@@ -3,6 +3,7 @@ import { loadComparison, units, bps, type Comparison } from "../lib/data";
 import { bindingPhrase } from "../lib/bindings";
 import { classMode } from "../lib/modes";
 import { reasonFields, reasonName } from "../lib/reasons";
+import { CreditBody } from "../components/CreditBody";
 import { ModeChip } from "../components/ModeChip";
 import { Hash } from "../components/Hash";
 
@@ -32,6 +33,15 @@ export function Comparison_() {
   if (error) return <div className="error">{error}</div>;
   if (!cmp) return <p className="lede">Loading the comparison…</p>;
 
+  // One scale for all three objects. Normalising each to its own
+  // capacity would draw the denied agent and the strongest one the same
+  // size, which is the opposite of the comparison being made.
+  const peak = Math.max(
+    ...cmp.profiles.map((p) =>
+      Number(BigInt(p.assessment.outcome.capacity?.agent_capacity ?? "0") / 1_000_000n),
+    ),
+  );
+
   return (
     <>
       <h2>Three agents</h2>
@@ -57,6 +67,26 @@ export function Comparison_() {
               key={p.name}
             >
               <h3>{p.name}</h3>
+
+              {/* Each agent as its own object, all three drawn to ONE
+                  scale so they are comparable: the denied profile is a
+                  ring with nothing inside it, which is the refusal
+                  stated as geometry rather than as a red word. */}
+              <CreditBody
+                still
+                peakOverride={peak}
+                points={[
+                  {
+                    capacity: o.capacity?.agent_capacity ?? "0",
+                    apr: o.terms?.apr_bps ?? 0,
+                    binding: o.capacity?.agent_binding ?? "-",
+                    ...(typeof o.capacity?.score === "number"
+                      ? { score: o.capacity.score }
+                      : {}),
+                  },
+                ]}
+              />
+
               <p className="lede" style={{ minHeight: "4.5em" }}>{p.blurb}</p>
               <table>
                 <tbody>

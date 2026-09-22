@@ -99,6 +99,47 @@ describe("the object's geometry", () => {
     expect(cheap).toBeLessThan(dear);
   });
 
+  it("draws a refusal as an empty ring in the alarm register", () => {
+    // Zero capacity is not a small loan. The agent reaches none of its
+    // limit, so there is a ring and nothing inside it -- the refusal
+    // stated as geometry rather than as a red word beside a number.
+    document.body.innerHTML = "";
+    const { container } = render(
+      <CreditBody
+        still
+        peakOverride={12000}
+        points={[
+          { capacity: "0", apr: 0, binding: "StressCapacity", score: 300 },
+        ]}
+      />,
+    );
+    expect(Number(container.querySelector(".body-disc")?.getAttribute("r"))).toBe(0);
+    expect(container.querySelector(".body-limit")?.getAttribute("stroke")).toBe(
+      "var(--alarm)",
+    );
+    // And it says so, rather than printing a 0.00% rate nobody is offered.
+    expect(container.textContent).toContain("denied");
+    expect(container.textContent).not.toContain("0.00%");
+  });
+
+  it("scales against an outside peak so bodies are comparable", () => {
+    // Without this each object normalises to its own capacity and a
+    // small agent is drawn the same size as a large one.
+    document.body.innerHTML = "";
+    const { container } = render(
+      <CreditBody
+        still
+        peakOverride={12000}
+        points={[
+          { capacity: "6000000000", apr: 1200, binding: "HistoryGrowthCap" },
+        ]}
+      />,
+    );
+    const r = Number(container.querySelector(".body-disc")?.getAttribute("r"));
+    // Half the peak by area, so sqrt(0.5) of the limit radius.
+    expect(r).toBeCloseTo(Math.sqrt(0.5) * 122, 1);
+  });
+
   it("renders nothing without points", () => {
     const { container } = render(<CreditBody points={[]} />);
     expect(container.querySelector(".body")).toBeNull();

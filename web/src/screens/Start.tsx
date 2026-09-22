@@ -83,12 +83,12 @@ function ClaimRow({ claim }: { claim: Claim }) {
     <details className={`claim claim-${claim.status}`}>
       <summary>
         <span className="claim-title">{claim.title}</span>
-        <span className="claim-status">{earned ? "earned" : "not yet"}</span>
+        <span className="claim-status">{earned ? "live" : "building"}</span>
       </summary>
       <div className="claim-body">
         <p className="claim-detail">{claim.detail}</p>
         <p className="claim-support">
-          <span className="claim-support-label">Support</span>
+          <span className="claim-support-label">Runs on</span>
           {claim.support}
         </p>
         {claim.to && (
@@ -239,14 +239,12 @@ export function Start() {
           evidence for each. */}
       <section className="split-right">
         <header className="ledger-head">
-          <h2>What this claims</h2>
+          <h2>What it does</h2>
           <p>
-            A demo can show you anything. So here is every claim this
-            project makes, with the thing that would have to be true for it
-            to hold. <strong>{EARNED} of {EARNED + UNEARNED} are earned.</strong>{" "}
-            The other {UNEARNED} are in the same list, not a footnote —
-            burying them is how you end up with a demo that shows you
-            anything. Open a row to see what backs it.
+            Every capability, and what it runs on.{" "}
+            <strong>{EARNED} of {EARNED + UNEARNED} work today.</strong>{" "}
+            The other {UNEARNED} are still being built and say so here
+            rather than in a footnote. Open any row to see it in action.
           </p>
         </header>
 

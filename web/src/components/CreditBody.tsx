@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { bindingPhrase } from "../lib/bindings";
 import { useInView, useMotionAllowed } from "./Motion";
 
@@ -68,10 +68,28 @@ function bindingIsStress(binding: string): boolean {
   return binding === "StressCapacity";
 }
 
-export function CreditBody({ points }: { points: BodyPoint[] }) {
+export function CreditBody({
+  points,
+  /** Scale the object against a figure outside its own series, so
+   *  several bodies drawn side by side are comparable. Without this each
+   *  one normalises to its own maximum and a small agent looks as large
+   *  as a big one. */
+  peakOverride,
+  /** A single-state object: no stepper, no autoplay. */
+  still = false,
+}: {
+  points: BodyPoint[];
+  peakOverride?: number;
+  still?: boolean;
+}) {
   const motion = useMotionAllowed();
   const { ref, seen } = useInView<HTMLDivElement>();
   const [step, setStep] = useState(0);
+  // Gradients are document-scoped, so several bodies on one page would
+  // otherwise all paint with whichever one mounted last. Declared with
+  // the other hooks: below the early return it would run conditionally
+  // and desync React's hook order.
+  const gradientId = `bodyfill-${useId()}`;
 
   const last = points.length - 1;
 
@@ -79,7 +97,7 @@ export function CreditBody({ points }: { points: BodyPoint[] }) {
   // playing forward, not a loop: it settles on the final state and
   // stays, because the final state is the claim.
   useEffect(() => {
-    if (!seen) return;
+    if (!seen || still) return;
     if (!motion) {
       setStep(last);
       return;
@@ -92,16 +110,20 @@ export function CreditBody({ points }: { points: BodyPoint[] }) {
       if (i >= last) clearInterval(timer);
     }, 1400);
     return () => clearInterval(timer);
-  }, [seen, motion, last]);
+  }, [seen, motion, last, still]);
 
   if (points.length === 0) return null;
 
   const caps = points.map((p) => Number(BigInt(p.capacity) / 1_000_000n));
-  const peak = Math.max(...caps);
+  const peak = peakOverride ?? Math.max(...caps);
 
   const current = points[Math.min(step, last)]!;
   const cap = caps[Math.min(step, last)]!;
   const stress = bindingIsStress(current.binding);
+  // Zero capacity is a REFUSAL, not a small loan. It takes the ALARM
+  // register and renders as a ring with nothing inside it -- the limit
+  // exists and the agent reaches none of it.
+  const denied = cap === 0;
 
   // The disc, scaled against the largest capacity in the series by AREA,
   // not radius. Mapping a quantity straight to the radius exaggerates
@@ -124,6 +146,17 @@ export function CreditBody({ points }: { points: BodyPoint[] }) {
   const score = current.score ?? 0;
   const warmth = Math.max(0, Math.min(1, (score - 560) / 200));
 
+  // One hue per state, chosen from the three registers `docs/09`
+  // requires stay distinct: a refusal is ALARM, a high score reaching
+  // the stress model is MACHINE, and history compounding is GROWTH.
+  const hue = denied
+    ? "var(--alarm)"
+    : warmth > 0.5
+      ? "var(--machine)"
+      : "var(--growth)";
+
+
+
   return (
     <div ref={ref} className="body">
       <svg
@@ -137,17 +170,9 @@ export function CreditBody({ points }: { points: BodyPoint[] }) {
         }
       >
         <defs>
-          <radialGradient id="bodyfill" cx="50%" cy="50%" r="50%">
-            <stop
-              offset="0%"
-              stopColor={warmth > 0.5 ? "var(--machine)" : "var(--growth)"}
-              stopOpacity="0.34"
-            />
-            <stop
-              offset="100%"
-              stopColor={warmth > 0.5 ? "var(--machine)" : "var(--growth)"}
-              stopOpacity="0.05"
-            />
+          <radialGradient id={gradientId} cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor={hue} stopOpacity="0.34" />
+            <stop offset="100%" stopColor={hue} stopOpacity="0.05" />
           </radialGradient>
         </defs>
 
@@ -160,9 +185,15 @@ export function CreditBody({ points }: { points: BodyPoint[] }) {
           cy={CENTER}
           r={LIMIT_R}
           fill="none"
-          stroke={stress ? "var(--machine)" : "var(--border)"}
-          strokeWidth={stress ? 2 : 1}
-          strokeDasharray={stress ? "none" : "2 6"}
+          stroke={
+            denied
+              ? "var(--alarm)"
+              : stress
+                ? "var(--machine)"
+                : "var(--border)"
+          }
+          strokeWidth={denied || stress ? 2 : 1}
+          strokeDasharray={denied || stress ? "none" : "2 6"}
           className="body-limit"
         />
 
@@ -171,8 +202,8 @@ export function CreditBody({ points }: { points: BodyPoint[] }) {
           cx={CENTER}
           cy={CENTER}
           r={discR}
-          fill="url(#bodyfill)"
-          stroke={warmth > 0.5 ? "var(--machine)" : "var(--growth)"}
+          fill={`url(#${gradientId})`}
+          stroke={hue}
           strokeWidth="1.5"
           className="body-disc"
         />
@@ -183,7 +214,7 @@ export function CreditBody({ points }: { points: BodyPoint[] }) {
           cy={CENTER}
           r={discR}
           fill="none"
-          stroke={warmth > 0.5 ? "var(--machine)" : "var(--growth)"}
+          stroke={hue}
           strokeWidth={rateWeight}
           strokeOpacity="0.18"
           className="body-rate"
@@ -197,7 +228,7 @@ export function CreditBody({ points }: { points: BodyPoint[] }) {
           textAnchor="middle"
           className="body-figure"
         >
-          {(current.apr / 100).toFixed(2)}%
+          {denied ? "denied" : `${(current.apr / 100).toFixed(2)}%`}
         </text>
         <text
           x={CENTER}
@@ -210,13 +241,19 @@ export function CreditBody({ points }: { points: BodyPoint[] }) {
       </svg>
 
       {/* The leader line, naming the edge that is actually binding. */}
-      <p className={`body-caption ${stress ? "body-caption-stress" : ""}`}>
+      <p
+        className={
+          `body-caption ${denied ? "body-caption-denied" : ""} ` +
+          `${!denied && stress ? "body-caption-stress" : ""}`
+        }
+      >
         <span className="body-caption-label">Limited by</span>
         <span title={current.binding}>{bindingPhrase(current.binding)}</span>
       </p>
 
       {/* Stepping is manual too. An object that only plays cannot be
           examined, and the switch is the frame worth sitting on. */}
+      {points.length > 1 && (
       <div className="body-steps" role="group" aria-label="Choose a loan">
         {points.map((p, i) => (
           <button
@@ -231,6 +268,7 @@ export function CreditBody({ points }: { points: BodyPoint[] }) {
           />
         ))}
       </div>
+      )}
     </div>
   );
 }

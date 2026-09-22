@@ -36,9 +36,9 @@ describe("the claims ledger on the landing page", () => {
     }
   });
 
-  it("shows the unearned claims rather than hiding them", () => {
+  it("shows the in-progress capabilities rather than hiding them", () => {
     renderStart();
-    const notYet = screen.getAllByText("not yet");
+    const notYet = screen.getAllByText("building");
     expect(notYet.length).toBe(UNEARNED);
     // Both sit in the same list as the earned ones: same element type,
     // same parent. A footnote would be a different container.
@@ -48,14 +48,14 @@ describe("the claims ledger on the landing page", () => {
     }
   });
 
-  it("states the earned count the ledger actually contains", () => {
+  it("states the working count the ledger actually contains", () => {
     renderStart();
-    expect(screen.getAllByText("earned").length).toBe(EARNED);
+    expect(screen.getAllByText("live").length).toBe(EARNED);
     // The summary line must agree with the rows beneath it. Matched on
     // the COUNTS rather than on a fixed sentence, so rewording the copy
     // does not fail this and changing a number does.
     expect(
-      screen.getByText(`${EARNED} of ${EARNED + UNEARNED} are earned.`),
+      screen.getByText(`${EARNED} of ${EARNED + UNEARNED} work today.`),
     ).toBeInTheDocument();
   });
 

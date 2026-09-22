@@ -700,6 +700,12 @@ code { font-family: var(--mono); font-size: 0.94em; }
   color: var(--machine);
 }
 
+/* A refusal keeps the ALARM register all the way through, so the
+   caption does not disagree with the object it is captioning. */
+.body-caption-denied span:last-child {
+  color: var(--alarm);
+}
+
 .body-steps {
   display: flex;
   gap: 7px;
@@ -849,11 +855,37 @@ code { font-family: var(--mono); font-size: 0.94em; }
 
 .claim[open] .claim-status::after { content: " −"; }
 
+/* A working capability carries a filled dot; one still being built
+   carries a hollow one. The shape does the work, so the state survives
+   a reader who cannot separate the two hues. */
 .claim-earned .claim-status { color: var(--growth); }
-/* Vermilion would read as a failure. An unearned claim is not a fault:
-   it is work that has not been done, and the declared register for a
-   thing the system will not assert is the dim one. */
+
+.claim-earned .claim-status::before {
+  content: "";
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--growth);
+  margin-right: 7px;
+  vertical-align: middle;
+}
+
+/* Vermilion would read as a failure. Work not yet done is not a fault,
+   so this takes the declared register -- the one for a thing the system
+   is not asserting. */
 .claim-unearned .claim-status { color: var(--mode-declared); }
+
+.claim-unearned .claim-status::before {
+  content: "";
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  border: 1px solid var(--mode-declared);
+  margin-right: 7px;
+  vertical-align: middle;
+}
 
 .claim-body {
   padding: 0 0 16px;
