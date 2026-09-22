@@ -115,7 +115,7 @@ export function PerplPanel() {
   if (error) {
     return (
       <section>
-        <h2>Perpl market risk</h2>
+        <h1 className="record-title">Perpl market risk</h1>
         <p className="empty">
           No capture to show ({error}). Run{" "}
           <code>bash scripts/build-perpl-data.sh</code>, which reads the live
@@ -128,7 +128,7 @@ export function PerplPanel() {
   if (!data) {
     return (
       <section>
-        <h2>Perpl market risk</h2>
+        <h1 className="record-title">Perpl market risk</h1>
         <p className="empty">Loading the capture&hellip;</p>
       </section>
     );
@@ -149,7 +149,7 @@ export function PerplPanel() {
 
   return (
     <section>
-      <h2>Perpl market risk</h2>
+      <h1 className="record-title">Perpl market risk</h1>
       <p className="lede">
         Observed orderbook depth, funding and realized volatility from{" "}
         <strong>
