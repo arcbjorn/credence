@@ -60,11 +60,15 @@ td { padding-top:15px;padding-bottom:15px; }
    unanimated rather than risking blank text on load. */
 .shell-landing .story-copy .hero { position:relative;z-index:3;max-width:5.8em;font:500 clamp(64px,7.3vw,118px)/.99 var(--sans);letter-spacing:-.065em;margin:0 0 26px;animation:none; }
 .shell-landing .story-copy .hero-lede { position:relative;z-index:3;width:30%;max-width:32ch;font:15px/1.8 var(--sans);margin:0 0 27px;animation:none; }
-.story-chapter-0 .story-copy .hero { max-width:5.7em; }
+/* The opening headline is longer than the one this measure was set
+   for, and at 5.7em it wrapped to three lines -- 347px of type in a
+   430px column, which pushed the call to action onto the readings
+   row. A wider measure keeps it at two lines. */
+.story-chapter-0 .story-copy .hero { max-width:8.4em; }
 .story-viewport:not(.story-chapter-0) .story-copy .hero { font-size:clamp(50px,5.3vw,85px);max-width:6.8em; }
 .story-copy .start-enter { position:relative;z-index:3;display:inline-flex;align-items:center;justify-content:space-between;gap:55px;background:var(--text);color:var(--bg);padding:17px 21px;min-width:195px;font:12px var(--sans);text-decoration:none;border:0; }
 .story-copy .start-enter:hover { background:var(--machine);color:var(--bg); }
-.hero-access { position:relative;z-index:3;font:9px var(--mono);color:var(--text-dim);margin:15px 0 0; }
+.hero-access { position:relative;z-index:3;font:9px var(--mono);color:var(--text-dim);margin:12px 0 0; }
 .hero-objects.story-world { position:absolute;width:min(67vw,950px,82vh);height:auto;right:-1%;top:46%;transform:translateY(-50%);display:block;margin:0; }
 .credit-world { position:relative;width:100%;aspect-ratio:1;cursor:crosshair; }
 .world-canvas { display:block;width:100%;height:100%; }
