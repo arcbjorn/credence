@@ -74,7 +74,7 @@ dependencies the repository does not have is a reader's first wrong turn.
 | Data plane | Go, SQLite/WAL | As planned |
 | Internal transport | HTTP/JSON baseline; isolated protobuf/gRPC gate on 6 Oct | **Both.** HTTP/JSON is the default path; gRPC over tonic starts alongside it when `RISK_SERVICE_GRPC_ADDR` is set. `scripts/verify-grpc.sh` proves they return **byte-identical** assessments for the same snapshot, which is the gate (D35). Stubs generated from `schemas/proto/risk.proto` on both ends |
 | Indexer | Envio | **Built** (`indexer/`). HyperIndex over HyperSync on 10143, RPC on anvil. It reconstructs the loan lifecycle from the event log, which is a different question from the one the gateway answers: the gateway reads loan **structs** over `eth_call` — current state — and a struct cannot say when recovery opened or what was collected on the way. An earlier version of this row said the gateway "follows contract events directly". It does not; it reads state. |
-| Frontend | TypeScript + Next.js, viem/wagmi | **React 19 + Vite 8 + TypeScript 7**, not Next.js. All eight of `docs/09`'s screens are built, plus three beyond that list: an indexed-lifecycle ninth over the Envio rows, a tenth showing observed Perpl market data driving the three stress scenarios, and an eleventh that is the way in -- `docs/09` specifies the screens and a nine-beat script, and the interface had the screens without the script. Next.js was dropped deliberately: its value is SSR, routing and data fetching, and this interface renders a generated static bundle |
+| Frontend | TypeScript + Next.js, viem/wagmi | **React 19 + Vite 8 + TypeScript 7**, not Next.js. All eight of `docs/09`'s screens are built, plus five beyond that list: an indexed-lifecycle ninth over the Envio rows, a tenth showing observed Perpl market data driving the three stress scenarios, an eleventh that is the way in, a twelfth serving the four observatory rooms from one component, and a thirteenth field guide to the physics -- `docs/09` specifies the screens and a nine-beat script, and the interface had the screens without the script. Next.js was dropped deliberately: its value is SSR, routing and data fetching, and this interface renders a generated static bundle |
 | Deployment | Docker Compose onto a small persistent VM | **Not built.** Everything runs from `scripts/`, against anvil or Monad testnet |
 
 **On transport — resolved, see D35.** Both transports are built.
@@ -123,9 +123,10 @@ Signing credentials stay in a restricted backend. Scenario identities and fundin
 this layout did not anticipate — `cre/` (the CRE workflow) and
 `tools/reader/` (standalone readers that import nothing from this
 repository). `web/` now exists — React 19 on Vite 8, with all eight of
-`docs/09`'s screens built plus an indexed-lifecycle ninth, a Perpl
-market-risk tenth and a landing eleventh; the demo is
-still the scripts in
+`docs/09`'s screens built plus five beyond that list: an
+indexed-lifecycle ninth, a Perpl market-risk tenth, a landing eleventh,
+a twelfth behind the four observatory rooms and a thirteenth field
+guide; the demo is still the scripts in
 `scripts/`, and the interface reads what they retained rather than
 driving them. One planned path does not exist: `agent/`, whose
 deterministic runner lives in `gateway/sim` instead because only the
