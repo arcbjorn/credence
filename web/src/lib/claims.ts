@@ -27,7 +27,19 @@
 /** Whether a claim's support exists and was re-run. */
 export type ClaimStatus = "earned" | "unearned";
 
+/**
+ * Which part of the story a claim belongs to.
+ *
+ * Ten flat rows read as a table of contents: the reader has no way in
+ * except to start at the top. Three groups give the list a shape --
+ * what it does, what it refuses to pretend, and what it is still
+ * building -- and each group can carry one sentence explaining why it
+ * exists, rather than one header standing for all ten.
+ */
+export type ClaimGroup = "proof" | "limits" | "building";
+
 export interface Claim {
+  group: ClaimGroup;
   /** The claim itself, phrased as the thing a reader would want true. */
   title: string;
   /** What it would take to earn it. */
@@ -49,6 +61,7 @@ export interface Claim {
  */
 export const CLAIMS: Claim[] = [
   {
+    group: "proof",
     title: "Decisions are reproducible",
     support: "The saved inputs, re-run and matched",
     status: "earned",
@@ -60,6 +73,7 @@ export const CLAIMS: Claim[] = [
     to: "/replay",
   },
   {
+    group: "proof",
     title: "Credit grows with demonstrated behaviour",
     support: "Three loans in a row under one unchanged rulebook",
     status: "earned",
@@ -71,6 +85,7 @@ export const CLAIMS: Claim[] = [
     to: "/agent",
   },
   {
+    group: "limits",
     title: "Current risk overrides reputation",
     support: "A borrower holding too much of one risky asset",
     status: "earned",
@@ -81,6 +96,7 @@ export const CLAIMS: Claim[] = [
     to: "/compare",
   },
   {
+    group: "limits",
     title: "Borrowed capital is constrained",
     support: "A real transaction, refused on chain",
     status: "earned",
@@ -92,6 +108,7 @@ export const CLAIMS: Claim[] = [
     to: "/enforcement",
   },
   {
+    group: "limits",
     title: "Losses are accounted for",
     support: "What was lent, recovered and lost, adding up",
     status: "earned",
@@ -102,6 +119,7 @@ export const CLAIMS: Claim[] = [
     to: "/lender",
   },
   {
+    group: "proof",
     title: "Underwriting is continuous",
     support: "A re-check nobody asked for, landing on chain",
     status: "earned",
@@ -113,6 +131,7 @@ export const CLAIMS: Claim[] = [
     to: "/arc",
   },
   {
+    group: "proof",
     title: "Forecasts are evaluated",
     support: "A prediction made before the money moved, then scored",
     status: "earned",
@@ -125,6 +144,7 @@ export const CLAIMS: Claim[] = [
     to: "/arc",
   },
   {
+    group: "proof",
     title: "Reputation is independently verifiable",
     support: "A reader that works without touching our servers",
     status: "earned",
@@ -136,6 +156,7 @@ export const CLAIMS: Claim[] = [
     to: "/indexed",
   },
   {
+    group: "building",
     title: "CRE checks an assessment",
     support: "The live workflow running its checks for real",
     status: "unearned",
@@ -148,6 +169,7 @@ export const CLAIMS: Claim[] = [
       "the claim stays unearned.",
   },
   {
+    group: "building",
     title: "A note is tradable debt exposure",
     support: "Someone independent actually buying or selling one",
     status: "unearned",
@@ -178,5 +200,33 @@ export const REFUSED: string[] = [
 ];
 
 /** Counts for the summary line. Derived, never written down twice. */
+/**
+ * The heading and the one sentence that explains each group.
+ *
+ * The explanation is the reference's middle column: a reader should
+ * know why a group exists before reading its items, and one shared
+ * header cannot say that for ten unrelated rows.
+ */
+export const GROUPS: { key: ClaimGroup; title: string; blurb: string }[] = [
+  {
+    key: "proof",
+    title: "What it proves",
+    blurb:
+      "Each of these was produced by a real run and kept. Open one to see the evidence and where it came from.",
+  },
+  {
+    key: "limits",
+    title: "What it refuses",
+    blurb:
+      "A lending demo that only shows loans being repaid proves nothing. These are the refusals and the losses.",
+  },
+  {
+    key: "building",
+    title: "Still building",
+    blurb:
+      "Not finished, and not hidden in a footnote. Each says plainly what is missing and why.",
+  },
+];
+
 export const EARNED = CLAIMS.filter((c) => c.status === "earned").length;
 export const UNEARNED = CLAIMS.filter((c) => c.status === "unearned").length;
