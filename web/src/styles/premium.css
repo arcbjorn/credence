@@ -62,6 +62,13 @@ td { padding-top:15px;padding-bottom:15px; }
 .tiny-cross { margin-left:30px;font-size:15px; }
 .story-copy.split-left { position:static;top:auto;padding:0;border:0;background:none;max-width:none; }
 .story-copy > .eyebrow { position:relative;margin:clamp(40px,8vh,100px) 0 24px;z-index:3; }
+/* Chapter copy swaps without an entrance: `animation:none` suppresses
+   the inherited one. A mount animation was tried and reverted -- a
+   backgrounded tab freezes CSS animations at their first frame, so any
+   keyframe starting below full opacity renders the hero dimmed or
+   invisible until the tab is focused. The globe avoids this by checking
+   `document.hidden` in JS; CSS has no equivalent, so the copy stays
+   unanimated rather than risking blank text on load. */
 .shell-landing .story-copy .hero { position:relative;z-index:3;max-width:5.8em;font:500 clamp(64px,7.3vw,118px)/.99 var(--sans);letter-spacing:-.065em;margin:0 0 26px;animation:none; }
 .shell-landing .story-copy .hero-lede { position:relative;z-index:3;width:30%;max-width:32ch;font:15px/1.8 var(--sans);margin:0 0 27px;animation:none; }
 .story-chapter-0 .story-copy .hero { max-width:5.7em; }
