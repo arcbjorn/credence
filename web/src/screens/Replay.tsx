@@ -78,7 +78,7 @@ export function Replay() {
 
   return (
     <>
-      <h2>Replay</h2>
+      <h1 className="record-title">Replay</h1>
       <p className="lede">
         Does the retained input reproduce the assessment under the pinned
         model? The engine runs in this tab — the same Rust the gateway
