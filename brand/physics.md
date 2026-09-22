@@ -76,7 +76,9 @@ not in a stylesheet.
 - Atmosphere and core values ease toward new measurements over two seconds.
 - Arc replay: two seconds, explicitly requested by the reader.
 - No bounce or spring. Respect `prefers-reduced-motion` in CSS and rendering.
-- Stop drawing an offscreen or hidden document. Cap canvas pixel density at 2.
+- Stop drawing an offscreen or hidden document. Cap canvas pixel density at 2
+  and backing dimensions at 2048px. Measure the CSS wrapper, never feed a
+  canvas's own intrinsic dimensions back into its resize calculation.
 - Hold Alt for whisper mode. Release or blur always restores instruments.
 - A dock can be dismissed with its close button or Escape. Return focus to
   the instrument that opened it.
