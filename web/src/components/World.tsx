@@ -34,8 +34,9 @@ export function World({ book, nodes = [], loans = [], projection = "globe", sele
   const buttons = useRef(new Map<string, HTMLButtonElement>());
   const motion = useMotionAllowed();
   const [hovered, setHovered] = useState(false);
-  const latest = useRef({ book, nodes, loans, projection, selected, replay, paused, hovered });
-  latest.current = { book, nodes, loans, projection, selected, replay, paused, hovered };
+  const [focused, setFocused] = useState(false);
+  const latest = useRef({ book, nodes, loans, projection, selected, replay, paused, hovered, focused });
+  latest.current = { book, nodes, loans, projection, selected, replay, paused, hovered, focused };
 
   useEffect(() => {
     const el = canvas.current;
@@ -81,7 +82,7 @@ export function World({ book, nodes = [], loans = [], projection = "globe", sele
       const dt = Math.min((now - (last || now)) / 1000, 0.1);
       last = now;
       const state = latest.current;
-      if (motion && !state.paused && !state.hovered) rotation += dt * TAU / 18;
+      if (motion && !state.paused && !state.hovered && !state.focused) rotation += dt * TAU / 18;
       const lerp = motion ? Math.min(1, dt * 5) : 1;
       flatten += ((state.projection === "atlas" ? 1 : 0) - flatten) * lerp;
       layer += ((state.projection === "layers" ? 1 : 0) - layer) * lerp;
@@ -234,7 +235,7 @@ export function World({ book, nodes = [], loans = [], projection = "globe", sele
   }, [motion]);
 
   return (
-    <div className={`credit-world world-${projection} ${labels ? "" : "world-whisper"}`} ref={wrapper} onPointerEnter={() => setHovered(true)} onPointerLeave={() => setHovered(false)}>
+    <div className={`credit-world world-${projection} ${labels ? "" : "world-whisper"}`} ref={wrapper} onPointerEnter={() => setHovered(true)} onPointerLeave={() => setHovered(false)} onFocus={() => setFocused(true)} onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) setFocused(false); }}>
       <canvas ref={canvas} className="world-canvas" role="img" aria-label={`Credit body, ${projection} projection. ${book.utilization === null ? "Book measurements unavailable." : `${(book.utilization * 100).toFixed(1)}% utilization.`} ${nodes.length} ${nodes.length === 1 ? "profile" : "profiles"}. Surface texture is illustrative.`} />
       <div className="world-pole world-pole-n" aria-hidden="true">N</div><div className="world-pole world-pole-s" aria-hidden="true">S</div>
       {nodes.map((node, i) => <button key={node.id} ref={el => { if (el) buttons.current.set(node.id, el); else buttons.current.delete(node.id); }} type="button" className={`world-node ${node.denied ? "node-hollow" : ""} ${selected === node.id ? "node-selected" : ""} ${node.score !== null && node.score >= 800 ? "node-exceptional" : ""}`} style={{ left: `${35 + i * 18}%`, top: `${36 + i * 12}%` }} aria-label={`${node.label}, score ${node.score ?? "unmeasured"}${node.denied ? ", denied" : ""}`} aria-pressed={selected === node.id} onClick={() => onSelect?.(node.id)}>
