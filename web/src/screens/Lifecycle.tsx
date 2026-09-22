@@ -40,7 +40,7 @@ export function Lifecycle() {
 
   return (
     <>
-      <h2>Loan lifecycle</h2>
+      <h1 className="record-title">Loan lifecycle</h1>
       <p className="lede">
         Each loan commits a forecast before it is funded, then the forecast
         is scored against what actually happened.
