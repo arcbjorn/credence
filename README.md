@@ -84,12 +84,13 @@ that passed.**
 
 ### The interface
 
-`docs/09`'s eight screens, rendering what the demos retained, plus three
+`docs/09`'s eight screens, rendering what the demos retained, plus five
 more: **Start here**, which is the nine-beat script `docs/09` specifies
 rather than another table; **Indexed**, the lifecycle rebuilt from the
-event log by the Envio indexer (needs Docker, skipped without it); and
+event log by the Envio indexer (needs Docker, skipped without it);
 **Perpl risk**, live orderbook depth, funding and volatility from the
-perps venue driving the three stress scenarios. One command does the whole path — toolchain
+perps venue driving the three stress scenarios; the four **observatory
+rooms**, served from one component; and a **field guide** to the physics. One command does the whole path — toolchain
 check, a local chain, the demos, the WebAssembly engine, the data bundle,
 and the dev server:
 
