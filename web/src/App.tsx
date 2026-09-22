@@ -11,7 +11,10 @@ import { IndexedLifecycle } from "./screens/Indexed";
 import { PerplPanel } from "./screens/Perpl";
 import { Replay } from "./screens/Replay";
 import { Start } from "./screens/Start";
+import { Observatory } from "./screens/Observatory";
+import { EmptyCoordinate, FieldGuide } from "./screens/FieldGuide";
 import "./styles/app.css";
+import "./styles/premium.css";
 
 /**
  * `docs/09` specifies eight screens. All eight are built here -- the ones that
@@ -42,6 +45,13 @@ export default function App() {
     <Shell>
         <Routes>
           <Route path="/" element={<Start />} />
+          <Route path="/observatory" element={<Observatory />} />
+          <Route path="/atlas" element={<Observatory />} />
+          <Route path="/moons" element={<Observatory />} />
+          <Route path="/body" element={<Observatory />} />
+          <Route path="/log" element={<Observatory />} />
+          <Route path="/guide" element={<FieldGuide />} />
+          <Route path="/arc" element={<Lifecycle />} />
           <Route path="/agent" element={<AgentOverview />} />
           <Route path="/compare" element={<Comparison_ />} />
           <Route path="/assessment" element={<AssessmentDetail />} />
@@ -52,6 +62,7 @@ export default function App() {
           <Route path="/enforcement" element={<Enforcement />} />
           <Route path="/perpl" element={<PerplPanel />} />
           <Route path="/replay" element={<Replay />} />
+          <Route path="*" element={<EmptyCoordinate />} />
         </Routes>
     </Shell>
   );
