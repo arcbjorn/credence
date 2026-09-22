@@ -3,4 +3,8 @@
 # one would otherwise commit these.
 .DS_Store
 
+# Local agent session state. Written by tooling rather than by anyone
+# working on the project, so it must never reach a commit.
+.reasonix/
+
 legacy/
