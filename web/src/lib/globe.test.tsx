@@ -1,9 +1,9 @@
 import { act, render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { CreditBody, type BodyPoint } from "../components/CreditBody";
+import { CreditGlobe, type GlobePoint } from "../components/CreditGlobe";
 
 /**
- * The object's grammar.
+ * The globe's grammar.
  *
  * The premise is that geometry IS the data: if the shape can drift from
  * the figures it claims to draw, it is decoration with extra steps. So
@@ -16,22 +16,22 @@ import { CreditBody, type BodyPoint } from "../components/CreditBody";
  * twice.
  */
 
-const POINTS: BodyPoint[] = [
+const POINTS: GlobePoint[] = [
   { capacity: "6200000000", apr: 1200, binding: "HistoryGrowthCap", score: 610 },
   { capacity: "7533330000", apr: 1147, binding: "HistoryGrowthCap", score: 676 },
   { capacity: "8117138556", apr: 1094, binding: "StressCapacity", score: 705 },
 ];
 
 const discR = () =>
-  Number(document.querySelector(".body-disc")?.getAttribute("r"));
+  Number(document.querySelector(".globe-edge")?.getAttribute("r"));
 
-const limit = () => document.querySelector(".body-limit");
+const limit = () => document.querySelector(".globe-limit");
 
 /** Render showing one specific loan, with motion off so it does not walk. */
 const at = (i: number) => {
   document.body.innerHTML = "";
-  const view = render(<CreditBody points={POINTS} />);
-  const steps = view.container.querySelectorAll<HTMLButtonElement>(".body-step");
+  const view = render(<CreditGlobe points={POINTS} />);
+  const steps = view.container.querySelectorAll<HTMLButtonElement>(".globe-step");
   // Wrapped: the click sets state, and without `act` the assertions
   // below read the pre-click render and every ratio comes out as 1.
   act(() => steps[i]!.click());
@@ -39,7 +39,7 @@ const at = (i: number) => {
 };
 
 describe("the object's geometry", () => {
-  it("scales the disc by area, not by radius", () => {
+  it("scales the body by area, not by radius", () => {
     at(0);
     const first = discR();
     at(2);
@@ -55,7 +55,7 @@ describe("the object's geometry", () => {
     expect(areaRatio).toBeCloseTo(capRatio, 2);
   });
 
-  it("never draws the disc past the limit ring", () => {
+  it("never draws the body past the limit ring", () => {
     // Capacity is what the constraint allows, so a disc spilling over
     // its own limit would be drawing an impossible state.
     for (let i = 0; i < POINTS.length; i++) {
@@ -76,7 +76,7 @@ describe("the object's geometry", () => {
     expect(limit()?.getAttribute("stroke-dasharray")).toBe("none");
   });
 
-  it("grows the disc as capacity grows", () => {
+  it("grows the body as capacity grows", () => {
     at(0);
     const first = discR();
     at(1);
@@ -90,11 +90,11 @@ describe("the object's geometry", () => {
   it("thins the rate ring as the rate falls", () => {
     at(0);
     const dear = Number(
-      document.querySelector(".body-rate")?.getAttribute("stroke-width"),
+      document.querySelector(".globe-edge")?.getAttribute("stroke-width"),
     );
     at(2);
     const cheap = Number(
-      document.querySelector(".body-rate")?.getAttribute("stroke-width"),
+      document.querySelector(".globe-edge")?.getAttribute("stroke-width"),
     );
     expect(cheap).toBeLessThan(dear);
   });
@@ -105,7 +105,7 @@ describe("the object's geometry", () => {
     // stated as geometry rather than as a red word beside a number.
     document.body.innerHTML = "";
     const { container } = render(
-      <CreditBody
+      <CreditGlobe
         still
         peakOverride={12000}
         points={[
@@ -113,8 +113,8 @@ describe("the object's geometry", () => {
         ]}
       />,
     );
-    expect(Number(container.querySelector(".body-disc")?.getAttribute("r"))).toBe(0);
-    expect(container.querySelector(".body-limit")?.getAttribute("stroke")).toBe(
+    expect(Number(container.querySelector(".globe-edge")?.getAttribute("r"))).toBe(0);
+    expect(container.querySelector(".globe-limit")?.getAttribute("stroke")).toBe(
       "var(--alarm)",
     );
     // And it says so, rather than printing a 0.00% rate nobody is offered.
@@ -127,7 +127,7 @@ describe("the object's geometry", () => {
     // small agent is drawn the same size as a large one.
     document.body.innerHTML = "";
     const { container } = render(
-      <CreditBody
+      <CreditGlobe
         still
         peakOverride={12000}
         points={[
@@ -135,13 +135,14 @@ describe("the object's geometry", () => {
         ]}
       />,
     );
-    const r = Number(container.querySelector(".body-disc")?.getAttribute("r"));
-    // Half the peak by area, so sqrt(0.5) of the limit radius.
-    expect(r).toBeCloseTo(Math.sqrt(0.5) * 122, 1);
+    const r = Number(container.querySelector(".globe-edge")?.getAttribute("r"));
+    // Half the peak by area, so sqrt(0.5) of the limit radius. 136 is
+    // the globe's LIMIT_R, where the limit ring is drawn.
+    expect(r).toBeCloseTo(Math.sqrt(0.5) * 136, 1);
   });
 
   it("renders nothing without points", () => {
-    const { container } = render(<CreditBody points={[]} />);
-    expect(container.querySelector(".body")).toBeNull();
+    const { container } = render(<CreditGlobe points={[]} />);
+    expect(container.querySelector(".globe")).toBeNull();
   });
 });

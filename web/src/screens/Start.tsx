@@ -3,7 +3,7 @@ import { Link } from "react-router";
 import { loadRun, units, type Check, type Run } from "../lib/data";
 import { bindingPhrase } from "../lib/bindings";
 import { CLAIMS, EARNED, REFUSED, UNEARNED, type Claim } from "../lib/claims";
-import { CreditBody } from "../components/CreditBody";
+import { CreditGlobe } from "../components/CreditGlobe";
 import { Deployment } from "../components/Deployment";
 import { Counted } from "../components/Motion";
 
@@ -152,7 +152,7 @@ export function Start() {
             sit above it, which meant a visitor met a paragraph and three
             stat cards before meeting the thing itself. */}
         {loans.length > 0 && (
-          <CreditBody
+          <CreditGlobe
             points={loans.map((l) => ({
               capacity: l.capacity,
               apr: l.apr,

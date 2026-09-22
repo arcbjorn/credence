@@ -3,7 +3,7 @@ import { loadComparison, units, bps, type Comparison } from "../lib/data";
 import { bindingPhrase } from "../lib/bindings";
 import { classMode } from "../lib/modes";
 import { reasonFields, reasonName } from "../lib/reasons";
-import { CreditBody } from "../components/CreditBody";
+import { CreditGlobe } from "../components/CreditGlobe";
 import { ModeChip } from "../components/ModeChip";
 import { Hash } from "../components/Hash";
 
@@ -72,7 +72,7 @@ export function Comparison_() {
                   scale so they are comparable: the denied profile is a
                   ring with nothing inside it, which is the refusal
                   stated as geometry rather than as a red word. */}
-              <CreditBody
+              <CreditGlobe
                 still
                 peakOverride={peak}
                 points={[
