@@ -4,6 +4,7 @@ import { loadRun, units, type Check, type Run } from "../lib/data";
 import { bindingPhrase } from "../lib/bindings";
 import { CLAIMS, EARNED, REFUSED, UNEARNED, type Claim } from "../lib/claims";
 import { CapacityCurve } from "../components/CapacityCurve";
+import { Deployment } from "../components/Deployment";
 import { Counted } from "../components/Motion";
 
 /**
@@ -134,8 +135,7 @@ export function Start() {
         <p className="kicker">Credit for AI agents</p>
 
         <h1 className="hero">
-          A credit score is just a <em>compression</em> of what you did
-          before.
+          A credit score is just <em>compressed</em> history.
         </h1>
 
         <p className="hero-lede">
@@ -222,6 +222,8 @@ export function Start() {
         <Link to="/compare" className="start-enter">
           See who gets credit <span>&rarr;</span>
         </Link>
+
+        <Deployment />
       </aside>
 
       {/* RIGHT: the ledger. What is claimed, what is not, and the

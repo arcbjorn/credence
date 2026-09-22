@@ -152,10 +152,24 @@ export interface Run {
   chain_events: unknown[];
 }
 
+/**
+ * What the demo bundle was built from, and where it was deployed.
+ *
+ * `deployment` stays a loose record for the fields nothing reads, but
+ * the ones the interface DISPLAYS are typed: a chain id rendered as
+ * `undefined` in the page chrome would be a provenance claim the bundle
+ * never made.
+ */
 export interface Manifest {
   runs: { name: string; assessments: number; snapshots: number }[];
   generated_from: string[];
-  deployment?: Record<string, unknown>;
+  deployment?: {
+    chain_id?: number;
+    deployment_id?: number;
+    addresses?: Record<string, string>;
+    erc8004?: { agent_id?: number };
+    [key: string]: unknown;
+  };
 }
 
 /** One agent profile in `docs/09` beat 1's comparison. */

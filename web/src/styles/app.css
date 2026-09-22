@@ -497,7 +497,7 @@ code { font-family: var(--mono); font-size: 0.94em; }
 .split {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
-  gap: 0;
+  gap: 40px;
   align-items: start;
 }
 
@@ -508,7 +508,7 @@ code { font-family: var(--mono); font-size: 0.94em; }
    sticks only where it actually fits, which is what the media query
    below asserts. */
 .split-left {
-  padding: 0 46px 40px 0;
+  padding: 0 0 40px;
 }
 
 @media (min-height: 1180px) {
@@ -519,10 +519,18 @@ code { font-family: var(--mono); font-size: 0.94em; }
   }
 }
 
+/* The ledger is a CARD, not a column bleeding into the page. A surface
+   with its own edge is what makes an interface read as a product rather
+   than as a second column of an article -- the reference sites all put
+   the working part of the page on a raised panel. It keeps its own
+   background in both themes, so the argument sits on the page and the
+   evidence sits on a thing. */
 .split-right {
-  border-left: 1px solid var(--border);
-  padding: 0 0 40px 46px;
+  padding: 26px 28px 30px;
   min-width: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
 }
 
 .kicker {
@@ -618,6 +626,49 @@ code { font-family: var(--mono); font-size: 0.94em; }
   line-height: 1.45;
   color: var(--text-dim);
 }
+
+/* --- the deployment strip ---
+
+   Chain, contract count, agent id. The dot is a status marker, not a
+   pulse: this is a static bundle and an animated "live" light would
+   assert a connection the page does not have. */
+
+.deployment {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 18px;
+  padding: 9px 0 0;
+  margin-bottom: 26px;
+  border-top: 1px solid var(--border);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.deployment-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+}
+
+.deployment-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--machine);
+  /* A ring rather than a glow: the figure beside it is the claim. */
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--machine) 18%, transparent);
+}
+
+.deployment-figure {
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.deployment-quiet { opacity: 0.6; }
 
 /* --- the ledger ---
 
@@ -1143,18 +1194,23 @@ code { font-family: var(--mono); font-size: 0.94em; }
 
 .shell-landing .start { max-width: none; }
 
+/* 2026 size contrast: the display face runs large and the body stays
+   small, because the gap between them IS the luxury signal. Capped at
+   76px rather than the 96 a full-width hero would take -- this one
+   shares the row with a ledger, and past ~76 it sets three words a
+   line and reads as a poster. */
 .shell-landing .hero {
-  font-size: clamp(32px, 3.6vw, 52px);
-  line-height: 1.06;
-  letter-spacing: -0.02em;
-  margin-bottom: 22px;
+  font-size: clamp(34px, 4.6vw, 76px);
+  line-height: 1.0;
+  letter-spacing: -0.035em;
+  margin-bottom: 26px;
 }
 
 .shell-landing .hero-lede {
-  font-size: 14.5px;
-  line-height: 1.7;
-  max-width: 52ch;
-  margin-bottom: 28px;
+  font-size: 15.5px;
+  line-height: 1.68;
+  max-width: 48ch;
+  margin-bottom: 30px;
 }
 
 .shell-landing .kicker { margin-bottom: 20px; }
@@ -1246,13 +1302,11 @@ code { font-family: var(--mono); font-size: 0.94em; }
 
   .split-left {
     position: static;
-    padding: 0 0 34px;
+    padding: 0 0 8px;
   }
 
   .split-right {
-    border-left: none;
-    border-top: 1px solid var(--border);
-    padding: 30px 0 40px;
+    padding: 22px 20px 26px;
   }
 
   .shell-landing .hero { font-size: clamp(32px, 6.4vw, 60px); }

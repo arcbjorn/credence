@@ -56,6 +56,11 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const { pathname } = useLocation();
   const landing = pathname === "/";
   const [hidden, setHidden] = useState(false);
+  // At the very top the landing bar is transparent, so the page opens on
+  // the claim rather than on chrome. Past that it MUST take a surface:
+  // a transparent bar with content scrolling under it renders the nav
+  // and the page text on top of each other.
+  const [atTop, setAtTop] = useState(true);
   const [open, setOpen] = useState(false);
 
   // Hide on scroll down, return on scroll up. A fixed bar over a ledger
@@ -68,6 +73,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
       // direction was. Without this an upward flick that ends at 0 can
       // leave it hidden, and a reader at the top of a page with no
       // navigation has no way to ask for it back.
+      setAtTop(y <= 24);
       if (y <= 90) {
         setHidden(false);
         last = y;
@@ -79,6 +85,11 @@ export function Shell({ children }: { children: React.ReactNode }) {
         last = y;
       }
     };
+    // Sync once on mount. The state cannot be seeded from `useState`
+    // alone: a reload restores the previous scroll offset AFTER React
+    // mounts, so an initial `true` can be wrong and no scroll event is
+    // guaranteed to fire to correct it.
+    onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
@@ -88,6 +99,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     setOpen(false);
     setHidden(false);
+    setAtTop(window.scrollY <= 24);
   }, [pathname]);
 
   return (
@@ -95,7 +107,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
       {(
         <header
           className={
-            `bar ${hidden ? "bar-away" : ""} ${landing ? "bar-quiet" : ""}`
+            `bar ${hidden ? "bar-away" : ""} ${landing && atTop ? "bar-quiet" : ""}`
           }
         >
           <NavLink to="/" className="bar-mark" end>
