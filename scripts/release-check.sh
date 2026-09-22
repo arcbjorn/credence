@@ -70,6 +70,21 @@ run "Engine" "$ROOT/risk" cargo test -p risk-core || true
 run "Gateway" "$ROOT/gateway" go test -race -count=1 ./... || true
 run "CRE workflow" "$ROOT/cre" go test -count=1 ./underwrite/ || true
 run "Indexer fold" "$ROOT/indexer" pnpm test || true
+
+# `web` is the largest surface in the repository and was the one suite
+# this check never ran -- the same gap that let a baseline tag land on a
+# red build in September. Its tests and typecheck both need the compiled
+# engine (`pretest` runs `require-engine.mjs`), so a tree without it is
+# recorded as skipped rather than failed: the wasm is a build artifact,
+# not a source file.
+if [ -f "$ROOT/web/src/engine/risk_wasm_bg.wasm" ]; then
+  run "Interface" "$ROOT/web" pnpm test || true
+  run "Interface types" "$ROOT/web" pnpm typecheck || true
+else
+  record SKIP "Interface" "run scripts/build-wasm.sh first"
+  record SKIP "Interface types" "run scripts/build-wasm.sh first"
+fi
+
 run "Cited doc counts" "$ROOT" bash scripts/check-docs.sh || true
 
 # --- Gates CI enforces -------------------------------------------------
