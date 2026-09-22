@@ -13,6 +13,40 @@ const RECORDS = [
   ["/evidence", "Evidence"], ["/indexed", "Chain log"], ["/perpl", "Weather"], ["/replay", "Replay"],
 ];
 
+/**
+ * Page titles come from the routes that exist, never from the URL.
+ *
+ * Capitalising the path segment made the tab and the browser history
+ * name a page for whatever was typed: `/asdf` became "Asdf — Credence",
+ * `/a%20b` kept its percent-encoding, and `/observatory/extra` claimed
+ * to be a real room. The body said "This coordinate is empty" while the
+ * title disagreed.
+ */
+const TITLES: Record<string, string> = {
+  "/": "The credit body",
+  "/observatory": "Observatory",
+  "/atlas": "Atlas",
+  "/moons": "Moons",
+  "/body": "Body",
+  "/log": "Log",
+  "/guide": "Field guide",
+  // Named for the page, not for the nav label above it: the records nav
+  // calls `/lender` "Core" because it sits beside "Growth" and "Limits",
+  // but the page itself is headed "Lender" and that is what belongs in
+  // the tab and in browser history.
+  "/agent": "Agent overview",
+  "/compare": "Three agents",
+  "/assessment": "Assessment detail",
+  "/lifecycle": "Loan lifecycle",
+  "/arc": "Loan lifecycle",
+  "/indexed": "Indexed lifecycle",
+  "/evidence": "Evidence",
+  "/lender": "Lender",
+  "/enforcement": "Enforcement",
+  "/perpl": "Perpl market risk",
+  "/replay": "Replay",
+};
+
 export function BrandMark() {
   return <svg viewBox="0 0 32 32" fill="none" aria-hidden="true"><circle cx="16" cy="16" r="12" stroke="currentColor" strokeWidth="1.2" /><ellipse cx="16" cy="16" rx="5.4" ry="12" stroke="currentColor" strokeWidth="1.1" transform="rotate(34 16 16)" /><path d="M4 16h24M7 8.5c5 4 13 4 18 0M7 23.5c5-4 13-4 18 0" stroke="currentColor" strokeWidth=".8" /><circle cx="25.5" cy="8.5" r="2.7" fill="var(--bg)" stroke="currentColor" /></svg>;
 }
@@ -39,7 +73,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
     setAtTop(window.scrollY <= 24);
     document.documentElement.scrollTop = 0;
     document.body.scrollTop = 0;
-    const name = pathname === "/" ? "The credit body" : pathname.slice(1).replace(/^./, c => c.toUpperCase());
+    const name = TITLES[pathname] ?? "This coordinate is empty";
     document.title = `${name} — Credence`;
   }, [pathname]);
   useEffect(() => {
