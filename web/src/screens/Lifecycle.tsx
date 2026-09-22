@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { loadRun, units, bps, type Run } from "../lib/data";
 import { ModeChip } from "../components/ModeChip";
 import { ROUTE_MODES } from "../lib/modes";
+import { RecordHeader } from "../components/Record";
 
 /** Millionths to a percentage, the scale forecasts are committed in. */
 const ppm = (v: number) => `${(v / 10_000).toFixed(1)}%`;
@@ -40,11 +41,10 @@ export function Lifecycle() {
 
   return (
     <>
-      <h1 className="record-title">Loan lifecycle</h1>
-      <p className="lede">
+      <RecordHeader title="Loan lifecycle">
         Each loan commits a forecast before it is funded, then the forecast
         is scored against what actually happened.
-      </p>
+      </RecordHeader>
 
       <div className="modes">
         <ModeChip mode={ROUTE_MODES.Development} />

@@ -4,6 +4,7 @@ import { bindingPhrase } from "../lib/bindings";
 import { classMode, ROUTE_MODES } from "../lib/modes";
 import { CapacityCurve } from "../components/CapacityCurve";
 import { ModeChip } from "../components/ModeChip";
+import { RecordHeader } from "../components/Record";
 
 /**
  * `docs/09` beat 4b: three sequential loans, same policy and model hash;
@@ -47,8 +48,7 @@ export function AgentOverview() {
 
   return (
     <>
-      <h1 className="record-title">Agent overview</h1>
-      <p className="lede">
+      <RecordHeader title="Agent overview">
         {originations.length > 0 ? (
           <>
             {originations.length} sequential{" "}
@@ -63,7 +63,7 @@ export function AgentOverview() {
             on screen.
           </>
         )}
-      </p>
+      </RecordHeader>
 
       <div className="modes">
         <ModeChip mode={ROUTE_MODES.Development} />

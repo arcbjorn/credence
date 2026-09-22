@@ -6,6 +6,7 @@ import {
   type IndexedEvent,
   type IndexedLoan,
 } from "../lib/data";
+import { RecordHeader } from "../components/Record";
 
 /**
  * The loan lifecycle, reconstructed from the event log by the Envio
@@ -206,10 +207,9 @@ export function IndexedLifecycle() {
   if (error) {
     return (
       <>
-        <h1 className="record-title">Indexed lifecycle</h1>
-        <p className="lede">
+        <RecordHeader title="Indexed lifecycle">
           The indexer has not been run against this chain.
-        </p>
+        </RecordHeader>
         <div className="card rail rail-machine">
           <p style={{ marginTop: 0 }}>
             Sync it, then regenerate the bundle:
@@ -229,13 +229,12 @@ export function IndexedLifecycle() {
 
   return (
     <>
-      <h1 className="record-title">Indexed lifecycle</h1>
-      <p className="lede">
+      <RecordHeader title="Indexed lifecycle">
         Rebuilt from the contract's event log by the Envio indexer, with no
         state read at all. A loan struct records running totals and two
         timestamps; it cannot say when recovery opened or what each
         collection recovered. That order is only in the log.
-      </p>
+      </RecordHeader>
 
       <div className="modes" style={{ marginBottom: 18 }}>
         <span className="mode mode-observed">

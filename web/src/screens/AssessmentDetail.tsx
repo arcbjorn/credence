@@ -5,6 +5,7 @@ import { classMode } from "../lib/modes";
 import { reasonText } from "../lib/reasons";
 import { ModeChip } from "../components/ModeChip";
 import { Hash } from "../components/Hash";
+import { RecordHeader } from "../components/Record";
 
 /**
  * `docs/09`: "Which constraints bound this decision, and what evidence
@@ -40,10 +41,9 @@ export function AssessmentDetail() {
 
   return (
     <>
-      <h1 className="record-title">Assessment detail</h1>
-      <p className="lede">
+      <RecordHeader title="Assessment detail">
         What bounded this decision, and the evidence behind it.
-      </p>
+      </RecordHeader>
 
       <div className="modes">
         <ModeChip mode={classMode(a.payload.authorization_class)} />

@@ -3,6 +3,7 @@ import { loadRun, type Evidence, type Run } from "../lib/data";
 import { evidenceMode } from "../lib/modes";
 import { ModeChip } from "../components/ModeChip";
 import { Hash } from "../components/Hash";
+import { RecordHeader } from "../components/Record";
 
 const ITEMS = ["account", "market", "history", "forecasts", "portfolio"] as const;
 
@@ -45,8 +46,7 @@ export function EvidenceInspector() {
   if (!snapshot) {
     return (
       <>
-        <h1 className="record-title">Evidence</h1>
-        <p className="lede">This run retained no snapshot to inspect.</p>
+        <RecordHeader title="Evidence">This run retained no snapshot to inspect.</RecordHeader>
       </>
     );
   }
@@ -55,11 +55,10 @@ export function EvidenceInspector() {
 
   return (
     <>
-      <h1 className="record-title">Evidence</h1>
-      <p className="lede">
+      <RecordHeader title="Evidence">
         Everything the engine was shown for this decision, item by item.
         Nothing here is summarized into a single status.
-      </p>
+      </RecordHeader>
 
       <p>
         <label>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { loadRun, units, type Check, type Run } from "../lib/data";
+import { RecordHeader } from "../components/Record";
 
 /**
  * `docs/09`: what cash is available, what principal is exposed, and what
@@ -47,24 +48,22 @@ export function Lender() {
   if (ledger.length === 0) {
     return (
       <>
-        <h1 className="record-title">Lender</h1>
-        <p className="lede">
+        <RecordHeader title="Lender">
           This run recorded no vault ledgers. Re-run{" "}
           <code>LOANS=3 scripts/demo-repay.sh</code>, then{" "}
           <code>pnpm data</code>.
-        </p>
+        </RecordHeader>
       </>
     );
   }
 
   return (
     <>
-      <h1 className="record-title">Lender</h1>
-      <p className="lede">
+      <RecordHeader title="Lender">
         The epoch's ledgers, read from the vault on chain. Kept apart
         because they are different facts — uncollected interest is not
         cash a lender can withdraw.
-      </p>
+      </RecordHeader>
 
       <div className="grid">
         <div className="card rail rail-growth">

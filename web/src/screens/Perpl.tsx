@@ -3,6 +3,7 @@ import { bps, loadPerpl, loadPolicy, units, type Perpl } from "../lib/data";
 import { bindingPhrase } from "../lib/bindings";
 import { loadEngine, MODEL_HASH } from "../lib/engine";
 import { Hash } from "../components/Hash";
+import { RecordHeader } from "../components/Record";
 
 /**
  * Live Perpl market data, driving the three mandatory stress scenarios.
@@ -149,8 +150,7 @@ export function PerplPanel() {
 
   return (
     <section>
-      <h1 className="record-title">Perpl market risk</h1>
-      <p className="lede">
+      <RecordHeader title="Perpl market risk">
         Observed orderbook depth, funding and realized volatility from{" "}
         <strong>
           {data.venue.symbol} (market {data.venue.market_id})
@@ -158,7 +158,7 @@ export function PerplPanel() {
         on Perpl, driving the three mandatory stress scenarios. The engine runs
         in this tab, so what you see is its own output rather than a second
         implementation of it.
-      </p>
+      </RecordHeader>
 
       <div className="modes">
         <span className="mode mode-observed">market: observed</span>

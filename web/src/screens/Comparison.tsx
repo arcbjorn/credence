@@ -6,6 +6,7 @@ import { reasonFields, reasonName } from "../lib/reasons";
 import { CreditGlobe } from "../components/CreditGlobe";
 import { ModeChip } from "../components/ModeChip";
 import { Hash } from "../components/Hash";
+import { RecordHeader } from "../components/Record";
 
 /**
  * `docs/09` beat 1: three accounts and the financing problem, plus beat 5,
@@ -44,12 +45,11 @@ export function Comparison_() {
 
   return (
     <>
-      <h1 className="record-title">Three agents</h1>
-      <p className="lede">
+      <RecordHeader title="Three agents">
         The same policy and the same model, applied to three accounts that
         differ in one respect at a time. What separates them is what they
         have demonstrated and what they are currently holding.
-      </p>
+      </RecordHeader>
 
       <div className="modes">
         {cmp.profiles[0] && (

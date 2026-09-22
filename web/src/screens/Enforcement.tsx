@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { loadRun, units, heldDecimals, type Check, type Run } from "../lib/data";
+import { RecordHeader } from "../components/Record";
 
 /**
  * `docs/09` beat 6: a prohibited withdrawal.
@@ -36,12 +37,11 @@ export function Enforcement() {
   if (checks.length === 0) {
     return (
       <>
-        <h1 className="record-title">Enforcement</h1>
-        <p className="lede">
+        <RecordHeader title="Enforcement">
           This run recorded no checks. Re-run{" "}
           <code>LOANS=3 scripts/demo-repay.sh</code> and then{" "}
           <code>pnpm data</code>.
-        </p>
+        </RecordHeader>
       </>
     );
   }
@@ -52,12 +52,11 @@ export function Enforcement() {
 
   return (
     <>
-      <h1 className="record-title">Enforcement</h1>
-      <p className="lede">
+      <RecordHeader title="Enforcement">
         The account holds real value, and the contract refuses to release
         it while the loan is open. Both refusals below are transactions
         that reverted on chain.
-      </p>
+      </RecordHeader>
 
       {held && (
         <div className="card rail rail-growth" style={{ marginBottom: 18 }}>

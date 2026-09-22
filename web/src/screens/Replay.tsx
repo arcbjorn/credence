@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { loadRun, loadPolicy, type Run } from "../lib/data";
 import { loadEngine, MODEL_HASH, WASM_BYTES, type ReplayReport } from "../lib/engine";
 import { Hash } from "../components/Hash";
+import { RecordHeader } from "../components/Record";
 
 /**
  * `docs/09` beat 8: replay a retained assessment.
@@ -78,12 +79,11 @@ export function Replay() {
 
   return (
     <>
-      <h1 className="record-title">Replay</h1>
-      <p className="lede">
+      <RecordHeader title="Replay">
         Does the retained input reproduce the assessment under the pinned
         model? The engine runs in this tab — the same Rust the gateway
         uses, compiled to WebAssembly.
-      </p>
+      </RecordHeader>
 
       <div className="card" style={{ marginBottom: 16 }}>
         <table>
