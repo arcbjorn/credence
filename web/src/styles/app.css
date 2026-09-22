@@ -1154,31 +1154,41 @@ code { font-family: var(--mono); font-size: var(--t2); }
   margin-bottom: 34px;
 }
 
-.claim {
-  border-bottom: 1px solid var(--border);
+/* The divider lives on the summary, not the row. On the row it sat
+   16px inside the hover plate and the highlight cut straight through
+   it. */
+.claim + .claim > summary {
+  border-top: 1px solid var(--border);
 }
 
+/* The hover plate was inset -14px left against -12px right, so it sat
+   visibly off-centre, and the row had vertical padding with no
+   horizontal padding at all -- the highlight hugged the text. Symmetric
+   inset, equal padding, and the row owns its own separator so the
+   dividers do not float in a 14px gap. */
 .claim > summary {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 16px;
-  padding: 15px 12px 15px 14px;
-  margin: 0 -12px 0 -14px;
-  border-radius: 6px;
+  gap: var(--s4);
+  padding: var(--s4) var(--s4);
+  margin: 0 calc(var(--s4) * -1);
+  border-radius: 4px;
   cursor: pointer;
   list-style: none;
-  transition: background 140ms ease;
+  transition: background 140ms ease, color 140ms ease;
 }
 
 /* The whole row lights up, not just its text: a 10-row list where only
    the label changed colour read as a table of contents. */
 .claim > summary:hover {
-  background: color-mix(in srgb, var(--rule) 12%, transparent);
+  background: color-mix(in srgb, var(--rule) 14%, transparent);
 }
 
+.claim > summary:hover .claim-title { color: var(--text); }
+
 .claim[open] > summary {
-  background: color-mix(in srgb, var(--rule) 8%, transparent);
+  background: color-mix(in srgb, var(--rule) 9%, transparent);
 }
 
 /* The default disclosure triangle, removed in both engines. */
@@ -1186,10 +1196,12 @@ code { font-family: var(--mono); font-size: var(--t2); }
 .claim > summary::marker { content: ""; }
 
 .claim-title {
-  font-size: var(--t2);
-  font-weight: 500;
-  line-height: 1.4;
-  letter-spacing: -0.005em;
+  font-size: var(--t3);
+  font-weight: 400;
+  line-height: var(--lh-snug);
+  letter-spacing: 0;
+  color: var(--text-dim);
+  transition: color 140ms ease;
 }
 
 .claim[open] .claim-title { color: var(--machine); }
@@ -1244,9 +1256,11 @@ code { font-family: var(--mono); font-size: var(--t2); }
   vertical-align: middle;
 }
 
+/* Indented to the row's own text, so an open claim reads as belonging
+   to the title above it rather than starting a new column. */
 .claim-body {
-  padding: 0 0 16px;
-  max-width: 44rem;
+  padding: 0 0 var(--s6) var(--s4);
+  max-width: 52ch;
 }
 
 .claim-detail {
