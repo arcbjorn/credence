@@ -1250,8 +1250,8 @@ code { font-family: var(--mono); font-size: var(--t2); }
 }
 
 .claim-detail {
-  font-size: var(--t2);
-  line-height: 1.7;
+  font-size: var(--t3);
+  line-height: var(--lh-body);
   margin: 0 0 10px;
   color: var(--text);
 }
@@ -1326,8 +1326,8 @@ code { font-family: var(--mono); font-size: var(--t2); }
 }
 
 .refused li {
-  font-size: var(--t2);
-  line-height: 1.5;
+  font-size: var(--t3);
+  line-height: var(--lh-snug);
   color: var(--text-dim);
   padding-left: 15px;
   position: relative;
@@ -1342,8 +1342,8 @@ code { font-family: var(--mono); font-size: var(--t2); }
 }
 
 .refused-note {
-  font-size: var(--t2);
-  line-height: 1.65;
+  font-size: var(--t3);
+  line-height: var(--lh-body);
   color: var(--text-dim);
   margin: 0;
   padding-top: 11px;
