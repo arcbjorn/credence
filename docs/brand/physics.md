@@ -24,6 +24,8 @@ its credibility on not doing that.
 | **Core** | Brightness at the centre: the lender's idle cash | `vault idle cash` check |
 | **Atmosphere** | Rim thickness, as `1 - utilization`. Thick = padded, thin = vacuum | `principal outstanding / (idle + outstanding)` |
 | **Scar** | A dark crater on the shell that does not heal | `vault realized loss` |
+| **Cut model** | The body in section: shell, record, escrow, core. Ring width is the figure; an unmeasured layer is dashed and claims no width | `account holds withdrawable value`, `vault idle cash` |
+| **Eclipse** | Two bodies whose overlap IS utilization. Offset is a function of the figure, so the picture cannot flatter the book | `principal outstanding / (idle + outstanding)` |
 
 ## Laws deliberately NOT in force
 

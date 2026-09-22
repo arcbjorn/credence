@@ -5,6 +5,8 @@ import { bindingPhrase } from "../lib/bindings";
 import { atmosphere, core, readBook, scar } from "../lib/book";
 import { CLAIMS, EARNED, REFUSED, UNEARNED, type Claim } from "../lib/claims";
 import { CreditGlobe } from "../components/CreditGlobe";
+import { CutModel, type Layer } from "../components/CutModel";
+import { Eclipse } from "../components/Eclipse";
 import { Deployment } from "../components/Deployment";
 import { Counted } from "../components/Motion";
 
@@ -145,6 +147,44 @@ export function Start() {
   const book = readBook(repay);
   const faultBook = readBook(fault);
 
+  // The section through the body. Each layer carries the figure it
+  // stands for, and a layer nothing measured is drawn dashed rather
+  // than given a confident width.
+  const held = check(repay, "account holds withdrawable value");
+  const heldUnits = held ? BigInt(held.detail.split(" ")[0]!) : null;
+  const layers: Layer[] = [
+    {
+      key: "shell",
+      label: "The agent",
+      note: "identity and its account",
+      amount: null,
+      register: "machine",
+    },
+    {
+      key: "history",
+      label: "Its record",
+      note: "what opens the facility",
+      amount: null,
+      register: "growth",
+    },
+    {
+      key: "escrow",
+      label: "Held as collateral",
+      note: heldUnits !== null ? "locked while debt is open" : "not measured",
+      // Collateral is an 18-decimal balance while the book is in 6, so
+      // it is scaled here rather than compared across bases.
+      amount: heldUnits !== null ? heldUnits / 1_000_000_000_000n : null,
+      register: "machine",
+    },
+    {
+      key: "core",
+      label: "Lender cash",
+      note: "what is free to lend",
+      amount: book.idle,
+      register: "growth",
+    },
+  ];
+
   return (
     <div className="split">
       {/* LEFT: the argument. Sticky on a wide screen, so it stays put
@@ -235,6 +275,23 @@ export function Start() {
             </span>
           </Link>
         </div>
+
+        {/* The book, two ways. The eclipse is the same utilization the
+            readout prints, as a shape a reader takes in at a glance. */}
+        {book.utilization !== null && (
+          <div className="book-view">
+            <Eclipse
+              utilization={book.utilization}
+              idle={units(book.idle?.toString())}
+              outstanding={units(book.outstanding?.toString())}
+            />
+          </div>
+        )}
+
+        <details className="hero-why">
+          <summary>A section through it</summary>
+          <CutModel layers={layers} />
+        </details>
 
         {loans.length > 1 && (
           <details className="hero-why">

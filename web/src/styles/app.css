@@ -812,6 +812,125 @@ code { font-family: var(--mono); font-size: 0.94em; }
   .globe-arc { transition: none; }
 }
 
+/* --- the cut model ---
+
+   The body opened. Ring widths are the figures they stand for, so the
+   section is a measurement; an unmeasured layer is dashed and claims no
+   width. */
+
+.cut svg {
+  width: 100%;
+  max-width: 460px;
+  height: auto;
+  overflow: visible;
+}
+
+.cut-ring {
+  opacity: 0;
+  animation: cut-open 620ms cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+  animation-play-state: paused;
+}
+
+.cut.in .cut-ring { animation-play-state: running; }
+
+@keyframes cut-open {
+  from { opacity: 0; transform: scale(0.94); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.cut svg { transform-origin: center; }
+.cut-ring { transform-origin: center; transform-box: fill-box; }
+
+.cut-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  fill: var(--text);
+}
+
+.cut-note {
+  font-family: var(--mono);
+  font-size: 9px;
+  fill: var(--text-dim);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cut-ring { animation: none; opacity: 1; }
+}
+
+.book-view {
+  margin: 6px 0 22px;
+  padding: 18px 0 16px;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+/* --- the eclipse ---
+
+   Two bodies whose overlap IS utilization. The offset is a function of
+   the figure, so the picture cannot flatter the book. */
+
+.eclipse {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.eclipse svg {
+  width: 100%;
+  max-width: 300px;
+  height: auto;
+}
+
+.eclipse-light,
+.eclipse-shadow {
+  transition: cx 1400ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.eclipse-figure {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  fill: var(--text-dim);
+}
+
+.eclipse-legend {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-dim);
+}
+
+.eclipse-key {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.eclipse-key-light {
+  background: color-mix(in srgb, var(--growth) 45%, transparent);
+  border: 1px solid var(--growth);
+}
+
+.eclipse-key-shadow {
+  background: #000;
+  border: 1px solid var(--rule);
+  margin-left: 10px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .eclipse-light, .eclipse-shadow { transition: none; }
+}
+
 /* --- the deferred explanation ---
 
    Available, not insisted on. A visitor sees the object and the one
