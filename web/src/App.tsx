@@ -1,4 +1,4 @@
-import { NavLink, Route, Routes, Navigate } from "react-router";
+import { NavLink, Route, Routes } from "react-router";
 import { AgentOverview } from "./screens/AgentOverview";
 import { AssessmentDetail } from "./screens/AssessmentDetail";
 import { Comparison_ } from "./screens/Comparison";
@@ -9,6 +9,7 @@ import { Lifecycle } from "./screens/Lifecycle";
 import { IndexedLifecycle } from "./screens/Indexed";
 import { PerplPanel } from "./screens/Perpl";
 import { Replay } from "./screens/Replay";
+import { Start } from "./screens/Start";
 import "./styles/app.css";
 
 /**
@@ -41,6 +42,7 @@ export default function App() {
       <nav className="nav">
         <h1>Credence</h1>
         <p className="tagline">Autonomous credit markets for AI agents</p>
+        <NavLink to="/" end>Start here</NavLink>
         <NavLink to="/agent">Agent overview</NavLink>
         <NavLink to="/compare">Three agents</NavLink>
         <NavLink to="/assessment">Assessment detail</NavLink>
@@ -54,7 +56,7 @@ export default function App() {
       </nav>
       <main className="main">
         <Routes>
-          <Route path="/" element={<Navigate to="/agent" replace />} />
+          <Route path="/" element={<Start />} />
           <Route path="/agent" element={<AgentOverview />} />
           <Route path="/compare" element={<Comparison_ />} />
           <Route path="/assessment" element={<AssessmentDetail />} />

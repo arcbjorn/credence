@@ -467,3 +467,146 @@ code { font-family: var(--mono); font-size: 0.94em; }
   opacity: 0.85;
   padding-left: 12px;
 }
+
+/* --- the way in -------------------------------------------------------
+   `docs/09` specifies eight screens and a nine-beat script; the interface
+   had the screens without the script. This is the script: a claim, the
+   three moments that prove it, and two ways to go deeper.
+
+   No new colour. The three proof cards reuse the existing registers --
+   growth for what compounds, alarm for a refusal, machine for the
+   ledger -- because `docs/09` forbids collapsing modes into one
+   indicator, and inventing a fourth register for decoration would
+   weaken the three that carry meaning. */
+
+.start { max-width: 62rem; }
+
+.kicker {
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 10.5px;
+  margin-bottom: 18px;
+}
+
+.hero {
+  font-family: 'Cinzel', Georgia, serif;
+  font-size: clamp(30px, 5.2vw, 52px);
+  line-height: 1.12;
+  letter-spacing: -0.01em;
+  margin: 0 0 22px;
+  text-transform: none;
+}
+
+/* The one word the whole project turns on. Italic rather than a colour:
+   a hue here would read as a fourth semantic register. */
+.hero em {
+  font-style: italic;
+  color: var(--growth);
+}
+
+.hero-lede {
+  font-size: 14.5px;
+  line-height: 1.65;
+  max-width: 46rem;
+  color: var(--text);
+  margin-bottom: 34px;
+}
+
+/* --- the three proofs --- */
+
+.proofs {
+  display: grid;
+  gap: var(--gap);
+  grid-template-columns: repeat(auto-fit, minmax(258px, 1fr));
+  margin-bottom: 40px;
+}
+
+.proof {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 20px 20px 22px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left-width: 3px;
+  border-radius: var(--radius);
+  text-decoration: none;
+  color: inherit;
+  /* Moves on hover, so a card reads as a door rather than a panel. */
+  transition: transform 120ms ease, border-color 120ms ease;
+}
+
+.proof:hover,
+.proof:focus-visible {
+  transform: translateY(-2px);
+  border-color: var(--rule);
+}
+
+.proof-growth  { border-left-color: var(--growth); }
+.proof-alarm   { border-left-color: var(--alarm); }
+.proof-machine { border-left-color: var(--machine); }
+
+.proof-label {
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 10px;
+  color: var(--text-dim);
+}
+
+.proof-figure {
+  font-size: 30px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.proof-growth  .proof-figure { color: var(--growth); }
+.proof-alarm   .proof-figure { color: var(--alarm); }
+.proof-machine .proof-figure { color: var(--machine); }
+
+.proof-note {
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--text-dim);
+}
+
+.proof-note code {
+  font-size: 11px;
+  word-break: break-all;
+}
+
+/* --- two ways deeper --- */
+
+.start-paths {
+  display: grid;
+  gap: var(--gap);
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  margin-bottom: 34px;
+}
+
+.start-paths h3 { margin-bottom: 10px; }
+
+.path {
+  margin: 0;
+  padding-left: 1.2em;
+  font-size: 13px;
+  line-height: 1.85;
+  color: var(--text-dim);
+}
+
+.path a {
+  color: var(--text);
+  text-decoration: none;
+  border-bottom: 1px solid var(--rule);
+}
+
+.path a:hover { border-bottom-color: var(--machine); }
+
+.start-honest { max-width: 46rem; }
+
+/* A narrow screen gets one column and a smaller hero, rather than a
+   grid that reflows into something nobody designed. */
+@media (max-width: 640px) {
+  .proofs, .start-paths { grid-template-columns: 1fr; }
+}
