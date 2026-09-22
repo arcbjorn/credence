@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { CLAIMS, EARNED, REFUSED, UNEARNED } from "./claims";
+import { CLAIMS, EARNED, GROUPS, REFUSED, UNEARNED } from "./claims";
 
 /**
  * The landing page states how many claims are earned. `docs/12` is the
@@ -10,6 +10,35 @@ import { CLAIMS, EARNED, REFUSED, UNEARNED } from "./claims";
  * its credibility avoiding.
  */
 const DOC = resolve(process.cwd(), "../docs/12-claims-roadmap.md");
+
+describe("the grouped ledger", () => {
+  /**
+   * Ten flat rows read as a table of contents. The groups give the list
+   * a shape, so every claim must belong to one that is rendered -- a
+   * claim in an unlisted group would silently vanish from the page.
+   */
+  it("puts every claim in a rendered group", () => {
+    const keys = new Set(GROUPS.map(g => g.key));
+    for (const c of CLAIMS) {
+      expect(keys.has(c.group), `${c.title} is in an unrendered group`).toBe(true);
+    }
+  });
+
+  it("leaves no group empty", () => {
+    for (const g of GROUPS) {
+      expect(
+        CLAIMS.some(c => c.group === g.key),
+        `${g.title} would render a heading with no items`,
+      ).toBe(true);
+    }
+  });
+
+  it("groups the unfinished work together", () => {
+    const building = CLAIMS.filter(c => c.group === "building");
+    expect(building.length).toBe(UNEARNED);
+    expect(building.every(c => c.status === "unearned")).toBe(true);
+  });
+});
 
 describe("claims ledger", () => {
   it("carries every claim row in docs/12", () => {
