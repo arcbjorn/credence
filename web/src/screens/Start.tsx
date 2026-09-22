@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { units, bps } from "../lib/data";
 import { readBook } from "../lib/book";
 import { CLAIMS, EARNED, REFUSED, UNEARNED, type Claim } from "../lib/claims";
@@ -25,6 +25,7 @@ export function ClaimRow({ claim }: { claim: Claim }) {
 }
 
 export function Start() {
+  const navigate = useNavigate();
   const survey = useSurvey();
   const story = useRef<HTMLDivElement>(null);
   const [chapter, setChapter] = useState(0);
@@ -35,6 +36,10 @@ export function Start() {
   const last = loans.at(-1);
   const book = readBook(survey.run);
   const current = CHAPTERS[chapter]!;
+
+  useEffect(() => {
+    if (chapter === 2) setReplay(value => value + 1);
+  }, [chapter]);
 
   useEffect(() => {
     let frame = 0;
@@ -66,7 +71,7 @@ export function Start() {
           <p className="eyebrow"><span className="status-pin" />{current.label}</p>
           <h1 className="hero" key={current.title}>{current.title}</h1>
           <div className="hero-objects story-world">
-            <World book={book} nodes={borrowerNode(last)} loans={loans} projection={current.projection} paused={paused} replay={replay} onSelect={() => { window.location.hash = "/body"; }} />
+            <World book={book} nodes={borrowerNode(last)} loans={loans} projection={current.projection} paused={paused} replay={replay} onSelect={id => navigate(id === "facility" ? "/moons" : "/body")} />
             <div className="satellite satellite-top"><span className="satellite-line" /><div><span className="instrument-label">FIG. {String(chapter + 1).padStart(2, "0")}</span><p>{current.note}</p></div></div>
             <div className="satellite satellite-bottom"><span className="instrument-label">ATMOSPHERE</span><span>{book.utilization === null ? "Awaiting measurement" : `${((1 - book.utilization) * 100).toFixed(1)}% headroom`}</span><span className="satellite-line" /></div>
           </div>
