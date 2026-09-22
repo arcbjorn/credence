@@ -135,7 +135,7 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--mono);
-  font-size: 13.5px;
+  font-size: var(--t2);
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -166,7 +166,7 @@ body {
 
 .nav h1 {
   font-family: var(--display);
-  font-size: 19px;
+  font-size: var(--t4);
   font-weight: 600;
   letter-spacing: 0.06em;
   margin: 0 0 2px;
@@ -174,7 +174,7 @@ body {
 }
 
 .nav .tagline {
-  font-size: 11px;
+  font-size: var(--t1);
   color: var(--text-dim);
   margin: 0 0 24px;
   line-height: 1.5;
@@ -186,7 +186,7 @@ body {
   padding: 5px 0 5px 12px;
   color: var(--text-dim);
   text-decoration: none;
-  font-size: 12.5px;
+  font-size: var(--t2);
   border-left: 2px solid transparent;
   transition: color 0.25s cubic-bezier(0.86, 0, 0.07, 1),
               border-color 0.25s cubic-bezier(0.86, 0, 0.07, 1);
@@ -214,7 +214,7 @@ h2 {
 }
 
 h3 {
-  font-size: 12px;
+  font-size: var(--t2);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.1em;
@@ -256,7 +256,7 @@ h3 {
   gap: 6px;
   padding: 2px 9px;
   border-radius: 2px;
-  font-size: 11px;
+  font-size: var(--t1);
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -277,7 +277,7 @@ h3 {
    The market register. Figures are integers in base units, so they get
    tabular numerals and a rule under the header rather than zebra fill. */
 
-table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+table { border-collapse: collapse; width: 100%; font-size: var(--t2); }
 
 th, td {
   text-align: left;
@@ -288,7 +288,7 @@ th, td {
 thead th {
   color: var(--text-dim);
   font-weight: 600;
-  font-size: 10.5px;
+  font-size: var(--t1);
   text-transform: uppercase;
   letter-spacing: 0.08em;
   border-bottom: 1px solid var(--rule);
@@ -321,7 +321,7 @@ td.num:last-child, th.num:last-child {
   font-weight: 400;
   text-transform: none;
   letter-spacing: 0;
-  font-size: 12.5px;
+  font-size: var(--t2);
   border-bottom: 1px solid var(--border);
   white-space: nowrap;
   padding-right: 16px;
@@ -335,7 +335,7 @@ td.num:last-child, th.num:last-child {
 
 .figure {
   font-family: var(--mono);
-  font-size: 25px;
+  font-size: var(--t6);
   font-weight: 500;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.01em;
@@ -358,7 +358,7 @@ td.num:last-child, th.num:last-child {
 
 .hash {
   font-family: var(--mono);
-  font-size: 10.5px;
+  font-size: var(--t1);
   color: var(--text-dim);
   word-break: break-all;
   line-height: 1.5;
@@ -385,7 +385,7 @@ td.num:last-child, th.num:last-child {
 
 button, select {
   font: inherit;
-  font-size: 12.5px;
+  font-size: var(--t2);
   padding: 6px 14px;
   border-radius: var(--radius);
   border: 1px solid var(--border);
@@ -405,7 +405,7 @@ select { cursor: pointer; }
   outline-offset: 2px;
 }
 
-label { color: var(--text-dim); font-size: 12.5px; }
+label { color: var(--text-dim); font-size: var(--t2); }
 
 .error {
   color: var(--alarm);
@@ -423,7 +423,7 @@ details { margin-top: 14px; }
 summary {
   cursor: pointer;
   color: var(--text-dim);
-  font-size: 12px;
+  font-size: var(--t2);
   letter-spacing: 0.02em;
   padding: 3px 0;
 }
@@ -432,7 +432,7 @@ summary:hover { color: var(--machine); }
 
 pre {
   font-family: var(--mono);
-  font-size: 10.5px;
+  font-size: var(--t1);
   line-height: 1.6;
   overflow-x: auto;
   background: var(--sunken);
@@ -442,7 +442,10 @@ pre {
   color: var(--text-dim);
 }
 
-code { font-family: var(--mono); font-size: 0.94em; }
+/* A relative size here produced 13.2px inside 14px body copy -- a
+   fractional mono size that reads as an error rather than as a
+   deliberate step. */
+code { font-family: var(--mono); font-size: var(--t2); }
 
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; }
@@ -461,7 +464,7 @@ code { font-family: var(--mono); font-size: 0.94em; }
    denial carries the limiting constraint and the capacity, and those are
    the two facts a reader wants when something is refused. */
 .reason-field {
-  font-size: 11.5px;
+  font-size: var(--t2);
   font-weight: 400;
   letter-spacing: 0;
   opacity: 0.85;
@@ -544,7 +547,7 @@ code { font-family: var(--mono); font-size: 0.94em; }
   color: var(--text-dim);
   text-transform: uppercase;
   letter-spacing: 0.14em;
-  font-size: 10.5px;
+  font-size: var(--t1);
   margin-bottom: 18px;
 }
 
@@ -565,7 +568,7 @@ code { font-family: var(--mono); font-size: 0.94em; }
 }
 
 .hero-lede {
-  font-size: 14.5px;
+  font-size: var(--t3);
   line-height: 1.65;
   max-width: 46rem;
   color: var(--text);
@@ -573,7 +576,7 @@ code { font-family: var(--mono); font-size: 0.94em; }
 }
 
 .hero-note {
-  font-size: 12.5px;
+  font-size: var(--t2);
   line-height: 1.65;
   color: var(--text-dim);
   margin: 18px 0 26px;
@@ -617,7 +620,7 @@ code { font-family: var(--mono); font-size: 0.94em; }
 .figure-machine { border-top-color: var(--machine); }
 
 .figure-value {
-  font-size: 23px;
+  font-size: var(--t6);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   line-height: 1.1;
@@ -629,7 +632,7 @@ code { font-family: var(--mono); font-size: 0.94em; }
 .figure-machine .figure-value { color: var(--machine); }
 
 .figure-label {
-  font-size: 10.5px;
+  font-size: var(--t1);
   line-height: 1.45;
   color: var(--text-dim);
 }
@@ -728,7 +731,7 @@ code { font-family: var(--mono); font-size: 0.94em; }
 
 .globe-sub {
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: var(--t1);
   letter-spacing: 0.14em;
   text-transform: uppercase;
   fill: var(--text-dim);
@@ -742,7 +745,7 @@ code { font-family: var(--mono); font-size: 0.94em; }
   gap: 4px 16px;
   margin: 0;
   font-family: var(--mono);
-  font-size: 10.5px;
+  font-size: var(--t1);
   font-variant-numeric: tabular-nums;
   color: var(--text);
 }
@@ -751,7 +754,7 @@ code { font-family: var(--mono); font-size: 0.94em; }
   color: var(--text-dim);
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  font-size: 9px;
+  font-size: var(--t1);
   margin-right: 6px;
 }
 
@@ -760,14 +763,14 @@ code { font-family: var(--mono); font-size: 0.94em; }
   align-items: baseline;
   gap: 9px;
   margin: 0;
-  font-size: 11.5px;
+  font-size: var(--t2);
   color: var(--text-dim);
 }
 
 .globe-caption-label {
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  font-size: 9.5px;
+  font-size: var(--t1);
 }
 
 .globe-caption-stress span:last-child { color: var(--machine); }
@@ -848,7 +851,7 @@ code { font-family: var(--mono); font-size: 0.94em; }
 
 .cut-label {
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: var(--t1);
   letter-spacing: 0.1em;
   text-transform: uppercase;
   fill: var(--text);
@@ -856,7 +859,7 @@ code { font-family: var(--mono); font-size: 0.94em; }
 
 .cut-note {
   font-family: var(--mono);
-  font-size: 9px;
+  font-size: var(--t1);
   fill: var(--text-dim);
 }
 
@@ -919,7 +922,7 @@ code { font-family: var(--mono); font-size: 0.94em; }
 
 .eclipse-figure {
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: var(--t1);
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -932,7 +935,7 @@ code { font-family: var(--mono); font-size: 0.94em; }
   gap: 8px;
   margin: 0;
   font-family: var(--mono);
-  font-size: 10.5px;
+  font-size: var(--t1);
   font-variant-numeric: tabular-nums;
   color: var(--text-dim);
 }
@@ -971,7 +974,7 @@ code { font-family: var(--mono); font-size: 0.94em; }
 .hero-why > summary {
   cursor: pointer;
   list-style: none;
-  font-size: 11.5px;
+  font-size: var(--t2);
   color: var(--text-dim);
   padding: 4px 0;
   transition: color 140ms ease;
@@ -982,7 +985,7 @@ code { font-family: var(--mono); font-size: 0.94em; }
 
 .hero-why > summary::after {
   content: " +";
-  font-size: 12px;
+  font-size: var(--t2);
 }
 
 .hero-why[open] > summary::after { content: " −"; }
@@ -1015,7 +1018,7 @@ code { font-family: var(--mono); font-size: 0.94em; }
 
 .body-sub {
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: var(--t1);
   letter-spacing: 0.14em;
   text-transform: uppercase;
   fill: var(--text-dim);
@@ -1026,14 +1029,14 @@ code { font-family: var(--mono); font-size: 0.94em; }
   align-items: baseline;
   gap: 9px;
   margin: 0;
-  font-size: 11.5px;
+  font-size: var(--t2);
   color: var(--text-dim);
 }
 
 .body-caption-label {
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  font-size: 9.5px;
+  font-size: var(--t1);
 }
 
 /* When stress binds, the caption joins the MACHINE register: the limit
@@ -1094,7 +1097,7 @@ code { font-family: var(--mono); font-size: 0.94em; }
   padding: 9px 0 0;
   margin-bottom: 26px;
   border-top: 1px solid var(--border);
-  font-size: 10.5px;
+  font-size: var(--t1);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--text-dim);
@@ -1139,7 +1142,7 @@ code { font-family: var(--mono); font-size: 0.94em; }
 }
 
 .ledger-head p {
-  font-size: 12.5px;
+  font-size: var(--t2);
   line-height: 1.65;
   color: var(--text-dim);
   margin: 0;
@@ -1183,7 +1186,7 @@ code { font-family: var(--mono); font-size: 0.94em; }
 .claim > summary::marker { content: ""; }
 
 .claim-title {
-  font-size: 13.5px;
+  font-size: var(--t2);
   font-weight: 500;
   line-height: 1.4;
   letter-spacing: -0.005em;
@@ -1195,7 +1198,7 @@ code { font-family: var(--mono); font-size: 0.94em; }
    the cheapest possible signal that a row has more behind it. */
 .claim-status {
   flex-shrink: 0;
-  font-size: 10px;
+  font-size: var(--t1);
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: var(--text-dim);
@@ -1203,7 +1206,7 @@ code { font-family: var(--mono); font-size: 0.94em; }
 
 .claim-status::after {
   content: " +";
-  font-size: 12px;
+  font-size: var(--t2);
   letter-spacing: 0;
 }
 
@@ -1247,14 +1250,14 @@ code { font-family: var(--mono); font-size: 0.94em; }
 }
 
 .claim-detail {
-  font-size: 12.5px;
+  font-size: var(--t2);
   line-height: 1.7;
   margin: 0 0 10px;
   color: var(--text);
 }
 
 .claim-support {
-  font-size: 11.5px;
+  font-size: var(--t2);
   line-height: 1.6;
   color: var(--text-dim);
   margin: 0 0 10px;
@@ -1266,13 +1269,13 @@ code { font-family: var(--mono); font-size: 0.94em; }
   display: block;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  font-size: 9.5px;
+  font-size: var(--t1);
   color: var(--text-dim);
   margin-bottom: 2px;
 }
 
 .claim-link {
-  font-size: 11.5px;
+  font-size: var(--t2);
   color: var(--machine);
   text-decoration: none;
   border-bottom: 1px solid transparent;
@@ -1323,7 +1326,7 @@ code { font-family: var(--mono); font-size: 0.94em; }
 }
 
 .refused li {
-  font-size: 11.5px;
+  font-size: var(--t2);
   line-height: 1.5;
   color: var(--text-dim);
   padding-left: 15px;
@@ -1339,7 +1342,7 @@ code { font-family: var(--mono); font-size: 0.94em; }
 }
 
 .refused-note {
-  font-size: 11.5px;
+  font-size: var(--t2);
   line-height: 1.65;
   color: var(--text-dim);
   margin: 0;
@@ -1362,7 +1365,7 @@ code { font-family: var(--mono); font-size: 0.94em; }
 .ledger-cta h3 { margin: 0 0 5px; }
 
 .ledger-cta p {
-  font-size: 12px;
+  font-size: var(--t2);
   line-height: 1.6;
   color: var(--text-dim);
   margin: 0;
@@ -1381,7 +1384,7 @@ code { font-family: var(--mono); font-size: 0.94em; }
   color: var(--bg);
   border-radius: var(--radius);
   text-decoration: none;
-  font-size: 12.5px;
+  font-size: var(--t2);
   font-weight: 500;
   transition: gap 140ms ease, opacity 140ms ease;
 }
@@ -1391,7 +1394,7 @@ code { font-family: var(--mono); font-size: 0.94em; }
 .path {
   margin: 0;
   padding-left: 1.2em;
-  font-size: 13px;
+  font-size: var(--t2);
   line-height: 1.85;
   color: var(--text-dim);
 }
@@ -1463,23 +1466,23 @@ code { font-family: var(--mono); font-size: 0.94em; }
 .curve svg { width: 100%; height: auto; display: block; }
 
 .curve-apr {
-  font-size: 10.5px;
+  font-size: var(--t1);
   font-weight: 600;
   fill: var(--growth);
   font-variant-numeric: tabular-nums;
 }
 
-.curve-axis { font-size: 9.5px; fill: var(--text-dim); }
+.curve-axis { font-size: var(--t1); fill: var(--text-dim); }
 
 .curve-switch-label {
-  font-size: 9px;
+  font-size: var(--t1);
   fill: var(--machine);
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
 
 .curve-caption {
-  font-size: 12px;
+  font-size: var(--t2);
   line-height: 1.6;
   color: var(--text-dim);
   margin: 10px 0 0;
@@ -1614,7 +1617,7 @@ code { font-family: var(--mono); font-size: 0.94em; }
 }
 
 .shell-landing .hero-lede {
-  font-size: 14.5px;
+  font-size: var(--t3);
   line-height: 1.6;
   max-width: 46ch;
   margin-bottom: 18px;
@@ -1655,7 +1658,7 @@ code { font-family: var(--mono); font-size: 0.94em; }
   border-radius: var(--radius);
   color: var(--machine);
   text-decoration: none;
-  font-size: 12.5px;
+  font-size: var(--t2);
   letter-spacing: 0.04em;
   transition: background 160ms ease, transform 160ms ease;
 }
