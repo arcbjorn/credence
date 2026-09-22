@@ -47,7 +47,7 @@ export function AgentOverview() {
 
   return (
     <>
-      <h2>Agent overview</h2>
+      <h1 className="record-title">Agent overview</h1>
       <p className="lede">
         {originations.length > 0 ? (
           <>
