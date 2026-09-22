@@ -47,7 +47,7 @@ export function Lender() {
   if (ledger.length === 0) {
     return (
       <>
-        <h2>Lender</h2>
+        <h1 className="record-title">Lender</h1>
         <p className="lede">
           This run recorded no vault ledgers. Re-run{" "}
           <code>LOANS=3 scripts/demo-repay.sh</code>, then{" "}
@@ -59,7 +59,7 @@ export function Lender() {
 
   return (
     <>
-      <h2>Lender</h2>
+      <h1 className="record-title">Lender</h1>
       <p className="lede">
         The epoch's ledgers, read from the vault on chain. Kept apart
         because they are different facts — uncollected interest is not
