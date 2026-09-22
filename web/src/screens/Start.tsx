@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { units, bps } from "../lib/data";
 import { readBook } from "../lib/book";
-import { CLAIMS, EARNED, REFUSED, UNEARNED, type Claim } from "../lib/claims";
+import { CLAIMS, EARNED, GROUPS, REFUSED, UNEARNED, type Claim } from "../lib/claims";
 import { borrowerNode, originations, surveyDate, useSurvey, type Projection } from "../lib/observatory";
 import { World } from "../components/World";
 import { BrandMark } from "../components/Shell";
@@ -92,7 +92,18 @@ export function Start() {
     </div>
     <section className="survey-proof">
       <div className="proof-intro"><p className="eyebrow">09 / WEATHER THAT HAPPENED</p><h2>A record.<br /><em>Not a promise.</em></h2><p>Every figure has a source. Every decision leaves a trace. Open the records and see what this body can prove.</p><Deployment /><Link to="/replay" className="text-link">Replay a decision ↗</Link></div>
-      <div><header className="ledger-head"><h3>The field record</h3><p><strong>{EARNED} of {EARNED + UNEARNED} work today.</strong></p></header><div className="ledger">{CLAIMS.map(c => <ClaimRow key={c.title} claim={c} />)}</div><details className="refused"><summary>What this does not claim</summary><ul>{REFUSED.map(r => <li key={r}>{r}</li>)}</ul><p>Determinism buys auditability, not accuracy. Replaying a decision proves what the model did.</p></details></div>
+      <div className="ledger">
+        <header className="ledger-head"><h3>The field record</h3><p><strong>{EARNED} of {EARNED + UNEARNED} work today.</strong></p></header>
+        {GROUPS.map(g => {
+          const rows = CLAIMS.filter(c => c.group === g.key);
+          if (rows.length === 0) return null;
+          return <section className="claim-group" key={g.key}>
+            <div className="claim-group-intro"><h4>{g.title}</h4><p>{g.blurb}</p></div>
+            <div className="claim-group-rows">{rows.map(c => <ClaimRow key={c.title} claim={c} />)}</div>
+          </section>;
+        })}
+        <details className="refused"><summary>What this does not claim</summary><ul>{REFUSED.map(r => <li key={r}>{r}</li>)}</ul><p>Determinism buys auditability, not accuracy. Replaying a decision proves what the model did.</p></details>
+      </div>
     </section>
     <footer className="landing-footer"><div className="footer-invitation"><span className="eyebrow">THERE IS MORE TO THIS WORLD.</span><Link to="/observatory">See it working.<span aria-hidden="true">↗</span></Link></div><div className="footer-baseline"><Link className="footer-brand" to="/"><BrandMark />credence.</Link><span>Credit has a memory.</span><Link to="/guide">Read the field guide ↗</Link></div></footer>
   </>;
