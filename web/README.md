@@ -55,44 +55,27 @@ judging, nothing to fail.
 
 ## The design
 
-The palette and typography come from
-[`arcbjorn.com`](https://arcbjorn.com): warm paper `#f9f5ef` against
-near-black `#1b1d1e`, teal and vermilion accents, IBM Plex Mono
-throughout with Cinzel for display. Two accents are darkened in the light
-theme — `#008080` and `#f15025` land at 4.08:1 and 3.02:1 on this paper,
-which is fine for a bordered chip and thin for a figure carrying realized
-loss.
+The credit body is the interface: a persistent globe on the landing page
+moves through shell, arcs, core, section, moons, eclipse and atlas views.
+The Observatory, Atlas, Moons, Body and Log rooms use the same renderer.
+The field guide explains the laws and links to the original evidence screens.
 
-**A third register is added for this subject.** The interface reads in
-three:
+The original paper, graphite, teal, moss and vermilion palette is preserved,
+including a remembered night theme. Space Grotesk carries the world,
+Instrument Serif the personal views, and IBM Plex Mono the instruments.
 
-| Register | Hue | What it marks |
-|---|---|---|
-| Machine | teal | agents, identity, hashes, the CRE route |
-| Growth | moss | capacity, history, what compounds |
-| Alarm | vermilion | refusals, denials, realized loss |
+`brand/physics.md` at the repository root is the canonical specification.
+`World.tsx` renders the shell on canvas with a capped pixel density, pauses
+when offscreen, and honours reduced motion. Interactive nodes remain native
+HTML buttons. Docks support Escape and restore focus; all room controls are
+keyboard accessible. Hold Alt for whisper mode.
 
-Moss is the one that is not inherited. This is credit *grown from
-demonstrated behaviour*, so a rising limit should read as cultivation
-rather than as one more machine readout — and the moment in beat 4b where
-history stops binding and a structural cap takes over is a handover
-between two registers, not a change in one number.
-
-Mono throughout is not a stylistic tic: every figure is an integer in
-base units, and columns of them have to align to be comparable. Tables get
-tabular numerals and a rule under the header rather than zebra fill —
-a ledger, not a dashboard.
-
-The **constraint rail** is the one invented device: a coloured leading
-edge on a card, carrying the binding constraint or the outcome, so the
-*reason* reads before the number does. `docs/09` requires the binding
-constraint beside the capacity, and a rail states it without spending a
-column.
-
-Every colour is a token defined in the bare `:root`, redefined for
-`prefers-color-scheme: dark` and for an explicit `data-theme="dark"`, so
-all three theme states resolve — including the un-stamped system default
-that a colour defined only inside a media query would break.
+The new visualizations do not invent live network activity. The landing and
+Observatory draw the retained repayment run; Atlas draws the independent
+comparison scenarios; Log draws the independent indexed records. The score
+barometer explicitly preserves the engine's native 300–900 scale. The
+history scrubber changes the origination being inspected; it does not claim
+to reconstruct historical vault balances.
 
 ## Mode labels
 
