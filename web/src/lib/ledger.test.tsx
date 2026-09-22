@@ -59,6 +59,40 @@ describe("the claims ledger on the landing page", () => {
     ).toBeInTheDocument();
   });
 
+  it("puts the object, the claim and the way in together", () => {
+    // These five sat below the fold for several revisions: a visitor saw
+    // a headline, a sphere and a list, and the primary call to action was
+    // off screen entirely. jsdom has no layout, so this pins ORDER and
+    // presence rather than pixels -- the object must come with the claim
+    // and the way in, not a screen above them.
+    renderStart();
+    const left = document.querySelector(".split-left")!;
+    const order = [".hero", ".hero-objects", ".hero-lede", ".start-enter"].map(
+      (sel) => {
+        const el = left.querySelector(sel);
+        expect(el, `${sel} is missing from the opening`).not.toBeNull();
+        return [...left.querySelectorAll("*")].indexOf(el!);
+      },
+    );
+    // Strictly increasing: each follows the one before it.
+    for (let i = 1; i < order.length; i++) {
+      expect(order[i]!).toBeGreaterThan(order[i - 1]!);
+    }
+  });
+
+  it("keeps a slot for the book beside the object", () => {
+    // The eclipse states utilization at a glance and sat at 1184px,
+    // below the fold. It now shares a row with the globe.
+    //
+    // Its CONTENTS cannot be asserted here: the component loads its
+    // figures over fetch, and under jsdom the bundle is absent, so both
+    // the globe and the eclipse correctly render nothing rather than
+    // inventing a book. This pins the container that puts them side by
+    // side; `shapes.test.tsx` covers the eclipse's own geometry.
+    renderStart();
+    expect(document.querySelector(".hero-objects")).not.toBeNull();
+  });
+
   it("gives each claim its support and evidence", () => {
     renderStart();
     for (const claim of CLAIMS) {

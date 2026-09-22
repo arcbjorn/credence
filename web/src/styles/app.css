@@ -797,12 +797,17 @@ code { font-family: var(--mono); font-size: 0.94em; }
 
 /* As the landing hero the body runs large and sits left, under the
    headline it belongs to. */
+/* The globe shares the column with the claim, the CTA and the book.
+   At 460px it pushed all four below the fold -- a visitor saw a
+   headline, a sphere and nothing else, and the primary call to action
+   was off screen. Measured: the left column ran 1460px in an 857px
+   viewport. */
 .shell-landing .split-left > .globe {
-  margin: -18px 0 22px -26px;
+  margin: -8px 0 14px -18px;
   align-items: flex-start;
 }
 
-.shell-landing .split-left > .globe svg { max-width: 460px; }
+.shell-landing .split-left > .globe svg { max-width: 330px; }
 
 @media (prefers-reduced-motion: reduce) {
   .globe-shell,
@@ -857,6 +862,29 @@ code { font-family: var(--mono); font-size: 0.94em; }
 
 @media (prefers-reduced-motion: reduce) {
   .cut-ring { animation: none; opacity: 1; }
+}
+
+/* The object beside the book. Both are the same figures; the globe is
+   one agent's position, the eclipse is the vault behind it. */
+.hero-objects {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.hero-objects .globe { flex: 0 0 auto; }
+
+.hero-objects .eclipse {
+  flex: 1 1 200px;
+  min-width: 190px;
+  padding-top: 26px;
+}
+
+.hero-objects .eclipse svg { max-width: 230px; }
+
+@media (max-width: 1080px) {
+  .hero-objects { gap: 18px; }
 }
 
 .book-view {
@@ -1697,25 +1725,21 @@ code { font-family: var(--mono); font-size: 0.94em; }
    shares the row with a ledger, and past ~76 it sets three words a
    line and reads as a poster. */
 .shell-landing .hero {
-  /* Sized to sit WITH the globe rather than over it. At 76px the
-     headline took three lines and pushed the object into the lower
-     third, so the page opened on type and you had to scroll to meet the
-     thing the page is about. */
-  font-size: clamp(32px, 3.5vw, 54px);
-  line-height: 1.04;
+  font-size: clamp(30px, 2.9vw, 44px);
+  line-height: 1.05;
   letter-spacing: -0.03em;
-  margin-bottom: 18px;
+  margin-bottom: 12px;
   max-width: 15ch;
 }
 
 .shell-landing .hero-lede {
-  font-size: 15.5px;
-  line-height: 1.68;
-  max-width: 48ch;
-  margin-bottom: 30px;
+  font-size: 14.5px;
+  line-height: 1.6;
+  max-width: 46ch;
+  margin-bottom: 18px;
 }
 
-.shell-landing .kicker { margin-bottom: 20px; }
+.shell-landing .kicker { margin-bottom: 12px; }
 
 /* A rule that draws itself across the figures as they open, marking
    where the claim ends and the evidence begins. */
@@ -1793,7 +1817,7 @@ code { font-family: var(--mono); font-size: 0.94em; }
    without scrolling, because they are the reason to stay. */
 .shell-landing .stage {
   max-width: 1420px;
-  padding-top: 88px;
+  padding-top: 76px;
 }
 
 /* One column once the two stop fitting. The left column releases its

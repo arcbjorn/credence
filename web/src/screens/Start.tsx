@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { loadRun, units, type Check, type Run } from "../lib/data";
 import { bindingPhrase } from "../lib/bindings";
-import { atmosphere, core, readBook, scar } from "../lib/book";
+import { atmosphere, core, readBook } from "../lib/book";
 import { CLAIMS, EARNED, REFUSED, UNEARNED, type Claim } from "../lib/claims";
 import { CreditGlobe } from "../components/CreditGlobe";
 import { CutModel, type Layer } from "../components/CutModel";
@@ -139,13 +139,9 @@ export function Start() {
   const loss = check(fault, "vault realized loss");
 
   // The book's physical state, from the same retained checks the lender
-  // screen tabulates. `docs/brand/physics.md`: the core is idle cash,
-  // the atmosphere is `1 - utilization`, the scar is realized loss. The
-  // scar comes from the DEFAULT run, because that is the run where a
-  // loan actually went bad -- reading it from the repay run would draw a
-  // crater on a book that never lost anything.
+  // screen tabulates. `docs/brand/physics.md`: the core is idle cash and
+  // the atmosphere is `1 - utilization`.
   const book = readBook(repay);
-  const faultBook = readBook(fault);
 
   // The section through the body. Each layer carries the figure it
   // stands for, and a layer nothing measured is drawn dashed rather
@@ -201,19 +197,36 @@ export function Start() {
             before a word is read. The figures and the reasoning used to
             sit above it, which meant a visitor met a paragraph and three
             stat cards before meeting the thing itself. */}
-        {loans.length > 0 && (
-          <CreditGlobe
-            atmosphere={atmosphere(book)}
-            core={core(book)}
-            scar={scar(faultBook)}
-            points={loans.map((l) => ({
-              capacity: l.capacity,
-              apr: l.apr,
-              binding: l.binding,
-              ...(l.score !== undefined ? { score: l.score } : {}),
-            }))}
-          />
-        )}
+        {/* The object and the book it draws on, side by side. The
+            eclipse was below the fold at 1184px, which meant nobody saw
+            the one shape that states utilization at a glance. */}
+        <div className="hero-objects">
+          {loans.length > 0 && (
+            <CreditGlobe
+              atmosphere={atmosphere(book)}
+              core={core(book)}
+              /* No scar. The realized loss belongs to a DIFFERENT
+                 agent's default, and painting it on this body said
+                 this borrower defaulted when it repaid all three
+                 loans. The loss is shown where it happened: on the
+                 lender screen, and in the figure below. */
+              points={loans.map((l) => ({
+                capacity: l.capacity,
+                apr: l.apr,
+                binding: l.binding,
+                ...(l.score !== undefined ? { score: l.score } : {}),
+              }))}
+            />
+          )}
+
+          {book.utilization !== null && (
+            <Eclipse
+              utilization={book.utilization}
+              idle={units(book.idle?.toString())}
+              outstanding={units(book.outstanding?.toString())}
+            />
+          )}
+        </div>
 
         <p className="hero-lede">
           An agent has no salary and no credit file. It has every action it
@@ -275,18 +288,6 @@ export function Start() {
             </span>
           </Link>
         </div>
-
-        {/* The book, two ways. The eclipse is the same utilization the
-            readout prints, as a shape a reader takes in at a glance. */}
-        {book.utilization !== null && (
-          <div className="book-view">
-            <Eclipse
-              utilization={book.utilization}
-              idle={units(book.idle?.toString())}
-              outstanding={units(book.outstanding?.toString())}
-            />
-          </div>
-        )}
 
         <details className="hero-why">
           <summary>A section through it</summary>

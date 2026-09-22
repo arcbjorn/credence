@@ -23,7 +23,7 @@ its credibility on not doing that.
 | Refusal | No body at all, vermilion limit ring | `agent_capacity == 0` |
 | **Core** | Brightness at the centre: the lender's idle cash | `vault idle cash` check |
 | **Atmosphere** | Rim thickness, as `1 - utilization`. Thick = padded, thin = vacuum | `principal outstanding / (idle + outstanding)` |
-| **Scar** | A dark crater on the shell that does not heal | `vault realized loss` |
+| ~~Scar~~ | **Withdrawn.** Painted the lender's realized loss on the borrower's body, which said this agent defaulted when it repaid every loan. A loss belongs to the book that took it, and it is shown on the lender screen | — |
 | **Cut model** | The body in section: shell, record, escrow, core. Ring width is the figure; an unmeasured layer is dashed and claims no width | `account holds withdrawable value`, `vault idle cash` |
 | **Eclipse** | Two bodies whose overlap IS utilization. Offset is a function of the figure, so the picture cannot flatter the book | `principal outstanding / (idle + outstanding)` |
 
