@@ -212,7 +212,18 @@ td { padding-top:15px;padding-bottom:15px; }
 .ledger-head h3,.ledger-head p { margin:0;font:var(--t1) var(--mono); }
 /* Overrode the row's horizontal padding to zero, so the hover plate
    hugged the text and the title clipped against its own edge. */
-.claim>summary { padding:var(--s5) var(--s4); }
+.claim>summary { padding:var(--s3) var(--s4); }
+
+/* The grouped ledger.
+ *
+ * Ten flat rows under one header read as a table of contents. Each
+ * group now names itself and carries one sentence saying why it exists,
+ * in its own column beside the items -- so a reader can enter anywhere
+ * instead of starting at row one. */
+.claim-group { display:grid;grid-template-columns:minmax(0,.72fr) minmax(0,1fr);gap:var(--s7);padding:var(--s9) 0 0; }
+.claim-group-intro h4 { font:400 var(--t6)/var(--lh-snug) var(--serif);letter-spacing:0;margin:0 0 var(--s3);color:var(--text); }
+.claim-group-intro p { font:var(--t3)/var(--lh-body) var(--sans);color:var(--text-dim);margin:0;max-width:30ch; }
+.claim-group-rows { display:flex;flex-direction:column;gap:var(--s2); }
 .claim-title { font:var(--t2) var(--sans); }
 .claim-status { font:var(--t1) var(--mono); }
 .claim-body { padding:0 0 20px;font:var(--t2)/var(--lh-body) var(--sans); }

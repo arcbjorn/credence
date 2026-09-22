@@ -1154,12 +1154,8 @@ code { font-family: var(--mono); font-size: var(--t2); }
   margin-bottom: 34px;
 }
 
-/* The divider lives on the summary, not the row. On the row it sat
-   16px inside the hover plate and the highlight cut straight through
-   it. */
-.claim + .claim > summary {
-  border-top: 1px solid var(--border);
-}
+/* No dividers. A rule under every row turned a ten-item list into a
+   table; the groups and their whitespace separate the items now. */
 
 /* The hover plate was inset -14px left against -12px right, so it sat
    visibly off-centre, and the row had vertical padding with no
@@ -1196,11 +1192,11 @@ code { font-family: var(--mono); font-size: var(--t2); }
 .claim > summary::marker { content: ""; }
 
 .claim-title {
-  font-size: var(--t3);
+  font-size: var(--t4);
   font-weight: 400;
   line-height: var(--lh-snug);
   letter-spacing: 0;
-  color: var(--text-dim);
+  color: var(--text);
   transition: color 140ms ease;
 }
 
@@ -1256,11 +1252,14 @@ code { font-family: var(--mono); font-size: var(--t2); }
   vertical-align: middle;
 }
 
-/* Indented to the row's own text, so an open claim reads as belonging
-   to the title above it rather than starting a new column. */
+/* An inline note under its title, marked by a left rule -- the shape a
+   reader already knows from a pull quote. Not a panel: a panel reads as
+   a different kind of content. */
 .claim-body {
-  padding: 0 0 var(--s6) var(--s4);
-  max-width: 52ch;
+  margin: 0 0 var(--s5) var(--s4);
+  padding: 0 0 0 var(--s4);
+  border-left: 1px solid var(--border);
+  max-width: 54ch;
 }
 
 .claim-detail {
