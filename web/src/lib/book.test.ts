@@ -7,7 +7,7 @@ import type { Run } from "./data";
 /**
  * The book's physical state.
  *
- * `docs/brand/physics.md` binds the core, the atmosphere and the scar to
+ * `brand/physics.md` binds the core, the atmosphere and the scar to
  * loaded figures. The property worth pinning hardest is the difference
  * between ABSENT and ZERO: a vault with no idle cash and a vault whose
  * idle cash was never recorded look the same if you collapse them, and
@@ -71,6 +71,36 @@ describe("reading the book", () => {
       run([{ name: "vault idle cash", detail: "debtOutstanding=true" }]),
     );
     expect(b.idle).toBeNull();
+  });
+});
+
+describe("an empty book against an absent one", () => {
+  /**
+   * The Observatory shows "the core is cold" for a book with nothing in
+   * it. That test was `idle === 0n && outstanding === 0n`, which reads
+   * false when the figures are ABSENT -- so a survey that retained no
+   * vault checks showed no message at all and rendered dashes.
+   *
+   * `monitor.json` ships with an empty `checks` array, so a run that
+   * loads successfully and carries no book is not hypothetical.
+   */
+  it("reports an empty book as zero, not as missing", () => {
+    const b = readBook(
+      run([
+        { name: "vault idle cash", detail: "0 base units" },
+        { name: "vault principal outstanding", detail: "0 base units" },
+      ]),
+    );
+    expect(b.idle).toBe(0n);
+    expect(b.outstanding).toBe(0n);
+  });
+
+  it("reports an absent book as missing, not as zero", () => {
+    const b = readBook(run([]));
+    expect(b.idle).toBeNull();
+    expect(b.outstanding).toBeNull();
+    // The distinction the screen depends on: `=== 0n` must NOT hold.
+    expect(b.idle === 0n).toBe(false);
   });
 });
 
