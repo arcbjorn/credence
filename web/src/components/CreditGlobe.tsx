@@ -492,10 +492,10 @@ export function CreditGlobe({
           );
         })}
 
-        {/* The scar. A default is a permanent mark on the body, placed
+        {/* The scar. A default is a retained mark on the body, placed
             on the shell so it turns with it and passes out of sight
-            rather than hovering. `docs/brand/physics.md`: it does not
-            heal, and nothing here fades it with time. */}
+            rather than hovering. `brand/physics.md`: absent a default
+            timestamp, nothing here infers that it has healed. */}
         {scar !== null && bodyR > 0 && (() => {
           const v = rotate(onSphere(-28, 58), spin, TILT);
           const at = project(v, CENTER, CENTER, bodyR);
