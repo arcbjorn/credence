@@ -50,7 +50,7 @@ export interface Claim {
 export const CLAIMS: Claim[] = [
   {
     title: "Decisions are reproducible",
-    support: "Retained canonical inputs plus matching replay",
+    support: "The saved inputs, re-run and matched",
     status: "earned",
     detail:
       "Reopen the retained SQLite, feed the same bytes back through the " +
@@ -61,7 +61,7 @@ export const CLAIMS: Claim[] = [
   },
   {
     title: "Credit grows with demonstrated behaviour",
-    support: "Three sequential loans under one policy, plus ablation",
+    support: "Three loans in a row under one unchanged rulebook",
     status: "earned",
     detail:
       "1200 → 1147 → 1094 bps across three loans, same policy and same " +
@@ -72,7 +72,7 @@ export const CLAIMS: Claim[] = [
   },
   {
     title: "Current risk overrides reputation",
-    support: "A concentrated book with binding portfolio constraints",
+    support: "A borrower holding too much of one risky asset",
     status: "earned",
     detail:
       "An agent with a spotless repayment record gets denied, because " +
@@ -82,7 +82,7 @@ export const CLAIMS: Claim[] = [
   },
   {
     title: "Borrowed capital is constrained",
-    support: "Actual contract rejection and adapter boundaries",
+    support: "A real transaction, refused on chain",
     status: "earned",
     detail:
       "The agent tries to withdraw its collateral while it still owes " +
@@ -93,7 +93,7 @@ export const CLAIMS: Claim[] = [
   },
   {
     title: "Losses are accounted for",
-    support: "Realized collection and final settlement reconcile",
+    support: "What was lent, recovered and lost, adding up",
     status: "earned",
     detail:
       "4,000 lent, 1,400 recovered, 2,600 written off, and the three " +
@@ -103,7 +103,7 @@ export const CLAIMS: Claim[] = [
   },
   {
     title: "Underwriting is continuous",
-    support: "Unprompted reassessment reaching chain within an interval",
+    support: "A re-check nobody asked for, landing on chain",
     status: "earned",
     detail:
       "Nobody asked it to re-underwrite. A price moved, and a blocked " +
@@ -114,7 +114,7 @@ export const CLAIMS: Claim[] = [
   },
   {
     title: "Forecasts are evaluated",
-    support: "Prior commitment, outcome protocol, retained resolutions",
+    support: "A prediction made before the money moved, then scored",
     status: "earned",
     detail:
       "The forecast is committed onchain BEFORE the money moves, then " +
@@ -126,7 +126,7 @@ export const CLAIMS: Claim[] = [
   },
   {
     title: "Reputation is independently verifiable",
-    support: "A standalone reader using no Credence endpoint",
+    support: "A reader that works without touching our servers",
     status: "earned",
     detail:
       "A standalone reader pulls two repaid obligations off the canonical " +
@@ -137,7 +137,7 @@ export const CLAIMS: Claim[] = [
   },
   {
     title: "CRE checks an assessment",
-    support: "Exact deployed workflow checks and report evidence",
+    support: "The live workflow running its checks for real",
     status: "unearned",
     detail:
       "Closed, not pending. The receiver is deployed, 21 tests pass, and " +
@@ -149,7 +149,7 @@ export const CLAIMS: Claim[] = [
   },
   {
     title: "A note is tradable debt exposure",
-    support: "Defined holder rights, market transfer, redemption",
+    support: "Someone independent actually buying or selling one",
     status: "unearned",
     detail:
       "The instrument exists, its redemption arithmetic is tested, and " +
@@ -169,12 +169,12 @@ export const CLAIMS: Claim[] = [
  * project's own words rather than in a summary of them.
  */
 export const REFUSED: string[] = [
-  "Calibrated default probabilities",
-  "Guaranteed liquidation recoveries",
-  "Organic note liquidity",
-  "Complete Sybil resistance",
-  "Proof of offchain model execution",
-  "Third-party adoption of published reputation",
+  "That our default odds are accurate",
+  "That collateral always sells for what we assumed",
+  "That anyone outside this project trades the debt notes",
+  "That nobody can game it by spinning up many identities",
+  "That the scoring ran untampered outside the chain",
+  "That anyone else uses the reputation we publish",
 ];
 
 /** Counts for the summary line. Derived, never written down twice. */
