@@ -110,7 +110,7 @@ export const CLAIMS: Claim[] = [
       "result landed onchain about a second later, against a 600-second " +
       "heartbeat — so the reassessment came from the observation, not " +
       "from the timer.",
-    to: "/lifecycle",
+    to: "/arc",
   },
   {
     title: "Forecasts are evaluated",
@@ -122,7 +122,7 @@ export const CLAIMS: Claim[] = [
       "scores are retained. Three data points give you an average and " +
       "nothing more — calling that calibration would be a lie, so this " +
       "page does not.",
-    to: "/lifecycle",
+    to: "/arc",
   },
   {
     title: "Reputation is independently verifiable",
