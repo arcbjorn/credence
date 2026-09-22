@@ -36,7 +36,7 @@ export function Enforcement() {
   if (checks.length === 0) {
     return (
       <>
-        <h2>Enforcement</h2>
+        <h1 className="record-title">Enforcement</h1>
         <p className="lede">
           This run recorded no checks. Re-run{" "}
           <code>LOANS=3 scripts/demo-repay.sh</code> and then{" "}
@@ -52,7 +52,7 @@ export function Enforcement() {
 
   return (
     <>
-      <h2>Enforcement</h2>
+      <h1 className="record-title">Enforcement</h1>
       <p className="lede">
         The account holds real value, and the contract refuses to release
         it while the loan is open. Both refusals below are transactions
