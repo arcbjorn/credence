@@ -610,3 +610,159 @@ code { font-family: var(--mono); font-size: 0.94em; }
 @media (max-width: 640px) {
   .proofs, .start-paths { grid-template-columns: 1fr; }
 }
+
+/* --- motion that carries meaning --------------------------------------
+   The rule: an animation must correspond to something the data does. A
+   counter rises because the capacity rose; a curve draws because the
+   loans happened in that order. Motion invented for its own sake would
+   be the interface asserting energy the evidence does not have.
+
+   The global `prefers-reduced-motion` guard above kills all of this.
+   `Motion.tsx` checks the same query in JavaScript, because that guard
+   cannot stop a requestAnimationFrame loop. */
+
+/* The capacity curve draws itself left to right. The dash length is set
+   generously -- an SVG path's exact length is not known to CSS, and a
+   value shorter than the path would leave a visible gap at the end. */
+.curve-line {
+  stroke-dasharray: 1400;
+  stroke-dashoffset: 1400;
+}
+
+.curve-line.draw {
+  animation: curve-draw 1100ms cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+}
+
+@keyframes curve-draw {
+  to { stroke-dashoffset: 0; }
+}
+
+/* Points arrive after the line reaches them, staggered by the delay the
+   component sets. A point that appeared before its line would claim a
+   loan that had not happened yet. */
+.curve-point, .curve-switch { opacity: 0; }
+
+.curve-point.in, .curve-switch.in {
+  animation: rise 420ms cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+}
+
+.curve-switch.in { animation-delay: 900ms; }
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.curve {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 18px 14px;
+  margin-bottom: var(--gap);
+}
+
+.curve svg { width: 100%; height: auto; display: block; }
+
+.curve-apr {
+  font-size: 10.5px;
+  font-weight: 600;
+  fill: var(--growth);
+  font-variant-numeric: tabular-nums;
+}
+
+.curve-axis { font-size: 9.5px; fill: var(--text-dim); }
+
+.curve-switch-label {
+  font-size: 9px;
+  fill: var(--machine);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.curve-caption {
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-dim);
+  margin: 10px 0 0;
+}
+
+/* The area fill fades in with the line rather than snapping. */
+.curve path[fill^="url"] { opacity: 0; }
+.curve path[fill^="url"].in {
+  animation: fade 900ms ease forwards;
+  animation-delay: 300ms;
+}
+
+@keyframes fade { to { opacity: 1; } }
+
+/* --- the proof cards, with depth --------------------------------------
+   A lift and a widening left rule, so a card reads as a door. The rule
+   is the existing semantic register, widened -- not a new colour. */
+
+.proof {
+  position: relative;
+  overflow: hidden;
+  transition:
+    transform 180ms cubic-bezier(0.22, 0.61, 0.36, 1),
+    border-left-width 180ms cubic-bezier(0.22, 0.61, 0.36, 1),
+    box-shadow 180ms ease;
+}
+
+.proof:hover,
+.proof:focus-visible {
+  transform: translateY(-3px);
+  border-left-width: 6px;
+  box-shadow: 0 8px 22px -14px rgba(27, 29, 30, 0.45);
+}
+
+/* A faint sweep of the card's own register, so the surface has depth
+   without a second colour entering the palette. */
+.proof::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 180ms ease;
+  background: radial-gradient(
+    120% 90% at 0% 0%,
+    color-mix(in srgb, currentColor 7%, transparent),
+    transparent 62%
+  );
+}
+
+.proof-growth::after  { color: var(--growth); }
+.proof-alarm::after   { color: var(--alarm); }
+.proof-machine::after { color: var(--machine); }
+
+.proof:hover::after, .proof:focus-visible::after { opacity: 1; }
+
+/* The proofs arrive in sequence on first paint, left to right, so the
+   eye is led through the argument rather than shown three at once. */
+.proofs .proof {
+  opacity: 0;
+  animation: rise 520ms cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+}
+
+.proofs .proof:nth-child(1) { animation-delay: 60ms; }
+.proofs .proof:nth-child(2) { animation-delay: 150ms; }
+.proofs .proof:nth-child(3) { animation-delay: 240ms; }
+
+/* The hero settles in as the page opens. One movement, not a parade. */
+.hero, .hero-lede {
+  animation: rise 640ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+.hero-lede { animation-delay: 90ms; }
+
+/* Reduced motion: every element above must still END in its final
+   state. `animation: none` alone would leave `opacity: 0` in place and
+   blank the page for exactly the readers who asked for less movement. */
+@media (prefers-reduced-motion: reduce) {
+  .proofs .proof, .hero, .hero-lede,
+  .curve-point, .curve-switch, .curve path[fill^="url"] {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  .curve-line { stroke-dashoffset: 0 !important; }
+}

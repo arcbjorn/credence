@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { bps, loadRun, units, type Check, type Run } from "../lib/data";
+import { CapacityCurve } from "../components/CapacityCurve";
+import { Counted } from "../components/Motion";
 
 /**
  * The way in.
@@ -116,7 +118,11 @@ export function Start() {
         <Link to="/agent" className="proof proof-growth">
           <span className="proof-label">Credit compounds</span>
           <span className="proof-figure">
-            {rateFall !== null ? `−${bps(rateFall)}` : "—"}
+            {rateFall !== null ? (
+              <Counted value={rateFall / 100} decimals={2} prefix="−" suffix="%" />
+            ) : (
+              "—"
+            )}
           </span>
           <span className="proof-note">
             {loans.length > 1 ? (
@@ -161,7 +167,11 @@ export function Start() {
         <Link to="/lender" className="proof proof-machine">
           <span className="proof-label">The loss is real</span>
           <span className="proof-figure">
-            {loss ? units(loss.detail.split(" ")[0]) : "—"}
+            {loss ? (
+              <Counted value={Number(BigInt(loss.detail.split(" ")[0]!)) / 1e6} />
+            ) : (
+              "—"
+            )}
           </span>
           <span className="proof-note">
             An agent overcommitted, the asset fell, recovery collected what
@@ -171,6 +181,16 @@ export function Start() {
           </span>
         </Link>
       </div>
+
+      {loans.length > 1 && (
+        <CapacityCurve
+          points={loans.map((l) => ({
+            capacity: l.capacity,
+            apr: l.apr,
+            binding: l.binding,
+          }))}
+        />
+      )}
 
       <div className="start-paths">
         <div>
