@@ -72,9 +72,9 @@ export function Start() {
           <h1 className="hero" key={current.title}>{current.title}</h1>
           <div className="hero-objects story-world">
             <World book={book} nodes={borrowerNode(last)} loans={loans} projection={current.projection} paused={paused} replay={replay} onSelect={id => navigate(id === "facility" ? "/moons" : "/body")} />
-            <div className="satellite satellite-top"><span className="satellite-line" /><div><span className="instrument-label">FIG. {String(chapter + 1).padStart(2, "0")}</span><p>{current.note}</p></div></div>
-            <div className="satellite satellite-bottom"><span className="instrument-label">ATMOSPHERE</span><span>{book.utilization === null ? "Awaiting measurement" : `${((1 - book.utilization) * 100).toFixed(1)}% headroom`}</span><span className="satellite-line" /></div>
           </div>
+          <div className="satellite satellite-top"><span className="satellite-line" /><div><span className="instrument-label">FIG. {String(chapter + 1).padStart(2, "0")}</span><p>{current.note}</p></div></div>
+          <div className="satellite satellite-bottom"><span className="instrument-label">ATMOSPHERE</span><span>{book.utilization === null ? "Awaiting measurement" : `${((1 - book.utilization) * 100).toFixed(1)}% headroom`}</span><span className="satellite-line" /></div>
           <p className="hero-lede">{current.copy}</p>
           <Link to={chapter === 7 ? "/atlas" : "/observatory"} className="start-enter">Enter the atlas <span>↗</span></Link>
           <p className="hero-access">Open to observe. Built to be verified.</p>
