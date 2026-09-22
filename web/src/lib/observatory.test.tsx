@@ -36,6 +36,47 @@ beforeEach(() => {
 });
 const room = (path: string) => render(<MemoryRouter initialEntries={[path]}><App /></MemoryRouter>);
 
+describe("dismissing the dock", () => {
+  /**
+   * The Escape handler was bound whenever the room mounted, not only
+   * while a dock was open. With nothing to dismiss it still restored the
+   * remembered focus -- so a reader typing in the profile search pressed
+   * Escape to clear the field and had focus yanked to whichever node
+   * they last selected.
+   */
+  it("closes an open dock and gives focus back", async () => {
+    room("/atlas");
+    const list = document.querySelector(".atlas-profile-list") as HTMLElement;
+    const trigger = within(list).getByRole("button", { name: /^Proven/ });
+    trigger.focus();
+    await act(async () => { fireEvent.click(trigger); });
+    expect(screen.getByRole("complementary")).toBeInTheDocument();
+
+    await act(async () => { fireEvent.keyDown(window, { key: "Escape" }); });
+    expect(screen.queryByRole("complementary")).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+  });
+
+  it("leaves focus alone when no dock is open", async () => {
+    room("/atlas");
+    // Select and dismiss once so a previous focus is remembered. The
+    // trigger must really hold focus first: `previousFocus` records
+    // `document.activeElement`, and clicking without focusing would
+    // remember the body and make the restore invisible.
+    const list = document.querySelector(".atlas-profile-list") as HTMLElement;
+    const trigger = within(list).getByRole("button", { name: /^Proven/ });
+    trigger.focus();
+    await act(async () => { fireEvent.click(trigger); });
+    await act(async () => { fireEvent.keyDown(window, { key: "Escape" }); });
+    expect(document.activeElement).toBe(trigger);
+
+    const search = screen.getByRole("searchbox", { name: /Find a profile/i });
+    search.focus();
+    await act(async () => { fireEvent.keyDown(window, { key: "Escape" }); });
+    expect(document.activeElement).toBe(search);
+  });
+});
+
 describe("the credit rooms", () => {
   it.each([["/observatory", "Observatory"], ["/atlas", "Atlas"], ["/moons", "Moons"], ["/body", "Retained agent."], ["/log", "Log"]])("renders a usable room at %s", (path, title) => {
     room(path!);
