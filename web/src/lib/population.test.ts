@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
 import type { Assessment, Cohort, Comparison } from "./data";
-import { cohortNodes, loanArcs, populationNodes, profileNodes } from "./observatory";
+import { POOL_ID, cohortNodes, loanArcs, poolNode, populationNodes, profileNodes } from "./observatory";
 
 /**
  * The globe's agent population.
@@ -231,10 +231,13 @@ describe("attributing loans to the agent that took them", () => {
     snapshots: {}, outcomes: [], forecasts: [], chain_events: [],
   }) as unknown as Parameters<typeof loanArcs>[0];
 
-  it("routes the retained run's loans to the borrower node", () => {
+  it("folds the retained run's loans into one passage", () => {
+    // Three loans, one relationship. An arc per loan drew a fan whose
+    // density was the loan count rather than anything a reader could use.
     const arcs = loanArcs(runOf(["1", "2", "3"]));
-    expect(arcs).toHaveLength(3);
-    for (const arc of arcs) expect(arc.agent).toBe("borrower");
+    expect(arcs).toHaveLength(1);
+    expect(arcs[0]!.agent).toBe("borrower");
+    expect(arcs[0]!.loans).toBe(3);
   });
 
   it("gives each cohort agent its own arcs", () => {
@@ -246,9 +249,22 @@ describe("attributing loans to the agent that took them", () => {
   });
 
   it("draws the retained run and the cohort together", () => {
+    // Two sources, two agents, two passages -- not three loans.
     const arcs = loanArcs(runOf(["1", "2"]), cohortOf(["sable"]));
-    expect(arcs).toHaveLength(3);
+    expect(arcs).toHaveLength(2);
     expect(new Set(arcs.map(a => a.agent))).toEqual(new Set(["borrower", "sable"]));
+  });
+
+  it("gives an agent that borrowed nothing no passage at all", () => {
+    // Drawing a line for an agent with no approved origination would
+    // show a transfer the chain never made.
+    const denied = origination("5") as Record<string, unknown>;
+    (denied["payload"] as { outcome: { decision: string } }).outcome.decision = "Denied";
+    const run = {
+      name: "repay", assessments: [denied],
+      snapshots: {}, outcomes: [], forecasts: [], chain_events: [],
+    } as unknown as Parameters<typeof loanArcs>[0];
+    expect(loanArcs(run)).toEqual([]);
   });
 
   it("never draws a refusal as a transfer", () => {
@@ -260,16 +276,68 @@ describe("attributing loans to the agent that took them", () => {
       name: "repay", assessments: [origination("1"), denied],
       snapshots: {}, outcomes: [], forecasts: [], chain_events: [],
     } as unknown as Parameters<typeof loanArcs>[0];
-    expect(loanArcs(run)).toHaveLength(1);
+    const [arc] = loanArcs(run);
+    // One passage, counting only the approved loan.
+    expect(arc!.loans).toBe(1);
   });
 
-  it("carries the principal and tenor each arc is drawn from", () => {
-    const [arc] = loanArcs(runOf(["7500"]));
-    expect(arc!.principal).toBe("7500");
+  it("sums what an agent borrowed across its loans", () => {
+    const [arc] = loanArcs(runOf(["7500", "2500", "1000"]));
+    expect(arc!.borrowed).toBe("11000");
+    expect(arc!.loans).toBe(3);
     expect(arc!.term_seconds).toBe(864000);
+  });
+
+  it("sums in base units rather than as doubles", () => {
+    // uint256 principals lose precision as JS numbers, and this figure
+    // sets a line width a reader compares against other lines.
+    const big = "9007199254740993";
+    const [arc] = loanArcs(runOf([big, big]));
+    expect(arc!.borrowed).toBe((BigInt(big) * 2n).toString());
   });
 
   it("reports nothing when neither source has run", () => {
     expect(loanArcs(null, null)).toEqual([]);
+  });
+});
+
+describe("the lending pool as a point", () => {
+  const book = { idle: 46_000_000_000n, outstanding: 4_000_000_000n };
+
+  it("draws the pool every passage leaves from", () => {
+    // Arcs used to start at a hardcoded coordinate no node occupied, so
+    // the origin dot sat somewhere with no referent and the picture never
+    // said what the lines came out of.
+    const [pool] = poolNode(book);
+    expect(pool!.id).toBe(POOL_ID);
+    expect(pool!.capacity).toBe("50000000000");
+  });
+
+  it("reports no pool when nothing was measured", () => {
+    // A zero-sized point would claim a facility with no cash rather than
+    // one nobody has read.
+    expect(poolNode({ idle: null, outstanding: null })).toEqual([]);
+  });
+
+  it("keeps the pool at a fixed position as the cohort grows", () => {
+    // Every passage shares this point. A pool laid out with the agents
+    // would drag the origin of every arc when one more agent appeared.
+    const small = populationNodes(undefined, comparisonOf(["a"]), cohortOf(["s"]), book);
+    const large = populationNodes(undefined, comparisonOf(["a", "b", "c"]), cohortOf(["s", "e", "c"]), book);
+    const a = small.find(n => n.id === POOL_ID)!;
+    const b = large.find(n => n.id === POOL_ID)!;
+    expect(a.latitude).toBe(b.latitude);
+    expect(a.longitude).toBe(b.longitude);
+  });
+
+  it("leaves the population unchanged when no book is supplied", () => {
+    const without = populationNodes(undefined, comparisonOf(["a", "b"]), cohortOf(["s"]));
+    expect(without.some(n => n.id === POOL_ID)).toBe(false);
+  });
+
+  it("does not let the pool collide with an agent", () => {
+    const nodes = populationNodes(undefined, comparisonOf(["a", "b", "c"]), cohortOf(["s", "e"]), book);
+    const seen = new Set(nodes.map(n => `${n.latitude},${n.longitude}`));
+    expect(seen.size).toBe(nodes.length);
   });
 });
