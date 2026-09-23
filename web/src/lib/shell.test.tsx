@@ -57,7 +57,7 @@ describe("one header throughout the site", () => {
     expect(parentLink).toHaveAttribute("aria-current", "location");
     const breadcrumb = screen.getByRole("navigation", { name: "Breadcrumb" });
     expect(within(breadcrumb).getByRole("link", { name: parent })).toHaveAttribute("href", parentLink.getAttribute("href"));
-    expect(within(breadcrumb).getByText(title!)).toHaveAttribute("aria-current", "page");
+    expect(within(breadcrumb).queryByText(title!)).not.toBeInTheDocument();
     expect(document.title).toBe(`${title} — Credence`);
   });
 
