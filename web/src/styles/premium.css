@@ -167,6 +167,12 @@ td { padding-top:15px;padding-bottom:15px; }
    other agent would hide the one distinction that matters most. */
 .node-hollow .node-point { background:transparent;border:1.5px solid var(--alarm);box-shadow:none; }
 .node-selected .node-point { outline:1px solid var(--agent-tint);outline-offset:6px; }
+/* The pool is not an agent. It is the one point every passage leaves
+   from, so it reads as a ring rather than a filled dot: a different
+   shape, not just a different size, which survives greyscale. */
+.node-pool .node-point { background:transparent;border:2px solid var(--machine);box-shadow:0 0 12px color-mix(in srgb, var(--machine) 40%, transparent); }
+.node-pool .node-label { border-left-color:var(--machine); }
+.world-atlas .node-pool .node-point { background:transparent; }
 .node-exceptional .node-point { background:var(--agent-tint);box-shadow:0 0 14px color-mix(in srgb, var(--agent-tint) 75%, transparent); }
 /* A node in the right-hand third opens its label leftward; opening
    right ran 'Concentrated / RESTRICTED' off the edge at narrow
