@@ -74,8 +74,8 @@ export function Replay() {
     }
   }
 
-  if (error && !run) return <div className="error">{error}</div>;
-  if (!run || !policy) return <p className="lede">Loading retained evidence…</p>;
+  if (error && !run) return <><RecordHeader title="Replay" /><div className="error">{error}</div></>;
+  if (!run || !policy) return <RecordHeader title="Replay">Loading retained evidence…</RecordHeader>;
 
   return (
     <>
