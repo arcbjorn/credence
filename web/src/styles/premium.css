@@ -194,8 +194,12 @@ td { padding-top:15px;padding-bottom:15px; }
 .world-layer-labels span { border-bottom:1px solid var(--border);padding:8px 0 8px 30px;background:var(--bg); }
 .moon-satellite { position:absolute;left:76%;top:49%;font:var(--t1) var(--mono);padding:8px 0;background:none;border:0;white-space:nowrap; }
 
-/* Detailed record headings; the landing ledger lives in weather.css. */
-.record-title { font:500 clamp(40px,4.4vw,66px)/var(--lh-tight) var(--sans);letter-spacing:-.055em;margin:0 0 var(--s5); }
+/* Page titles are serif everywhere -- records, rooms, guide and 404.
+   The landing hero is the one exception: it stays sans, because it is
+   set far larger and reads as the brand rather than as a page title.
+   Serif wants no negative tracking and the looser display leading.
+   The landing ledger lives in weather.css. */
+.record-title { font:400 clamp(40px,4.4vw,66px)/var(--lh-display) var(--serif);letter-spacing:0;margin:0 0 var(--s5); }
 .record-header { margin:var(--s7) 0 var(--s8); }
 .record-header .lede { margin:0; }
 
@@ -212,14 +216,14 @@ td { padding-top:15px;padding-bottom:15px; }
 .room-topline .status-pin { margin-right:6px; }
 .room-intro { position:relative;z-index:6;width:290px;margin-top:47px;pointer-events:none; }
 .room-intro .eyebrow { font-size:var(--t1); }
-.room-intro h1 { font:500 clamp(35px,4vw,58px)/var(--lh-tight) var(--sans);letter-spacing:-.055em;margin:18px 0 16px; }
+.room-intro h1 { font:400 clamp(35px,4vw,58px)/var(--lh-display) var(--serif);letter-spacing:0;margin:18px 0 16px; }
 /* Prose reads at --t3 everywhere. These sat at the caption size, so
    the same kind of sentence was 12px on one page and 14px on the
    next -- sometimes both on one page. */
 .room-intro>p:not(.eyebrow) { max-width:32ch;font:var(--t3)/var(--lh-body) var(--sans);color:var(--text-dim); }
-/* Every room heads the same way. This one used to run serif, which
-   made one of five sibling pages look like a different section of
-   the site. The face now comes from .room-intro h1 like the rest. */
+/* Every room heads the same way -- the face comes from .room-intro h1.
+   The body room used to carry its own size on top of that, which made
+   one of five sibling pages look like a different section. */
 .room-source { font:var(--t1) var(--mono);color:var(--text-dim); }
 .room-world { position:absolute;width:min(74vw,940px,88vh);top:48%;left:55%;transform:translate(-50%,-50%);transition:left .8s var(--truck),width .8s var(--truck); }
 .room-docked .room-world { left:45%;width:min(65vw,800px,88vh); }
@@ -304,7 +308,7 @@ td { padding-top:15px;padding-bottom:15px; }
 /* Matches the record pages' 66px title. At 84px over 12px body the
    guide ran a 7x jump between its display type and its prose, which
    is what made a reading page feel cramped. */
-.field-guide h1 { font:500 clamp(40px,4.4vw,66px)/var(--lh-tight) var(--sans);letter-spacing:-.055em;margin:var(--s3) 0 0;max-width:16ch; }
+.field-guide h1 { font:400 clamp(40px,4.4vw,66px)/var(--lh-display) var(--serif);letter-spacing:0;margin:var(--s3) 0 0;max-width:16ch; }
 .field-guide>header>p { color:var(--text-dim);font-size:var(--t3); }
 .guide-layout { display:grid;grid-template-columns:150px minmax(0,1fr) minmax(0,.82fr);gap:var(--s8) var(--s10);align-items:start;min-height:520px; }
 /* The sphere is drawn 17.75% inside its own canvas, so a top-aligned
@@ -325,7 +329,7 @@ td { padding-top:15px;padding-bottom:15px; }
 .guide-footnote { border-top:1px solid var(--border);font:var(--t1)/var(--lh-body) var(--mono);color:var(--text-dim);margin-top:var(--s9);padding-top:var(--s5);max-width:58ch; }
 .guide-world { margin:0 -45px; }
 .empty-coordinate { display:grid;grid-template-columns:1fr 1.1fr;align-items:center;min-height:65vh; }
-.empty-coordinate h1 { font:500 clamp(40px,4.4vw,66px)/var(--lh-tight) var(--sans);letter-spacing:-.055em;margin:var(--s3) 0 var(--s5); }
+.empty-coordinate h1 { font:400 clamp(40px,4.4vw,66px)/var(--lh-display) var(--serif);letter-spacing:0;margin:var(--s3) 0 var(--s5); }
 .empty-coordinate p { color:var(--text-dim); }
 @media(max-width:900px) { .guide-layout { grid-template-columns:120px 1fr;gap:30px; }.guide-world { grid-column:2;grid-row:2;margin:-50px 0 0;max-width:400px; }.guide-layout article { padding-top:40px; }.empty-coordinate { grid-template-columns:1fr; }.empty-coordinate .credit-world { max-width:500px; } }
 @media(max-width:600px) { .guide-layout { grid-template-columns:1fr;gap:0; }.guide-layout>nav { flex-direction:row;overflow-x:auto;gap:20px;margin-top:10px; }.guide-layout>nav button { gap:6px;flex-shrink:0;font-size:var(--t1); }.guide-layout article { padding-top:32px; }.guide-layout article h2 { font-size:36px; }.guide-world { grid-column:1;grid-row:auto;margin:-10px -15px; }}
