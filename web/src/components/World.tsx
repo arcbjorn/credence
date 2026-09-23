@@ -1,11 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { useMotionAllowed } from "./Motion";
-import type { Assessment } from "../lib/data";
 import type { BookState } from "../lib/book";
-import type { Projection, WorldNode } from "../lib/observatory";
+import type { LoanArc, Projection, WorldNode } from "../lib/observatory";
 import { canvasResolution } from "../lib/canvas";
 import { loanArc, sphereOccludes, spherePoint as point, traceVisiblePath, viewTransform, type Point3 } from "../lib/world-geometry";
-import { worldPalette } from "../lib/world-palette";
+import { agentColor, worldPalette } from "../lib/world-palette";
 import { eclipseCovers, eclipseLayout } from "../lib/eclipse";
 
 const TAU = Math.PI * 2;
@@ -26,7 +25,7 @@ const meridianLines = Array.from({ length: 30 }, (_, i) =>
 export function World({ book, nodes = [], loans = [], projection = "globe", selected, onSelect, replay = 0, paused = false, labels = true }: {
   book: BookState;
   nodes?: WorldNode[];
-  loans?: Assessment[];
+  loans?: LoanArc[];
   projection?: Projection;
   selected?: string | undefined;
   onSelect?: ((id: string) => void) | undefined;
@@ -233,22 +232,39 @@ export function World({ book, nodes = [], loans = [], projection = "globe", sele
 
       // A retained origination draws from the lender pole to this borrower.
       // These are replay paths, not claims of currently live chain activity.
-      const shownLoans = state.loans.slice(-12);
-      const peak = Math.max(1, ...shownLoans.map(a => Number(a.payload.outcome.approved_principal ?? "0")));
+      const shownLoans = state.loans.slice(-24);
+      const peak = Math.max(1, ...shownLoans.map(l => Number(l.principal)));
+      // Which colour each agent draws in. Indexed by the node's position
+      // in the population so an agent keeps its hue across every arc it
+      // owns and the dot at either end of them.
+      const hueOf = new Map(state.nodes.map((n, i) => [n.id, i]));
+      // How many loans this agent already has on screen. Successive loans
+      // to the SAME agent share both endpoints, so without a nudge they
+      // land on one another -- which is exactly what made five repayments
+      // read as one line. Each is lifted a little higher than the last.
+      const drawn = new Map<string, number>();
       for (const [i, loan] of shownLoans.entries()) {
-        const tenor = loan.payload.outcome.terms?.term_seconds ?? 0;
-        const borrower = state.nodes[0];
+        const tenor = loan.term_seconds;
+        // The agent that actually took this loan, not `nodes[0]`.
+        const borrower = state.nodes.find(n => n.id === loan.agent) ?? state.nodes[0];
         const lat = borrower?.latitude ?? 24, lon = borrower?.longitude ?? -36;
-        const key = `${tenor}/${lat}/${lon}`;
+        const repeat = drawn.get(loan.agent) ?? 0;
+        drawn.set(loan.agent, repeat + 1);
+        // Tenor sets the base height; the repeat index fans same-tenor
+        // loans apart so a book of identical terms is still countable.
+        const lift = .14 + Math.min(.45, Math.max(0, tenor) / 86400 / 90 * .45)
+          + Math.min(.34, repeat * .085);
+        const key = `${tenor}/${lat}/${lon}/${repeat}`;
         let arc = arcCache.get(key);
         if (!arc) {
-          arc = loanArc(point(-22, 60), point(lat, lon), .14 + Math.min(.6, Math.max(0, tenor) / 86400 / 90 * .6));
-          if (arcCache.size > 24) arcCache.clear();
+          arc = loanArc(point(-22, 60), point(lat, lon), lift);
+          if (arcCache.size > 64) arcCache.clear();
           arcCache.set(key, arc);
         }
         const path = arc.map(v => { const p = project(v); return { ...p, visible: !sphereOccludes(p.view) }; });
-        ctx.strokeStyle = flatten > 0.5 ? theme.machine : palette.arc;
-        ctx.lineWidth = 0.5 + Number(loan.payload.outcome.approved_principal ?? "0") / peak * 1.1;
+        const hue = agentColor(hueOf.get(loan.agent) ?? 0, palette.dark);
+        ctx.strokeStyle = flatten > 0.5 ? theme.machine : hue;
+        ctx.lineWidth = 0.5 + Number(loan.principal) / peak * 1.1;
         const opacity = .65 * (1 - moon * .5) * (1 - eclipse * .55);
         const transparency = Math.max(flatten, xray * .25, layer * .2);
         if (transparency > .001) {
@@ -257,10 +273,50 @@ export function World({ book, nodes = [], loans = [], projection = "globe", sele
         }
         ctx.globalAlpha = opacity;
         ctx.beginPath(); traceVisiblePath(ctx, path); ctx.stroke();
+
+        // The two ends of the passage: where the money left the lender,
+        // and where it arrived. Without them an arc is a line with no
+        // direction, and on a crowded globe it is not obvious which of
+        // several nearby agents a given arc actually reaches.
+        //
+        // Both take the agent's hue, so a reader can follow one colour
+        // from the pole to its borrower. The origin is hollow and the
+        // destination filled: same colour, different weight, so the
+        // direction survives a greyscale print and does not depend on
+        // telling two ends of a curve apart by position alone.
+        const ends = [
+          { p: path[0], filled: false },
+          { p: path[path.length - 1], filled: true },
+        ];
+        for (const { p, filled } of ends) {
+          if (!p) continue;
+          ctx.globalAlpha = (p.visible ? 1 : transparency) * opacity;
+          if (ctx.globalAlpha < .004) continue;
+          const r = filled ? 2.6 : 2.2;
+          circle(p.x, p.y, r);
+          if (filled) {
+            ctx.fillStyle = hue;
+            ctx.fill();
+          } else {
+            // A hollow dot needs the ground punched out under it, or the
+            // arc's own stroke shows through the middle and it reads as
+            // filled anyway.
+            ctx.fillStyle = palette.dark ? "#0b1413" : "#f7f3ec";
+            ctx.fill();
+            ctx.strokeStyle = hue;
+            ctx.lineWidth = 1.1;
+            ctx.stroke();
+            // Restore what the arc was drawn with, since the loop below
+            // strokes again for the replay pulse.
+            ctx.strokeStyle = flatten > 0.5 ? theme.machine : hue;
+          }
+        }
+        ctx.globalAlpha = opacity;
+
         if (replaying && i === shownLoans.length - 1) {
           const p = path[Math.min(path.length - 1, Math.round(replayProgress * (path.length - 1)))]!;
           ctx.globalAlpha = p.visible ? 1 : transparency;
-          ctx.fillStyle = palette.pulse; ctx.shadowColor = palette.arc; ctx.shadowBlur = palette.dark ? 14 : 4;
+          ctx.fillStyle = palette.pulse; ctx.shadowColor = hue; ctx.shadowBlur = palette.dark ? 14 : 4;
           circle(p.x, p.y, 3); ctx.fill(); ctx.shadowBlur = 0;
         }
       }
@@ -312,7 +368,7 @@ export function World({ book, nodes = [], loans = [], projection = "globe", sele
   return (
     <div className={`credit-world world-${projection} ${labels ? "" : "world-whisper"}`} ref={wrapper} style={{ position: "relative", width: "100%", aspectRatio: "1 / 1", minWidth: 0 }} onPointerEnter={() => setHovered(true)} onPointerLeave={() => setHovered(false)} onFocus={() => setFocused(true)} onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) setFocused(false); }}>
       <canvas ref={canvas} width={800} height={800} className="world-canvas" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} role="img" aria-label={`Credit body, ${projection} projection. ${book.utilization === null ? "Book measurements unavailable." : `${(book.utilization * 100).toFixed(1)}% utilization.`} ${nodes.length} ${nodes.length === 1 ? "profile" : "profiles"}. Surface texture is illustrative.`} />
-      {nodes.map((node, i) => <button key={node.id} ref={el => { if (el) buttons.current.set(node.id, el); else buttons.current.delete(node.id); }} type="button" className={`world-node ${node.denied ? "node-hollow" : ""} ${selected === node.id ? "node-selected" : ""} ${node.score !== null && node.score >= 800 ? "node-exceptional" : ""} ${35 + i * 18 > 60 ? "node-flip" : ""}`} style={{ left: `${35 + i * 18}%`, top: `${36 + i * 12}%` }} aria-label={`${node.label}, score ${node.score ?? "unmeasured"}${node.denied ? ", denied" : ""}`} aria-pressed={selected === node.id} onClick={() => onSelect?.(node.id)}>
+      {nodes.map((node, i) => <button key={node.id} ref={el => { if (el) buttons.current.set(node.id, el); else buttons.current.delete(node.id); }} type="button" className={`world-node ${node.denied ? "node-hollow" : ""} ${selected === node.id ? "node-selected" : ""} ${node.score !== null && node.score >= 800 ? "node-exceptional" : ""} ${35 + i * 18 > 60 ? "node-flip" : ""}`} style={{ left: `${35 + i * 18}%`, top: `${36 + i * 12}%`, ["--agent-hue" as string]: agentColor(i, false), ["--agent-hue-dark" as string]: agentColor(i, true) }} aria-label={`${node.label}, score ${node.score ?? "unmeasured"}${node.denied ? ", denied" : ""}`} aria-pressed={selected === node.id} onClick={() => onSelect?.(node.id)}>
         <span className="node-point" /><span className="node-label">{node.label}<small>{node.denied ? "RESTRICTED" : node.score !== null ? `SCORE ${node.score}` : "UNMEASURED"}</small></span>
       </button>)}
       {projection === "layers" && <div className="world-layer-labels"><span>Identity</span><span>Reputation</span><span>Escrow</span><span>Settlement</span></div>}
