@@ -29,12 +29,12 @@ export function AssessmentDetail() {
       .catch((e: Error) => setError(e.message));
   }, []);
 
-  if (error) return <div className="error">{error}</div>;
-  if (!run) return <p className="lede">Loading retained evidence…</p>;
+  if (error) return <><RecordHeader title="Assessment detail" /><div className="error">{error}</div></>;
+  if (!run) return <RecordHeader title="Assessment detail">Loading retained evidence…</RecordHeader>;
 
   const a: Assessment | undefined =
     run.assessments.find((x) => x.assessment_id === selected) ?? run.assessments[0];
-  if (!a) return <p className="lede">This run retained no assessments.</p>;
+  if (!a) return <RecordHeader title="Assessment detail">This run retained no assessments.</RecordHeader>;
 
   const { outcome } = a.payload;
   const pb = outcome.terms?.price_breakdown;
