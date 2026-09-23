@@ -20,8 +20,8 @@ export function RecordHeader({
   children?: React.ReactNode;
 }) {
   return (
-    <header className="record-header">
-      <h1 className="record-title">{title}</h1>
+    <header className="record-header page-header">
+      <h1 className="record-title page-title">{title}</h1>
       {children !== undefined && <p className="lede">{children}</p>}
     </header>
   );
