@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
 import type { Assessment, Cohort, Comparison } from "./data";
-import { cohortNodes, populationNodes, profileNodes } from "./observatory";
+import { cohortNodes, loanArcs, populationNodes, profileNodes } from "./observatory";
 
 /**
  * The globe's agent population.
@@ -206,5 +206,70 @@ describe("the cohort on the globe", () => {
     // produce two nodes fighting over the same focusable button.
     const nodes = populationNodes(undefined, comparisonOf(["sable"]), cohortOf(["sable"]));
     expect(nodes).toHaveLength(1);
+  });
+});
+
+describe("attributing loans to the agent that took them", () => {
+  const origination = (principal: string, term = 864000) => ({
+    assessment_id: `a-${principal}-${term}`, binding_key: "b", input_hash: "i",
+    model_hash: "m", policy_hash: "p", assessment_kind: "Origination",
+    decision: "ApprovedOrigination", risk_permission: null, sequence: 1,
+    assessment_hash: "h", created_at: 0,
+    payload: {
+      assessment_id: "a", assessment_time: 0, authorization_class: "Development",
+      input_hash: "i", model_hash: "m", policy_hash: "p", schema_version: "1",
+      sequence: 1, reasons: [], omitted_evidence: [],
+      outcome: {
+        decision: "ApprovedOrigination", approved_principal: principal,
+        terms: { apr_bps: 1200, approved_principal: principal, term_seconds: term, required_equity: "0" },
+      },
+    },
+  });
+
+  const runOf = (principals: string[]) => ({
+    name: "repay", assessments: principals.map(p => origination(p)),
+    snapshots: {}, outcomes: [], forecasts: [], chain_events: [],
+  }) as unknown as Parameters<typeof loanArcs>[0];
+
+  it("routes the retained run's loans to the borrower node", () => {
+    const arcs = loanArcs(runOf(["1", "2", "3"]));
+    expect(arcs).toHaveLength(3);
+    for (const arc of arcs) expect(arc.agent).toBe("borrower");
+  });
+
+  it("gives each cohort agent its own arcs", () => {
+    // The bug this pins: every arc used to terminate at nodes[0], so a
+    // whole cohort's traffic converged on one point and drew over itself.
+    const cohort = cohortOf(["sable", "ember"]);
+    const arcs = loanArcs(null, cohort);
+    expect(arcs.map(a => a.agent).sort()).toEqual(["ember", "sable"]);
+  });
+
+  it("draws the retained run and the cohort together", () => {
+    const arcs = loanArcs(runOf(["1", "2"]), cohortOf(["sable"]));
+    expect(arcs).toHaveLength(3);
+    expect(new Set(arcs.map(a => a.agent))).toEqual(new Set(["borrower", "sable"]));
+  });
+
+  it("never draws a refusal as a transfer", () => {
+    // A denied assessment moved no money. Drawing an arc for it would
+    // show a payment the chain never made.
+    const denied = origination("5") as Record<string, unknown>;
+    (denied["payload"] as { outcome: { decision: string } }).outcome.decision = "Denied";
+    const run = {
+      name: "repay", assessments: [origination("1"), denied],
+      snapshots: {}, outcomes: [], forecasts: [], chain_events: [],
+    } as unknown as Parameters<typeof loanArcs>[0];
+    expect(loanArcs(run)).toHaveLength(1);
+  });
+
+  it("carries the principal and tenor each arc is drawn from", () => {
+    const [arc] = loanArcs(runOf(["7500"]));
+    expect(arc!.principal).toBe("7500");
+    expect(arc!.term_seconds).toBe(864000);
+  });
+
+  it("reports nothing when neither source has run", () => {
+    expect(loanArcs(null, null)).toEqual([]);
   });
 });

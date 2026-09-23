@@ -2,6 +2,8 @@ import { act, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { World } from "../components/World";
 import type { BookState } from "./book";
+import { agentColor } from "./world-palette";
+import type { LoanArc, WorldNode } from "./observatory";
 
 /**
  * The world actually puts ink on its canvas.
@@ -33,6 +35,10 @@ const BOOK: BookState = {
 interface Recorder {
   calls: string[];
   ctx: Record<string, unknown>;
+  /** `strokeStyle` as it stood at each `stroke()`. */
+  strokes: string[];
+  /** `fillStyle` as it stood at each `fill()`. */
+  fills: string[];
 }
 
 /**
@@ -45,8 +51,19 @@ interface Recorder {
  */
 function recordingContext(): Recorder {
   const calls: string[] = [];
+  const strokes: string[] = [];
+  const fills: string[] = [];
   const noop = (name: string) => (...args: unknown[]) => {
     calls.push(name);
+    void args;
+  };
+  // The colour a stroke or fill USED, sampled when it happens. Recording
+  // only method names cannot tell a globe whose arcs are all one jade
+  // from one where each agent has its own hue, which is the distinction
+  // these tests exist to hold.
+  const styled = (name: string, sink: string[], prop: string) => (...args: unknown[]) => {
+    calls.push(name);
+    sink.push(String((ctx as Record<string, unknown>)[prop] ?? ""));
     void args;
   };
   const ctx: Record<string, unknown> = {
@@ -59,8 +76,8 @@ function recordingContext(): Recorder {
     lineTo: noop("lineTo"),
     arc: noop("arc"),
     ellipse: noop("ellipse"),
-    fill: noop("fill"),
-    stroke: noop("stroke"),
+    fill: styled("fill", fills, "fillStyle"),
+    stroke: styled("stroke", strokes, "strokeStyle"),
     save: noop("save"),
     restore: noop("restore"),
     translate: noop("translate"),
@@ -92,7 +109,7 @@ function recordingContext(): Recorder {
     globalCompositeOperation: "",
     filter: "",
   };
-  return { calls, ctx };
+  return { calls, ctx, strokes, fills };
 }
 
 let recorder: Recorder;
@@ -219,5 +236,114 @@ describe("the world draws", () => {
 
     expect(recorder.calls).not.toContain("clearRect");
     hidden.mockRestore();
+  });
+});
+
+/**
+ * Loans reach the agent that took them, in that agent's colour.
+ *
+ * Every arc used to terminate at `nodes[0]` and stroke in the single
+ * `palette.arc` jade, so a whole book converged on one point in one hue
+ * and drew over itself. Five repayments looked like one line, which is
+ * how the globe came to be described as having "only 1 line".
+ */
+const node = (id: string, latitude: number, longitude: number): WorldNode => ({
+  id, label: id, capacity: "1000000000", score: 700, denied: false, latitude, longitude,
+});
+const arc = (agent: string, principal = "1000000000"): LoanArc => ({
+  agent, principal, term_seconds: 864_000,
+});
+
+describe("the world draws one passage per loan", () => {
+  const nodes = [node("borrower", 24, -36), node("sable", -30, 80), node("ember", 10, 150)];
+
+  it("strokes a distinct colour for each agent", () => {
+    render(
+      <World
+        book={BOOK}
+        projection="globe"
+        nodes={nodes}
+        loans={[arc("borrower"), arc("sable"), arc("ember")]}
+      />,
+    );
+    advance(1000);
+    advance(1016);
+
+    // The three agents' hues, as the light palette assigns them by index.
+    const hues = [0, 1, 2].map(i => agentColor(i, false).toLowerCase());
+    const used = new Set(recorder.strokes.map(s => s.toLowerCase()));
+    for (const [i, hue] of hues.entries()) {
+      expect(used.has(hue), `agent ${i} (${hue}) never stroked`).toBe(true);
+    }
+  });
+
+  it("does not collapse one agent's repeated loans into a single stroke", () => {
+    // Same borrower, same tenor, same principal: identical endpoints. The
+    // only thing that separates them on screen is the lift applied per
+    // repeat, so the count of strokes in that hue is what proves it.
+    const one = render(
+      <World book={BOOK} projection="globe" nodes={nodes} loans={[arc("borrower")]} />,
+    );
+    advance(1000);
+    advance(1016);
+    const hue = agentColor(0, false).toLowerCase();
+    const single = recorder.strokes.filter(s => s.toLowerCase() === hue).length;
+    one.unmount();
+
+    recorder = recordingContext();
+    frameCallbacks = [];
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockImplementation(
+      () => recorder.ctx as unknown as CanvasRenderingContext2D,
+    );
+    render(
+      <World
+        book={BOOK}
+        projection="globe"
+        nodes={nodes}
+        loans={[arc("borrower"), arc("borrower"), arc("borrower")]}
+      />,
+    );
+    advance(1000);
+    advance(1016);
+    const three = recorder.strokes.filter(s => s.toLowerCase() === hue).length;
+
+    expect(three).toBeGreaterThan(single);
+  });
+
+  it("marks both ends of every passage", () => {
+    // A line with no ends has no direction, and on a crowded globe it is
+    // not obvious which nearby agent an arc actually reaches.
+    const withEnds = render(
+      <World book={BOOK} projection="globe" nodes={nodes} loans={[arc("sable")]} />,
+    );
+    advance(1000);
+    advance(1016);
+    const hue = agentColor(1, false).toLowerCase();
+    // The destination dot is FILLED in the agent's hue; the origin is
+    // hollow, so it strokes that hue instead.
+    expect(recorder.fills.map(f => f.toLowerCase())).toContain(hue);
+    expect(recorder.strokes.map(f => f.toLowerCase())).toContain(hue);
+    withEnds.unmount();
+  });
+
+  it("draws nothing extra when no loans are supplied", () => {
+    render(<World book={BOOK} projection="globe" nodes={nodes} loans={[]} />);
+    advance(1000);
+    advance(1016);
+    const hues = [0, 1, 2].map(i => agentColor(i, false).toLowerCase());
+    for (const hue of hues) {
+      expect(recorder.strokes.map(s => s.toLowerCase())).not.toContain(hue);
+    }
+  });
+
+  it("still draws a loan whose agent has no node", () => {
+    // A cohort bundle that names an agent the population dropped must not
+    // take the globe down; the arc falls back to the first node.
+    render(
+      <World book={BOOK} projection="globe" nodes={nodes} loans={[arc("ghost")]} />,
+    );
+    advance(1000);
+    advance(1016);
+    expect(recorder.calls.length).toBeGreaterThan(50);
   });
 });
