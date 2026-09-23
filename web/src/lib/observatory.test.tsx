@@ -108,13 +108,15 @@ describe("the credit rooms", () => {
     expect(screen.getByRole("img", { name: /Credit body, atlas projection/ })).toHaveAccessibleName(/3 profiles/);
   });
 
-  it("makes the room's records discoverable and keeps Log inside Observatory", () => {
+  it("exposes the room records without opening a menu and links directly to Log", () => {
     room("/observatory");
-    fireEvent.click(screen.getByText("Explore records"));
     const records = screen.getByRole("navigation", { name: "Observatory records" });
-    fireEvent.click(within(records).getByRole("link", { name: /Log Follow the indexed journeys/ }));
+    const log = within(records).getByRole("link", { name: /Log Follow the indexed journeys/ });
+    expect(log).toBeVisible();
+    expect(log.closest("details")).toBeNull();
+    fireEvent.click(log);
     expect(screen.getByRole("heading", { name: "Log", level: 1 })).toBeInTheDocument();
-    expect(within(screen.getByRole("navigation", { name: "Primary navigation" })).getByRole("link", { name: "Observatory" })).toHaveAttribute("aria-current", "location");
+    expect(within(screen.getByRole("navigation", { name: "Primary navigation" })).getByRole("link", { name: "Log" })).toHaveAttribute("aria-current", "page");
     expect(within(screen.getByRole("navigation", { name: "Breadcrumb" })).getByRole("link", { name: "Observatory" })).toHaveAttribute("href", "/observatory");
   });
 
