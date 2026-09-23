@@ -32,8 +32,8 @@ export function Lender() {
       .catch(() => setLossRun(null));
   }, []);
 
-  if (error) return <div className="error">{error}</div>;
-  if (!run) return <p className="lede">Loading retained evidence…</p>;
+  if (error) return <><RecordHeader title="Lender" /><div className="error">{error}</div></>;
+  if (!run) return <RecordHeader title="Lender">Loading retained evidence…</RecordHeader>;
 
   const checks: Check[] = run.checks ?? [];
   const ledger = checks.filter((c) => c.beat === "lender");
