@@ -1,0 +1,79 @@
+/* Commands share one shape; selected modes share one segmented control. */
+.action.action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 10px 16px;
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  background: var(--bg);
+  color: var(--text);
+  font: 500 var(--t2)/1.5 var(--sans);
+  letter-spacing: 0;
+  text-decoration: none;
+  text-align: center;
+  text-transform: none;
+  cursor: pointer;
+  transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
+  backdrop-filter: none;
+}
+.action.action-primary { background: var(--text); border-color: var(--text); color: var(--bg); }
+.action.action-small { min-height: 36px; padding: 7px 12px; }
+.action.action-icon { width: 44px; padding: 0; font-size: 20px; }
+.action[aria-pressed="true"] { background: var(--machine-bg); border-color: var(--machine); color: var(--machine); }
+.action:disabled { opacity: .45; cursor: default; }
+.action.bar-toggle { display: none; }
+.action.start-enter { min-width: 176px; }
+.action.dock-link { width: 100%; }
+.room-instruments > .action { margin-top: var(--s4); }
+.room-view-controls, .world-controls { gap: var(--s2); }
+.filter-tabs, .projection-controls {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--sunken);
+}
+.filter-tabs button, .room-view-controls .projection-controls button {
+  min-height: 36px;
+  padding: 8px 12px;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  background: transparent;
+  color: var(--text-dim);
+  font: 500 var(--t2)/1.5 var(--sans);
+  text-transform: none;
+}
+.filter-tabs button[aria-pressed="true"], .room-view-controls .projection-controls button[aria-pressed="true"] {
+  background: var(--surface);
+  border-color: var(--border);
+  color: var(--text);
+  box-shadow: 0 1px 2px #00000006;
+}
+.log-strip > .action { width: 100%; }
+.filmstrip-heading { min-height: 36px; }
+.filmstrip > button { border: 1px solid var(--border); border-radius: 3px; padding: 6px 8px; }
+.filmstrip > button[aria-pressed="true"] { background: var(--machine-bg); border-color: var(--machine); }
+.atlas-profile-list button { padding-inline: 12px; border: 1px solid var(--border); border-radius: 3px; margin-top: 6px; }
+.atlas-profile-list button[aria-pressed="true"] { background: var(--machine-bg); border-color: var(--machine); }
+@media (hover: hover) {
+  .action:hover:not(:disabled) { background: var(--sunken); border-color: var(--text-dim); color: var(--text); }
+  .action-primary:hover:not(:disabled) { background: var(--machine); border-color: var(--machine); color: var(--bg); }
+  .filter-tabs button:hover:not(:disabled), .room-view-controls .projection-controls button:hover:not(:disabled) { color: var(--text); border-color: var(--border); }
+  .atlas-profile-list button:hover, .filmstrip > button:hover, .log-journey:hover { background: var(--sunken); }
+}
+@media (max-width: 900px) { .action.bar-toggle { display: inline-flex; } }
+@media (max-width: 600px) {
+  .room-view-controls { flex-wrap: wrap; gap: var(--s2); }
+  .room-view-controls > .action { padding-inline: 12px; }
+  .world-controls { gap: var(--s2); }
+  .filmstrip { flex-wrap: wrap; }
+  .timeline-scrubber { flex: 1 0 100%; margin-top: var(--s4); }
+  .story-bottomline { gap: var(--s3); }
+  .story-bottomline > span { display: none; }
+  .story-bottomline > .action { padding-inline: 10px; }
+}
+@media (prefers-reduced-motion: reduce) { .action.action { transition: none; } }
