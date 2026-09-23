@@ -13,7 +13,7 @@ export function RecordLinks({ section, currentPath, compact = false }: {
   if (compact) {
     return (
       <details className="room-records" key={`${section.id}-${currentPath}`}>
-        <summary>Explore records <span aria-hidden="true">+</span></summary>
+        <summary>Explore records <span className="record-toggle" aria-hidden="true" /></summary>
         <nav aria-label={`${section.label} records`}>
           {records.map(record => (
             <Link key={record.path} to={record.path}>
@@ -32,7 +32,7 @@ export function RecordLinks({ section, currentPath, compact = false }: {
       <div>
         {records.map(record => (
           <Link key={record.path} to={record.path}>
-            <span>{record.title} <span aria-hidden="true">↗</span></span>{" "}
+            <span>{record.title}</span>{" "}
             <small>{record.description}</small>
           </Link>
         ))}
