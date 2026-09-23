@@ -1,3 +1,7 @@
+import { useLocation } from "react-router";
+import { screenForPath, sectionForScreen } from "../lib/navigation";
+import { RecordTabs } from "./RecordLinks";
+
 /**
  * The shared frame for a field record.
  *
@@ -19,10 +23,14 @@ export function RecordHeader({
   /** The lede: one or two sentences on what this record shows. */
   children?: React.ReactNode;
 }) {
+  const { pathname } = useLocation();
+  const screen = screenForPath(pathname);
+  const section = sectionForScreen(screen);
   return (
-    <header className="record-header page-header">
+    <div className="record-header page-header">
       <h1 className="record-title page-title">{title}</h1>
       {children !== undefined && <p className="lede">{children}</p>}
-    </header>
+      {section && screen.layout === "document" && <RecordTabs section={section} currentPath={screen.path} />}
+    </div>
   );
 }
