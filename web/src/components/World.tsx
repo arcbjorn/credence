@@ -4,6 +4,8 @@ import type { Assessment } from "../lib/data";
 import type { BookState } from "../lib/book";
 import type { Projection, WorldNode } from "../lib/observatory";
 import { canvasResolution } from "../lib/canvas";
+import { loanArc, sphereOccludes, spherePoint as point, traceVisiblePath, viewTransform, type Point3 } from "../lib/world-geometry";
+import { worldPalette } from "../lib/world-palette";
 
 const TAU = Math.PI * 2;
 const rad = Math.PI / 180;
@@ -14,9 +16,10 @@ const dots = Array.from({ length: 2200 }, (_, i) => {
   return { x: Math.cos(theta) * r, y, z: Math.sin(theta) * r, grain: (Math.sin(i * 127.1) + 1) / 2 };
 });
 
-function point(lat: number, lon: number) {
-  return { x: Math.cos(lat * rad) * Math.sin(lon * rad), y: Math.sin(lat * rad), z: Math.cos(lat * rad) * Math.cos(lon * rad) };
-}
+const latitudeLines = Array.from({ length: 29 }, (_, i) =>
+  Array.from({ length: 121 }, (_, j) => ({ ...point(-84 + i * 6, -180 + j * 3), lat: -84 + i * 6, lon: -180 + j * 3 })));
+const meridianLines = Array.from({ length: 30 }, (_, i) =>
+  Array.from({ length: 61 }, (_, j) => ({ ...point(-90 + j * 3, -180 + i * 12), lat: -90 + j * 3, lon: -180 + i * 12 })));
 
 /** A rendered instrument. Surface stippling is material, never extra agents. */
 export function World({ book, nodes = [], loans = [], projection = "globe", selected, onSelect, replay = 0, paused = false, labels = true }: {
@@ -57,6 +60,8 @@ export function World({ book, nodes = [], loans = [], projection = "globe", sele
     let core = 0;
     let replayStart = 0;
     let lastReplay = 0;
+    let palette = worldPalette(false);
+    const arcCache = new Map<string, Point3[]>();
     let theme = { machine: "#00706f", paper: "#f9f5ef", ink: "#1b1d1e", growth: "#4a6b3d", alarm: "#bf3a14" };
     const resize = () => {
       const pixels = canvasResolution(wrapper.current?.clientWidth ?? 800, window.devicePixelRatio);
@@ -67,6 +72,8 @@ export function World({ book, nodes = [], loans = [], projection = "globe", sele
       }
       const style = getComputedStyle(el);
       theme = { machine: style.getPropertyValue("--machine").trim(), paper: style.getPropertyValue("--bg").trim(), ink: style.getPropertyValue("--text").trim(), growth: style.getPropertyValue("--growth").trim(), alarm: style.getPropertyValue("--alarm").trim() };
+      const preference = document.documentElement.dataset.theme;
+      palette = worldPalette(preference === "dark" || (!preference && Boolean(scheme?.matches)));
     };
     // Defer writes until after the observer's delivery cycle, and observe
     // the CSS wrapper rather than the bitmap whose dimensions we change.
@@ -127,24 +134,20 @@ export function World({ book, nodes = [], loans = [], projection = "globe", sele
       const cx = 400 - moon * 110;
       const cy = 400;
       const radius = 258 - moon * 98;
-      const cos = Math.cos(rotation), sin = Math.sin(rotation);
-      const tilt = -0.21;
+      const rotate = viewTransform(rotation);
       const project = (p: { x: number; y: number; z: number }, lat?: number, lon?: number) => {
-        const x = p.x * cos + p.z * sin;
-        const zz = p.z * cos - p.x * sin;
-        const y = p.y * Math.cos(tilt) - zz * Math.sin(tilt);
-        const z = p.y * Math.sin(tilt) + zz * Math.cos(tilt);
+        const view = rotate(p);
         const longitude = lon ?? Math.atan2(p.x, p.z) / rad;
-        const latitude = lat ?? Math.asin(p.y) / rad;
-        return { x: (cx + x * radius) * (1 - flatten) + (400 + longitude / 180 * 335) * flatten,
-          y: (cy - y * radius - p.y * layer * 65) * (1 - flatten) + (400 - latitude / 90 * 205) * flatten, z: z * (1 - flatten) + flatten };
+        const latitude = lat ?? Math.asin(Math.max(-1, Math.min(1, p.y / Math.hypot(p.x, p.y, p.z)))) / rad;
+        return { x: (cx + view.x * radius) * (1 - flatten) + (400 + longitude / 180 * 335) * flatten,
+          y: (cy - view.y * radius - p.y * layer * 65) * (1 - flatten) + (400 - latitude / 90 * 205) * flatten, z: view.z * (1 - flatten) + flatten, view };
       };
       const circle = (x: number, y: number, r: number) => { ctx.beginPath(); ctx.arc(x, y, Math.max(0, r), 0, TAU); };
 
       // The survey rings belong to the instrument, not to market counts.
       ctx.save();
       ctx.strokeStyle = theme.ink;
-      ctx.globalAlpha = 0.16;
+      ctx.globalAlpha = palette.dark ? .16 : .10;
       ctx.lineWidth = 0.7;
       ctx.setLineDash([1, 6]);
       circle(400, 400, 340); ctx.stroke();
@@ -156,21 +159,27 @@ export function World({ book, nodes = [], loans = [], projection = "globe", sele
       }
       ctx.restore();
 
+      // The facility orbit passes behind the body, rather than cutting across its face.
+      if (moon > .001 && state.book.idle !== null) {
+        ctx.save(); ctx.globalAlpha = moon * .24; ctx.strokeStyle = theme.ink; ctx.lineWidth = .65;
+        ctx.beginPath(); ctx.ellipse(390, 400, 270, 117, -.22, 0, TAU); ctx.stroke(); ctx.restore();
+      }
+
       if (flatten < 0.99) {
         ctx.save();
         ctx.globalAlpha = 1 - flatten;
         const glow = ctx.createRadialGradient(cx, cy, radius * 0.88, cx, cy, radius + 16 + atmosphere * 38);
-        glow.addColorStop(0, "transparent"); glow.addColorStop(0.5, `rgba(90, 153, 140, ${atmosphere * 0.19})`); glow.addColorStop(1, "transparent");
+        glow.addColorStop(0, "transparent"); glow.addColorStop(0.5, `rgba(${palette.atmosphere}, ${atmosphere * palette.haze})`); glow.addColorStop(1, "transparent");
         ctx.fillStyle = glow; circle(cx, cy, radius + 16 + atmosphere * 38); ctx.fill();
         const shell = ctx.createRadialGradient(cx - radius * 0.43, cy - radius * 0.43, 0, cx + radius * 0.12, cy + radius * 0.25, radius * 1.4);
-        shell.addColorStop(0, "#7b9490"); shell.addColorStop(0.25, "#475f5a"); shell.addColorStop(0.55, "#243735"); shell.addColorStop(0.85, "#111c1c"); shell.addColorStop(1, "#080e0f");
+        [0, .25, .55, .85, 1].forEach((stop, i) => shell.addColorStop(stop, palette.shell[i]!));
         ctx.globalAlpha = (1 - flatten) * (1 - xray * 0.77 - layer * 0.45);
         ctx.fillStyle = shell; circle(cx, cy, radius); ctx.fill();
-        ctx.strokeStyle = "#a5c4b6"; ctx.lineWidth = 1; ctx.stroke();
+        ctx.strokeStyle = palette.rim; ctx.lineWidth = palette.dark ? 1 : .65; ctx.stroke();
         if (core > 0.001) {
           ctx.globalAlpha = (1 - flatten) * core;
           const heart = ctx.createRadialGradient(cx - 25, cy - 15, 0, cx - 25, cy - 15, radius * 0.86);
-          heart.addColorStop(0, "rgba(230, 244, 221, 0.94)"); heart.addColorStop(0.065, "rgba(213, 235, 207, 0.8)"); heart.addColorStop(0.2, "rgba(154, 194, 160, 0.32)"); heart.addColorStop(0.55, "rgba(88, 150, 129, 0.16)"); heart.addColorStop(1, "transparent");
+          [0, .065, .2, .55].forEach((stop, i) => heart.addColorStop(stop, palette.core[i]!)); heart.addColorStop(1, "transparent");
           ctx.fillStyle = heart; circle(cx - 25, cy - 15, radius * 0.86); ctx.fill();
         }
         ctx.restore();
@@ -178,29 +187,20 @@ export function World({ book, nodes = [], loans = [], projection = "globe", sele
 
       // Fine latitude contours and meridians form the shell material.
       ctx.lineWidth = 0.55;
-      for (let lat = -84; lat <= 84; lat += 6) {
-        ctx.beginPath();
-        for (let lon = -180; lon <= 180; lon += 3) {
-          const p = project(point(lat, lon), lat, lon);
-          if (lon === -180 || p.z < -0.02) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+      for (const [lines, color] of [[latitudeLines, palette.contour], [meridianLines, palette.meridian]] as const) {
+        for (const line of lines) {
+          ctx.beginPath();
+          traceVisiblePath(ctx, line.map(v => { const p = project(v, v.lat, v.lon); return { ...p, visible: p.z >= 0 }; }));
+          ctx.strokeStyle = flatten > .5 ? theme.machine : color;
+          ctx.globalAlpha = ((palette.dark ? .13 : .19) + flatten * .09) * (1 - xray * .3); ctx.stroke();
         }
-        ctx.strokeStyle = flatten > 0.5 ? theme.machine : "#bacdc0";
-        ctx.globalAlpha = (0.13 + flatten * 0.09) * (1 - xray * 0.3); ctx.stroke();
-      }
-      for (let lon = -180; lon < 180; lon += 12) {
-        ctx.beginPath();
-        for (let lat = -90; lat <= 90; lat += 3) {
-          const p = project(point(lat, lon), lat, lon);
-          if (lat === -90 || p.z < -0.02) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
-        }
-        ctx.strokeStyle = flatten > 0.5 ? theme.machine : "#a6c7b6"; ctx.globalAlpha = 0.12 + flatten * 0.1; ctx.stroke();
       }
       for (const dot of dots) {
         const p = project(dot);
         if (p.z < 0) continue;
         const wave = Math.sin(dot.x * 11 + dot.y * 8) * Math.cos(dot.z * 9 + dot.y * 5);
-        ctx.globalAlpha = (0.12 + Math.pow(Math.max(0, p.z), 1.4) * 0.42) * (0.25 + dot.grain * 0.75) * (1 - xray * 0.6);
-        ctx.fillStyle = flatten > 0.5 ? theme.machine : wave > 0.15 ? "#e6ebd9" : "#95b6a9";
+        ctx.globalAlpha = (0.12 + Math.pow(Math.max(0, p.z), 1.4) * (palette.dark ? .42 : .25)) * (0.25 + dot.grain * 0.75) * (1 - xray * 0.6);
+        ctx.fillStyle = flatten > 0.5 ? theme.machine : palette.grain[wave > .15 ? 0 : 1];
         circle(p.x, p.y, wave > 0.15 ? 0.95 : 0.5); ctx.fill();
       }
       ctx.globalAlpha = 1;
@@ -227,37 +227,45 @@ export function World({ book, nodes = [], loans = [], projection = "globe", sele
       const shownLoans = state.loans.slice(-12);
       const peak = Math.max(1, ...shownLoans.map(a => Number(a.payload.outcome.approved_principal ?? "0")));
       for (const [i, loan] of shownLoans.entries()) {
-        const from = project(point(-22, 60));
-        const to = project(point(24, -36));
         const tenor = loan.payload.outcome.terms?.term_seconds ?? 0;
-        const h = 40 + Math.min(160, tenor / 86400 * 2) + i * 17;
-        const midX = (from.x + to.x) / 2 + h * 0.4;
-        const midY = Math.min(from.y, to.y) - h;
-        ctx.beginPath(); ctx.moveTo(from.x, from.y); ctx.quadraticCurveTo(midX, midY, to.x, to.y);
-        ctx.strokeStyle = flatten > 0.5 ? theme.machine : "#b1d1c1";
-        ctx.globalAlpha = (from.z < 0 && to.z < 0 ? 0.12 : 0.6) * (1 - moon * 0.5);
+        const borrower = state.nodes[0];
+        const lat = borrower?.latitude ?? 24, lon = borrower?.longitude ?? -36;
+        const key = `${tenor}/${lat}/${lon}`;
+        let arc = arcCache.get(key);
+        if (!arc) {
+          arc = loanArc(point(-22, 60), point(lat, lon), .14 + Math.min(.6, Math.max(0, tenor) / 86400 / 90 * .6));
+          if (arcCache.size > 24) arcCache.clear();
+          arcCache.set(key, arc);
+        }
+        const path = arc.map(v => { const p = project(v); return { ...p, visible: !sphereOccludes(p.view) }; });
+        ctx.strokeStyle = flatten > 0.5 ? theme.machine : palette.arc;
         ctx.lineWidth = 0.5 + Number(loan.payload.outcome.approved_principal ?? "0") / peak * 1.1;
-        ctx.stroke();
+        const opacity = .65 * (1 - moon * .5);
+        const transparency = Math.max(flatten, xray * .25, layer * .2);
+        if (transparency > .001) {
+          ctx.globalAlpha = opacity * transparency;
+          ctx.beginPath(); traceVisiblePath(ctx, path.map(p => ({ ...p, visible: !p.visible }))); ctx.stroke();
+        }
+        ctx.globalAlpha = opacity;
+        ctx.beginPath(); traceVisiblePath(ctx, path); ctx.stroke();
         if (replaying && i === shownLoans.length - 1) {
-          const t = replayProgress;
-          const px = (1 - t) ** 2 * from.x + 2 * (1 - t) * t * midX + t * t * to.x;
-          const py = (1 - t) ** 2 * from.y + 2 * (1 - t) * t * midY + t * t * to.y;
-          ctx.globalAlpha = 1; ctx.fillStyle = "#eff8df"; ctx.shadowColor = "#b3e3c3"; ctx.shadowBlur = 14;
-          circle(px, py, 3); ctx.fill(); ctx.shadowBlur = 0;
+          const p = path[Math.min(path.length - 1, Math.round(replayProgress * (path.length - 1)))]!;
+          ctx.globalAlpha = p.visible ? 1 : transparency;
+          ctx.fillStyle = palette.pulse; ctx.shadowColor = palette.arc; ctx.shadowBlur = palette.dark ? 14 : 4;
+          circle(p.x, p.y, 3); ctx.fill(); ctx.shadowBlur = 0;
         }
       }
       ctx.globalAlpha = 1;
 
       if (state.projection === "eclipse" && state.book.utilization !== null) {
         const u = state.book.utilization;
-        ctx.fillStyle = "#101817"; ctx.globalAlpha = 0.96;
+        ctx.fillStyle = palette.eclipse; ctx.globalAlpha = 0.96;
         circle(cx + radius * 2 * (1 - u), cy + 8, radius); ctx.fill(); ctx.globalAlpha = 1;
       }
       if (moon > 0.001 && state.book.idle !== null) {
-        ctx.globalAlpha = moon; ctx.strokeStyle = theme.ink; ctx.lineWidth = 0.65;
-        ctx.beginPath(); ctx.ellipse(390, 400, 270, 117, -0.22, 0, TAU); ctx.stroke();
+        ctx.globalAlpha = moon;
         const m = ctx.createRadialGradient(608, 330, 0, 635, 355, 49);
-        m.addColorStop(0, "#b8c5aa"); m.addColorStop(0.42, "#5a7565"); m.addColorStop(1, "#142722");
+        m.addColorStop(0, palette.moon[0]); m.addColorStop(0.42, palette.moon[1]); m.addColorStop(1, palette.moon[2]);
         ctx.fillStyle = m; circle(628, 347, 43); ctx.fill();
         ctx.globalAlpha = 1;
       }
@@ -269,7 +277,11 @@ export function World({ book, nodes = [], loans = [], projection = "globe", sele
         const nodeRadius = node.denied ? 4 : Math.max(2, Math.sqrt(Number(node.capacity) / nodePeak) * 7);
         if (button) {
           button.style.left = `${p.x / 8}%`; button.style.top = `${p.y / 8}%`;
-          button.style.opacity = String(p.z < 0 ? 0.45 : 1);
+          const hidden = p.z < 0;
+          button.style.opacity = hidden ? "0" : "1";
+          button.style.pointerEvents = hidden ? "none" : "";
+          button.tabIndex = hidden ? -1 : 0;
+          button.setAttribute("aria-hidden", String(hidden));
           button.style.setProperty("--node-size", `${nodeRadius * 2}px`);
         }
       }
