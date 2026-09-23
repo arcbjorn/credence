@@ -2,10 +2,11 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { describe, expect, it } from "vitest";
 import { Shell } from "../components/Shell";
+import { RecordHeader } from "../components/Record";
 
 const renderShell = (path = "/") => render(
   <MemoryRouter initialEntries={[path]}>
-    <Shell><h1>Screen content</h1></Shell>
+    <Shell><RecordHeader title="Screen content" /></Shell>
   </MemoryRouter>,
 );
 const primary = () => screen.getByRole("navigation", { name: "Primary navigation" });
@@ -17,6 +18,7 @@ const HEADER = [
   { label: "Atlas", to: "/atlas" },
   { label: "Moons", to: "/moons" },
   { label: "Body", to: "/body" },
+  { label: "Log", to: "/log" },
   { label: "Field guide", to: "/guide" },
 ];
 
@@ -26,7 +28,22 @@ describe("one header throughout the site", () => {
     expect(destinations()).toEqual(HEADER);
     expect(screen.getAllByRole("banner")).toHaveLength(1);
     expect(screen.queryByRole("navigation", { name: "Field records" })).not.toBeInTheDocument();
-    expect(within(screen.getByRole("banner")).getAllByRole("link")).toHaveLength(6);
+    expect(within(screen.getByRole("banner")).getAllByRole("link")).toHaveLength(7);
+  });
+
+  it("makes Log a direct destination with a single active location", () => {
+    renderShell("/log");
+    expect(within(primary()).getByRole("link", { name: "Log" })).toHaveAttribute("aria-current", "page");
+    expect(primary().querySelectorAll("[aria-current]")).toHaveLength(1);
+  });
+
+  it("exposes sibling records beside the introduction and marks the current record", () => {
+    renderShell("/assessment");
+    const records = screen.getByRole("navigation", { name: "Body pages" });
+    expect(within(records).getAllByRole("link").map(link => link.getAttribute("href"))).toEqual(["/agent", "/assessment", "/enforcement"]);
+    expect(within(records).getByRole("link", { name: "Assessment detail" })).toHaveAttribute("aria-current", "page");
+    fireEvent.click(within(records).getByRole("link", { name: "Enforcement" }));
+    expect(document.title).toBe("Enforcement — Credence");
   });
 
   it("does not change the header when the homepage scrolls", () => {
