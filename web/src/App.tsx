@@ -16,7 +16,10 @@ import { EmptyCoordinate, FieldGuide } from "./screens/FieldGuide";
 import "./styles/app.css";
 import "./styles/premium.css";
 import "./styles/weather.css";
+import "./styles/controls.css";
+import "./styles/navigation.css";
 import "./styles/pages.css";
+import "./styles/field-guide.css";
 
 /** Rooms own their detailed records; old loan links keep working. */
 function LegacyArc() {
