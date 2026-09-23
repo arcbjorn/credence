@@ -31,8 +31,8 @@ export function Lifecycle() {
     loadRun("repay").then(setRun).catch((e: Error) => setError(e.message));
   }, []);
 
-  if (error) return <div className="error">{error}</div>;
-  if (!run) return <p className="lede">Loading retained evidence…</p>;
+  if (error) return <><RecordHeader title="Loan lifecycle" /><div className="error">{error}</div></>;
+  if (!run) return <RecordHeader title="Loan lifecycle">Loading retained evidence…</RecordHeader>;
 
   const byForecast = new Map(run.outcomes.map((o) => [o.forecast_id, o]));
   const originations = run.assessments.filter(
