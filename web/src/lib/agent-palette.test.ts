@@ -74,12 +74,24 @@ describe("the agent pastels", () => {
     }
   });
 
-  it("keeps neighbouring agents distinguishable", () => {
-    // Adjacent indices sit next to each other on the globe more often
-    // than not, so two hues a reader cannot separate defeats the point.
+  it("keeps EVERY pair of agents distinguishable", () => {
+    // Checked across all pairs, not just neighbours. Only adjacent
+    // indices were compared at first, which let an amber at index 0 sit
+    // 26 units from an ochre at index 4 -- and with five agents drawn,
+    // those were exactly the two on screen together.
+    //
+    // 45 rather than something larger because the floor is not free:
+    // 3:1 contrast on near-white paper forces every hue dark, which
+    // compresses the distances between them. This is the widest
+    // separation that survives that constraint across eight hues.
     for (const set of [light, dark]) {
-      for (let i = 1; i < set.length; i++) {
-        expect(distance(set[i]!, set[i - 1]!), `${set[i - 1]} vs ${set[i]}`).toBeGreaterThan(40);
+      for (let i = 0; i < set.length; i++) {
+        for (let j = i + 1; j < set.length; j++) {
+          expect(
+            distance(set[i]!, set[j]!),
+            `${set[i]} (${i}) vs ${set[j]} (${j})`,
+          ).toBeGreaterThan(45);
+        }
       }
     }
   });

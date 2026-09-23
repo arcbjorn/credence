@@ -252,15 +252,28 @@ export function World({ book, nodes = [], loans = [], projection = "globe", sele
         // passage under this agent's name.
         if (!borrower) continue;
         const lat = borrower.latitude, lon = borrower.longitude;
-        // Height is the term it borrowed for, which is a real property of
-        // the passage. Nothing is added per repeat any more: that fan was
-        // geometry invented to separate curves that should never have
-        // been separate lines.
-        const lift = .16 + Math.min(.5, Math.max(0, loan.term_seconds) / 86400 / 90 * .5);
+        // How far the passage bulges off the shell.
+        //
+        // Deliberately SMALL. This was `.16 + up to .5`, which puts the
+        // apex 16-66% beyond the sphere: at that scale an arc stops
+        // reading as a path over a body and becomes a loop sailing past
+        // the silhouette, which is most of why the globe looked wrong.
+        //
+        // It also scaled with the loan TERM, and every agent in the
+        // bundle borrows for the same ten days -- so the term paid for
+        // all that distortion while conveying nothing. Height now scales
+        // with the angular distance instead, purely so a long way round
+        // clears the surface it crosses, and tops out well inside the
+        // shell's own rim.
+        const to = point(lat, lon);
+        const separation = Math.acos(
+          Math.max(-1, Math.min(1, from.x * to.x + from.y * to.y + from.z * to.z)),
+        );
+        const lift = 0.035 + (separation / Math.PI) * 0.11;
         const key = `${Math.round(lift * 1000)}/${lat}/${lon}`;
         let arc = arcCache.get(key);
         if (!arc) {
-          arc = loanArc(from, point(lat, lon), lift);
+          arc = loanArc(from, to, lift);
           if (arcCache.size > 64) arcCache.clear();
           arcCache.set(key, arc);
         }

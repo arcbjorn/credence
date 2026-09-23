@@ -38,30 +38,41 @@ export const worldPalette = (dark: boolean) => dark ? DARK : LIGHT;
  *
  * Hues are spaced around the wheel and deliberately avoid the shell's
  * jade: an arc that shares the globe's own colour disappears into it.
+ * Spacing is checked between EVERY pair, not just neighbours -- the
+ * first set had an amber at index 0 and an ochre at index 4 that were
+ * 26 units apart in RGB, and with five agents on screen those two were
+ * the ones a reader had to tell apart.
+ *
+ * The two sets share an ORDER of hues rather than exact values, so an
+ * agent keeps its identity across a theme switch: index 2 is the steel
+ * blue in both. They were derived by a farthest-point search over
+ * muted HSL, constrained to clear 3:1 on each ground, to keep a real
+ * hue gap between every pair, and to avoid both the shell's jade and
+ * the ALARM vermilion.
  * They also stay clear of the vermilion ALARM register, which `docs/09`
  * reserves for refusals and realized loss -- an agent tinted the colour
  * of a denial would read as one.
  */
 const AGENT_LIGHT = [
-  "#c2763f", // amber
-  "#5a7fb8", // periwinkle
-  "#9a6bab", // lilac
-  "#3f8f96", // teal-cyan
-  "#a8763d", // ochre
-  "#5f8a54", // sage
-  "#b3617d", // rose
-  "#5d74a8", // slate blue
+  "#b38042", // sand
+  "#4545ba", // indigo
+  "#4297b3", // steel blue
+  "#3a9c3a", // leaf
+  "#ba457a", // raspberry
+  "#429473", // viridian
+  "#9a74b4", // wisteria
+  "#84913b", // olive
 ] as const;
 
 const AGENT_DARK = [
-  "#f0b988", // amber
-  "#a9c3ec", // periwinkle
-  "#d3aee0", // lilac
-  "#8ad4d8", // teal-cyan
-  "#e6c38f", // ochre
-  "#a8d3a0", // sage
-  "#eeaabe", // rose
-  "#aab9e4", // slate blue
+  "#e7cfb1", // sand
+  "#6c6cd0", // indigo
+  "#6cadd0", // steel blue
+  "#6cd06c", // leaf
+  "#d06c94", // raspberry
+  "#77c5a6", // viridian
+  "#debade", // wisteria
+  "#c8d57b", // olive
 ] as const;
 
 /**

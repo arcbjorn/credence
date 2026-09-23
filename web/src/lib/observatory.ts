@@ -49,29 +49,56 @@ export function originations(run: Run | null): Assessment[] {
 }
 
 /**
- * Spread `count` nodes over the sphere without clumping.
+ * Spread `count` nodes over a CAP around the pool, not the whole sphere.
  *
- * The coordinates were three hardcoded pairs indexed `i % 3`, so a fourth
- * agent landed exactly on the first and an eighth stacked three deep --
- * a globe that silently showed three points for eight agents.
+ * This was a full-sphere Fibonacci lattice, which is the right answer for
+ * scattering points evenly and the wrong one here. It put agents up to
+ * 145 degrees from the pool -- nearly antipodal -- so their passages had
+ * to cross the entire body. `sphereOccludes` deliberately keeps a LIFTED
+ * arc visible past the silhouette ("elevated arcs beyond the silhouette
+ * remain visible, even on the far side"), so those crossings reappeared
+ * outside the disc as loops sailing off into the page. Twenty-odd points
+ * per arc landed outside the globe even at a tiny lift; the scatter was
+ * the cause, not the lift.
  *
- * A Fibonacci lattice places any number of points at near-uniform
- * spacing, so the arrangement stays legible as the set grows. These are
- * positions on an object, not geographic claims: the latitude an agent
- * gets means nothing about the agent.
+ * Every borrower is tied to the pool it borrows from, so placing them
+ * around it is also the more honest arrangement: the picture's geometry
+ * now matches its subject.
+ *
+ * Points are laid on a spiral whose angular radius grows as `sqrt(i)`,
+ * which covers the cap's AREA evenly rather than bunching at the centre,
+ * and are turned by the golden angle so successive agents do not line up
+ * into spokes. These remain positions on an object, never geographic
+ * claims.
  */
+export const POOL_ID = "facility";
+export const POOL_POSITION = { latitude: -22, longitude: 60 } as const;
+
+const CAP_DEGREES = 55;
+const RAD = Math.PI / 180;
+const DEG = 180 / Math.PI;
+
 function lattice(count: number, i: number): { latitude: number; longitude: number } {
   if (count <= 0) return { latitude: 0, longitude: 0 };
-  // Offset by a half step so the first point is not exactly at a pole,
-  // where every longitude renders on top of itself.
-  const y = count === 1 ? 0 : 1 - (2 * i + 1) / count;
-  const latitude = (Math.asin(Math.max(-1, Math.min(1, y))) * 180) / Math.PI;
-  // The golden angle, which is what keeps successive points from lining
-  // up into visible spokes.
-  const longitude = (((i * 137.507_764_05) % 360) + 540) % 360 - 180;
+  const fraction = count === 1 ? 0.55 : (i + 0.5) / count;
+  // Angular distance from the pool, and a bearing around it.
+  const distance = Math.sqrt(fraction) * CAP_DEGREES * RAD;
+  const bearing = i * 137.507_764_05 * RAD;
+  const lat0 = POOL_POSITION.latitude * RAD;
+  const lon0 = POOL_POSITION.longitude * RAD;
+  const latitude = Math.asin(
+    Math.sin(lat0) * Math.cos(distance) +
+      Math.cos(lat0) * Math.sin(distance) * Math.cos(bearing),
+  );
+  const longitude =
+    lon0 +
+    Math.atan2(
+      Math.sin(bearing) * Math.sin(distance) * Math.cos(lat0),
+      Math.cos(distance) - Math.sin(lat0) * Math.sin(latitude),
+    );
   return {
-    latitude: Number(latitude.toFixed(2)),
-    longitude: Number(longitude.toFixed(2)),
+    latitude: Number((latitude * DEG).toFixed(2)),
+    longitude: Number(((((longitude * DEG) + 540) % 360) - 180).toFixed(2)),
   };
 }
 
@@ -112,9 +139,6 @@ export function profileNodes(comparison: Comparison | null): WorldNode[] {
  * the one point every arc shares, and a pool that wandered as the cohort
  * grew would drag the whole picture with it.
  */
-export const POOL_ID = "facility";
-export const POOL_POSITION = { latitude: -22, longitude: 60 } as const;
-
 export function poolNode(book: { idle: bigint | null; outstanding: bigint | null }): WorldNode[] {
   // Nothing measured means no pool to draw. A zero-sized point would
   // claim a facility with no cash rather than one nobody has read.
@@ -132,7 +156,10 @@ export function poolNode(book: { idle: bigint | null; outstanding: bigint | null
 
 export function borrowerNode(loan: Assessment | undefined): WorldNode[] {
   if (!loan) return [];
-  return [{ id: "borrower", label: "Retained agent", capacity: loan.payload.outcome.capacity?.agent_capacity ?? "0", score: loan.payload.outcome.capacity?.score ?? null, denied: false, latitude: 24, longitude: -36 }];
+  // Placed in the cap like every other agent. Its old fixed 24,-36 sat
+  // 104 degrees from the pool, so its passage crossed the whole body and
+  // resurfaced outside the silhouette -- the single worst arc on screen.
+  return [{ id: "borrower", label: "Retained agent", capacity: loan.payload.outcome.capacity?.agent_capacity ?? "0", score: loan.payload.outcome.capacity?.score ?? null, denied: false, ...lattice(1, 0) }];
 }
 
 /**
@@ -211,11 +238,12 @@ export function populationNodes(
   // The borrower keeps its fixed coordinates: it is the one node another
   // screen links to, and having it move as the cohort grows would make it
   // unfindable.
-  const laid = unique.map((node, i) =>
-    node.id === "borrower"
-      ? node
-      : { ...node, ...lattice(unique.length, i) },
-  );
+  // Laid out as ONE set, including the borrower. It used to keep fixed
+  // coordinates so another screen could find it, but those coordinates
+  // sat 104 degrees from the pool and gave it the worst arc on the
+  // globe. Position is not how a reader finds a node -- the label and
+  // the dock are -- so correctness of the picture wins.
+  const laid = unique.map((node, i) => ({ ...node, ...lattice(unique.length, i) }));
 
   // The pool goes on LAST and keeps its fixed coordinates: it is the one
   // point every passage shares, so laying it out with the agents would

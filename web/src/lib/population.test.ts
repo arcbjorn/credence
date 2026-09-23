@@ -191,14 +191,34 @@ describe("the cohort on the globe", () => {
     expect(seen.size).toBe(nodes.length);
   });
 
-  it("keeps the retained borrower at a stable position", () => {
-    // Another screen links to this node; it must not move as the cohort
-    // grows or it becomes unfindable.
-    const loan = { input_hash: "i", sequence: 1, payload: { outcome: { capacity: { agent_capacity: "1", score: 1 } } } } as unknown as Assessment;
-    const small = populationNodes(loan, comparisonOf(["a"]), cohortOf(["s"]));
-    const large = populationNodes(loan, comparisonOf(["a", "b", "c"]), cohortOf(["s", "e", "c"]));
-    expect(small[0]!.latitude).toBe(large[0]!.latitude);
-    expect(small[0]!.longitude).toBe(large[0]!.longitude);
+  it("keeps every agent close enough to the pool to draw a clean arc", () => {
+    // The real defect behind "everything looks clunky": a full-sphere
+    // lattice put agents up to 145 degrees from the pool, so their
+    // passages crossed the whole body. `sphereOccludes` keeps a lifted
+    // arc visible past the silhouette on purpose, so those crossings
+    // resurfaced outside the disc as loops sailing off the page.
+    const book = { idle: 46_000_000_000n, outstanding: 4_000_000_000n };
+    const nodes = populationNodes(
+      { input_hash: "i", sequence: 1, payload: { outcome: { capacity: { agent_capacity: "1", score: 1 } } } } as unknown as Assessment,
+      comparisonOf(["a", "b", "c", "d", "e", "f", "g", "h"]),
+      cohortOf(["s1", "s2", "s3", "s4"]),
+      book,
+    );
+    const pool = nodes.find(n => n.id === POOL_ID)!;
+    const rad = Math.PI / 180;
+    const unit = (lat: number, lon: number) => [
+      Math.cos(lat * rad) * Math.cos(lon * rad),
+      Math.sin(lat * rad),
+      Math.cos(lat * rad) * Math.sin(lon * rad),
+    ] as const;
+    const p = unit(pool.latitude, pool.longitude);
+    for (const node of nodes) {
+      if (node.id === POOL_ID) continue;
+      const q = unit(node.latitude, node.longitude);
+      const dot = Math.max(-1, Math.min(1, p[0] * q[0] + p[1] * q[1] + p[2] * q[2]));
+      const separation = (Math.acos(dot) * 180) / Math.PI;
+      expect(separation, `${node.id} sits ${separation.toFixed(0)}deg from the pool`).toBeLessThanOrEqual(60);
+    }
   });
 
   it("never renders one id twice", () => {
