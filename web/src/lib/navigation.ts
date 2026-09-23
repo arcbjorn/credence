@@ -41,7 +41,7 @@ export const SCREENS: Screen[] = [
   { path: "/log", title: "Log", layout: "world", section: "observatory", description: "Follow the indexed journeys." },
   { path: "/arc", title: "Loan lifecycle", layout: "document", section: "observatory", description: "Inspect origination, terms and forecasts." },
   { path: "/indexed", title: "Indexed lifecycle", layout: "document", section: "observatory", description: "Read what the chain alone records." },
-  { path: "/compare", title: "Three agents", layout: "document", section: "atlas", description: "Compare profiles under one policy." },
+  { path: "/compare", title: "Agent profiles", layout: "document", section: "atlas", description: "Compare borrowers under one policy." },
   { path: "/borrow", title: "Borrow desk", layout: "document", section: "moons", description: "Ask the engine for terms yourself." },
   { path: "/lender", title: "Lender", layout: "document", section: "moons", description: "Separate available cash, exposure and loss." },
   { path: "/live", title: "Live on Monad", layout: "document", section: "moons", description: "Read the deployment as it stands now." },

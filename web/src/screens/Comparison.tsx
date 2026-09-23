@@ -18,10 +18,17 @@ import { RecordHeader } from "../components/Record";
  * number here is one the engine still returns rather than one it returned
  * once.
  *
- * **The three profiles differ by ONE thing at a time**, from a single
- * baseline. That is the whole discipline (`docs/03`): three accounts that
+ * **Every profile differs by ONE thing at a time**, from a single
+ * baseline. That is the whole discipline (`docs/03`): accounts that
  * differed in several ways at once would show a difference without
  * attributing it to anything.
+ *
+ * The set grew from three to eight so the screen shows the SHAPE of the
+ * decision space rather than a line through it -- five distinct binding
+ * constraints, all three decisions, and the one case where what an agent
+ * has EARNED and what it may DRAW come apart.
+ * `every_comparison_profile_says_something_new` refuses a profile that
+ * merely repeats an existing answer.
  */
 export function Comparison_() {
   const [cmp, setCmp] = useState<Comparison | null>(null);
@@ -31,10 +38,10 @@ export function Comparison_() {
     loadComparison().then(setCmp).catch((e: Error) => setError(e.message));
   }, []);
 
-  if (error) return <><RecordHeader title="Three agents" /><div className="error">{error}</div></>;
-  if (!cmp) return <RecordHeader title="Three agents">Loading the comparison…</RecordHeader>;
+  if (error) return <><RecordHeader title="Agent profiles" /><div className="error">{error}</div></>;
+  if (!cmp) return <RecordHeader title="Agent profiles">Loading the comparison…</RecordHeader>;
 
-  // One scale for all three objects. Normalising each to its own
+  // One scale for every object. Normalising each to its own
   // capacity would draw the denied agent and the strongest one the same
   // size, which is the opposite of the comparison being made.
   const peak = Math.max(
@@ -45,9 +52,10 @@ export function Comparison_() {
 
   return (
     <>
-      <RecordHeader title="Three agents">
-        One policy and one model against three accounts, each differing in
-        a single respect: what they have repaid, and what they hold now.
+      <RecordHeader title="Agent profiles">
+        One policy and one model against {cmp.profiles.length} accounts,
+        each differing from the same baseline in a single respect: what it
+        has repaid, what it holds now, or the market it is borrowing into.
       </RecordHeader>
 
       <div className="modes">

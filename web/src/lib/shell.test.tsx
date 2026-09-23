@@ -61,7 +61,7 @@ describe("one header throughout the site", () => {
     ["/earned", "Body", "What a record earns"],
     ["/assessment", "Body", "Assessment detail"],
     ["/enforcement", "Body", "Enforcement"],
-    ["/compare", "Atlas", "Three agents"],
+    ["/compare", "Atlas", "Agent profiles"],
     ["/borrow", "Moons", "Borrow desk"],
     ["/lender", "Moons", "Lender"],
     ["/perpl", "Moons", "Perpl market risk"],
