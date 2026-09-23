@@ -38,35 +38,46 @@
 }
 
 /* Context, title and left-hand instruments stay in flow as copy wraps. */
-.observatory-room { padding-top: var(--page-top); }
+.observatory-room { padding-top: var(--page-top); padding-bottom: 240px; height: auto; min-height: 100svh; }
+.room-world { left: 60%; top: clamp(400px, 50vh, 540px); }
+.story-chapter-6 .story-world { right: var(--gutter); width: min(60vw, 800px, 82vh); }
 .room-topline { justify-content: space-between; }
 .room-rail { position: relative; z-index: 6; width: clamp(260px, 26vw, 340px); pointer-events: none; }
 .room-intro { position: relative; z-index: 6; margin: 0; width: auto; pointer-events: none; }
 .room-intro > p { max-width: 34ch; }
-.room-records { margin-top: var(--s4); }
-.room-instruments, .atlas-tools { position: static; z-index: 6; width: 100%; margin-top: var(--s7); pointer-events: auto; }
+.room-records { position: relative; z-index: 6; width: clamp(260px, 26vw, 340px); margin-top: var(--s6); }
+.room-instruments, .atlas-tools { position: relative; z-index: 6; width: clamp(260px, 26vw, 340px); margin-top: var(--s7); pointer-events: auto; }
 .room-instruments > .instrument-label { display: block; margin-bottom: var(--s4); }
 .room-instruments dl { margin: 0; }
 .atlas-tools .instrument-note { max-width: none; }
 .dock-heading { justify-content: space-between; }
 .filmstrip-heading { justify-content: space-between; }
-.field-guide > .page-header { margin-bottom: var(--s8); }
 .empty-coordinate { align-items: start; }
 .empty-coordinate .credit-world { align-self: center; }
 
 @media (max-width: 900px) {
   :root { --header-height: 72px; }
-  .room-rail { width: 240px; }
+  .room-rail, .room-records, .room-instruments, .atlas-tools { width: 240px; }
+  .room-world { left: 67%; width: 70vw; }
+  .story-chapter-6 .story-world { right: 0; width: 62vw; }
 }
 @media (max-width: 600px) {
   :root { --page-title-size: 36px; --page-top: calc(var(--header-height) + var(--s6)); }
   .stage-inner { padding-bottom: var(--s9); }
+  .story-chapter-6 .story-world { width: min(100vw, 440px); right: calc(50% - min(50vw, 220px)); }
+  /* Let the content determine the height; no tools share an absolute top coordinate. */
+  .observatory-room { display: flex; flex-direction: column; min-height: 0; padding-bottom: var(--s9); }
+  .room-topline { order: 0; flex-wrap: wrap; gap: var(--s2); }
   .room-rail { display: contents; }
-  .room-intro { width: 100%; }
+  .room-intro { width: 100%; order: 1; }
   .room-intro > p { max-width: 36ch; }
   .body-room .room-intro > p { max-width: calc(100% - 130px); }
-  .room-instruments, .atlas-tools { position: absolute; margin: 0; left: var(--gutter); right: var(--gutter); width: auto; }
-  .room-instruments { top: 720px; }
-  .atlas-tools { top: 725px; }
+  .room-world, .body-room .room-world, .room-docked .room-world { position: relative; order: 2; width: 112%; margin: -12px -6%; left: auto; top: auto; transform: none; }
+  .room-view-controls { position: relative; order: 3; inset: auto; justify-content: flex-start; margin: 0 0 var(--s7); }
+  .room-instruments, .atlas-tools, .log-strip { position: relative; order: 4; inset: auto; margin: 0; width: 100%; }
   .room-instruments dl { margin: 0; }
+  .room-records { order: 5; width: 100%; margin-top: var(--s7); }
+  .room-timeline { position: relative; order: 6; inset: auto; margin-top: var(--s7); }
+  .room-availability, .room-empty-state { position: relative; order: 7; inset: auto; margin: var(--s6) 0 0; }
+  .orbit-dock { top: 300px; z-index: 10; }
 }
