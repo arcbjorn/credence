@@ -18,7 +18,7 @@ Every figure below was read from a run, not from memory.
 | Solidity | **207** in 14 suites | `forge test` |
 | Rust (`risk-core`) | **155** across 12 binaries | `cargo test -p risk-core` |
 | Go (`gateway`) | 22 packages, all passing | `go test -race -count=1 ./...` |
-| TypeScript (`web`) | **156** | `pnpm test` |
+| TypeScript (`web`) | **247** | `pnpm test` |
 | TypeScript (`indexer`) | **11** | `pnpm test` |
 
 These are checked by `scripts/check-docs.sh`, not maintained by hand.

@@ -84,13 +84,17 @@ that passed.**
 
 ### The interface
 
-`docs/09`'s eight screens, rendering what the demos retained, plus five
+`docs/09`'s eight screens, rendering what the demos retained, plus eight
 more: **Start here**, which is the nine-beat script `docs/09` specifies
 rather than another table; **Indexed**, the lifecycle rebuilt from the
 event log by the Envio indexer (needs Docker, skipped without it);
 **Perpl risk**, live orderbook depth, funding and volatility from the
 perps venue driving the three stress scenarios; the four **observatory
-rooms**, served from one component; and a **field guide** to the physics. One command does the whole path — toolchain
+rooms**, served from one component; a **field guide** to the physics;
+and three that let a reader act rather than read — the **borrow desk**,
+which prices a request they compose; **what a record earns**, one
+controlled run where only the record moves; and **live on Monad**, the
+only screen that reads the network. One command does the whole path — toolchain
 check, a local chain, the demos, the WebAssembly engine, the data bundle,
 and the dev server:
 
@@ -108,6 +112,26 @@ screen runs it too, evaluating one retained snapshot twice: once against
 the market the venue reports, once against the declared placeholder, with
 only the market evidence differing (`scripts/build-perpl-data.sh` captures
 it; the page never fetches).
+
+The **borrow desk** turns that around: a reader composes the request —
+how much, against what record, into what market — and the same engine
+prices it live, returning terms or a refusal and naming the constraint
+that bound it. It edits a retained snapshot rather than inventing one,
+and it is a quote, not a loan: origination consumes an attestor-signed
+quote, and that key is deliberately not in the browser.
+
+**What a record earns** is the claim this project rests on, as a single
+controlled run. `scripts/demo-growth.sh` originates the same principal
+eight times against one agent and holds everything else still, so the
+rate it is quoted falls **12.00% → 9.20% on record alone** and the
+binding constraint hands off from `HistoryGrowthCap` to `StressCapacity`
+where the ceiling flattens. Nothing else moved; the script prints the
+delta and fails loudly if the rate did not fall.
+
+**Live on Monad** is the one screen that reads the network. It reads the
+deployment's four vault ledgers and every loan straight from chain
+10143, and it will sign exactly one transaction: `repay`, the borrower's
+own side, which needs no attestor signature.
 
 `make` on its own lists the other entry points; every one of them is a
 script under `scripts/`, so make is a convenience rather than a

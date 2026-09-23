@@ -1,9 +1,9 @@
 # `web` — the interface
 
 The eight screens `docs/09` specifies, all built,
-plus five beyond that list: the four observatory rooms
-and the field guide. The optional note view is not built,
-and `docs/09` marks it optional.
+plus eight beyond that list: the four observatory rooms,
+the field guide, and three interactive records. The optional
+note view is not built, and `docs/09` marks it optional.
 
 | Screen | `docs/09` beat |
 |---|---|
@@ -15,6 +15,14 @@ and `docs/09` marks it optional.
 | Lender | the epoch's ledgers, kept separate |
 | Enforcement | 6 — the prohibited withdrawal, reverted on chain |
 | Replay | 8 — does retained input reproduce the assessment? |
+
+Three records go past reporting and let a reader act:
+
+| Screen | What it does |
+|---|---|
+| Borrow desk | Compose a request; the real engine prices it in the tab |
+| What a record earns | One controlled run: only the record moves, so the price moves for one reason |
+| Live on Monad | Reads the deployment directly, and will sign a repayment |
 
 Thirteenth and last, the field guide. Five screens sit outside
 `docs/09`'s list: the observatory, atlas, moons and body rooms are one
@@ -147,9 +155,10 @@ pnpm build       # -> dist/, a static folder
 
 ## Stack
 
-React 19, Vite 8, TypeScript 7, React Router 7, Vitest 5. `viem` is
-present for direct chain reads; the screens built so far read the
-generated bundle instead.
+React 19, Vite 8, TypeScript 7, React Router 7, Vitest 5. `viem` reads
+Monad testnet directly on the **Live** record, which is the only screen
+that touches the network; every other one reads the generated bundle and
+works offline.
 
 `src/engine/` and `public/data/` are generated and gitignored — committing
 either would create a second copy of the engine or the evidence that could
