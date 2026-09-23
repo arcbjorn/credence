@@ -1,114 +1,49 @@
-import { useId } from "react";
-import { useInView, useMotionAllowed } from "./Motion";
+import { useEffect, useId, useState } from "react";
+import { eclipseLayout } from "../lib/eclipse";
+import { worldPalette } from "../lib/world-palette";
 
-/**
- * The eclipse.
- *
- * Two bodies: the lender's capital casts the light, the borrowed
- * position casts the shadow. How far the shadow has travelled across the
- * light IS utilization -- at a lightly used book the two barely touch, at
- * a heavily used one the light is nearly covered.
- *
- * The reason this earns its place next to the numbers: a fund manager
- * reads an overlap in about a second, and reads "utilization 61%" in
- * about five. Same figure, and the geometry is derived from it rather
- * than drawn to look dramatic -- the offset is a direct function of
- * utilization, so the picture cannot flatter the book.
- *
- * With no utilization figure it renders nothing. An eclipse drawn at a
- * guessed offset would be the most confident lie on the page.
- */
-
-const W = 300;
-const H = 180;
-const R = 58;
-
-export function Eclipse({
-  utilization,
-  idle,
-  outstanding,
-}: {
-  /** Outstanding over the whole book, in [0,1]. */
+/** The same materials and area-based geometry as the full-size credit body. */
+export function Eclipse({ utilization, idle, outstanding }: {
   utilization: number | null;
-  /** For the readout, in display units. */
   idle?: string;
   outstanding?: string;
 }) {
-  const motion = useMotionAllowed();
-  const { ref, seen } = useInView<SVGSVGElement>();
   const id = useId();
+  const [dark, setDark] = useState(false);
+  useEffect(() => {
+    const scheme = window.matchMedia?.("(prefers-color-scheme: dark)");
+    const update = () => {
+      const preference = document.documentElement.dataset.theme;
+      setDark(preference === "dark" || (!preference && Boolean(scheme?.matches)));
+    };
+    const observer = new MutationObserver(update);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    scheme?.addEventListener("change", update);
+    update();
+    return () => { observer.disconnect(); scheme?.removeEventListener("change", update); };
+  }, []);
 
   if (utilization === null) return null;
-
   const u = Math.max(0, Math.min(1, utilization));
-
-  // Full separation at 0, concentric at 1. The shadow travels the whole
-  // diameter, so the overlap area is the thing that moves.
-  const offset = (1 - u) * (R * 2);
-
-  const lightX = W / 2 - offset / 2;
-  const shadowX = W / 2 + offset / 2;
-
-  return (
-    <div className="eclipse">
-      <svg
-        ref={ref}
-        viewBox={`0 0 ${W} ${H}`}
-        role="img"
-        aria-label={
-          `The lender's capital and the borrowed position, overlapping by ` +
-          `${Math.round(u * 100)} percent: the book's utilization.`
-        }
-        className={seen && motion ? "in" : ""}
-      >
-        <defs>
-          <radialGradient id={`${id}-light`} cx="40%" cy="34%" r="72%">
-            <stop offset="0%" stopColor="var(--growth)" stopOpacity="0.42" />
-            <stop offset="100%" stopColor="var(--growth)" stopOpacity="0.08" />
-          </radialGradient>
-          {/* The shadow body is a hole, not a colour: it is capital that
-              is NOT available, so it takes light away. */}
-          <radialGradient id={`${id}-shadow`} cx="60%" cy="40%" r="72%">
-            <stop offset="0%" stopColor="#000" stopOpacity="0.88" />
-            <stop offset="100%" stopColor="#000" stopOpacity="0.72" />
-          </radialGradient>
-        </defs>
-
-        {/* Light: the lender's capital. */}
-        <circle
-          cx={lightX}
-          cy={H / 2}
-          r={R}
-          fill={`url(#${id}-light)`}
-          stroke="var(--growth)"
-          strokeWidth="0.75"
-          strokeOpacity="0.5"
-          className="eclipse-light"
-        />
-
-        {/* Shadow: what is out on loan. */}
-        <circle
-          cx={shadowX}
-          cy={H / 2}
-          r={R}
-          fill={`url(#${id}-shadow)`}
-          stroke="var(--rule)"
-          strokeWidth="0.75"
-          strokeOpacity="0.4"
-          className="eclipse-shadow"
-        />
-
-        <text x={W / 2} y={H - 14} textAnchor="middle" className="eclipse-figure">
-          {Math.round(u * 100)}% drawn
-        </text>
-      </svg>
-
-      <p className="eclipse-legend">
-        <span className="eclipse-key eclipse-key-light" />
-        {idle ?? "idle"} free
-        <span className="eclipse-key eclipse-key-shadow" />
-        {outstanding ?? "outstanding"} lent
-      </p>
-    </div>
-  );
+  const palette = worldPalette(dark);
+  const { radius, lightX, shadowX } = eclipseLayout(u, 58, 128);
+  return <div className="eclipse">
+    <svg viewBox="0 0 300 180" role="img" aria-label={`The borrowed position covers ${Math.round(u * 100)} percent of the lender's capital: the book's utilization.`}>
+      <defs>
+        <radialGradient id={`${id}-light`} cx="56%" cy="62.5%" r="70%" fx="28.5%" fy="28.5%">
+          {[0, .25, .55, .85, 1].map((stop, i) => <stop key={stop} offset={stop} stopColor={palette.shell[i]} />)}
+        </radialGradient>
+        <radialGradient id={`${id}-shadow`} cx="60%" cy="60%" r="85%" fx="10%" fy="22.5%">
+          {[0, .28, .56, .82, 1].map((stop, i) => <stop key={stop} offset={stop} stopColor={palette.eclipse[i]} />)}
+        </radialGradient>
+        <linearGradient id={`${id}-rim`} x1="0" y1="0" x2="1" y2="1">
+          {[0, .5, 1].map((stop, i) => <stop key={stop} offset={stop} stopColor={palette.eclipseRim[i]} />)}
+        </linearGradient>
+      </defs>
+      <circle cx={150 + lightX} cy="82" r={radius} fill={`url(#${id}-light)`} stroke={palette.rim} strokeWidth=".6" className="eclipse-light" />
+      <circle cx={150 + shadowX} cy="82" r={radius} fill={`url(#${id}-shadow)`} stroke={`url(#${id}-rim)`} strokeWidth=".6" className="eclipse-shadow" />
+      <text x="150" y="166" textAnchor="middle" className="eclipse-figure">{Math.round(u * 100)}% drawn</text>
+    </svg>
+    <p className="eclipse-legend"><span className="eclipse-key eclipse-key-light" />{idle ?? "idle"} free<span className="eclipse-key eclipse-key-shadow" style={{ background: palette.eclipse[2] }} />{outstanding ?? "outstanding"} lent</p>
+  </div>;
 }
