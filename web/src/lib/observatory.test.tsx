@@ -131,7 +131,7 @@ describe("the credit rooms", () => {
     expect(screen.queryByRole("button", { name: "Proven, score 900" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Concentrated, score 300, denied" }));
     const dock = screen.getByRole("complementary");
-    expect(within(dock).getByRole("heading", { name: "Concentrated." })).toBeInTheDocument();
+    expect(within(dock).getByRole("heading", { name: "Concentrated" })).toBeInTheDocument();
     expect(within(dock).getByText("Denied")).toBeInTheDocument();
     expect(within(dock).getByText("—")).toBeInTheDocument();
     expect(within(dock).queryByText("12.00%")).not.toBeInTheDocument();
@@ -150,12 +150,12 @@ describe("the credit rooms", () => {
     fireEvent.change(screen.getByRole("slider", { name: /Loan history/ }), { target: { value: "0" } });
     expect(screen.getByRole("img", { name: /Score 610/ })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: /Credit body/ })).toHaveAccessibleName(/8.0% utilization/);
-    expect(screen.getByText("Each loan this agent has taken")).toBeInTheDocument();
+    expect(screen.getByRole("slider", { name: /Loan history/ })).toHaveAttribute("aria-valuetext", "Origination 1, 12.00% APR");
   });
 
   it("dismisses a dock with Escape and restores the opening instrument's focus", () => {
     room("/moons");
-    const open = screen.getByRole("button", { name: "Open this pool ↗" });
+    const open = screen.getByRole("button", { name: "Open this pool" });
     act(() => open.focus());
     fireEvent.click(open);
     expect(screen.getByRole("button", { name: "Close spec sheet" })).toHaveFocus();
@@ -176,13 +176,13 @@ describe("the credit rooms", () => {
     render(<MemoryRouter><FieldGuide /></MemoryRouter>);
     fireEvent.click(screen.getByRole("button", { name: "Chapter 3: Core" }));
     expect(screen.getByRole("heading", { name: "The lender's money." })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Open the lender's books ↗" })).toHaveAttribute("href", "/lender");
+    expect(screen.getByRole("link", { name: "Open the lender's books" })).toHaveAttribute("href", "/lender");
   });
 
   it("gives an unknown coordinate a way back", () => {
     render(<MemoryRouter><EmptyCoordinate /></MemoryRouter>);
     expect(screen.getByRole("heading", { name: "This coordinate is empty." })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Return to the observatory ↗" })).toHaveAttribute("href", "/observatory");
+    expect(screen.getByRole("link", { name: "Return to the observatory" })).toHaveAttribute("href", "/observatory");
   });
 
   it("restores instruments when Alt is released or the window loses focus", () => {
