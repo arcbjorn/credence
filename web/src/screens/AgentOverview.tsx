@@ -54,7 +54,7 @@ export function AgentOverview() {
             {originations.length} sequential{" "}
             {originations.length === 1 ? "loan" : "loans"} under one policy
             and one model. The limit rises as history accumulates, the rate
-            falls, and the constraint that bounds the facility changes.
+            falls, and the binding constraint changes.
           </>
         ) : (
           <>

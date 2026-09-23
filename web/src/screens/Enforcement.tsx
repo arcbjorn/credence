@@ -52,9 +52,9 @@ export function Enforcement() {
   return (
     <>
       <RecordHeader title="Enforcement">
-        The account holds real collateral, and the contract refuses to
-        release it while the loan is open. Both refusals below are
-        transactions that reverted against the deployment.
+        The contract will not release collateral while the loan is open.
+        Both refusals below are transactions that reverted against the
+        deployment.
       </RecordHeader>
 
       {held && (
@@ -64,8 +64,8 @@ export function Enforcement() {
             {units(held.detail.split(" ")[0], heldDecimals(held.detail))}
           </p>
           <p className="lede" style={{ margin: 0 }}>
-            Withdrawable in principle — the balance is really there, so the
-            refusals below are not an empty account.
+            The balance is present and withdrawable when no debt is open.
+            The refusals below are not an empty account.
           </p>
         </div>
       )}
@@ -88,8 +88,8 @@ export function Enforcement() {
             <p>Not the owner, so the call never reaches the debt check.</p>
             <code className="hash">{strangerRefused.detail}</code>
             <p className="lede" style={{ marginTop: 8, marginBottom: 0 }}>
-              A <strong>different</strong> error. If the two matched, the first
-              refusal would only be proving access control.
+              A <strong>different</strong> selector. Matching selectors would
+              mean the first refusal was only access control.
             </p>
           </div>
         )}

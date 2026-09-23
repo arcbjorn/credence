@@ -46,9 +46,8 @@ export function Comparison_() {
   return (
     <>
       <RecordHeader title="Three agents">
-        One policy and one model, applied to three accounts that differ in
-        a single respect at a time. What separates them is what they have
-        demonstrated and what they are currently holding.
+        One policy and one model against three accounts, each differing in
+        a single respect: what they have repaid, and what they hold now.
       </RecordHeader>
 
       <div className="modes">

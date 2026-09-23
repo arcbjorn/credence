@@ -150,8 +150,8 @@ function LoanCard({ loan, events }: { loan: IndexedLoan; events: IndexedEvent[] 
         </p>
       ) : (
         <p className="lede">
-          Still open — nothing recovered or written off yet, so there is no
-          final accounting to check.
+          Open. Nothing recovered or written off yet, so there is no final
+          accounting to check.
         </p>
       )}
 
@@ -183,7 +183,7 @@ function LoanCard({ loan, events }: { loan: IndexedLoan; events: IndexedEvent[] 
         {loan.resolvedAt && loan.resolvedAt !== "0"
           ? `, resolved ${at(loan.resolvedAt)}`
           : ""}
-        . Every row above is a transaction on chain.
+. Every row above is a transaction on chain.
       </p>
     </div>
   );
@@ -248,8 +248,8 @@ export function IndexedLifecycle() {
       {data.loans.length === 0 ? (
         <div className="card rail rail-machine">
           <p style={{ margin: 0 }}>
-            The indexer synced and found no loans on this deployment. That is
-            an empty chain, not a failed sync.
+            The indexer synced and found no loans on this deployment. Empty
+            chain, not a failed sync.
           </p>
         </div>
       ) : (

@@ -56,9 +56,8 @@ export function EvidenceInspector() {
   return (
     <>
       <RecordHeader title="Evidence">
-        Everything the engine was shown for this decision, item by item,
-        with its source and freshness. Nothing here is summarized into a
-        single status.
+        Every input the engine saw for this decision, with its source and
+        age. No item is collapsed into a single status.
       </RecordHeader>
 
       <p>
@@ -123,9 +122,9 @@ export function EvidenceInspector() {
       </div>
 
       <p className="lede" style={{ marginTop: 12 }}>
-        An item read from chain and an item derived from a provider are
-        different evidence, and a scenario's generated history is different
-        again. Each row keeps its own label so those stay distinguishable.
+        Chain reads, provider-derived values and scenario-generated history
+        are three different kinds of evidence. Each row carries its own
+        label.
       </p>
 
       <details>

@@ -156,8 +156,7 @@ export function PerplPanel() {
           {data.venue.symbol} (market {data.venue.market_id})
         </strong>{" "}
         on Perpl, driving the three mandatory stress scenarios. The engine
-        runs in this tab, so what you see is its own output rather than a
-        second implementation of it.
+        itself runs in this tab, compiled to WebAssembly.
       </RecordHeader>
 
       <div className="modes">
@@ -234,13 +233,12 @@ export function PerplPanel() {
 
       <p className="note">
         <strong>Funding is displayed, not consumed.</strong> Perpl&rsquo;s
-        funding rate is the premium longs pay shorts; the engine&rsquo;s{" "}
+        funding rate is the premium longs pay shorts. The engine&rsquo;s{" "}
         <code>funding_rate_bps</code> is the lender&rsquo;s cost of capital,
-        deducted from gross interest. They share a name and nothing else, and
-        wiring one into the other would silently corrupt loan pricing.
-        Persistent one-sided funding indicates <em>crowding</em> — leveraged
-        positioning that unwinds faster than it accumulates, which is a reason
-        to read a calm volatility number with suspicion.
+        deducted from gross interest. Same name, unrelated quantities; wiring
+        one into the other would corrupt loan pricing. Persistent one-sided
+        funding means crowded positioning, which unwinds faster than it
+        builds up. Calm volatility under crowded funding is not calm.
       </p>
 
       <h3>The book that depth was summed from</h3>
@@ -282,9 +280,9 @@ export function PerplPanel() {
       </div>
       <p className="note">
         Depth sums the <strong>bid</strong> side only. Liquidating collateral
-        sells, so it trades into bids; counting asks would report depth that
-        cannot absorb the modelled trade. The stress model divides by depth in
-        a square-root impact term, so overstating it understates impact and
+        sells into bids; counting asks would report depth that cannot absorb
+        the trade. The stress model divides by depth in a square-root impact
+        term. Overstate depth and the model understates impact, which
         over-lends.
       </p>
 

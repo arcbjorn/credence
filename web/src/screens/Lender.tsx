@@ -59,9 +59,8 @@ export function Lender() {
   return (
     <>
       <RecordHeader title="Lender">
-        The epoch's ledgers, read from the vault on chain. They are kept
-        apart because they are different facts — uncollected interest is not
-        cash a lender can withdraw.
+        The epoch's ledgers, read from the vault on chain. They stay
+        separate because uncollected interest is not withdrawable cash.
       </RecordHeader>
 
       <div className="grid">
@@ -69,7 +68,7 @@ export function Lender() {
           <h3>Idle cash</h3>
           <p className="figure figure-growth">{amount(find("idle cash"))}</p>
           <p className="lede" style={{ margin: 0 }}>
-            Available to lend, and the only figure here that is settled cash.
+            The only settled cash here. Available to lend or withdraw.
           </p>
         </div>
 
@@ -85,8 +84,8 @@ export function Lender() {
           <h3>Interest collected</h3>
           <p className="figure figure-growth">{amount(interest)}</p>
           <p className="lede" style={{ margin: 0 }}>
-            Actually received. Accrued-but-unpaid interest is a receivable,
-            not this number.
+            Received by the vault. Accrued-but-unpaid interest is a
+            receivable, not this figure.
           </p>
         </div>
 
@@ -120,16 +119,15 @@ export function Lender() {
                 <h3>Idle cash</h3>
                 <p className="figure">{amount(lossOf("idle cash"))}</p>
                 <p className="lede" style={{ margin: 0 }}>
-                  What recovery actually collected, returned to the vault.
+                  What recovery collected, returned to the vault.
                 </p>
               </div>
               <div className="card rail rail-alarm">
                 <h3>Realized loss</h3>
                 <p className="figure figure-alarm">{realized}</p>
                 <p className="lede" style={{ margin: 0 }}>
-                  Principal the market destroyed, borne by the vault after the
-                  borrower's equity was exhausted. Written off on chain, not
-                  asserted here.
+                  Principal lost to the price move, borne by the vault once
+                  the borrower's equity ran out. Written off on chain.
                 </p>
               </div>
               <div className="card rail rail-machine">
@@ -138,8 +136,8 @@ export function Lender() {
                   {amount(lossOf("principal outstanding"))}
                 </p>
                 <p className="lede" style={{ margin: 0 }}>
-                  Zero: the loan resolved. The loss is recorded as loss, not
-                  left sitting as exposure.
+                  Zero. The loan resolved, so the shortfall sits in realized
+                  loss rather than in open exposure.
                 </p>
               </div>
             </div>

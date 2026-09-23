@@ -81,8 +81,8 @@ export function Replay() {
     <>
       <RecordHeader title="Replay">
         Does the retained input reproduce the assessment under the pinned
-        model? The engine runs in this tab — the same Rust the gateway
-        uses, compiled to WebAssembly.
+        model? The engine runs in this tab: the same Rust the gateway uses,
+        compiled to WebAssembly.
       </RecordHeader>
 
       <div className="card" style={{ marginBottom: 16 }}>
@@ -116,12 +116,11 @@ export function Replay() {
           <div className={report.matched ? "match" : "difference"}>
             {report.matched ? "Reproduced" : "Did not reproduce"}
             {ran === "tampered" && report.matched && (
-              <> — altered evidence produced the same assessment, so this
+              <> — altered evidence produced the same assessment. This
               replay checks nothing.</>
             )}
             {ran === "tampered" && !report.matched && (
-              <> — the altered input is a different decision, which is the
-              expected result.</>
+              <> — expected. The altered input is a different decision.</>
             )}
           </div>
 
