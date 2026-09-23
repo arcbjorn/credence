@@ -16,6 +16,13 @@ export const SECTIONS: Section[] = [
   { id: "guide", path: "/guide", label: "Field guide", records: ["/evidence", "/replay"] },
 ];
 
+/** Log is a frequent destination, even though its records belong to Observatory. */
+export const PRIMARY_LINKS = [
+  ...SECTIONS.slice(0, 4),
+  { path: "/log", label: "Log" },
+  ...SECTIONS.slice(4),
+];
+
 export interface Screen {
   path: string;
   title: string;
