@@ -628,6 +628,104 @@ fn emit_comparison() {
                 }
             },
         ),
+        // --- five more, for the same reason as the first three ---
+        //
+        // Three points describe a line through the decision space and
+        // nothing about its shape. A reader looking at the globe saw
+        // three agents and could not tell whether the engine has two
+        // outcomes or a continuum, nor which inputs it is sensitive to.
+        //
+        // Each of these still varies ONE thing from the same baseline,
+        // and each exists to show a DIFFERENT constraint binding. If two
+        // profiles bind on the same constraint for the same reason, the
+        // second is decoration.
+        profile(
+            "Emerging",
+            "A partial record: some obligations repaid, not many. The \
+             limit is still set by history, but history has started to \
+             lift it.",
+            &|i: &mut RiskInput| {
+                if let Some(h) = i.history.value.as_mut() {
+                    h.weighted_repayments_ppm = 350_000;
+                }
+            },
+        ),
+        profile(
+            "Scarred",
+            "A good record with real defaults in it. Credit is not \
+             withdrawn -- the price rises. A record with a default is \
+             still a record.",
+            &|i: &mut RiskInput| {
+                if let Some(h) = i.history.value.as_mut() {
+                    h.weighted_repayments_ppm = 750_000;
+                    h.resolved_defaults = 3;
+                }
+            },
+        ),
+        profile(
+            "Stormbound",
+            "A proven agent asking to buy into a violently volatile \
+             asset. The record is untouched; what it survives is not.",
+            &|i: &mut RiskInput| {
+                if let Some(h) = i.history.value.as_mut() {
+                    h.weighted_repayments_ppm = 1_000_000;
+                }
+                if let Some(m) = i.market.value.as_mut() {
+                    m.realized_volatility_bps = Bps(8_000);
+                }
+                if let Context::Origination { request } = &mut i.context {
+                    request.intended_action = IntendedAction::Acquire {
+                        asset: "ETH".into(),
+                        price: Amount(2_000_000_000),
+                        price_scale: 6,
+                        deploy_bps: Bps(10_000),
+                        haircut_bps: Bps(500),
+                    };
+                }
+            },
+        ),
+        profile(
+            "Indebted",
+            "A proven agent that has already drawn most of its facility. \
+             What it has EARNED is unchanged -- what it may still draw \
+             is what is left underneath the limit.",
+            &|i: &mut RiskInput| {
+                if let Some(h) = i.history.value.as_mut() {
+                    h.weighted_repayments_ppm = 1_000_000;
+                }
+                if let Some(a) = i.account.value.as_mut() {
+                    // The ONLY profile whose agent and drawable capacity
+                    // differ, which is the point of it: this is a
+                    // lender-side limit, not a judgement about the agent.
+                    //
+                    // Reached by lowering the FACILITY LIMIT rather than
+                    // by piling on debt. Headroom is
+                    // `facility_limit - outstanding_debt`, so against the
+                    // baseline's 50e9 limit the debt would have to exceed
+                    // 38e9 to bind -- and a debt that size destroys stress
+                    // coverage first, so every attempt came back denied on
+                    // `StressCapacity` with the headroom never reached. A
+                    // smaller facility with a modest draw is the honest
+                    // way to show this constraint, and it is also the
+                    // realistic one.
+                    a.facility_limit = Amount(14_000_000_000);
+                    a.outstanding_debt = Amount(8_000_000_000);
+                }
+            },
+        ),
+        profile(
+            "Unreadable",
+            "Evidence the engine will not stand behind: its repayment \
+             history is incomplete. It refuses to rate rather than \
+             guessing.",
+            &|i: &mut RiskInput| {
+                if let Some(h) = i.history.value.as_mut() {
+                    h.weighted_repayments_ppm = 1_000_000;
+                    h.coverage_complete = false;
+                }
+                i.history.coverage = Coverage::Partial;
+            },
+        ),
     ];
 
     let doc = serde_json::json!({
@@ -663,7 +761,7 @@ fn shipped_policy() -> Policy {
 
 /// The committed comparison fixture must still be what the engine says.
 ///
-/// `docs/09` beat 1 opens the demo on these three profiles, and the
+/// `docs/09` beat 1 opens the demo on these profiles, and the
 /// interface renders the fixture rather than recomputing. A fixture that
 /// drifted from the engine would put figures on screen that the engine no
 /// longer produces — the precise failure the replay screen exists to rule
@@ -707,4 +805,71 @@ fn comparison_fixture_matches_the_engine() {
             diffs
         );
     }
+}
+
+/// No profile may duplicate another's answer.
+///
+/// The set exists to show the SHAPE of the decision space, so a profile
+/// that produces the same decision, capacity and rate as an existing one
+/// teaches a reader nothing and costs a node on the globe. This is not
+/// hypothetical: `Indebted` was first written with an outstanding debt of
+/// 11e9 against the baseline's 50e9 facility, which left 39e9 of headroom
+/// -- far above the 12e9 hard cap, so the lender-side constraint never
+/// bound and it returned figures byte-identical to `Proven`.
+///
+/// Distinctness is judged on the tuple a reader actually sees: the
+/// decision, both capacities, and the rate.
+#[test]
+fn every_comparison_profile_says_something_new() {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .ancestors()
+        .nth(3)
+        .expect("repo root")
+        .join("fixtures/demo/comparison.json");
+    let raw = match std::fs::read_to_string(&path) {
+        Ok(r) => r,
+        Err(_) => return,
+    };
+    let doc: serde_json::Value = serde_json::from_str(&raw).expect("parse fixture");
+    let profiles = doc["profiles"].as_array().expect("profiles");
+
+    let mut seen: Vec<(String, String)> = vec![];
+    for profile in profiles {
+        let name = profile["name"].as_str().expect("name").to_string();
+        let outcome = &profile["assessment"]["outcome"];
+        // Serialised rather than field-by-field: any difference a reader
+        // could see counts, including one in a field added later.
+        let shape = serde_json::to_string(&serde_json::json!({
+            "decision": outcome["decision"],
+            "agent_capacity": outcome["capacity"]["agent_capacity"],
+            "drawable_capacity": outcome["capacity"]["drawable_capacity"],
+            "apr_bps": outcome["terms"]["apr_bps"],
+        }))
+        .expect("shape");
+
+        if let Some((other, _)) = seen.iter().find(|(_, s)| *s == shape) {
+            panic!(
+                "profiles {other} and {name} produce the same answer ({shape}); \
+                 one of them is decoration"
+            );
+        }
+        seen.push((name, shape));
+    }
+
+    // The set is only worth rendering if it spans the space. Three
+    // distinct binding constraints is the floor: history, the hard cap,
+    // and stress. Below that the globe shows variety it does not have.
+    let bindings: std::collections::BTreeSet<String> = profiles
+        .iter()
+        .filter_map(|p| {
+            p["assessment"]["outcome"]["capacity"]["agent_binding"]
+                .as_str()
+                .map(str::to_string)
+        })
+        .collect();
+    assert!(
+        bindings.len() >= 3,
+        "profiles name only {} binding constraint(s): {bindings:?}",
+        bindings.len()
+    );
 }
