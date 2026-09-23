@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router";
+import { RecordHeader } from "../components/Record";
 import { World } from "../components/World";
 import { readBook } from "../lib/book";
 import { borrowerNode, originations, useSurvey, type Projection } from "../lib/observatory";
@@ -23,5 +24,5 @@ export function FieldGuide() {
 }
 
 export function EmptyCoordinate() {
-  return <section className="empty-coordinate"><div><p className="eyebrow">404</p><h1>This coordinate is empty.</h1><Link to="/observatory" className="text-link">Return to the observatory</Link></div><World book={readBook(null)} nodes={[]} paused /></section>;
+  return <section className="empty-coordinate"><div><p className="page-context">404</p><RecordHeader title="This coordinate is empty." /><Link to="/observatory" className="text-link">Return to the observatory</Link></div><World book={readBook(null)} nodes={[]} paused /></section>;
 }
