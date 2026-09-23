@@ -80,8 +80,8 @@ html { scroll-padding-top:95px; }
 .wordmark-period { color:var(--machine); }
 .bar-links { display:flex;flex:0 1 auto;flex-direction:row;width:auto;padding:0;gap:32px;margin-left:auto;overflow:visible; }
 .bar-links a { text-decoration:none;white-space:nowrap;transition:color 140ms ease;font:var(--t2) var(--sans);letter-spacing:0;color:var(--text-dim);padding:8px 0;border:0;text-transform:none; }
-.bar-links a.active { color:var(--text);background:none;border:0; }
-.bar-links a.active::after { content:'';display:block;width:4px;height:4px;border-radius:50%;background:var(--machine);position:absolute;bottom:-9px;left:50%; }
+.bar-links a.active { color:var(--text);background:none;border:0;box-shadow:inset 0 -1px var(--machine); }
+
 .bar-links a { position:relative; }
 .bar-actions { display:flex;align-items:center;gap:22px; }
 .theme-switch { border:0;background:none;padding:7px;font-size:var(--t5);line-height:1; }
@@ -97,11 +97,8 @@ thead th { font-weight:400;padding-top:16px;padding-bottom:16px;color:var(--text
 td { padding-top:15px;padding-bottom:15px; }
 .modes { margin:24px 0; }
 .mode { font:var(--t1) var(--mono);border-radius:0;padding:5px 9px; }
-/* Shares the reading measure of the content above it: at 5% the
-   footer sat 137px left of the page it belongs to. */
-.inner-footer { max-width:1300px;margin:0 auto;padding:var(--s6) var(--gutter);border-top:1px solid var(--border);display:flex;justify-content:space-between;color:var(--text-dim);font:var(--t1) var(--mono); }
-.inner-footer a { text-decoration:none; }
-.eyebrow,.instrument-label,.story-topline,.story-bottomline,.room-topline,.room-footer { font:var(--t1)/var(--lh-snug) var(--mono);letter-spacing:.09em;text-transform:uppercase; }
+
+.eyebrow,.instrument-label,.story-bottomline,.room-topline { font:var(--t1)/var(--lh-snug) var(--mono);letter-spacing:.09em;text-transform:uppercase; }
 .eyebrow { color:var(--text-dim);display:flex;gap:10px;align-items:center; }
 .status-pin { display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--growth);flex:none; }
 .muted { color:var(--text-dim); }
@@ -110,8 +107,7 @@ td { padding-top:15px;padding-bottom:15px; }
 .instrument-note { font:var(--t1)/var(--lh-body) var(--mono);color:var(--text-dim); }
 .planet-story { height:560vh;position:relative; }
 .story-viewport { height:100svh;min-height:720px;position:sticky;top:0;padding:108px var(--gutter) 0;overflow:hidden; }
-.story-topline { display:flex;justify-content:space-between;color:var(--text-dim);font-size:var(--t1);border-top:1px solid var(--border);padding-top:15px; }
-.tiny-cross { margin-left:30px;font-size:var(--t3); }
+
 .story-copy.split-left { position:static;top:auto;padding:0;border:0;background:none;max-width:none; }
 /* The copy column is bounded below by the readings row. At 8vh this
    top margin took 69px on a short viewport and pushed the call to
@@ -126,19 +122,20 @@ td { padding-top:15px;padding-bottom:15px; }
    unanimated rather than risking blank text on load. */
 .shell-landing .story-copy .hero { position:relative;z-index:3;max-width:5.8em;font:500 clamp(64px,7.3vw,118px)/.99 var(--sans);letter-spacing:-.065em;margin:0 0 26px;animation:none; }
 .shell-landing .story-copy .hero-lede { position:relative;z-index:3;width:30%;max-width:32ch;font:var(--t3)/var(--lh-body) var(--sans);margin:0 0 27px;animation:none; }
+.hero-access { position:relative;z-index:3;font:var(--t1) var(--mono);color:var(--text-dim);margin:var(--s1) 0 0; }
 /* The opening headline is longer than the one this measure was set
    for, and at 5.7em it wrapped to three lines -- 347px of type in a
    430px column, which pushed the call to action onto the readings
    row. A wider measure keeps it at two lines. */
 .story-chapter-0 .story-copy .hero { max-width:8.4em; }
 .story-viewport:not(.story-chapter-0) .story-copy .hero { font-size:clamp(50px,5.3vw,85px);max-width:6.8em; }
-.story-copy .start-enter { position:relative;z-index:3;display:inline-flex;align-items:center;justify-content:space-between;gap:55px;background:var(--text);color:var(--bg);padding:17px 21px;min-width:195px;font:var(--t2) var(--sans);text-decoration:none;border:0; }
+.story-copy .start-enter { position:relative;z-index:3;display:inline-flex;align-items:center;justify-content:center;background:var(--text);color:var(--bg);padding:17px 21px;min-width:195px;font:var(--t2) var(--sans);text-decoration:none;border:0; }
 .story-copy .start-enter:hover { background:var(--machine);color:var(--bg); }
-.hero-access { position:relative;z-index:3;font:var(--t1) var(--mono);color:var(--text-dim);margin:var(--s1) 0 0; }
+
 .hero-objects.story-world { position:absolute;width:min(67vw,950px,82vh);height:auto;right:-1%;top:46%;transform:translateY(-50%);display:block;margin:0; }
 .credit-world { position:relative;width:100%;aspect-ratio:1;cursor:crosshair; }
 .world-canvas { display:block;width:100%;height:100%; }
-.world-pole { position:absolute;left:50%;transform:translateX(-50%);font:var(--t1) var(--mono);color:var(--text-dim); }
+
 /* The sphere is drawn at cy 400, radius 258 in an 800-unit space, so
    its edge sits at 17.75% of the container in EVERY room whatever the
    container's size -- that ratio is fixed by the drawing code, not by
@@ -146,10 +143,10 @@ td { padding-top:15px;padding-bottom:15px; }
    atmosphere instead do not work: the glow's reach varies with the
    canvas, so a value that hugged one room's body stranded another's
    label hundreds of pixels away. */
-.world-pole-n { top:14%; }.world-pole-s { bottom:14%; }
+
 /* A flattened map has no poles to label, and the markers read as
    stray characters floating above and below the plate. */
-.world-atlas .world-pole,.world-moons .world-pole,.world-layers .world-pole { opacity:0; }
+
 .world-node { position:absolute;transform:translate(-50%,-50%);width:36px;height:36px;padding:0;border:0;border-radius:50%;background:none;display:grid;place-items:center;color:var(--growth); }
 .world-node:hover { border:0; }
 .node-point { display:block;width:var(--node-size,10px);height:var(--node-size,10px);border-radius:50%;background:#d9e4ce;box-shadow:0 0 10px #afdbc499; }
@@ -169,10 +166,11 @@ td { padding-top:15px;padding-bottom:15px; }
 .world-atlas .node-hollow .node-point { background:transparent; }
 .world-atlas .node-exceptional .node-point { background:var(--gold); }
 .satellite { position:absolute;display:flex;gap:15px;align-items:center;z-index:2;font-size:var(--t1);pointer-events:none;max-width:min(300px,42vw); }
-.satellite-top { top:19%;right:3%; }
+
 .satellite p { margin:4px 0 0; }
 .satellite-line { width:64px;height:1px;background:var(--border);position:relative; }
 .satellite-line::before { content:'';position:absolute;left:0;top:-2px;width:4px;height:4px;background:var(--machine);border-radius:50%; }
+.satellite-top { top:19%;right:3%; }
 .satellite-bottom { bottom:21%;left:47%;flex-wrap:wrap;gap:9px;font:var(--t1) var(--mono); }
 .satellite-bottom .instrument-label { font-size:var(--t1); }
 .world-controls { position:absolute;right:6%;bottom:209px;display:flex;gap:23px;z-index:4; }
@@ -191,11 +189,11 @@ td { padding-top:15px;padding-bottom:15px; }
 .chapter-steps button { width:22px;height:28px;padding:8px;border:0;background:none; }
 .chapter-steps button span { display:block;width:4px;height:4px;border-radius:50%;background:var(--rule); }
 .chapter-steps button[aria-pressed=true] span { background:var(--machine);outline:1px solid var(--machine);outline-offset:4px; }
-.story-progress { position:absolute;height:1px;background:var(--machine);bottom:0;left:0;right:0;transform-origin:left; }
+
 .world-layer-labels { position:absolute;right:12%;top:31%;display:grid;gap:40px;font:var(--t1) var(--mono); }
 .world-layer-labels span { border-bottom:1px solid var(--border);padding:8px 0 8px 30px;background:var(--bg); }
 .moon-satellite { position:absolute;left:76%;top:49%;font:var(--t1) var(--mono);padding:8px 0;background:none;border:0;white-space:nowrap; }
-.moon-satellite span { display:block;margin-top:6px;color:var(--machine); }
+
 /* Detailed record headings; the landing ledger lives in weather.css. */
 .record-title { font:500 clamp(40px,4.4vw,66px)/var(--lh-tight) var(--sans);letter-spacing:-.055em;margin:0 0 var(--s5); }
 .record-header { margin:var(--s7) 0 var(--s8); }
@@ -219,15 +217,15 @@ td { padding-top:15px;padding-bottom:15px; }
    the same kind of sentence was 12px on one page and 14px on the
    next -- sometimes both on one page. */
 .room-intro>p:not(.eyebrow) { max-width:32ch;font:var(--t3)/var(--lh-body) var(--sans);color:var(--text-dim); }
-/* The other four rooms head at 58px sans. This one ran 76px serif --
-   a different size AND a different face for the same kind of page. */
-.body-room .room-intro h1 { font:400 clamp(40px,4vw,58px)/var(--lh-display) var(--serif);letter-spacing:0; }
+/* Every room heads the same way. This one used to run serif, which
+   made one of five sibling pages look like a different section of
+   the site. The face now comes from .room-intro h1 like the rest. */
 .room-source { font:var(--t1) var(--mono);color:var(--text-dim); }
 .room-world { position:absolute;width:min(74vw,940px,88vh);top:48%;left:55%;transform:translate(-50%,-50%);transition:left .8s var(--truck),width .8s var(--truck); }
 .room-docked .room-world { left:45%;width:min(65vw,800px,88vh); }
 .room-instruments { position:absolute;left:4.2%;top:41%;width:205px;z-index:3; }
-.room-instruments>.instrument-label { font-size:var(--t1); }
-.room-instruments dl { margin-top:22px; }
+
+.room-instruments dl { margin-top:0; }
 .room-instruments dl>div { margin-bottom:24px; }
 .room-instruments dt { color:var(--text-dim);font:var(--t1) var(--mono); }
 .room-instruments dd { margin:7px 0 0;font:400 var(--t6) var(--sans);letter-spacing:-.04em; }
@@ -236,8 +234,8 @@ td { padding-top:15px;padding-bottom:15px; }
 .room-view-controls { position:absolute;right:4.2%;bottom:229px;z-index:5;display:flex;gap:22px; }
 .room-view-controls button[aria-pressed=true] { color:var(--machine); }
 .room-timeline { position:absolute;bottom:69px;left:4.2%;right:4.2%;z-index:3;border-top:1px solid var(--border);padding:15px 0 0; }
-.filmstrip-heading { display:flex;justify-content:space-between;align-items:center; }
-.filmstrip-heading .instrument-label,.filmstrip-heading a { font:var(--t1) var(--mono);text-decoration:none; }
+.filmstrip-heading { display:flex;justify-content:flex-end;align-items:center; }
+.filmstrip-heading a { font:var(--t1) var(--mono);text-decoration:none; }
 .filmstrip { display:flex;align-items:center;gap:16px;margin-top:9px; }
 .filmstrip>button { position:relative;width:75px;border:0;background:none;border-bottom:1px solid transparent;padding:3px 6px 7px;color:var(--text-dim); }
 .filmstrip>button[aria-pressed=true] { color:var(--machine);border-bottom-color:var(--machine); }
@@ -248,13 +246,12 @@ td { padding-top:15px;padding-bottom:15px; }
 .timeline-scrubber label { display:flex;justify-content:space-between; }
 .timeline-scrubber input { display:block;width:100%;margin:15px 0;accent-color:var(--machine);height:2px; }
 .timeline-scrubber .instrument-note { font-size:var(--t1); }
-.room-footer { display:flex;justify-content:space-between;align-items:center;position:absolute;left:4.2%;right:4.2%;bottom:0;height:51px;border-top:1px solid var(--border);font-size:var(--t1);color:var(--text-dim); }
-.compass-cross { color:var(--machine);font-size:var(--t4);margin-right:10px;vertical-align:middle; }
+
 .room-availability { position:absolute;bottom:54px;right:4.2%;font:var(--t1) var(--mono);color:var(--alarm); }
 .atlas-tools { position:absolute;z-index:4;top:360px;left:4.2%;width:235px; }
 .atlas-search { display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--rule); }
 .atlas-search input { width:100%;min-width:0;border:0;padding:10px 0;background:none;color:var(--text);font:var(--t1) var(--mono); }
-.atlas-search>span { font-size:var(--t5); }
+
 .filter-tabs { display:flex;gap:12px;margin:15px 0; }
 .filter-tabs button { font:var(--t1) var(--mono);text-transform:capitalize;border:0;padding:6px 0;background:none;color:var(--text-dim); }
 .filter-tabs button[aria-pressed=true] { color:var(--machine);border-bottom:1px solid var(--machine); }
@@ -266,17 +263,18 @@ td { padding-top:15px;padding-bottom:15px; }
 .profile-dot-hollow { background:none;border:1px solid var(--alarm); }
 .orbit-dock { position:absolute;top:183px;right:4.2%;width:280px;max-height:calc(100% - 280px);overflow-y:auto;z-index:10;background:var(--bg);border-top:1px solid var(--machine);border-bottom:1px solid var(--border);padding:14px 18px 22px;box-shadow:0 12px 50px color-mix(in srgb,var(--bg) 95%,transparent);animation:dock-arrive .8s var(--truck); }
 @keyframes dock-arrive { from { opacity:0;transform:translateX(24px); } to { opacity:1;transform:translateX(0); } }
-.dock-heading { display:flex;justify-content:space-between;align-items:center; }
-.dock-heading .instrument-label { font-size:var(--t1); }
-.dock-heading button { border:0;padding:0 2px;background:none;font-size:var(--t6); }
+.dock-heading { display:flex;justify-content:flex-end;align-items:center; }
+
+.dock-heading button { border:0;padding:8px 0;background:none;font:var(--t2) var(--sans);color:var(--text-dim); }
 .orbit-dock h2 { font:400 40px/var(--lh-display) var(--serif);letter-spacing:0;margin:28px 0 15px; }
 .dock-caption { font:var(--t3)/var(--lh-body) var(--sans);color:var(--text-dim); }
+.dock-source { display:block;color:var(--text-dim);font:var(--t1)/var(--lh-body) var(--mono);margin-top:16px; }
 .dock-specs { margin:22px 0; }
 .dock-specs>div { display:flex;gap:15px;justify-content:space-between;padding:13px 0;border-bottom:1px solid var(--border);font:var(--t1)/var(--lh-snug) var(--mono); }
 .dock-specs dt { color:var(--text-dim); }
 .dock-specs dd { margin:0;text-align:right;max-width:55%;overflow-wrap:anywhere; }
 .dock-link { display:flex;justify-content:space-between;padding:14px 0;font:var(--t1) var(--sans);text-decoration:none; }
-.dock-source { display:block;color:var(--text-dim);font:var(--t1)/var(--lh-body) var(--mono);margin-top:16px; }
+
 .body-score { position:absolute;right:5%;top:205px;width:155px;color:var(--growth);z-index:4; }
 .body-score svg { width:100%; }
 .body-score svg text { fill:currentColor;font:34px var(--sans); }
@@ -285,30 +283,29 @@ td { padding-top:15px;padding-bottom:15px; }
 .body-score.score-exceptional { color:var(--gold); }
 .room-docked .body-score { display:none; }
 .log-strip { position:relative;z-index:3;display:flex;align-items:flex-start;flex-wrap:wrap;gap:20px;width:260px;margin-top:40px; }
-.log-strip>.instrument-label { flex:1 0 100%; }
+
 .log-journey { width:100px;background:var(--bg);border:1px solid var(--border);padding:15px;font:var(--t1) var(--mono);text-align:left; }
 .log-journey svg { display:block;width:100%;color:var(--machine);margin-bottom:12px; }
 .log-journey span,.log-journey strong,.log-journey small { display:block;margin:5px 0;font-weight:400; }
 .log-journey small { font-size:var(--t1);color:var(--text-dim); }
 .log-strip>.text-link { flex:1 0 100%; }
-.whisper .bar,.whisper .story-copy>.eyebrow,.whisper .hero,.whisper .hero-lede,.whisper .start-enter,.whisper .hero-access,.whisper .story-topline,.whisper .satellite,.whisper .story-readings,.whisper .story-bottomline,.whisper .world-controls,.whisper .room-intro,.whisper .room-topline,.whisper .room-instruments,.whisper .room-timeline,.whisper .room-footer,.whisper .room-view-controls,.whisper .body-score,.whisper .atlas-tools,.whisper .orbit-dock,.whisper .node-label,.whisper .world-pole { opacity:0;pointer-events:none; }
+.whisper .bar,.whisper .story-copy>.eyebrow,.whisper .hero,.whisper .hero-lede,.whisper .start-enter,.whisper .hero-access,.whisper .satellite,.whisper .story-readings,.whisper .story-bottomline,.whisper .world-controls,.whisper .room-intro,.whisper .room-topline,.whisper .room-instruments,.whisper .room-timeline,.whisper .room-view-controls,.whisper .body-score,.whisper .atlas-tools,.whisper .orbit-dock,.whisper .node-label { opacity:0;pointer-events:none; }
 .world-whisper .node-label { display:none; }
 @media (min-width:1700px) { .story-copy>.eyebrow { margin-top:10vh; }.hero-objects.story-world { right:5%; }.story-readings { bottom:80px;padding-bottom:30px; }.world-controls { bottom:230px; } }
 @media (max-height:800px) and (min-width:901px) { .story-viewport { min-height:680px; }.story-copy>.eyebrow { margin-top:38px; }.shell-landing .story-copy .hero { font-size:clamp(60px,6.4vw,92px);margin-bottom:20px; }.shell-landing .story-copy .hero-lede { font-size:var(--t2);margin-bottom:20px; }.story-readings { padding-top:19px;bottom:58px; }.hero-objects.story-world { width:min(62vw,800px,84vh);top:49%; }.world-controls { bottom:190px; }.observatory-room { min-height:740px; }.room-intro { margin-top:30px; }.room-world { width:min(65vw,790px);top:48%; }.room-instruments { top:42%; }.room-instruments dl>div { margin-bottom:15px; }.room-instruments dd { font-size:var(--t5); }.room-timeline { bottom:58px; }.room-view-controls { bottom:190px; }.atlas-tools { top:305px; }.orbit-dock { top:155px;max-height:calc(100% - 215px); } }
 @media (max-width:1100px) { .bar-links { gap:20px; }.bar-actions { gap:15px; }.hero-objects.story-world { width:min(70vw,84vh);right:-8%; }.shell-landing .story-copy .hero-lede { width:36%; }.satellite-top { right:12%; }.satellite-bottom { bottom:16%;left:18%; }.story-readings { gap:20px;grid-template-columns:1.1fr .9fr 1fr; }.reading-provenance { display:none; }.room-world { left:60%;width:78vw; }.room-instruments { width:180px; }.room-docked .room-world { left:49%; }.orbit-dock { right:3%;width:260px; }.body-score { width:120px;top:173px;right:4%; }.atlas-tools { width:210px; }.whisper-hint { display:none; } }
-@media (max-width:900px) { html { scroll-padding-top:84px; } .bar { height:72px;padding:0 var(--gutter);gap:15px;flex-wrap:nowrap; }.bar-mark { font-size:var(--t6); }.bar-mark svg { width:27px;height:27px; }.bar-links { display:none;position:absolute;top:71px;left:0;right:0;margin:0;padding:var(--s5) var(--gutter);background:var(--bg);border-bottom:1px solid var(--border);gap:22px; }.bar-links.bar-open { display:flex;flex-direction:row;flex-wrap:wrap; }.bar-toggle { display:block;background:none;border:0;padding:9px 0;font:var(--t1) var(--mono); }.bar-actions { gap:15px; }.theme-switch { font-size:var(--t4); }.bar-links a { font-size:var(--t2); }.story-viewport { padding:90px var(--gutter) 0;min-height:760px; }.story-topline { font-size:var(--t1); }.story-topline>span:last-child { display:none; }.story-copy>.eyebrow { margin-top:45px;font-size:var(--t1); }.shell-landing .story-copy .hero { font-size:clamp(60px,9vw,88px);max-width:5.7em; }.story-viewport:not(.story-chapter-0) .story-copy .hero { font-size:clamp(48px,7vw,65px); }.shell-landing .story-copy .hero-lede { width:41%;font-size:var(--t2); }.hero-objects.story-world { top:49%;width:min(78vw,80vh);right:-18%; }.satellite-top { right:5%;top:14%;text-align:right; }.satellite-line { width:28px; }.satellite-bottom { left:23%;bottom:23%;font-size:var(--t1); }.story-readings { left:var(--gutter);right:var(--gutter); }.story-readings strong { font-size:var(--t6); }.story-readings .instrument-label { font-size:var(--t1); }.story-bottomline { left:var(--gutter);right:var(--gutter); }.world-controls { right:5%;bottom:194px; }.hero-access { max-width:24ch;line-height:var(--lh-body); }.observatory-room { padding:92px var(--gutter) 0;min-height:880px; }.room-intro { margin-top:30px;width:220px; }.room-intro h1 { font-size:40px; }.room-intro>p:not(.eyebrow) { font-size:var(--t2); }.room-world { width:93vw;left:66%;top:46%; }.room-instruments { left:5%;top:40%;width:160px; }.room-instruments dd { font-size:var(--t5); }.room-docked .room-world { left:49%;width:85vw;opacity:.55; }.orbit-dock { width:260px;right:5%;top:200px;max-height:calc(100% - 280px); }.room-timeline,.room-footer { left:var(--gutter);right:var(--gutter); }.room-view-controls { right:5%;bottom:226px; }.atlas-tools { left:5%;width:190px;top:310px; }.atlas-tools .instrument-note { max-width:24ch; }.body-score { top:185px;right:6%;width:120px; }.landing-footer { padding:var(--s9) var(--gutter) 0; }.stage-inner { padding:105px var(--gutter) var(--s9); }.card { padding:18px; } }
-@media (max-width:600px) { .bar { gap:8px; }.bar-links { gap:18px; }.bar-links a { font-size:var(--t1); }.bar-actions { gap:18px; }.planet-story { height:640vh; }.story-viewport { height:100svh;min-height:870px;padding-top:88px; }.story-topline { font-size:var(--t1); }.story-copy>.eyebrow { margin-top:27px;font-size:var(--t1);margin-bottom:16px; }.shell-landing .story-copy .hero { font-size:62px;max-width:5.7em;line-height:.98;margin-bottom:18px; }.story-viewport:not(.story-chapter-0) .story-copy .hero { font-size:43px;max-width:8.4em;min-height:84px; }.shell-landing .story-copy .hero-lede { width:100%;font-size:var(--t2);line-height:var(--lh-body);max-width:36ch;margin-bottom:17px; }.story-copy .start-enter { min-width:160px;font-size:var(--t1);padding:12px 15px;gap:40px; }.hero-access { display:none; }.hero-objects.story-world { width:min(112vw,440px);right:calc(50% - min(56vw,220px));top:590px; }.satellite-top { top:11%;right:17%;font-size:var(--t1); }.satellite-top .instrument-label { font-size:var(--t1); }.satellite-bottom { left:13%;bottom:13%;font-size:var(--t1); }.satellite-bottom .instrument-label { font-size:var(--t1); }.story-readings { bottom:51px;gap:13px;padding:19px 0; }.story-readings strong { font-size:var(--t4); }.story-readings strong small { font-size:var(--t1); }.story-readings .instrument-label { font-size:var(--t1);letter-spacing:.03em;line-height:var(--lh-body);max-width:17ch; }.story-readings>a { gap:9px; }.story-bottomline { height:48px;font-size:var(--t1); }.story-bottomline>button { font-size:var(--t1);letter-spacing:0; }.chapter-steps { gap:0; }.chapter-steps button { width:17px;padding:6px; }.chapter-steps button span { width:3px;height:3px; }.world-controls { bottom:166px;right:5%;gap:18px; }.world-controls button { font-size:var(--t1); }.node-label { font-size:var(--t1); }.node-label small { font-size:var(--t1); }.world-layer-labels { font-size:var(--t1);gap:17px;right:12%; }.world-layer-labels span { padding-left:15px; }.moon-satellite { font-size:var(--t1);left:66%; }.observatory-room { min-height:1080px;height:auto;padding-top:93px; }.room-topline { font-size:var(--t1); }.room-intro { margin-top:28px;width:100%; }.room-intro h1 { font-size:44px;margin:12px 0; }.room-intro>p:not(.eyebrow) { max-width:32ch;font-size:var(--t2); }.room-intro .eyebrow { font-size:var(--t1); }.room-world { width:min(112vw,560px);left:50%;top:485px; }.room-instruments { top:720px;left:5%;right:5%;width:auto; }.room-instruments>.instrument-label { font-size:var(--t1); }.room-instruments dl { display:grid;grid-template-columns:1.2fr .8fr 1fr;gap:12px;margin:14px 0; }.room-instruments dt { font-size:var(--t1); }.room-instruments dd { font-size:var(--t4); }.room-instruments dd small { display:none; }.room-instruments dl>div { margin:0; }.room-instruments .text-link { font-size:var(--t1); }.room-view-controls { top:666px;bottom:auto;left:5%;right:5%;justify-content:flex-end;gap:22px; }.room-view-controls button { font-size:var(--t1); }.room-timeline { bottom:65px;padding-top:15px; }.filmstrip { gap:8px; }.filmstrip>button { width:56px;padding-left:3px;padding-right:3px; }.filmstrip>button small { font-size:var(--t1); }.filmstrip>button span { font-size:var(--t1); }.timeline-scrubber { width:135px;font-size:var(--t1); }.timeline-scrubber .instrument-note { font-size:var(--t1); }.room-footer { font-size:var(--t1);gap:15px; }.room-footer>span:nth-child(2) { text-align:right; }.room-availability { bottom:43px;font-size:var(--t1); }.atlas-tools { top:725px;left:5%;right:5%;width:auto; }.atlas-search { width:100%; }.filter-tabs { margin:10px 0; }.atlas-tools .instrument-note { max-width:none;font-size:var(--t1); }.atlas-profile-list { margin-top:10px; }.atlas-profile-list button { padding:11px 0;font-size:var(--t1); }.orbit-dock { position:absolute;top:290px;right:5%;left:5%;width:auto;max-height:565px;background:var(--bg);padding:15px 22px; }.room-docked .room-world { left:50%;width:112vw;opacity:.35; }.orbit-dock h2 { margin-top:14px;font-size:37px; }.dock-caption { font-size:var(--t1); }.dock-specs { margin:12px 0; }.dock-specs>div { padding:10px 0; }.body-score { width:106px;right:7%;top:178px; }.body-room .room-intro h1 { max-width:4.2em;font-size:51px; }.body-room .room-intro>p:not(.eyebrow) { max-width:21ch; }.body-room .room-source { font-size:var(--t1); }.body-room .room-world { top:489px; }.log-strip { position:absolute;top:720px;left:5%;right:5%;width:auto;margin:0;gap:10px; }.log-strip>.instrument-label { margin-top:0; }.log-journey { display:grid;grid-template-columns:65px 1fr;gap:4px 15px;width:100%;padding:12px; }.log-journey svg { grid-row:1/4;margin:0; }.log-journey span,.log-journey strong,.log-journey small { margin:0; }.log-strip>.text-link { flex:auto; }.footer-invitation>a { font-size:48px;padding-bottom:40px; }.footer-baseline { flex-wrap:wrap;gap:20px;font-size:var(--t1); }.footer-baseline>span { display:none; }.footer-brand { font-size:var(--t5); }.inner-footer { font-size:var(--t1);gap:20px; }.card { padding:16px; }.stage-inner h2 { font-size:34px; }.lede { font-size:var(--t2); }.room-world .world-atlas .node-label { font-size:var(--t1);left:23px;padding:4px 6px; }.world-atlas .node-label small { font-size:var(--t1); } }
+@media (max-width:900px) { html { scroll-padding-top:84px; } .bar { height:72px;padding:0 var(--gutter);gap:15px;flex-wrap:nowrap; }.bar-mark { font-size:var(--t6); }.bar-mark svg { width:27px;height:27px; }.bar-links { display:none;position:absolute;top:71px;left:0;right:0;margin:0;padding:var(--s5) var(--gutter);background:var(--bg);border-bottom:1px solid var(--border);gap:22px; }.bar-links.bar-open { display:flex;flex-direction:row;flex-wrap:wrap; }.bar-toggle { display:block;background:none;border:0;padding:9px 0;font:var(--t1) var(--mono); }.bar-actions { gap:15px; }.theme-switch { font-size:var(--t4); }.bar-links a { font-size:var(--t2); }.story-viewport { padding:90px var(--gutter) 0;min-height:760px; }.story-copy>.eyebrow { margin-top:45px;font-size:var(--t1); }.shell-landing .story-copy .hero { font-size:clamp(60px,9vw,88px);max-width:5.7em; }.story-viewport:not(.story-chapter-0) .story-copy .hero { font-size:clamp(48px,7vw,65px); }.shell-landing .story-copy .hero-lede { width:41%;font-size:var(--t2); }.hero-objects.story-world { top:49%;width:min(78vw,80vh);right:-18%; }.satellite-top { right:5%;top:14%;text-align:right; }.satellite-line { width:28px; }.satellite-bottom { left:23%;bottom:23%;font-size:var(--t1); }.story-readings { left:var(--gutter);right:var(--gutter); }.story-readings strong { font-size:var(--t6); }.story-readings .instrument-label { font-size:var(--t1); }.story-bottomline { left:var(--gutter);right:var(--gutter); }.world-controls { right:5%;bottom:194px; }.hero-access { max-width:24ch;line-height:var(--lh-body); }.observatory-room { padding:92px var(--gutter) 0;min-height:880px; }.room-intro { margin-top:30px;width:220px; }.room-intro h1 { font-size:40px; }.room-intro>p:not(.eyebrow) { font-size:var(--t2); }.room-world { width:93vw;left:66%;top:46%; }.room-instruments { left:5%;top:40%;width:160px; }.room-instruments dd { font-size:var(--t5); }.room-docked .room-world { left:49%;width:85vw;opacity:.55; }.orbit-dock { width:260px;right:5%;top:200px;max-height:calc(100% - 280px); }.room-timeline { left:var(--gutter);right:var(--gutter); }.room-view-controls { right:5%;bottom:226px; }.atlas-tools { left:5%;width:190px;top:310px; }.atlas-tools .instrument-note { max-width:24ch; }.body-score { top:185px;right:6%;width:120px; }.landing-footer { padding:var(--s9) var(--gutter) 0; }.stage-inner { padding:105px var(--gutter) var(--s9); }.card { padding:18px; } }
+@media (max-width:600px) { .bar { gap:8px; }.bar-links { gap:18px; }.bar-links a { font-size:var(--t1); }.bar-actions { gap:18px; }.planet-story { height:640vh; }.story-viewport { height:100svh;min-height:870px;padding-top:88px; }.story-copy>.eyebrow { margin-top:27px;font-size:var(--t1);margin-bottom:16px; }.shell-landing .story-copy .hero { font-size:62px;max-width:5.7em;line-height:.98;margin-bottom:18px; }.story-viewport:not(.story-chapter-0) .story-copy .hero { font-size:43px;max-width:8.4em;min-height:84px; }.shell-landing .story-copy .hero-lede { width:100%;font-size:var(--t2);line-height:var(--lh-body);max-width:36ch;margin-bottom:17px; }.story-copy .start-enter { min-width:160px;font-size:var(--t1);padding:12px 15px;gap:40px; }.hero-access { display:none; }.hero-objects.story-world { width:min(112vw,440px);right:calc(50% - min(56vw,220px));top:590px; }.satellite-top { top:11%;right:17%;font-size:var(--t1); }.satellite-top .instrument-label { font-size:var(--t1); }.satellite-bottom { left:13%;bottom:13%;font-size:var(--t1); }.satellite-bottom .instrument-label { font-size:var(--t1); }.story-readings { bottom:51px;gap:13px;padding:19px 0; }.story-readings strong { font-size:var(--t4); }.story-readings strong small { font-size:var(--t1); }.story-readings .instrument-label { font-size:var(--t1);letter-spacing:.03em;line-height:var(--lh-body);max-width:17ch; }.story-readings>a { gap:9px; }.story-bottomline { height:48px;font-size:var(--t1); }.story-bottomline>button { font-size:var(--t1);letter-spacing:0; }.chapter-steps { gap:0; }.chapter-steps button { width:17px;padding:6px; }.chapter-steps button span { width:3px;height:3px; }.world-controls { bottom:166px;right:5%;gap:18px; }.world-controls button { font-size:var(--t1); }.node-label { font-size:var(--t1); }.node-label small { font-size:var(--t1); }.world-layer-labels { font-size:var(--t1);gap:17px;right:12%; }.world-layer-labels span { padding-left:15px; }.moon-satellite { font-size:var(--t1);left:66%; }.observatory-room { min-height:1080px;height:auto;padding-top:93px; }.room-topline { font-size:var(--t1); }.room-intro { margin-top:28px;width:100%; }.room-intro h1 { font-size:44px;margin:12px 0; }.room-intro>p:not(.eyebrow) { max-width:32ch;font-size:var(--t2); }.room-intro .eyebrow { font-size:var(--t1); }.room-world { width:min(112vw,560px);left:50%;top:485px; }.room-instruments { top:720px;left:5%;right:5%;width:auto; }.room-instruments>.instrument-label { font-size:var(--t1); }.room-instruments dl { display:grid;grid-template-columns:1.2fr .8fr 1fr;gap:12px;margin:14px 0; }.room-instruments dt { font-size:var(--t1); }.room-instruments dd { font-size:var(--t4); }.room-instruments dd small { display:none; }.room-instruments dl>div { margin:0; }.room-instruments .text-link { font-size:var(--t1); }.room-view-controls { top:666px;bottom:auto;left:5%;right:5%;justify-content:flex-end;gap:22px; }.room-view-controls button { font-size:var(--t1); }.room-timeline { bottom:65px;padding-top:15px; }.filmstrip { gap:8px; }.filmstrip>button { width:56px;padding-left:3px;padding-right:3px; }.filmstrip>button small { font-size:var(--t1); }.filmstrip>button span { font-size:var(--t1); }.timeline-scrubber { width:135px;font-size:var(--t1); }.timeline-scrubber .instrument-note { font-size:var(--t1); }.room-availability { bottom:43px;font-size:var(--t1); }.atlas-tools { top:725px;left:5%;right:5%;width:auto; }.atlas-search { width:100%; }.filter-tabs { margin:10px 0; }.atlas-tools .instrument-note { max-width:none;font-size:var(--t1); }.atlas-profile-list { margin-top:10px; }.atlas-profile-list button { padding:11px 0;font-size:var(--t1); }.orbit-dock { position:absolute;top:290px;right:5%;left:5%;width:auto;max-height:565px;background:var(--bg);padding:15px 22px; }.room-docked .room-world { left:50%;width:112vw;opacity:.35; }.orbit-dock h2 { margin-top:14px;font-size:37px; }.dock-caption { font-size:var(--t1); }.dock-specs { margin:12px 0; }.dock-specs>div { padding:10px 0; }.body-score { width:106px;right:7%;top:178px; }.body-room .room-intro h1 { max-width:6.2em; }.body-room .room-intro>p:not(.eyebrow) { max-width:21ch; }.body-room .room-source { font-size:var(--t1); }.body-room .room-world { top:489px; }.log-strip { position:absolute;top:720px;left:5%;right:5%;width:auto;margin:0;gap:10px; }.log-strip>.instrument-label { margin-top:0; }.log-journey { display:grid;grid-template-columns:65px 1fr;gap:4px 15px;width:100%;padding:12px; }.log-journey svg { grid-row:1/4;margin:0; }.log-journey span,.log-journey strong,.log-journey small { margin:0; }.log-strip>.text-link { flex:auto; }.footer-invitation>a { font-size:48px;padding-bottom:40px; }.footer-baseline { flex-wrap:wrap;gap:20px;font-size:var(--t1); }.footer-baseline>span { display:none; }.footer-brand { font-size:var(--t5); }.card { padding:16px; }.stage-inner h2 { font-size:34px; }.lede { font-size:var(--t2); }.room-world .world-atlas .node-label { font-size:var(--t1);left:23px;padding:4px 6px; }.world-atlas .node-label small { font-size:var(--t1); } }
 @media (prefers-reduced-motion:reduce) { *,*::before,*::after { animation:none!important;transition:none!important;scroll-behavior:auto!important; } }
-@media print { .bar,.world-controls,.room-view-controls,.room-timeline,.orbit-dock,.skip-link,.story-bottomline,.story-readings,.landing-footer { display:none; }.planet-story { height:auto; }.story-viewport,.observatory-room { height:900px;position:relative; }.story-copy .hero { font-size:60px!important; }.room-footer { position:absolute; }.survey-proof { break-before:page; } }
+@media print { .bar,.world-controls,.room-view-controls,.room-timeline,.orbit-dock,.skip-link,.story-bottomline,.story-readings,.landing-footer { display:none; }.planet-story { height:auto; }.story-viewport,.observatory-room { height:900px;position:relative; }.story-copy .hero { font-size:60px!important; }.survey-proof { break-before:page; } }
 .field-guide>header { display:grid;grid-template-columns:minmax(0,1fr) minmax(0,.8fr);gap:var(--s10);align-items:end;padding:0 0 var(--s7);border-bottom:1px solid var(--border);margin-bottom:var(--s8); }
-.field-guide>header>p:first-child { grid-column:1; }
-.field-guide>header h1 { grid-column:1; }
-.field-guide>header>p:last-child { grid-column:2;grid-row:2;margin:0 0 var(--s2); }
+.field-guide>header h1 { grid-column:1;grid-row:1; }
+.field-guide>header>p { grid-column:2;grid-row:1;margin:0 0 var(--s2); }
 /* Matches the record pages' 66px title. At 84px over 12px body the
    guide ran a 7x jump between its display type and its prose, which
    is what made a reading page feel cramped. */
-.field-guide h1 { font:400 clamp(44px,5vw,66px)/var(--lh-display) var(--serif);letter-spacing:0;margin:var(--s3) 0 0;max-width:16ch; }
-.field-guide>header>p:last-child { color:var(--text-dim);font-size:var(--t3); }
+.field-guide h1 { font:500 clamp(40px,4.4vw,66px)/var(--lh-tight) var(--sans);letter-spacing:-.055em;margin:var(--s3) 0 0;max-width:16ch; }
+.field-guide>header>p { color:var(--text-dim);font-size:var(--t3); }
 .guide-layout { display:grid;grid-template-columns:150px minmax(0,1fr) minmax(0,.82fr);gap:var(--s8) var(--s10);align-items:start;min-height:520px; }
 /* The sphere is drawn 17.75% inside its own canvas, so a top-aligned
    canvas leaves the globe floating below the text beside it. The
@@ -320,22 +317,22 @@ td { padding-top:15px;padding-bottom:15px; }
 .guide-layout>nav button { display:flex;align-items:center;gap:var(--s4);background:none;border:0;border-bottom:1px solid var(--border);padding:var(--s4) 0;font:var(--t3) var(--sans);text-align:left;transition:color .15s; }
 .guide-layout>nav button:hover { color:var(--machine); }
 .guide-layout>nav button>span { font:var(--t1) var(--mono);color:var(--text-dim); }
-.guide-layout>nav button>span:last-child { margin-left:auto; }
+
 .guide-layout>nav button[aria-pressed=true] { color:var(--machine); }
-.guide-layout article .instrument-label { display:block;margin-bottom:var(--s3); }
+
 .guide-layout article h2 { font:400 32px/var(--lh-display) var(--serif);letter-spacing:0;margin:0 0 var(--s5); }
 .guide-layout article p { color:var(--text-dim);font:var(--t3)/var(--lh-body) var(--sans);max-width:58ch;margin:0 0 var(--s7); }
 .guide-footnote { border-top:1px solid var(--border);font:var(--t1)/var(--lh-body) var(--mono);color:var(--text-dim);margin-top:var(--s9);padding-top:var(--s5);max-width:58ch; }
 .guide-world { margin:0 -45px; }
 .empty-coordinate { display:grid;grid-template-columns:1fr 1.1fr;align-items:center;min-height:65vh; }
-.empty-coordinate h1 { font:400 clamp(40px,5vw,70px)/var(--lh-display) var(--serif);letter-spacing:0; }
+.empty-coordinate h1 { font:500 clamp(40px,4.4vw,66px)/var(--lh-tight) var(--sans);letter-spacing:-.055em;margin:var(--s3) 0 var(--s5); }
 .empty-coordinate p { color:var(--text-dim); }
 @media(max-width:900px) { .guide-layout { grid-template-columns:120px 1fr;gap:30px; }.guide-world { grid-column:2;grid-row:2;margin:-50px 0 0;max-width:400px; }.guide-layout article { padding-top:40px; }.empty-coordinate { grid-template-columns:1fr; }.empty-coordinate .credit-world { max-width:500px; } }
-@media(max-width:600px) { .guide-layout { grid-template-columns:1fr;gap:0; }.guide-layout>nav { flex-direction:row;overflow-x:auto;gap:20px;margin-top:10px; }.guide-layout>nav button { gap:6px;flex-shrink:0;font-size:var(--t1); }.guide-layout>nav button>span:last-child { display:none; }.guide-layout article { padding-top:32px; }.guide-layout article h2 { font-size:36px; }.guide-world { grid-column:1;grid-row:auto;margin:-10px -15px; }}
+@media(max-width:600px) { .guide-layout { grid-template-columns:1fr;gap:0; }.guide-layout>nav { flex-direction:row;overflow-x:auto;gap:20px;margin-top:10px; }.guide-layout>nav button { gap:6px;flex-shrink:0;font-size:var(--t1); }.guide-layout article { padding-top:32px; }.guide-layout article h2 { font-size:36px; }.guide-world { grid-column:1;grid-row:auto;margin:-10px -15px; }}
 
 .story-world .credit-world { transition:transform .8s var(--truck); }
 .story-chapter-1 .story-world .credit-world { transform:scale(1.08); }
-.whisper .world-layer-labels,.whisper .moon-satellite,.whisper .story-progress,.whisper .room-availability,.whisper .log-strip { opacity:0;pointer-events:none; }
+.whisper .world-layer-labels,.whisper .moon-satellite,.whisper .room-availability,.whisper .log-strip { opacity:0;pointer-events:none; }
 .room-empty-state { position:absolute;top:65%;left:40%;max-width:30ch;font:var(--t4)/var(--lh-snug) var(--serif);z-index:3; }
 @media(max-width:600px) { .room-empty-state { top:610px;left:15%;right:15%;font-size:var(--t4);text-align:center; } }
 
@@ -348,17 +345,16 @@ td { padding-top:15px;padding-bottom:15px; }
 .record-breadcrumb { margin-bottom:25px;font:var(--t1)/var(--lh-body) var(--mono);color:var(--text-dim); }
 .record-breadcrumb ol { display:flex;flex-wrap:wrap;gap:9px 12px;list-style:none;margin:0;padding:0; }
 .record-breadcrumb li { display:flex;gap:12px; }
-.record-breadcrumb li+li::before { content:'/';color:var(--rule); }
+
 .record-breadcrumb a,.room-breadcrumb a { text-decoration:none; }
 .record-breadcrumb a:hover,.room-breadcrumb a:hover { color:var(--machine); }
-.record-breadcrumb [aria-current] { color:var(--text); }
+
 .room-breadcrumb { display:flex;gap:10px;align-items:center; }
 .room-records { pointer-events:auto;position:relative;width:fit-content;margin:12px 0 0; }
 .room-records summary { display:flex;align-items:center;gap:24px;padding:7px 0;border-bottom:1px solid var(--border);font:var(--t1) var(--sans);color:var(--text);list-style:none;cursor:pointer; }
 .room-records summary::-webkit-details-marker { display:none; }
 .room-records summary::marker { content:''; }
-.room-records summary>span { color:var(--machine);transition:transform .2s; }
-.room-records[open] summary>span { transform:rotate(45deg); }
+
 .room-records nav { position:absolute;top:calc(100% + 8px);left:0;width:280px;max-width:85vw;display:grid;background:var(--bg);border:1px solid var(--border);box-shadow:0 12px 30px #0000000d; }
 .room-records nav a { display:block;padding:14px 16px;text-decoration:none;font:var(--t2)/var(--lh-snug) var(--sans); }
 .room-records nav a+a { border-top:1px solid var(--border); }
@@ -379,7 +375,7 @@ td { padding-top:15px;padding-bottom:15px; }
 @media(max-width:900px) {
   .bar-links.bar-open { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 22px; }
   .bar-links a { display:flex;align-items:center;min-height:44px; }
-  .bar-links a.active::after { left:auto;right:4px;bottom:auto;top:calc(50% - 2px); }
+  
 }
 @media(max-width:600px) {
   .record-breadcrumb { font-size:var(--t1);margin-bottom:22px; }
