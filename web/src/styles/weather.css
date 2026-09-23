@@ -1,19 +1,20 @@
-/* 09 / Weather that happened. One inset and row rhythm, in every state. */
+/* A three-column field record: introduction, group context, evidence.
+   The group grid is shared with the closing boundary so row labels align. */
 .survey-proof {
-  --record-inset: var(--s4);
+  --record-gap: clamp(24px, 2.5vw, 48px);
+  --record-columns: minmax(160px, .72fr) minmax(0, 1.55fr);
   display: grid;
-  grid-template-columns: minmax(0, clamp(260px, 26vw, 360px)) minmax(0, 1fr);
-  gap: var(--s7) clamp(32px, 5vw, 80px);
+  grid-template-columns: minmax(220px, .72fr) minmax(0, 2.28fr);
   align-items: start;
-  padding: var(--s11) var(--gutter);
+  padding: var(--s9) var(--gutter);
   border-top: 1px solid var(--border);
 }
 
-.proof-kicker { grid-column: 1 / -1; margin: 0; }
-.proof-intro { position: sticky; top: calc(83px + var(--s7)); }
+.proof-intro { position: sticky; top: calc(83px + var(--s6)); padding-right: var(--record-gap); }
+.proof-kicker { margin: 0 0 var(--s5); }
 .proof-intro h2 {
   margin: 0;
-  font: 500 clamp(34px, 3.4vw, 50px)/1.18 var(--sans);
+  font: 500 clamp(32px, 2.65vw, 44px)/1.18 var(--sans);
   letter-spacing: -.04em;
 }
 .proof-intro h2 em {
@@ -22,18 +23,18 @@
   line-height: var(--lh-display);
   letter-spacing: 0;
 }
-.proof-intro > p {
+.proof-context > p {
   max-width: 34ch;
-  margin: var(--s6) 0;
-  font: var(--t3)/var(--lh-body) var(--sans);
+  margin: var(--s5) 0 var(--s3);
+  font: var(--t3)/1.6 var(--sans);
   color: var(--text-dim);
 }
-.proof-intro > .text-link { min-height: 44px; padding: var(--s3) 0; }
+.proof-context > .text-link { min-height: 44px; padding: var(--s2) 0; }
 .proof-intro .deployment {
   display: grid;
-  gap: var(--s3);
-  margin: var(--s7) 0 0;
-  padding: var(--s6) 0 0;
+  gap: var(--s2);
+  margin: var(--s6) 0 0;
+  padding: var(--s4) 0 0;
   border: 0;
   border-top: 1px solid var(--border);
   font-family: var(--mono);
@@ -42,7 +43,7 @@
 .proof-intro .deployment-item { white-space: normal; }
 .proof-intro .deployment-dot { flex-shrink: 0; box-shadow: none; }
 
-.ledger { min-width: 0; max-width: 56rem; }
+.ledger { min-width: 0; padding-left: var(--record-gap); border-left: 1px solid var(--border); }
 .ledger-head {
   display: flex;
   justify-content: space-between;
@@ -50,7 +51,7 @@
   flex-wrap: wrap;
   gap: var(--s2) var(--s4);
   margin: 0;
-  padding: 0 var(--record-inset) var(--s4);
+  padding: 0 0 var(--s3);
   border-bottom: 1px solid var(--border);
 }
 .ledger-head h3, .ledger-head p {
@@ -61,36 +62,42 @@
 .ledger-head h3 { letter-spacing: .09em; text-transform: uppercase; }
 .ledger-head strong { font-weight: 400; color: var(--text); }
 
-.claim-group { margin: var(--s7) 0 0; }
-.claim-group-intro { padding: 0 var(--record-inset); margin: 0 0 var(--s3); }
+.claim-group, .ledger-boundary {
+  display: grid;
+  grid-template-columns: var(--record-columns);
+  align-items: start;
+  gap: var(--record-gap);
+  margin: var(--s7) 0 0;
+}
+.claim-group:first-of-type { margin-top: var(--s6); }
+.claim-group-intro { min-width: 0; padding-top: var(--s2); }
 .claim-group-intro h4 {
   margin: 0 0 var(--s2);
-  font: 400 var(--t6)/var(--lh-snug) var(--serif);
-  letter-spacing: 0;
+  font: 500 clamp(20px, 1.7vw, 28px)/1.25 var(--sans);
+  letter-spacing: -.035em;
 }
 .claim-group-intro p {
-  max-width: 60ch;
+  max-width: 30ch;
   margin: 0;
-  font: var(--t2)/var(--lh-body) var(--sans);
+  font: var(--t3)/1.6 var(--sans);
   color: var(--text-dim);
 }
-.claim-group-rows { border-top: 1px solid var(--border); }
+.claim-group-rows { min-width: 0; }
 .claim, .refused {
   margin: 0;
   padding: 0;
   border: 0;
-  border-bottom: 1px solid var(--border);
   border-radius: 0;
   background: none;
 }
 .claim > summary, .refused > summary {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 80px 16px;
+  grid-template-columns: minmax(0, 1fr) 64px 16px;
   align-items: center;
-  gap: var(--s4);
-  min-height: 64px;
+  gap: var(--s3);
+  min-height: 48px;
   margin: 0;
-  padding: var(--s4) var(--record-inset);
+  padding: var(--s3) 0;
   color: var(--text);
   letter-spacing: 0;
   list-style: none;
@@ -98,7 +105,7 @@
 }
 .claim > summary::-webkit-details-marker, .refused > summary::-webkit-details-marker { display: none; }
 .claim > summary::marker, .refused > summary::marker { content: ''; }
-.claim > summary:focus-visible, .refused > summary:focus-visible { outline-offset: -2px; }
+.claim > summary:focus-visible, .refused > summary:focus-visible { outline-offset: 3px; }
 .claim-title {
   min-width: 0;
   font: 400 var(--t4)/1.5 var(--sans);
@@ -108,7 +115,7 @@
 .claim-status {
   display: inline-flex;
   align-items: center;
-  gap: var(--s2);
+  gap: 6px;
   font: var(--t1)/var(--lh-snug) var(--mono);
   letter-spacing: .04em;
   text-transform: uppercase;
@@ -149,22 +156,23 @@ details[open] > summary .record-toggle { color: var(--machine); }
   .claim > summary:hover .record-toggle, .refused > summary:hover .record-toggle {
     color: var(--machine);
   }
-  .claim-link:hover, .proof-intro > .text-link:hover { border-bottom-color: var(--machine); }
+  .claim-link:hover, .proof-context > .text-link:hover { border-bottom-color: var(--machine); }
 }
 
 .claim-body, .refused-body {
   display: grid;
-  gap: var(--s4);
-  margin: 0;
-  padding: 0 var(--record-inset) var(--s6);
-  font: var(--t3)/var(--lh-body) var(--sans);
+  gap: var(--s2);
+  margin: 0 0 var(--s3);
+  padding: 0 0 0 var(--s3);
+  border-left: 1px solid var(--rule);
+  font: var(--t3)/1.55 var(--sans);
 }
 .claim-detail, .claim-support { max-width: 64ch; margin: 0; }
 .claim-detail { color: var(--text); }
 .claim-support { font-size: var(--t2); color: var(--text-dim); }
 .claim-support-label {
-  display: block;
-  margin-bottom: var(--s1);
+  display: inline;
+  margin-right: var(--s2);
   font: var(--t1)/var(--lh-body) var(--mono);
   text-transform: uppercase;
   letter-spacing: .08em;
@@ -173,7 +181,7 @@ details[open] > summary .record-toggle { color: var(--machine); }
   justify-self: start;
   display: inline-flex;
   align-items: center;
-  gap: var(--s6);
+  gap: var(--s4);
   min-height: 44px;
   padding: var(--s2) 0;
   border-bottom: 1px solid var(--border);
@@ -182,12 +190,13 @@ details[open] > summary .record-toggle { color: var(--machine); }
   text-decoration: none;
   transition: border-color 160ms ease;
 }
-.refused { margin-top: var(--s7); border-top: 1px solid var(--border); }
-.refused > summary .claim-title { grid-column: 1 / 3; }
+.ledger-boundary { padding-top: var(--s3); border-top: 1px solid var(--border); }
+.ledger-boundary > p { margin: 0; padding-block: var(--s3); font: var(--t2)/2 var(--sans); color: var(--text-dim); }
+.refused { min-width: 0; }
+.refused > summary { grid-template-columns: minmax(0, 1fr) 16px; }
 .refused-body ul {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--s3) var(--s6);
+  gap: var(--s2);
   list-style: none;
   margin: 0;
   padding: 0;
@@ -200,29 +209,47 @@ details[open] > summary .record-toggle { color: var(--machine); }
 .refused-body li::before { content: '—'; position: absolute; left: 0; }
 .refused-body > p {
   margin: 0;
-  padding-top: var(--s4);
-  border-top: 1px solid var(--border);
+  padding-top: var(--s2);
   color: var(--text-dim);
 }
 
-@media (max-width: 900px) {
-  .survey-proof { grid-template-columns: minmax(0, 1fr); padding-block: var(--s10); }
-  .proof-intro { position: static; max-width: 560px; }
-  .proof-intro h2 { font-size: clamp(34px, 5.5vw, 46px); }
-  .proof-intro > p { max-width: 48ch; }
-  .proof-intro .deployment { max-width: none; display: flex; gap: var(--s3) var(--s6); }
-  .ledger { max-width: none; margin-top: var(--s3); }
+/* Two columns on tablets; keep group context beside its disclosures. */
+@media (max-width: 1100px) {
+  .survey-proof { grid-template-columns: minmax(0, 1fr); gap: var(--s7); }
+  .proof-intro {
+    position: static;
+    display: grid;
+    grid-template-columns: var(--record-columns);
+    gap: 0 var(--record-gap);
+    padding: 0;
+  }
+  .proof-kicker { grid-column: 1 / -1; }
+  .proof-intro h2 { font-size: clamp(32px, 4vw, 40px); }
+  .proof-context > p { max-width: 48ch; margin: 0 0 var(--s2); }
+  .proof-intro .deployment { max-width: none; display: flex; gap: var(--s2) var(--s4); margin-top: var(--s4); }
+  .ledger { padding: 0; border: 0; }
 }
 
-@media (max-width: 600px) {
-  .survey-proof { --record-inset: var(--s3); padding-block: var(--s9); }
-  .claim > summary { grid-template-columns: minmax(0, 1fr) 16px; gap: var(--s2) var(--s3); }
+@media (max-width: 680px) {
+  .survey-proof { --record-columns: minmax(0, 1fr); padding-block: var(--s8); }
+  .proof-intro { row-gap: var(--s4); }
+  .proof-kicker { margin: 0; }
+  .proof-intro h2 { font-size: 34px; }
+  .claim-group { gap: var(--s2); }
+  .claim-group-intro { padding: 0; }
+  .claim-group-intro h4 { font-size: var(--t6); }
+  .claim-group-intro p { max-width: 48ch; font-size: var(--t2); }
+  .ledger-boundary { gap: 0; }
+  .ledger-boundary > p { padding: var(--s2) 0 0; }
+}
+
+@media (max-width: 480px) {
+  .claim > summary { grid-template-columns: minmax(0, 1fr) 60px 16px; gap: var(--s2); }
   .claim-title { font-size: var(--t3); }
-  .claim > summary .claim-status { grid-column: 1; grid-row: 2; }
-  .claim > summary .record-toggle { grid-column: 2; grid-row: 1 / 3; }
-  .refused > summary { grid-template-columns: minmax(0, 1fr) 16px; gap: var(--s3); }
-  .refused > summary .claim-title { grid-column: 1; }
-  .refused-body ul { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-height: 700px) {
+  .proof-intro { position: static; }
 }
 
 @media (prefers-reduced-motion: reduce) {
