@@ -20,9 +20,57 @@ export function FieldGuide() {
   const loans = originations(survey.run);
   const [chapter, setChapter] = useState(0);
   const current = CHAPTERS[chapter]!;
-  return <section className="field-guide"><header><h1>Field guide</h1><p>Credence is a lending market for AI agents. Six chapters on how it prices them.</p></header><div className="guide-layout"><nav aria-label="Field guide chapters">{CHAPTERS.map((c, i) => <button key={c.title} type="button" aria-label={`Chapter ${i + 1}: ${c.title}`} aria-pressed={chapter === i} onClick={() => setChapter(i)}><span>{String(i + 1).padStart(2, "0")}</span>{c.title}</button>)}</nav><article><h2>{current.subtitle}</h2><p>{current.copy}</p><Link className="text-link" to={current.to}>{current.link}</Link><div className="guide-footnote">Numbers come from a retained development run. Surface texture and point positions are decorative.</div></article><div className="guide-world"><World book={readBook(survey.run)} nodes={borrowerNode(loans.at(-1))} loans={loans} projection={current.projection} labels={false} onSelect={id => navigate(id === "facility" ? "/moons" : "/body")} /></div></div></section>;
+  return (
+    <section className="field-guide">
+      <RecordHeader title="Field guide">
+        Credence is a lending market for AI agents. Six chapters on how it prices them.
+      </RecordHeader>
+
+      <div className="guide-layout">
+        <nav className="guide-chapters" aria-label="Field guide chapters">
+          {CHAPTERS.map((c, i) => (
+            <button
+              key={c.title}
+              type="button"
+              aria-label={`Chapter ${i + 1}: ${c.title}`}
+              aria-pressed={chapter === i}
+              aria-controls="guide-chapter"
+              onClick={() => setChapter(i)}
+            >
+              <span className="guide-chapter-number" aria-hidden="true">{String(i + 1).padStart(2, "0")}</span>
+              {c.title}
+            </button>
+          ))}
+        </nav>
+
+        <article className="guide-chapter" id="guide-chapter" aria-labelledby="guide-chapter-title">
+          <div className="guide-copy">
+            <h2 id="guide-chapter-title">{current.subtitle}</h2>
+            <p>{current.copy}</p>
+            <Link className="action" to={current.to}>{current.link}</Link>
+          </div>
+
+          <figure className="guide-figure">
+            <div className="guide-world">
+              <World
+                book={readBook(survey.run)}
+                nodes={borrowerNode(loans.at(-1))}
+                loans={loans}
+                projection={current.projection}
+                labels={false}
+                onSelect={id => navigate(id === "facility" ? "/moons" : "/body")}
+              />
+            </div>
+            <figcaption>
+              Numbers come from a retained development run. Surface texture and point positions are decorative.
+            </figcaption>
+          </figure>
+        </article>
+      </div>
+    </section>
+  );
 }
 
 export function EmptyCoordinate() {
-  return <section className="empty-coordinate"><div><p className="page-context">404</p><RecordHeader title="This coordinate is empty." /><Link to="/observatory" className="text-link">Return to the observatory</Link></div><World book={readBook(null)} nodes={[]} paused /></section>;
+  return <section className="empty-coordinate"><div><p className="page-context">404</p><RecordHeader title="This coordinate is empty." /><Link to="/observatory" className="action">Return to the observatory</Link></div><World book={readBook(null)} nodes={[]} paused /></section>;
 }
