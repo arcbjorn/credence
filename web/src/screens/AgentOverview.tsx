@@ -39,8 +39,8 @@ export function AgentOverview() {
     loadRun("repay").then(setRun).catch((e: Error) => setError(e.message));
   }, []);
 
-  if (error) return <div className="error">{error}</div>;
-  if (!run) return <p className="lede">Loading retained evidence…</p>;
+  if (error) return <><RecordHeader title="Agent overview" /><div className="error">{error}</div></>;
+  if (!run) return <RecordHeader title="Agent overview">Loading retained evidence…</RecordHeader>;
 
   const originations = run.assessments.filter(
     (a) => a.payload?.outcome?.decision === "ApprovedOrigination",
