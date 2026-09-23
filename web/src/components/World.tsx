@@ -6,6 +6,7 @@ import type { Projection, WorldNode } from "../lib/observatory";
 import { canvasResolution } from "../lib/canvas";
 import { loanArc, sphereOccludes, spherePoint as point, traceVisiblePath, viewTransform, type Point3 } from "../lib/world-geometry";
 import { worldPalette } from "../lib/world-palette";
+import { eclipseCovers, eclipseLayout } from "../lib/eclipse";
 
 const TAU = Math.PI * 2;
 const rad = Math.PI / 180;
@@ -56,6 +57,8 @@ export function World({ book, nodes = [], loans = [], projection = "globe", sele
     let layer = 0;
     let xray = 0;
     let moon = 0;
+    let eclipse = 0;
+    let eclipseUtilization = latest.current.book.utilization ?? 0;
     let atmosphere = 0;
     let core = 0;
     let replayStart = 0;
@@ -122,6 +125,8 @@ export function World({ book, nodes = [], loans = [], projection = "globe", sele
       layer += ((state.projection === "layers" ? 1 : 0) - layer) * lerp;
       xray += ((state.projection === "core" ? 1 : 0) - xray) * lerp;
       moon += ((state.projection === "moons" ? 1 : 0) - moon) * lerp;
+      eclipse += ((state.projection === "eclipse" && state.book.utilization !== null ? 1 : 0) - eclipse) * lerp;
+      eclipseUtilization += ((state.book.utilization ?? eclipseUtilization) - eclipseUtilization) * (motion ? Math.min(1, dt / 2) : 1);
       const health = state.book.utilization === null ? 0 : 1 - state.book.utilization;
       atmosphere += (health - atmosphere) * (motion ? Math.min(1, dt / 2) : 1);
       const knownCash = state.book.idle !== null && state.book.outstanding !== null;
@@ -131,9 +136,13 @@ export function World({ book, nodes = [], loans = [], projection = "globe", sele
       const replaying = lastReplay > 0 && now - replayStart < 2000;
       const replayProgress = motion ? Math.min(1, (now - replayStart) / 2000) : 1;
       ctx.clearRect(0, 0, 800, 800);
-      const cx = 400 - moon * 110;
+      const alignment = eclipseLayout(eclipseUtilization);
+      const cx = 400 - moon * 110 + alignment.lightX * eclipse;
       const cy = 400;
-      const radius = 258 - moon * 98;
+      const radius = 258 - moon * 98 + (alignment.radius - 258) * eclipse;
+      const shadowX = 400 + alignment.shadowX;
+      // First make room for the second body, then reveal its material.
+      const shadowOpacity = Math.max(0, (eclipse - .2) / .8);
       const rotate = viewTransform(rotation);
       const project = (p: { x: number; y: number; z: number }, lat?: number, lon?: number) => {
         const view = rotate(p);
@@ -240,7 +249,7 @@ export function World({ book, nodes = [], loans = [], projection = "globe", sele
         const path = arc.map(v => { const p = project(v); return { ...p, visible: !sphereOccludes(p.view) }; });
         ctx.strokeStyle = flatten > 0.5 ? theme.machine : palette.arc;
         ctx.lineWidth = 0.5 + Number(loan.payload.outcome.approved_principal ?? "0") / peak * 1.1;
-        const opacity = .65 * (1 - moon * .5);
+        const opacity = .65 * (1 - moon * .5) * (1 - eclipse * .55);
         const transparency = Math.max(flatten, xray * .25, layer * .2);
         if (transparency > .001) {
           ctx.globalAlpha = opacity * transparency;
@@ -257,10 +266,19 @@ export function World({ book, nodes = [], loans = [], projection = "globe", sele
       }
       ctx.globalAlpha = 1;
 
-      if (state.projection === "eclipse" && state.book.utilization !== null) {
-        const u = state.book.utilization;
-        ctx.fillStyle = palette.eclipse; ctx.globalAlpha = 0.96;
-        circle(cx + radius * 2 * (1 - u), cy + 8, radius); ctx.fill(); ctx.globalAlpha = 1;
+      if (shadowOpacity > .001) {
+        ctx.save();
+        ctx.globalAlpha = shadowOpacity;
+        // A softly lit, opaque surface, rather than a flat black overlay.
+        const r = alignment.radius;
+        const shade = ctx.createRadialGradient(shadowX - r * .8, cy - r * .55, 0, shadowX + r * .2, cy + r * .2, r * 1.7);
+        [0, .28, .56, .82, 1].forEach((stop, i) => shade.addColorStop(stop, palette.eclipse[i]!));
+        ctx.fillStyle = shade;
+        circle(shadowX, cy, r); ctx.fill();
+        const rim = ctx.createLinearGradient(shadowX - r, cy - r, shadowX + r, cy + r);
+        [0, .5, 1].forEach((stop, i) => rim.addColorStop(stop, palette.eclipseRim[i]!));
+        ctx.strokeStyle = rim; ctx.lineWidth = .8; ctx.stroke();
+        ctx.restore();
       }
       if (moon > 0.001 && state.book.idle !== null) {
         ctx.globalAlpha = moon;
@@ -277,8 +295,9 @@ export function World({ book, nodes = [], loans = [], projection = "globe", sele
         const nodeRadius = node.denied ? 4 : Math.max(2, Math.sqrt(Number(node.capacity) / nodePeak) * 7);
         if (button) {
           button.style.left = `${p.x / 8}%`; button.style.top = `${p.y / 8}%`;
-          const hidden = p.z < 0;
-          button.style.opacity = hidden ? "0" : "1";
+          const covered = eclipseCovers(p.x, p.y, shadowX, cy, alignment.radius);
+          const hidden = p.z < 0 || (covered && shadowOpacity > .5);
+          button.style.opacity = p.z < 0 ? "0" : String(covered ? 1 - shadowOpacity : 1);
           button.style.pointerEvents = hidden ? "none" : "";
           button.tabIndex = hidden ? -1 : 0;
           button.setAttribute("aria-hidden", String(hidden));
@@ -297,7 +316,7 @@ export function World({ book, nodes = [], loans = [], projection = "globe", sele
         <span className="node-point" /><span className="node-label">{node.label}<small>{node.denied ? "RESTRICTED" : node.score !== null ? `SCORE ${node.score}` : "UNMEASURED"}</small></span>
       </button>)}
       {projection === "layers" && <div className="world-layer-labels"><span>Identity</span><span>Reputation</span><span>Escrow</span><span>Settlement</span></div>}
-      {projection === "moons" && book.idle !== null && <button type="button" className="moon-satellite" onClick={() => onSelect?.("facility")} aria-label="Dock with the retained facility">Open facility</button>}
+      {projection === "moons" && book.idle !== null && <button type="button" className="action action-small moon-satellite" onClick={() => onSelect?.("facility")} aria-label="Dock with the retained facility">Open facility</button>}
     </div>
   );
 }
