@@ -31,8 +31,8 @@ export function Comparison_() {
     loadComparison().then(setCmp).catch((e: Error) => setError(e.message));
   }, []);
 
-  if (error) return <div className="error">{error}</div>;
-  if (!cmp) return <p className="lede">Loading the comparison…</p>;
+  if (error) return <><RecordHeader title="Three agents" /><div className="error">{error}</div></>;
+  if (!cmp) return <RecordHeader title="Three agents">Loading the comparison…</RecordHeader>;
 
   // One scale for all three objects. Normalising each to its own
   // capacity would draw the denied agent and the strongest one the same
