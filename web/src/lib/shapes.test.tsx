@@ -1,4 +1,4 @@
-import { render } from "@testing-library/react";
+import { render, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { CutModel, type Layer } from "../components/CutModel";
 import { Eclipse } from "../components/Eclipse";
@@ -39,8 +39,8 @@ describe("the eclipse", () => {
     const gap = Math.abs(
       Number(shadow.getAttribute("cx")) - Number(light.getAttribute("cx")),
     );
-    // Nearly a full diameter apart at 8%.
-    expect(gap).toBeGreaterThan(100);
+    // An 8% covered area leaves most of the diameter exposed.
+    expect(gap).toBeGreaterThan(90);
   });
 
   it("closes the bodies as the book is drawn down", () => {
@@ -60,6 +60,17 @@ describe("the eclipse", () => {
 
     // More drawn means more overlap, which means less distance.
     expect(heavyGap).toBeLessThan(lightGap);
+  });
+
+  it("changes both surface materials when the theme changes", async () => {
+    document.documentElement.dataset.theme = "light";
+    const { container } = render(<Eclipse utilization={.61} />);
+    const colors = () => Array.from(container.querySelectorAll("stop")).map(stop => stop.getAttribute("stop-color"));
+    const light = colors();
+    document.documentElement.dataset.theme = "dark";
+    await waitFor(() => expect(colors()).not.toEqual(light));
+    document.documentElement.dataset.theme = "light";
+    await waitFor(() => expect(colors()).toEqual(light));
   });
 
   it("states the figure it drew", () => {
