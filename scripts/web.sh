@@ -115,11 +115,13 @@ bash "$ROOT/scripts/setup.sh"
 # The screens render what these runs retained. `demo-repay` supplies the
 # loans, forecasts and on-chain checks; `demo-monitor` supplies the
 # snapshot the replay screen reproduces; `demo-growth` supplies the
-# controlled sequence the earned-rate screen plots.
+# controlled sequence the earned-rate screen plots; `demo-cohort`
+# supplies the several agents the globe renders as a market.
 NEED_DEMOS=$FRESH
 if [ ! -f /tmp/credence-repay/scenario.db ] ||
   [ ! -f /tmp/credence-monitor/credence.db ] ||
-  [ ! -f /tmp/credence-growth/scenario.db ]; then
+  [ ! -f /tmp/credence-growth/scenario.db ] ||
+  [ -z "$(ls /tmp/credence-cohort/*.db 2>/dev/null)" ]; then
   NEED_DEMOS=1
 fi
 
@@ -159,6 +161,16 @@ if [ "$NEED_DEMOS" -eq 1 ]; then
     exit 1
   }
   echo "  demo-growth: $(grep -oE 'repriced from [0-9.]+% to [0-9.]+%' /tmp/credence-web-growth.log | head -1)"
+
+  # Several agents on ONE facility. Without it every globe renders a
+  # single point beside assessed profiles that never borrowed, while the
+  # landing copy says "one point per agent".
+  bash "$ROOT/scripts/demo-cohort.sh" > /tmp/credence-web-cohort.log 2>&1 || {
+    echo "  demo-cohort failed; see /tmp/credence-web-cohort.log" >&2
+    tail -20 /tmp/credence-web-cohort.log >&2
+    exit 1
+  }
+  echo "  demo-cohort: $(grep -oE '[0-9]+ agents, [0-9]+ distinct outcomes' /tmp/credence-web-cohort.log | head -1)"
 else
   step "reusing the evidence already in /tmp (pass --fresh to re-run)"
 fi

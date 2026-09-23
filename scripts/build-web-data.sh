@@ -44,7 +44,7 @@ mkdir -p "$OUT"
 python3 - "$OUT" "$REPAY_DB" "$MONITOR_DB" "$DEFAULT_DB" "$GROWTH_DB" \
   /tmp/credence-repay /tmp/credence-monitor /tmp/credence-default \
   /tmp/credence-growth <<'PY'
-import json, os, sqlite3, sys
+import glob, json, os, sqlite3, sys
 
 out, *rest = sys.argv[1:]
 # Split down the middle rather than at a literal index. The two halves
@@ -256,6 +256,57 @@ if os.path.exists(cmp_path):
     with open(os.path.join(out, "comparison.json"), "w") as f:
         json.dump(comparison, f, indent=1, sort_keys=True)
     print(f"  {'compare':<8} {len(comparison['profiles'])} profiles")
+
+# The cohort: several agents against ONE facility.
+#
+# Kept separate from `runs` because its shape is different. A run is one
+# account over time; this is several accounts at one time, each with its
+# own database and its own credit account, and pooling them into a single
+# `assessments` list would merge four histories into a fifth agent that
+# never existed.
+#
+# `demo-cohort.sh` writes `<name>.db` beside `<name>.account`. Absent when
+# it has not been run, which the screen reports as un-run rather than as a
+# market with no agents.
+cohort_dir = os.path.join("/tmp", "credence-cohort")
+if os.path.isdir(cohort_dir):
+    agents = []
+    for db in sorted(glob.glob(os.path.join(cohort_dir, "*.db"))):
+        name = os.path.splitext(os.path.basename(db))[0]
+        assessments = rows(db, """
+            SELECT assessment_id, binding_key, input_hash, model_hash,
+                   policy_hash, assessment_kind, decision, risk_permission,
+                   sequence, assessment_hash, created_at, payload
+            FROM assessments ORDER BY sequence
+        """)
+        if not assessments:
+            continue
+        for a in assessments:
+            a["payload"] = parse(a.get("payload"))
+        snaps = rows(db, "SELECT input_hash, payload FROM snapshots")
+        account_path = os.path.join(cohort_dir, f"{name}.account")
+        account = ""
+        if os.path.exists(account_path):
+            with open(account_path) as f:
+                account = f.read().strip()
+        agents.append({
+            "name": name,
+            "account": account,
+            "assessments": assessments,
+            "snapshots": {s["input_hash"]: parse(s["payload"]) for s in snaps},
+        })
+
+    if agents:
+        with open(os.path.join(out, "cohort.json"), "w") as f:
+            json.dump({"agents": agents}, f, indent=1, sort_keys=True)
+        total = sum(len(a["assessments"]) for a in agents)
+        manifest["cohort"] = [
+            {"name": a["name"], "account": a["account"],
+             "assessments": len(a["assessments"])}
+            for a in agents
+        ]
+        manifest["generated_from"].append(cohort_dir)
+        print(f"  {'cohort':<8} {len(agents)} agents, {total} assessments")
 
 # The deployment manifest is the single source of truth for addresses.
 dep = os.path.join(os.path.dirname(out), "..", "..", "contracts",

@@ -25,6 +25,7 @@ demos: ## Run the demos that produce the evidence
 	@bash scripts/demo-monitor.sh
 	@bash scripts/demo-default.sh
 	@bash scripts/demo-growth.sh
+	@bash scripts/demo-cohort.sh
 
 index: ## Index the local chain's loan lifecycle (needs Docker)
 	@bash scripts/index-local.sh
