@@ -1,0 +1,231 @@
+/* 09 / Weather that happened. One inset and row rhythm, in every state. */
+.survey-proof {
+  --record-inset: var(--s4);
+  display: grid;
+  grid-template-columns: minmax(0, clamp(260px, 26vw, 360px)) minmax(0, 1fr);
+  gap: var(--s7) clamp(32px, 5vw, 80px);
+  align-items: start;
+  padding: var(--s11) var(--gutter);
+  border-top: 1px solid var(--border);
+}
+
+.proof-kicker { grid-column: 1 / -1; margin: 0; }
+.proof-intro { position: sticky; top: calc(83px + var(--s7)); }
+.proof-intro h2 {
+  margin: 0;
+  font: 500 clamp(34px, 3.4vw, 50px)/1.18 var(--sans);
+  letter-spacing: -.04em;
+}
+.proof-intro h2 em {
+  font-family: var(--serif);
+  font-weight: 400;
+  line-height: var(--lh-display);
+  letter-spacing: 0;
+}
+.proof-intro > p {
+  max-width: 34ch;
+  margin: var(--s6) 0;
+  font: var(--t3)/var(--lh-body) var(--sans);
+  color: var(--text-dim);
+}
+.proof-intro > .text-link { min-height: 44px; padding: var(--s3) 0; }
+.proof-intro .deployment {
+  display: grid;
+  gap: var(--s3);
+  margin: var(--s7) 0 0;
+  padding: var(--s6) 0 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+  font-family: var(--mono);
+  max-width: 34ch;
+}
+.proof-intro .deployment-item { white-space: normal; }
+.proof-intro .deployment-dot { flex-shrink: 0; box-shadow: none; }
+
+.ledger { min-width: 0; max-width: 56rem; }
+.ledger-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--s2) var(--s4);
+  margin: 0;
+  padding: 0 var(--record-inset) var(--s4);
+  border-bottom: 1px solid var(--border);
+}
+.ledger-head h3, .ledger-head p {
+  margin: 0;
+  font: var(--t1)/var(--lh-snug) var(--mono);
+  color: var(--text-dim);
+}
+.ledger-head h3 { letter-spacing: .09em; text-transform: uppercase; }
+.ledger-head strong { font-weight: 400; color: var(--text); }
+
+.claim-group { margin: var(--s7) 0 0; }
+.claim-group-intro { padding: 0 var(--record-inset); margin: 0 0 var(--s3); }
+.claim-group-intro h4 {
+  margin: 0 0 var(--s2);
+  font: 400 var(--t6)/var(--lh-snug) var(--serif);
+  letter-spacing: 0;
+}
+.claim-group-intro p {
+  max-width: 60ch;
+  margin: 0;
+  font: var(--t2)/var(--lh-body) var(--sans);
+  color: var(--text-dim);
+}
+.claim-group-rows { border-top: 1px solid var(--border); }
+.claim, .refused {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  background: none;
+}
+.claim > summary, .refused > summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 80px 16px;
+  align-items: center;
+  gap: var(--s4);
+  min-height: 64px;
+  margin: 0;
+  padding: var(--s4) var(--record-inset);
+  color: var(--text);
+  letter-spacing: 0;
+  list-style: none;
+  cursor: pointer;
+}
+.claim > summary::-webkit-details-marker, .refused > summary::-webkit-details-marker { display: none; }
+.claim > summary::marker, .refused > summary::marker { content: ''; }
+.claim > summary:focus-visible, .refused > summary:focus-visible { outline-offset: -2px; }
+.claim-title {
+  min-width: 0;
+  font: 400 var(--t4)/1.5 var(--sans);
+  color: var(--text);
+  transition: color 160ms ease;
+}
+.claim-status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  font: var(--t1)/var(--lh-snug) var(--mono);
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--growth);
+}
+.claim-status::before {
+  content: '';
+  width: 5px;
+  height: 5px;
+  flex-shrink: 0;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  background: currentColor;
+}
+.claim-unearned .claim-status { color: var(--mode-declared); }
+.claim-unearned .claim-status::before { background: transparent; }
+.record-toggle {
+  position: relative;
+  width: 16px;
+  height: 16px;
+  color: var(--text-dim);
+  transition: color 160ms ease;
+}
+.record-toggle::before, .record-toggle::after {
+  content: '';
+  position: absolute;
+  inset: 7.5px 3px;
+  background: currentColor;
+}
+.record-toggle::after { transform: rotate(90deg); transition: opacity 160ms ease; }
+details[open] > summary .record-toggle::after { opacity: 0; }
+details[open] > summary .record-toggle { color: var(--machine); }
+
+/* Hover changes the ink only; row dimensions and surfaces stay still. */
+@media (hover: hover) {
+  .claim > summary:hover .claim-title, .refused > summary:hover .claim-title,
+  .claim > summary:hover .record-toggle, .refused > summary:hover .record-toggle {
+    color: var(--machine);
+  }
+  .claim-link:hover, .proof-intro > .text-link:hover { border-bottom-color: var(--machine); }
+}
+
+.claim-body, .refused-body {
+  display: grid;
+  gap: var(--s4);
+  margin: 0;
+  padding: 0 var(--record-inset) var(--s6);
+  font: var(--t3)/var(--lh-body) var(--sans);
+}
+.claim-detail, .claim-support { max-width: 64ch; margin: 0; }
+.claim-detail { color: var(--text); }
+.claim-support { font-size: var(--t2); color: var(--text-dim); }
+.claim-support-label {
+  display: block;
+  margin-bottom: var(--s1);
+  font: var(--t1)/var(--lh-body) var(--mono);
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+.claim-link {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s6);
+  min-height: 44px;
+  padding: var(--s2) 0;
+  border-bottom: 1px solid var(--border);
+  color: var(--machine);
+  font-size: var(--t2);
+  text-decoration: none;
+  transition: border-color 160ms ease;
+}
+.refused { margin-top: var(--s7); border-top: 1px solid var(--border); }
+.refused > summary .claim-title { grid-column: 1 / 3; }
+.refused-body ul {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--s3) var(--s6);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.refused-body li {
+  position: relative;
+  padding-left: var(--s4);
+  color: var(--text-dim);
+}
+.refused-body li::before { content: '—'; position: absolute; left: 0; }
+.refused-body > p {
+  margin: 0;
+  padding-top: var(--s4);
+  border-top: 1px solid var(--border);
+  color: var(--text-dim);
+}
+
+@media (max-width: 900px) {
+  .survey-proof { grid-template-columns: minmax(0, 1fr); padding-block: var(--s10); }
+  .proof-intro { position: static; max-width: 560px; }
+  .proof-intro h2 { font-size: clamp(34px, 5.5vw, 46px); }
+  .proof-intro > p { max-width: 48ch; }
+  .proof-intro .deployment { max-width: none; display: flex; gap: var(--s3) var(--s6); }
+  .ledger { max-width: none; margin-top: var(--s3); }
+}
+
+@media (max-width: 600px) {
+  .survey-proof { --record-inset: var(--s3); padding-block: var(--s9); }
+  .claim > summary { grid-template-columns: minmax(0, 1fr) 16px; gap: var(--s2) var(--s3); }
+  .claim-title { font-size: var(--t3); }
+  .claim > summary .claim-status { grid-column: 1; grid-row: 2; }
+  .claim > summary .record-toggle { grid-column: 2; grid-row: 1 / 3; }
+  .refused > summary { grid-template-columns: minmax(0, 1fr) 16px; gap: var(--s3); }
+  .refused > summary .claim-title { grid-column: 1; }
+  .refused-body ul { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .survey-proof *, .survey-proof *::before, .survey-proof *::after { transition: none; }
+}
+@media print { .proof-intro { position: static; } }

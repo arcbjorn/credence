@@ -15,6 +15,7 @@ import { Observatory } from "./screens/Observatory";
 import { EmptyCoordinate, FieldGuide } from "./screens/FieldGuide";
 import "./styles/app.css";
 import "./styles/premium.css";
+import "./styles/weather.css";
 
 /** Rooms own their detailed records; old loan links keep working. */
 function LegacyArc() {

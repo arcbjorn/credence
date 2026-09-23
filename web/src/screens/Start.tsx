@@ -21,7 +21,20 @@ const CHAPTERS: { title: string; label: string; copy: string; projection: Projec
 ];
 
 export function ClaimRow({ claim }: { claim: Claim }) {
-  return <details className={`claim claim-${claim.status}`}><summary><span className="claim-title">{claim.title}</span><span className="claim-status">{claim.status === "earned" ? "live" : "building"}</span></summary><div className="claim-body"><p className="claim-detail">{claim.detail}</p><p className="claim-support"><span className="claim-support-label">Runs on</span>{claim.support}</p>{claim.to && <Link to={claim.to} className="claim-link">Inspect the record ↗</Link>}</div></details>;
+  return (
+    <details className={`claim claim-${claim.status}`}>
+      <summary>
+        <span className="claim-title">{claim.title}</span>{" "}
+        <span className="claim-status">{claim.status === "earned" ? "live" : "building"}</span>
+        <span className="record-toggle" aria-hidden="true" />
+      </summary>
+      <div className="claim-body">
+        <p className="claim-detail">{claim.detail}</p>
+        <p className="claim-support"><span className="claim-support-label">Runs on</span>{claim.support}</p>
+        {claim.to && <Link to={claim.to} className="claim-link">Inspect the record <span aria-hidden="true">↗</span></Link>}
+      </div>
+    </details>
+  );
 }
 
 export function Start() {
@@ -90,19 +103,31 @@ export function Start() {
         <div className="story-progress" style={{ transform: `scaleX(${progress})` }} />
       </section>
     </div>
-    <section className="survey-proof">
-      <div className="proof-intro"><p className="eyebrow">09 / WEATHER THAT HAPPENED</p><h2>A record.<br /><em>Not a promise.</em></h2><p>Every figure has a source. Every decision leaves a trace. Open the records and see what this body can prove.</p><Deployment /><Link to="/replay" className="text-link">Replay a decision ↗</Link></div>
-      <div className="ledger">
-        <header className="ledger-head"><h3>The field record</h3><p><strong>{EARNED} of {EARNED + UNEARNED} work today.</strong></p></header>
+    <section className="survey-proof" aria-labelledby="weather-title">
+      <p className="eyebrow proof-kicker">09 / WEATHER THAT HAPPENED</p>
+      <div className="proof-intro">
+        <h2 id="weather-title">A record.<br /><em>Not a promise.</em></h2>
+        <p>Every figure has a source. Every decision leaves a trace. Open the records and see what this body can prove.</p>
+        <Link to="/replay" className="text-link">Replay a decision <span aria-hidden="true">↗</span></Link>
+        <Deployment />
+      </div>
+      <div className="ledger" aria-labelledby="ledger-title">
+        <header className="ledger-head"><h3 id="ledger-title">The field record</h3><p><strong>{EARNED} of {EARNED + UNEARNED} work today.</strong></p></header>
         {GROUPS.map(g => {
           const rows = CLAIMS.filter(c => c.group === g.key);
           if (rows.length === 0) return null;
-          return <section className="claim-group" key={g.key}>
-            <div className="claim-group-intro"><h4>{g.title}</h4><p>{g.blurb}</p></div>
+          return <section className="claim-group" key={g.key} aria-labelledby={`claims-${g.key}`}>
+            <div className="claim-group-intro"><h4 id={`claims-${g.key}`}>{g.title}</h4><p>{g.blurb}</p></div>
             <div className="claim-group-rows">{rows.map(c => <ClaimRow key={c.title} claim={c} />)}</div>
           </section>;
         })}
-        <details className="refused"><summary>What this does not claim</summary><ul>{REFUSED.map(r => <li key={r}>{r}</li>)}</ul><p>Determinism buys auditability, not accuracy. Replaying a decision proves what the model did.</p></details>
+        <details className="refused">
+          <summary><span className="claim-title">What this does not claim</span><span className="record-toggle" aria-hidden="true" /></summary>
+          <div className="refused-body">
+            <ul>{REFUSED.map(r => <li key={r}>{r}</li>)}</ul>
+            <p>Determinism buys auditability, not accuracy. Replaying a decision proves what the model did.</p>
+          </div>
+        </details>
       </div>
     </section>
     <footer className="landing-footer"><div className="footer-invitation"><span className="eyebrow">THERE IS MORE TO THIS WORLD.</span><Link to="/observatory">See it working.<span aria-hidden="true">↗</span></Link></div><div className="footer-baseline"><Link className="footer-brand" to="/"><BrandMark />credence.</Link><span>Credit has a memory.</span><Link to="/guide">Read the field guide ↗</Link></div></footer>
