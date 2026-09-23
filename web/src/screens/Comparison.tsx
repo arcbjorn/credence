@@ -141,8 +141,8 @@ export function Comparison_() {
         </p>
         <p style={{ marginBottom: 0 }}>
           The third account has the <strong>same flawless record</strong> as
-          the second and is refused anyway, because stress capacity binds
-          first — a perfect record does not survive a dangerous position.
+          the second and is refused anyway. Stress capacity binds before the
+          history cap is ever reached.
         </p>
       </div>
 

@@ -207,10 +207,10 @@ export function IndexedLifecycle() {
     return (
       <>
         <RecordHeader title="Indexed lifecycle">
-          Indexed records are unavailable.
+          The indexer has not been run against this chain.
         </RecordHeader>
         <details>
-        <summary>Data setup</summary>
+        <summary>How to sync it</summary>
         <div className="card rail rail-machine">
           <p style={{ marginTop: 0 }}>
             Sync it, then regenerate the bundle:

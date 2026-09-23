@@ -38,9 +38,9 @@ export function Enforcement() {
     return (
       <>
         <RecordHeader title="Enforcement">
-          No enforcement checks retained in this run.
+          This run kept no enforcement checks.
         </RecordHeader>
-        <details><summary>Data setup</summary><p>Run <code>LOANS=3 scripts/demo-repay.sh</code>, then <code>pnpm data</code>.</p></details>
+        <details><summary>How to produce them</summary><p>Run <code>LOANS=3 scripts/demo-repay.sh</code>, then <code>pnpm data</code>.</p></details>
       </>
     );
   }
@@ -77,8 +77,8 @@ export function Enforcement() {
             <p>Debt is open, so the account will not release collateral.</p>
             <code className="hash">{ownerRefused.detail}</code>
             <p className="lede" style={{ marginTop: 8, marginBottom: 0 }}>
-              Lender protection: the owner holds every right of ownership and
-              still cannot withdraw.
+              The owner holds every right of ownership and still cannot
+              withdraw while the debt is open.
             </p>
           </div>
         )}

@@ -49,9 +49,9 @@ export function Lender() {
     return (
       <>
         <RecordHeader title="Lender">
-          No vault balances retained in this run.
+          This run kept no vault ledgers.
         </RecordHeader>
-        <details><summary>Data setup</summary><p>Run <code>LOANS=3 scripts/demo-repay.sh</code>, then <code>pnpm data</code>.</p></details>
+        <details><summary>How to produce them</summary><p>Run <code>LOANS=3 scripts/demo-repay.sh</code>, then <code>pnpm data</code>.</p></details>
       </>
     );
   }

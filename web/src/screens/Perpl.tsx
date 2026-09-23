@@ -116,9 +116,9 @@ export function PerplPanel() {
   if (error) {
     return (
       <section>
-        <RecordHeader title="Perpl market risk">Market evaluation is unavailable.</RecordHeader>
+        <RecordHeader title="Perpl market risk">No capture to read.</RecordHeader>
         <div className="error">{error}</div>
-        <details><summary>Data setup</summary><p>
+        <details><summary>How to capture it</summary><p>
           Refresh the capture with{" "}
           <code>bash scripts/build-perpl-data.sh</code>, which reads the live
           venue and writes <code>web/public/data/perpl.json</code>.
@@ -130,7 +130,7 @@ export function PerplPanel() {
   if (!data) {
     return (
       <section>
-        <RecordHeader title="Perpl market risk">Loading the capture…</RecordHeader>
+        <RecordHeader title="Perpl market risk">Reading the capture…</RecordHeader>
       </section>
     );
   }

@@ -114,13 +114,14 @@ export function Replay() {
       {report && (
         <div style={{ display: "grid", gap: 12 }}>
           <div className={report.matched ? "match" : "difference"}>
-            {report.matched ? "Matches retained assessment" : "Differs from retained assessment"}
+            {report.matched ? "Reproduced" : "Did not reproduce"}
             {ran === "tampered" && report.matched && (
-              <> — replay is vacuous: the altered evidence still matched, so
-              this run proves nothing about the snapshot.</>
+              <> — altered evidence produced the same assessment, so this
+              replay checks nothing.</>
             )}
             {ran === "tampered" && !report.matched && (
-              <> — correct: the altered snapshot does not reproduce.</>
+              <> — the altered input is a different decision, which is the
+              expected result.</>
             )}
           </div>
 

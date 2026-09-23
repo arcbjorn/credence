@@ -58,7 +58,7 @@ export function AgentOverview() {
           </>
         ) : (
           <>
-            No originations retained in this run.
+            This run kept no originations.
           </>
         )}
       </RecordHeader>
@@ -121,7 +121,7 @@ export function AgentOverview() {
 
       {originations.length === 0 && (
         <details>
-          <summary>Data setup</summary>
+          <summary>How to produce them</summary>
           <p>
             Generate the bundle with <code>pnpm data</code> after{" "}
             <code>LOANS=3 scripts/demo-repay.sh</code>.
