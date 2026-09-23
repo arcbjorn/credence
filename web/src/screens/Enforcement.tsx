@@ -27,8 +27,8 @@ export function Enforcement() {
     loadRun("repay").then(setRun).catch((e: Error) => setError(e.message));
   }, []);
 
-  if (error) return <div className="error">{error}</div>;
-  if (!run) return <p className="lede">Loading retained evidence…</p>;
+  if (error) return <><RecordHeader title="Enforcement" /><div className="error">{error}</div></>;
+  if (!run) return <RecordHeader title="Enforcement">Loading retained evidence…</RecordHeader>;
 
   const checks: Check[] = run.checks ?? [];
   const beat6 = checks.filter((c) => c.beat === "6");
