@@ -40,7 +40,7 @@ describe("one header throughout the site", () => {
   it("exposes sibling records beside the introduction and marks the current record", () => {
     renderShell("/assessment");
     const records = screen.getByRole("navigation", { name: "Body pages" });
-    expect(within(records).getAllByRole("link").map(link => link.getAttribute("href"))).toEqual(["/agent", "/assessment", "/enforcement"]);
+    expect(within(records).getAllByRole("link").map(link => link.getAttribute("href"))).toEqual(["/agent", "/earned", "/assessment", "/enforcement"]);
     expect(within(records).getByRole("link", { name: "Assessment detail" })).toHaveAttribute("aria-current", "page");
     fireEvent.click(within(records).getByRole("link", { name: "Enforcement" }));
     expect(document.title).toBe("Enforcement — Credence");
@@ -58,9 +58,11 @@ describe("one header throughout the site", () => {
 
   it.each([
     ["/agent", "Body", "Agent overview"],
+    ["/earned", "Body", "What a record earns"],
     ["/assessment", "Body", "Assessment detail"],
     ["/enforcement", "Body", "Enforcement"],
     ["/compare", "Atlas", "Three agents"],
+    ["/borrow", "Moons", "Borrow desk"],
     ["/lender", "Moons", "Lender"],
     ["/perpl", "Moons", "Perpl market risk"],
     ["/arc", "Observatory", "Loan lifecycle"],
@@ -81,7 +83,7 @@ describe("one header throughout the site", () => {
   it("offers related records from the current room only", () => {
     renderShell("/assessment");
     const related = screen.getByRole("navigation", { name: "Body records" });
-    expect(within(related).getAllByRole("link").map(link => link.getAttribute("href"))).toEqual(["/agent", "/enforcement"]);
+    expect(within(related).getAllByRole("link").map(link => link.getAttribute("href"))).toEqual(["/agent", "/earned", "/enforcement"]);
     expect(within(related).queryByRole("link", { name: /Lender/ })).not.toBeInTheDocument();
   });
 

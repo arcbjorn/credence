@@ -11,8 +11,8 @@ export interface Section {
 export const SECTIONS: Section[] = [
   { id: "observatory", path: "/observatory", label: "Observatory", records: ["/log", "/arc", "/indexed"] },
   { id: "atlas", path: "/atlas", label: "Atlas", records: ["/compare"] },
-  { id: "moons", path: "/moons", label: "Moons", records: ["/lender", "/perpl"] },
-  { id: "body", path: "/body", label: "Body", records: ["/agent", "/assessment", "/enforcement"] },
+  { id: "moons", path: "/moons", label: "Moons", records: ["/borrow", "/lender", "/live", "/perpl"] },
+  { id: "body", path: "/body", label: "Body", records: ["/agent", "/earned", "/assessment", "/enforcement"] },
   { id: "guide", path: "/guide", label: "Field guide", records: ["/evidence", "/replay"] },
 ];
 
@@ -42,9 +42,12 @@ export const SCREENS: Screen[] = [
   { path: "/arc", title: "Loan lifecycle", layout: "document", section: "observatory", description: "Inspect origination, terms and forecasts." },
   { path: "/indexed", title: "Indexed lifecycle", layout: "document", section: "observatory", description: "Read what the chain alone records." },
   { path: "/compare", title: "Three agents", layout: "document", section: "atlas", description: "Compare profiles under one policy." },
+  { path: "/borrow", title: "Borrow desk", layout: "document", section: "moons", description: "Ask the engine for terms yourself." },
   { path: "/lender", title: "Lender", layout: "document", section: "moons", description: "Separate available cash, exposure and loss." },
+  { path: "/live", title: "Live on Monad", layout: "document", section: "moons", description: "Read the deployment as it stands now." },
   { path: "/perpl", title: "Perpl market risk", layout: "document", section: "moons", description: "Inspect the observed market and its stress." },
   { path: "/agent", title: "Agent overview", layout: "document", section: "body", description: "Follow the agent's capacity and rate." },
+  { path: "/earned", title: "What a record earns", layout: "document", section: "body", description: "Watch a rate fall on record alone." },
   { path: "/assessment", title: "Assessment detail", layout: "document", section: "body", description: "See what bounded a credit decision." },
   { path: "/enforcement", title: "Enforcement", layout: "document", section: "body", description: "Inspect the account's on-chain limits." },
   { path: "/evidence", title: "Evidence", layout: "document", section: "guide", description: "Trace each input to its source." },

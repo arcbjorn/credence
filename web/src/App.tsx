@@ -5,7 +5,10 @@ import { AssessmentDetail } from "./screens/AssessmentDetail";
 import { Comparison_ } from "./screens/Comparison";
 import { Enforcement } from "./screens/Enforcement";
 import { EvidenceInspector } from "./screens/EvidenceInspector";
+import { Borrow } from "./screens/Borrow";
+import { Earned } from "./screens/Earned";
 import { Lender } from "./screens/Lender";
+import { Live } from "./screens/Live";
 import { Lifecycle } from "./screens/Lifecycle";
 import { IndexedLifecycle } from "./screens/Indexed";
 import { PerplPanel } from "./screens/Perpl";
@@ -45,7 +48,10 @@ export default function App() {
           <Route path="/lifecycle" element={<LegacyArc />} />
           <Route path="/indexed" element={<IndexedLifecycle />} />
           <Route path="/evidence" element={<EvidenceInspector />} />
+          <Route path="/borrow" element={<Borrow />} />
+          <Route path="/earned" element={<Earned />} />
           <Route path="/lender" element={<Lender />} />
+          <Route path="/live" element={<Live />} />
           <Route path="/enforcement" element={<Enforcement />} />
           <Route path="/perpl" element={<PerplPanel />} />
           <Route path="/replay" element={<Replay />} />

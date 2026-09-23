@@ -36,11 +36,28 @@ export function RecordTabs({ section, currentPath }: { section: Section; current
   </nav>;
 }
 
-const FEATURED_RECORDS = ["/log", "/lender", "/compare", "/replay"].map(screenForPath);
+/**
+ * The six a first-time reader should reach first.
+ *
+ * Ordered so the two they can OPERATE come first. `/borrow` runs the
+ * real engine on a request they compose and `/earned` is the project's
+ * central claim as one controlled run; both answer "what does this
+ * actually do" faster than any page that only reports. `/live` follows
+ * because a reader who has seen the model wants to know whether it is
+ * deployed, and the three retained records close.
+ */
+const FEATURED_RECORDS = [
+  "/borrow",
+  "/earned",
+  "/live",
+  "/log",
+  "/compare",
+  "/replay",
+].map(screenForPath);
 
 export function ExploreRecords() {
   return <section className="explore-records" aria-labelledby="explore-records-title">
-    <header><p className="eyebrow">Follow the evidence</p><h2 id="explore-records-title">A closer look.</h2><p>Read the loans, inspect the pool, or reproduce a credit decision.</p></header>
+    <header><p className="eyebrow">Follow the evidence</p><h2 id="explore-records-title">A closer look.</h2><p>Ask the engine for terms, watch a rate fall on record alone, or read the chain as it stands.</p></header>
     <nav aria-label="Explore data pages">
       {FEATURED_RECORDS.map(record => <Link className="record-link" key={record.path} to={record.path}><span>{record.title}<LinkArrow /></span><small>{record.description}</small></Link>)}
     </nav>
