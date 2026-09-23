@@ -953,7 +953,7 @@ code { font-family: var(--mono); font-size: var(--t2); }
 }
 
 .eclipse-key-shadow {
-  background: #000;
+  background: var(--text-dim);
   border: 1px solid var(--rule);
   margin-left: 10px;
 }
