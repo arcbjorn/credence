@@ -250,8 +250,8 @@ describe("the world draws", () => {
 const node = (id: string, latitude: number, longitude: number): WorldNode => ({
   id, label: id, capacity: "1000000000", score: 700, denied: false, latitude, longitude,
 });
-const arc = (agent: string, principal = "1000000000"): LoanArc => ({
-  agent, principal, term_seconds: 864_000,
+const arc = (agent: string, borrowed = "1000000000", loans = 1): LoanArc => ({
+  agent, borrowed, loans, term_seconds: 864_000,
 });
 
 describe("the world draws one passage per loan", () => {
@@ -277,37 +277,30 @@ describe("the world draws one passage per loan", () => {
     }
   });
 
-  it("does not collapse one agent's repeated loans into a single stroke", () => {
-    // Same borrower, same tenor, same principal: identical endpoints. The
-    // only thing that separates them on screen is the lift applied per
-    // repeat, so the count of strokes in that hue is what proves it.
-    const one = render(
-      <World book={BOOK} projection="globe" nodes={nodes} loans={[arc("borrower")]} />,
-    );
-    advance(1000);
-    advance(1016);
-    const hue = agentColor(0, false).toLowerCase();
-    const single = recorder.strokes.filter(s => s.toLowerCase() === hue).length;
-    one.unmount();
-
-    recorder = recordingContext();
-    frameCallbacks = [];
-    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockImplementation(
-      () => recorder.ctx as unknown as CanvasRenderingContext2D,
-    );
+  it("draws one passage per agent, not one per loan", () => {
+    // The bug this replaces: an arc per loan put seventeen curves on
+    // screen for five relationships, fanned apart by an invented lift.
+    // An agent with six loans and an agent with one now draw the same
+    // number of lines -- one each -- and differ in weight instead.
     render(
       <World
         book={BOOK}
         projection="globe"
         nodes={nodes}
-        loans={[arc("borrower"), arc("borrower"), arc("borrower")]}
+        loans={[arc("borrower", "6000000000", 6), arc("sable", "1000000000", 1)]}
       />,
     );
     advance(1000);
     advance(1016);
-    const three = recorder.strokes.filter(s => s.toLowerCase() === hue).length;
 
-    expect(three).toBeGreaterThan(single);
+    const hueA = agentColor(0, false).toLowerCase();
+    const hueB = agentColor(1, false).toLowerCase();
+    const strokes = recorder.strokes.map(s => s.toLowerCase());
+    // Each agent's hue appears for its arc plus its hollow origin dot,
+    // and the counts match despite a six-to-one difference in loans.
+    expect(strokes.filter(s => s === hueA).length).toBe(
+      strokes.filter(s => s === hueB).length,
+    );
   });
 
   it("marks both ends of every passage", () => {
