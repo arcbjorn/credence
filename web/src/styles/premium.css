@@ -149,10 +149,25 @@ td { padding-top:15px;padding-bottom:15px; }
 
 .world-node { position:absolute;transform:translate(-50%,-50%);width:36px;height:36px;padding:0;border:0;border-radius:50%;background:none;display:grid;place-items:center;color:var(--growth); }
 .world-node:hover { border:0; }
-.node-point { display:block;width:var(--node-size,10px);height:var(--node-size,10px);border-radius:50%;background:#d9e4ce;box-shadow:0 0 10px #afdbc499; }
+/* Each agent carries the hue its arcs are drawn in, so a reader can
+   follow one colour from the lender pole to the borrower it reaches.
+   `--agent-tint` resolves to the light set by default and is redefined
+   under both dark selectors -- a pastel tuned for warm paper washes out
+   on the dark jade ground, so the two sets are separate rather than one
+   set dimmed. */
+.world-node { --agent-tint: var(--agent-hue, #d9e4ce); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .world-node { --agent-tint: var(--agent-hue-dark, #d9e4ce); }
+}
+:root[data-theme='dark'] .world-node { --agent-tint: var(--agent-hue-dark, #d9e4ce); }
+
+.node-point { display:block;width:var(--node-size,10px);height:var(--node-size,10px);border-radius:50%;background:var(--agent-tint);box-shadow:0 0 10px color-mix(in srgb, var(--agent-tint) 60%, transparent); }
+/* A denial keeps the ALARM register rather than the agent's hue: `docs/09`
+   reserves vermilion for refusals, and tinting a denied node like any
+   other agent would hide the one distinction that matters most. */
 .node-hollow .node-point { background:transparent;border:1.5px solid var(--alarm);box-shadow:none; }
-.node-selected .node-point { outline:1px solid var(--growth);outline-offset:6px; }
-.node-exceptional .node-point { background:var(--gold); }
+.node-selected .node-point { outline:1px solid var(--agent-tint);outline-offset:6px; }
+.node-exceptional .node-point { background:var(--agent-tint);box-shadow:0 0 14px color-mix(in srgb, var(--agent-tint) 75%, transparent); }
 /* A node in the right-hand third opens its label leftward; opening
    right ran 'Concentrated / RESTRICTED' off the edge at narrow
    widths. */
@@ -162,9 +177,9 @@ td { padding-top:15px;padding-bottom:15px; }
 .world-node:not(.node-selected) .node-label { opacity:0;transition:opacity .2s;pointer-events:none; }
 .world-node:hover .node-label,.world-node:focus-visible .node-label { opacity:1; }
 .world-atlas .node-label { opacity:1!important; }
-.world-atlas .node-point { background:var(--machine);box-shadow:none; }
+.world-atlas .node-point { background:var(--agent-tint);box-shadow:none; }
 .world-atlas .node-hollow .node-point { background:transparent; }
-.world-atlas .node-exceptional .node-point { background:var(--gold); }
+.world-atlas .node-exceptional .node-point { background:var(--agent-tint);box-shadow:none; }
 .satellite { position:absolute;display:flex;gap:15px;align-items:center;z-index:2;font-size:var(--t1);pointer-events:none;max-width:min(300px,42vw); }
 
 .satellite p { margin:4px 0 0; }
