@@ -227,7 +227,7 @@ export function IndexedLifecycle() {
     );
   }
 
-  if (!data) return <p className="lede">Loading indexed evidence…</p>;
+  if (!data) return <RecordHeader title="Indexed lifecycle">Loading indexed evidence…</RecordHeader>;
 
   return (
     <>
