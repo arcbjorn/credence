@@ -1,0 +1,72 @@
+/* Every interior page shares its title face, measure and starting coordinate. */
+:root {
+  --header-height: 83px;
+  --page-top: calc(var(--header-height) + var(--s7));
+  --page-title-size: clamp(36px, 3.8vw, 56px);
+}
+.stage-inner {
+  max-width: none;
+  margin: 0;
+  padding: var(--page-top) var(--gutter) var(--s10);
+  min-height: 100svh;
+}
+.stage-inner > * { max-width: 1480px; }
+.page-context, .record-breadcrumb, .room-topline {
+  display: flex;
+  align-items: center;
+  min-height: var(--s6);
+  margin: 0 0 var(--s6);
+  padding: 0;
+  border: 0;
+  color: var(--text-dim);
+  font: var(--t1)/var(--lh-snug) var(--mono);
+  letter-spacing: .06em;
+}
+.page-context { text-transform: uppercase; }
+.page-header { margin: 0 0 var(--s7); }
+.page-title {
+  margin: 0 0 var(--s4);
+  font: 400 var(--page-title-size)/var(--lh-display) var(--serif);
+  letter-spacing: 0;
+  text-wrap: balance;
+}
+.page-header > .lede, .room-intro > p {
+  max-width: 64ch;
+  margin: 0;
+  color: var(--text-dim);
+  font: var(--t3)/var(--lh-body) var(--sans);
+}
+
+/* Context, title and left-hand instruments stay in flow as copy wraps. */
+.observatory-room { padding-top: var(--page-top); }
+.room-topline { justify-content: space-between; }
+.room-rail { position: relative; z-index: 6; width: clamp(260px, 26vw, 340px); pointer-events: none; }
+.room-intro { position: relative; z-index: 6; margin: 0; width: auto; pointer-events: none; }
+.room-intro > p { max-width: 34ch; }
+.room-records { margin-top: var(--s4); }
+.room-instruments, .atlas-tools { position: static; z-index: 6; width: 100%; margin-top: var(--s7); pointer-events: auto; }
+.room-instruments > .instrument-label { display: block; margin-bottom: var(--s4); }
+.room-instruments dl { margin: 0; }
+.atlas-tools .instrument-note { max-width: none; }
+.dock-heading { justify-content: space-between; }
+.filmstrip-heading { justify-content: space-between; }
+.field-guide > .page-header { margin-bottom: var(--s8); }
+.empty-coordinate { align-items: start; }
+.empty-coordinate .credit-world { align-self: center; }
+
+@media (max-width: 900px) {
+  :root { --header-height: 72px; }
+  .room-rail { width: 240px; }
+}
+@media (max-width: 600px) {
+  :root { --page-title-size: 36px; --page-top: calc(var(--header-height) + var(--s6)); }
+  .stage-inner { padding-bottom: var(--s9); }
+  .room-rail { display: contents; }
+  .room-intro { width: 100%; }
+  .room-intro > p { max-width: 36ch; }
+  .body-room .room-intro > p { max-width: calc(100% - 130px); }
+  .room-instruments, .atlas-tools { position: absolute; margin: 0; left: var(--gutter); right: var(--gutter); width: auto; }
+  .room-instruments { top: 720px; }
+  .atlas-tools { top: 725px; }
+  .room-instruments dl { margin: 0; }
+}
