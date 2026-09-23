@@ -183,6 +183,54 @@ export function populationNodes(
   );
 }
 
+/**
+ * One drawn loan: which agent took it, and how big it was.
+ *
+ * `World` used to be handed a bare `Assessment[]` and route EVERY arc to
+ * `nodes[0]`, so five loans to one borrower landed on the same two points
+ * with the same tenor and drew five times over each other. What looked
+ * like a single line was the whole book.
+ *
+ * Carrying the agent id here lets each arc end at its own node and take
+ * its own colour, which is what makes a second loan visible as a second
+ * loan.
+ */
+export interface LoanArc {
+  /** The node id this loan was drawn for, matching `WorldNode.id`. */
+  agent: string;
+  principal: string;
+  term_seconds: number;
+}
+
+const arcOf = (agent: string, a: Assessment): LoanArc => ({
+  agent,
+  principal: a.payload.outcome.approved_principal ?? "0",
+  term_seconds: a.payload.outcome.terms?.term_seconds ?? 0,
+});
+
+/**
+ * Every origination the globe should draw, attributed to its borrower.
+ *
+ * The retained run's loans belong to the `borrower` node; each cohort
+ * agent's belong to its own. Only approved originations are drawn: a
+ * refusal moved no money, and drawing one would show a transfer that
+ * never happened.
+ */
+export function loanArcs(
+  run: Run | null,
+  cohort: Cohort | null = null,
+): LoanArc[] {
+  const arcs = originations(run).map(a => arcOf("borrower", a));
+  for (const agent of cohort?.agents ?? []) {
+    for (const a of agent.assessments) {
+      if (a.payload.outcome.decision === "ApprovedOrigination") {
+        arcs.push(arcOf(agent.name, a));
+      }
+    }
+  }
+  return arcs;
+}
+
 export function surveyDate(run: Run | null): string | null {
   const times = run?.assessments.map(a => a.created_at).filter(Number.isFinite) ?? [];
   if (!times.length) return null;
