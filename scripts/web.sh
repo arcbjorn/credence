@@ -114,15 +114,18 @@ bash "$ROOT/scripts/setup.sh"
 #
 # The screens render what these runs retained. `demo-repay` supplies the
 # loans, forecasts and on-chain checks; `demo-monitor` supplies the
-# snapshot the replay screen reproduces.
+# snapshot the replay screen reproduces; `demo-growth` supplies the
+# controlled sequence the earned-rate screen plots.
 NEED_DEMOS=$FRESH
-if [ ! -f /tmp/credence-repay/scenario.db ] || [ ! -f /tmp/credence-monitor/credence.db ]; then
+if [ ! -f /tmp/credence-repay/scenario.db ] ||
+  [ ! -f /tmp/credence-monitor/credence.db ] ||
+  [ ! -f /tmp/credence-growth/scenario.db ]; then
   NEED_DEMOS=1
 fi
 
 if [ "$NEED_DEMOS" -eq 1 ]; then
   step "running the demos (this is the evidence the screens show)"
-  LOANS=3 bash "$ROOT/scripts/demo-repay.sh" > /tmp/credence-web-repay.log 2>&1 || {
+  LOANS=5 bash "$ROOT/scripts/demo-repay.sh" > /tmp/credence-web-repay.log 2>&1 || {
     echo "  demo-repay failed; see /tmp/credence-web-repay.log" >&2
     tail -20 /tmp/credence-web-repay.log >&2
     exit 1
@@ -145,6 +148,17 @@ if [ "$NEED_DEMOS" -eq 1 ]; then
     exit 1
   }
   echo "  demo-default: $(grep -oE 'realized_loss=[0-9]+' /tmp/credence-web-default.log | head -1)"
+
+  # The controlled sequence: one agent, one principal, only the record
+  # moving. Without it `/earned` has nothing to plot, and the project's
+  # central claim stays spread across loans that differ in several ways
+  # at once -- suggestive rather than attributable.
+  bash "$ROOT/scripts/demo-growth.sh" > /tmp/credence-web-growth.log 2>&1 || {
+    echo "  demo-growth failed; see /tmp/credence-web-growth.log" >&2
+    tail -20 /tmp/credence-web-growth.log >&2
+    exit 1
+  }
+  echo "  demo-growth: $(grep -oE 'repriced from [0-9.]+% to [0-9.]+%' /tmp/credence-web-growth.log | head -1)"
 else
   step "reusing the evidence already in /tmp (pass --fresh to re-run)"
 fi

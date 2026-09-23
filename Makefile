@@ -21,9 +21,10 @@ web-build: ## Same, but build the static site instead of serving
 	@bash scripts/web.sh --no-serve
 
 demos: ## Run the demos that produce the evidence
-	@LOANS=3 bash scripts/demo-repay.sh
+	@LOANS=5 bash scripts/demo-repay.sh
 	@bash scripts/demo-monitor.sh
 	@bash scripts/demo-default.sh
+	@bash scripts/demo-growth.sh
 
 index: ## Index the local chain's loan lifecycle (needs Docker)
 	@bash scripts/index-local.sh

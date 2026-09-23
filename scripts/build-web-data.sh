@@ -37,17 +37,27 @@ find_db() {
 REPAY_DB=${REPAY_DB:-$(find_db /tmp/credence-repay || true)}
 MONITOR_DB=${MONITOR_DB:-$(find_db /tmp/credence-monitor || true)}
 DEFAULT_DB=${DEFAULT_DB:-$(find_db /tmp/credence-default || true)}
+GROWTH_DB=${GROWTH_DB:-$(find_db /tmp/credence-growth || true)}
 
 mkdir -p "$OUT"
 
-python3 - "$OUT" "$REPAY_DB" "$MONITOR_DB" "$DEFAULT_DB" \
-  /tmp/credence-repay /tmp/credence-monitor /tmp/credence-default <<'PY'
+python3 - "$OUT" "$REPAY_DB" "$MONITOR_DB" "$DEFAULT_DB" "$GROWTH_DB" \
+  /tmp/credence-repay /tmp/credence-monitor /tmp/credence-default \
+  /tmp/credence-growth <<'PY'
 import json, os, sqlite3, sys
 
 out, *rest = sys.argv[1:]
-dbs, works = rest[:3], rest[3:]
+# Split down the middle rather than at a literal index. The two halves
+# are one database and one work directory per run, so adding a run meant
+# editing a `3` here as well as the argument list -- and forgetting it
+# silently fed a work directory in as a database path.
+half = len(rest) // 2
+dbs, works = rest[:half], rest[half:]
 REPO = os.path.abspath(os.path.join(out, "..", "..", ".."))
-names = ["repay", "monitor", "default"]
+names = ["repay", "monitor", "default", "growth"]
+assert len(names) == len(dbs) == len(works), (
+    f"{len(names)} run names against {len(dbs)} databases and "
+    f"{len(works)} work directories")
 
 def rows(db, sql):
     if not os.path.exists(db):
