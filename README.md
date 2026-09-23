@@ -59,9 +59,10 @@ agreement with Chainlink rather than an approval.
 scripts/setup.sh          # fetch pinned deps, build
 anvil --port 8546 &       # a local chain
 
-LOANS=3 scripts/demo-repay.sh   # three loans; the limit rises, the rate falls
+LOANS=5 scripts/demo-repay.sh   # five loans; the limit rises, the rate falls
 scripts/demo-default.sh         # a crash, unwound, with a real loss
 scripts/demo-monitor.sh         # continuous underwriting, and replay
+scripts/demo-cohort.sh          # four agents, one facility, four outcomes
 scripts/demo-notes.sh           # a loan sold as a note, and redeemed
 scripts/demo-erc8004.sh         # publish and read back, no Credence endpoint
 ```
@@ -127,6 +128,18 @@ rate it is quoted falls **12.00% → 9.20% on record alone** and the
 binding constraint hands off from `HistoryGrowthCap` to `StressCapacity`
 where the ceiling flattens. Nothing else moved; the script prints the
 delta and fails loudly if the rate did not fall.
+
+**The globe is a market, not a borrower.** `scripts/demo-cohort.sh`
+drives four agents against ONE facility -- each with its own
+`CreditAccount`, its own equity, and its own record -- so every screen
+that speaks of a market has more than one agent in it. They span the
+space rather than repeating a point: `sable` takes a single loan at
+16.00%, `cinder` takes six and earns its way to 8.67%, and its ceiling
+ends up set by what it is *forecast* to repay, a constraint no other run
+reaches. Beside them the Atlas carries eight assessed profiles covering
+five binding constraints and all three decisions, emitted by the engine
+itself (`cargo test --test ablation -- --ignored emit_comparison`) and
+pinned so they cannot drift from it.
 
 **Live on Monad** is the one screen that reads the network. It reads the
 deployment's four vault ledgers and every loan straight from chain

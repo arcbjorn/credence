@@ -8,7 +8,7 @@ note view is not built, and `docs/09` marks it optional.
 | Screen | `docs/09` beat |
 |---|---|
 | Agent overview | 4b — the limit rises, the APR falls, the constraint switches |
-| Three agents | 1 and 5 — a flawless record denied by its own book |
+| Agent profiles | 1 and 5 — a flawless record denied by its own book |
 | Assessment detail | which constraints bound one decision, and why |
 | Loan lifecycle | 3, 4, 7 — what was borrowed, and how its forecast scored |
 | Evidence | per item: origin, freshness, coverage, content hash |
@@ -24,11 +24,20 @@ Three records go past reporting and let a reader act:
 | What a record earns | One controlled run: only the record moves, so the price moves for one reason |
 | Live on Monad | Reads the deployment directly, and will sign a repayment |
 
-Thirteenth and last, the field guide. Five screens sit outside
-`docs/09`'s list: the observatory, atlas, moons and body rooms are one
-component (`Observatory.tsx`) serving four routes, and the guide explains
-the physics. None of them assert a beat, and each reads the same retained
-evidence the tables above do.
+The globe renders agents from two sources, kept apart on purpose. The
+**cohort** (`scripts/demo-cohort.sh`) is four agents that really
+borrowed, each on its own `CreditAccount`; they appear on the
+Observatory globe and the landing page. The **profiles**
+(`fixtures/demo/comparison.json`) are eight scenarios the engine
+assessed but which never touched a chain; they live in the Atlas. A
+reader should never have to guess which kind of agent they are looking
+at, which is why the two rooms do not mix them.
+
+Eight screens sit outside `docs/09`'s list: the observatory, atlas, moons
+and body rooms are one component (`Observatory.tsx`) serving four routes,
+the guide explains the physics, and the three records above let a reader
+act rather than read. None of them assert a beat, and each reads the same
+retained evidence the tables above do.
 
 Beat 6 is the one `docs/09` calls **"the single most convincing moment"**.
 The screen renders what `credence-verify` recorded against the live
@@ -91,9 +100,10 @@ when offscreen, and honours reduced motion. Interactive nodes remain native
 HTML buttons. Docks support Escape and restore focus; all room controls are
 keyboard accessible. Hold Alt for whisper mode.
 
-The new visualizations do not invent live network activity. The landing and
-Observatory draw the retained repayment run; Atlas draws the independent
-comparison scenarios; Log draws the independent indexed records. The score
+The new visualizations do not invent live network activity. The landing
+and Observatory draw the retained repayment run and the cohort that
+borrowed beside it; Atlas draws the independent comparison scenarios; Log
+draws the independent indexed records. The score
 barometer explicitly preserves the engine's native 300–900 scale. The
 history scrubber changes the origination being inspected; it does not claim
 to reconstruct historical vault balances.
@@ -128,8 +138,10 @@ cargo install wasm-bindgen-cli --version 0.2.128   # once
 rustup target add wasm32-unknown-unknown           # once
 
 anvil --port 8546 &
-LOANS=3 scripts/demo-repay.sh
+LOANS=5 scripts/demo-repay.sh
 scripts/demo-monitor.sh
+scripts/demo-growth.sh
+scripts/demo-cohort.sh
 
 cd web
 pnpm install
@@ -145,8 +157,8 @@ cargo install wasm-bindgen-cli --version 0.2.128
 rustup target add wasm32-unknown-unknown
 ```
 
-`pnpm data` reads `/tmp/credence-{repay,monitor}` — run the demos
-first, or point `REPAY_DB` / `MONITOR_DB` elsewhere.
+`pnpm data` reads `/tmp/credence-{repay,monitor,default,growth,cohort}`
+— run the demos first, or point `REPAY_DB` / `MONITOR_DB` elsewhere.
 
 ```sh
 pnpm test         # vitest, including the engine agreement tests
