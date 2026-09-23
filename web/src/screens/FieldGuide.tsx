@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router";
 import { RecordHeader } from "../components/Record";
 import { World } from "../components/World";
 import { readBook } from "../lib/book";
-import { borrowerNode, originations, useSurvey, type Projection } from "../lib/observatory";
+import { borrowerNode, loanArcs, originations, useSurvey, type Projection } from "../lib/observatory";
 
 const CHAPTERS: { title: string; subtitle: string; copy: string; projection: Projection; to: string; link: string }[] = [
   { title: "Survey", subtitle: "Where the numbers come from.", copy: "Every figure here came from a real run. Development runs, comparison scenarios and chain events carry separate labels, because they are not the same kind of evidence. A missing measurement stays missing. We do not fill the gap with something plausible.", projection: "globe", to: "/evidence", link: "Inspect sources" },
@@ -55,7 +55,7 @@ export function FieldGuide() {
               <World
                 book={readBook(survey.run)}
                 nodes={borrowerNode(loans.at(-1))}
-                loans={loans}
+                loans={loanArcs(survey.run)}
                 projection={current.projection}
                 labels={false}
                 onSelect={id => navigate(id === "facility" ? "/moons" : "/body")}
