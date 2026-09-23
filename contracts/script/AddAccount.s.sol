@@ -62,9 +62,10 @@ contract AddAccount is Script {
             LoanManager(managerAddr).setAccountAdapter(account, adapter, true);
             // Closing a position reduces risk, so it needs no standing
             // permission: an account must always be able to exit.
-            LoanManager(managerAddr).setAccountDeRiskingAction(
-                account, adapter, bytes4(keccak256("unwind(uint256)")), true
-            );
+            LoanManager(managerAddr)
+                .setAccountDeRiskingAction(
+                    account, adapter, bytes4(keccak256("unwind(uint256)")), true
+                );
         }
 
         vm.stopBroadcast();
