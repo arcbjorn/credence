@@ -196,49 +196,70 @@ td { padding-top:15px;padding-bottom:15px; }
 .world-layer-labels span { border-bottom:1px solid var(--border);padding:8px 0 8px 30px;background:var(--bg); }
 .moon-satellite { position:absolute;left:76%;top:49%;font:var(--t1) var(--mono);padding:8px 0;background:none;border:0;white-space:nowrap; }
 .moon-satellite span { display:block;margin-top:6px;color:var(--machine); }
-/* The gap was 12%, about 155px here, which pushed the claim and its
-   evidence apart until they read as two unrelated sections. */
-.survey-proof { display:grid;grid-template-columns:minmax(0,.72fr) minmax(0,1fr);gap:var(--s10);padding:var(--s11) var(--gutter);border-top:1px solid var(--border);align-items:start; }
+/* 09 / WEATHER THAT HAPPENED.
+ *
+ * The section is a claim with its evidence beside it, so the two sit in
+ * one grid rather than stacking into two screens. The record column is
+ * the wider of the two: it holds ten items a reader actually opens,
+ * while the left column holds one heading and one paragraph.
+ *
+ * The split was .72fr / 1fr, which left the items in a column narrow
+ * enough that a five-word title wrapped. A fixed left column and an
+ * open right one gives the record every pixel the intro does not need. */
+.survey-proof { display:grid;grid-template-columns:minmax(0,clamp(280px,26vw,380px)) minmax(0,1fr);gap:clamp(48px,6vw,110px);padding:var(--s11) var(--gutter);border-top:1px solid var(--border);align-items:start; }
 /* One owner for the record header's spacing. The title carried its
    own top and bottom margin and every screen re-stated the gap to
    its lede; the wrapper holds both now. */
 .proof-intro h2,.record-title { font:500 clamp(40px,4.4vw,66px)/var(--lh-tight) var(--sans);letter-spacing:-.055em;margin:0 0 var(--s5); }
 .record-header { margin:var(--s7) 0 var(--s8); }
 .record-header .lede { margin:0; }
+.proof-intro { position:sticky;top:calc(83px + var(--s6)); }
+.proof-intro h2 { font-size:clamp(34px,3.2vw,50px); }
 .proof-intro h2 em { font-family:var(--serif);font-weight:400; }
-.proof-intro>p:not(.eyebrow) { color:var(--text-dim);font:var(--t3)/var(--lh-body) var(--sans);max-width:38ch;margin:var(--s5) 0 0; }
-.proof-intro .deployment { margin:var(--s7) 0 var(--s7);font-family:var(--mono);flex-direction:column;align-items:flex-start;border:0;border-left:1px solid var(--border);padding:var(--s1) 0 var(--s1) var(--s4);gap:var(--s2); }
-.ledger-head { margin:0 0 22px;padding:0;display:flex;justify-content:space-between;align-items:center;gap:15px; }
-.ledger-head h3,.ledger-head p { margin:0;font:var(--t1) var(--mono); }
-/* Rows scale from one rule: a fixed vertical rhythm, symmetric inset,
-   and the plate bleeding evenly past the text on both sides. */
-.claim>summary { padding:var(--s4) var(--s4);margin:0 calc(var(--s4) * -1);min-height:0; }
+.proof-intro>p:not(.eyebrow) { color:var(--text-dim);font:var(--t3)/var(--lh-body) var(--sans);max-width:34ch;margin:var(--s5) 0 0; }
+.proof-intro .deployment { margin:var(--s6) 0;font-family:var(--mono);flex-direction:column;align-items:flex-start;border:0;border-left:1px solid var(--border);padding:var(--s1) 0 var(--s1) var(--s4);gap:var(--s2); }
+.ledger-head { margin:0 0 var(--s5);padding:0 0 var(--s4);border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:baseline;gap:var(--s5);flex-wrap:wrap; }
+.ledger-head h3,.ledger-head p { margin:0;font:var(--t1) var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text-dim); }
+.ledger-head strong { font-weight:400;color:var(--text); }
 
 /* The grouped ledger.
  *
  * Ten flat rows under one header read as a table of contents. Each
- * group now names itself and carries one sentence saying why it exists,
- * in its own column beside the items -- so a reader can enter anywhere
- * instead of starting at row one. */
-/* The group heading sits ABOVE its rows, not beside them.
+ * group names itself and carries one sentence saying why it exists.
  *
- * It was a two-column grid nested inside the section's own two-column
- * grid -- four text columns across the page, each too narrow, and the
- * intro cell stretched to match its rows: a two-sentence blurb given a
- * 514px column with a void beneath it. One column per group, heading
- * first, rows under it. */
-.claim-group { padding:var(--s8) 0 0; }
-.claim-group:first-of-type { padding-top:var(--s6); }
-.claim-group-intro { display:flex;align-items:baseline;gap:var(--s4);flex-wrap:wrap;margin:0 0 var(--s4);padding:0 0 var(--s3);border-bottom:1px solid var(--border); }
+ * The heading sits ABOVE its rows, not beside them. It was a two-column
+ * grid nested inside the section's own two-column grid -- four text
+ * columns across the page, each too narrow, and the intro cell
+ * stretched to match its rows: a two-sentence blurb given a 514px
+ * column with a void beneath it. */
+.claim-group { padding:var(--s7) 0 0; }
+.claim-group:first-of-type { padding-top:var(--s5); }
+/* No rule under the group name. A border here plus the row plates
+   below it made every group read as a table header over a table. The
+   numeral and the space above are the separation. */
+.claim-group-intro { display:flex;align-items:baseline;gap:var(--s4);flex-wrap:wrap;margin:0 0 var(--s3);padding:0; }
 .claim-group-intro h4 { font:400 var(--t5)/var(--lh-snug) var(--serif);letter-spacing:0;margin:0;color:var(--text);flex:none; }
-.claim-group-intro p { font:var(--t2)/var(--lh-snug) var(--sans);color:var(--text-dim);margin:0;flex:1 1 22ch;min-width:0; }
+.claim-group-intro p { font:var(--t2)/var(--lh-snug) var(--sans);color:var(--text-dim);margin:0;flex:1 1 24ch;min-width:0; }
+/* A generic `details { margin-top:14px }` applies to every row, so a
+   54px plate sat on a 68px pitch and ten items sprawled down the page
+   with gaps the hover plate does not cover. The rows own their rhythm
+   through the plate's own padding; other <details> keep the global
+   margin. */
 .claim-group-rows { display:flex;flex-direction:column; }
-.claim-title { font:var(--t2) var(--sans); }
+.claim-group-rows>.claim { margin-top:0; }
+/* .claim-title is sized in app.css at --t4. It was restated here as a
+   `font:` SHORTHAND at --t2, which both shrank the items to 12px and
+   reset the line-height and weight set with it. The row labels are what
+   the section is for; they are not the smallest text on the page. */
 .claim-status { font:var(--t1) var(--mono); }
-.claim-body { padding:0 0 20px;font:var(--t2)/var(--lh-body) var(--sans); }
-.claim-support { font:var(--t1)/var(--lh-body) var(--mono); }
-.refused { margin-top:26px;font:var(--t2)/var(--lh-body) var(--sans); }
-.refused>summary { font:var(--t1) var(--mono);padding:15px 0; }
+.claim-body { padding:0 0 var(--s5);font:var(--t3)/var(--lh-body) var(--sans); }
+.claim-support { font:var(--t2)/var(--lh-body) var(--mono); }
+.refused { margin-top:var(--s7);font:var(--t3)/var(--lh-body) var(--sans); }
+/* The disclosure is a control a reader clicks, not a caption: at --t1
+   it was the smallest text in the section. Its own 16px padding also
+   stacked on the panel's, giving one line of text an 85px box. */
+.refused>summary { font:var(--t2) var(--mono);padding:0; }
+
 .landing-footer { padding:var(--s9) var(--gutter) 0;background:var(--text);color:var(--bg); }
 .footer-invitation>.eyebrow { color:var(--bg);opacity:.6;font-size:var(--t1); }
 .footer-invitation>a { display:flex;justify-content:space-between;align-items:center;font:400 clamp(42px,6.2vw,95px) var(--serif);letter-spacing:0;text-decoration:none;padding:25px 0 55px; }
@@ -334,7 +355,7 @@ td { padding-top:15px;padding-bottom:15px; }
 @media (min-width:1700px) { .story-copy>.eyebrow { margin-top:10vh; }.hero-objects.story-world { right:5%; }.story-readings { bottom:80px;padding-bottom:30px; }.world-controls { bottom:230px; } }
 @media (max-height:800px) and (min-width:901px) { .story-viewport { min-height:680px; }.story-copy>.eyebrow { margin-top:38px; }.shell-landing .story-copy .hero { font-size:clamp(60px,6.4vw,92px);margin-bottom:20px; }.shell-landing .story-copy .hero-lede { font-size:var(--t2);margin-bottom:20px; }.story-readings { padding-top:19px;bottom:58px; }.hero-objects.story-world { width:min(62vw,800px,84vh);top:49%; }.world-controls { bottom:190px; }.observatory-room { min-height:740px; }.room-intro { margin-top:30px; }.room-world { width:min(65vw,790px);top:48%; }.room-instruments { top:42%; }.room-instruments dl>div { margin-bottom:15px; }.room-instruments dd { font-size:var(--t5); }.room-timeline { bottom:58px; }.room-view-controls { bottom:190px; }.atlas-tools { top:305px; }.orbit-dock { top:155px;max-height:calc(100% - 215px); } }
 @media (max-width:1100px) { .bar-links { gap:20px; }.bar-actions { gap:15px; }.hero-objects.story-world { width:min(70vw,84vh);right:-8%; }.shell-landing .story-copy .hero-lede { width:36%; }.satellite-top { right:12%; }.satellite-bottom { bottom:16%;left:18%; }.story-readings { gap:20px;grid-template-columns:1.1fr .9fr 1fr; }.reading-provenance { display:none; }.room-world { left:60%;width:78vw; }.room-instruments { width:180px; }.room-docked .room-world { left:49%; }.orbit-dock { right:3%;width:260px; }.body-score { width:120px;top:173px;right:4%; }.atlas-tools { width:210px; }.survey-proof { gap:var(--s9); }.whisper-hint { display:none; } }
-@media (max-width:900px) { html { scroll-padding-top:84px; } .bar { height:72px;padding:0 var(--gutter);gap:15px;flex-wrap:nowrap; }.bar-mark { font-size:var(--t6); }.bar-mark svg { width:27px;height:27px; }.bar-links { display:none;position:absolute;top:71px;left:0;right:0;margin:0;padding:var(--s5) var(--gutter);background:var(--bg);border-bottom:1px solid var(--border);gap:22px; }.bar-links.bar-open { display:flex;flex-direction:row;flex-wrap:wrap; }.bar-toggle { display:block;background:none;border:0;padding:9px 0;font:var(--t1) var(--mono); }.bar-actions { gap:15px; }.theme-switch { font-size:var(--t4); }.bar-links a { font-size:var(--t2); }.story-viewport { padding:90px var(--gutter) 0;min-height:760px; }.story-topline { font-size:var(--t1); }.story-topline>span:last-child { display:none; }.story-copy>.eyebrow { margin-top:45px;font-size:var(--t1); }.shell-landing .story-copy .hero { font-size:clamp(60px,9vw,88px);max-width:5.7em; }.story-viewport:not(.story-chapter-0) .story-copy .hero { font-size:clamp(48px,7vw,65px); }.shell-landing .story-copy .hero-lede { width:41%;font-size:var(--t2); }.hero-objects.story-world { top:49%;width:min(78vw,80vh);right:-18%; }.satellite-top { right:5%;top:14%;text-align:right; }.satellite-line { width:28px; }.satellite-bottom { left:23%;bottom:23%;font-size:var(--t1); }.story-readings { left:var(--gutter);right:var(--gutter); }.story-readings strong { font-size:var(--t6); }.story-readings .instrument-label { font-size:var(--t1); }.story-bottomline { left:var(--gutter);right:var(--gutter); }.world-controls { right:5%;bottom:194px; }.hero-access { max-width:24ch;line-height:var(--lh-body); }.observatory-room { padding:92px var(--gutter) 0;min-height:880px; }.room-intro { margin-top:30px;width:220px; }.room-intro h1 { font-size:40px; }.room-intro>p:not(.eyebrow) { font-size:var(--t2); }.room-world { width:93vw;left:66%;top:46%; }.room-instruments { left:5%;top:40%;width:160px; }.room-instruments dd { font-size:var(--t5); }.room-docked .room-world { left:49%;width:85vw;opacity:.55; }.orbit-dock { width:260px;right:5%;top:200px;max-height:calc(100% - 280px); }.room-timeline,.room-footer { left:var(--gutter);right:var(--gutter); }.room-view-controls { right:5%;bottom:226px; }.atlas-tools { left:5%;width:190px;top:310px; }.atlas-tools .instrument-note { max-width:24ch; }.body-score { top:185px;right:6%;width:120px; }.survey-proof { padding:var(--s10) var(--gutter);grid-template-columns:1fr;gap:65px; }.proof-intro { max-width:500px; }.proof-intro h2 { font-size:55px; }.proof-intro .deployment { flex-direction:row; }.landing-footer { padding:var(--s9) var(--gutter) 0; }.stage-inner { padding:105px var(--gutter) var(--s9); }.card { padding:18px; } }
+@media (max-width:900px) { html { scroll-padding-top:84px; } .bar { height:72px;padding:0 var(--gutter);gap:15px;flex-wrap:nowrap; }.bar-mark { font-size:var(--t6); }.bar-mark svg { width:27px;height:27px; }.bar-links { display:none;position:absolute;top:71px;left:0;right:0;margin:0;padding:var(--s5) var(--gutter);background:var(--bg);border-bottom:1px solid var(--border);gap:22px; }.bar-links.bar-open { display:flex;flex-direction:row;flex-wrap:wrap; }.bar-toggle { display:block;background:none;border:0;padding:9px 0;font:var(--t1) var(--mono); }.bar-actions { gap:15px; }.theme-switch { font-size:var(--t4); }.bar-links a { font-size:var(--t2); }.story-viewport { padding:90px var(--gutter) 0;min-height:760px; }.story-topline { font-size:var(--t1); }.story-topline>span:last-child { display:none; }.story-copy>.eyebrow { margin-top:45px;font-size:var(--t1); }.shell-landing .story-copy .hero { font-size:clamp(60px,9vw,88px);max-width:5.7em; }.story-viewport:not(.story-chapter-0) .story-copy .hero { font-size:clamp(48px,7vw,65px); }.shell-landing .story-copy .hero-lede { width:41%;font-size:var(--t2); }.hero-objects.story-world { top:49%;width:min(78vw,80vh);right:-18%; }.satellite-top { right:5%;top:14%;text-align:right; }.satellite-line { width:28px; }.satellite-bottom { left:23%;bottom:23%;font-size:var(--t1); }.story-readings { left:var(--gutter);right:var(--gutter); }.story-readings strong { font-size:var(--t6); }.story-readings .instrument-label { font-size:var(--t1); }.story-bottomline { left:var(--gutter);right:var(--gutter); }.world-controls { right:5%;bottom:194px; }.hero-access { max-width:24ch;line-height:var(--lh-body); }.observatory-room { padding:92px var(--gutter) 0;min-height:880px; }.room-intro { margin-top:30px;width:220px; }.room-intro h1 { font-size:40px; }.room-intro>p:not(.eyebrow) { font-size:var(--t2); }.room-world { width:93vw;left:66%;top:46%; }.room-instruments { left:5%;top:40%;width:160px; }.room-instruments dd { font-size:var(--t5); }.room-docked .room-world { left:49%;width:85vw;opacity:.55; }.orbit-dock { width:260px;right:5%;top:200px;max-height:calc(100% - 280px); }.room-timeline,.room-footer { left:var(--gutter);right:var(--gutter); }.room-view-controls { right:5%;bottom:226px; }.atlas-tools { left:5%;width:190px;top:310px; }.atlas-tools .instrument-note { max-width:24ch; }.body-score { top:185px;right:6%;width:120px; }.survey-proof { padding:var(--s10) var(--gutter);grid-template-columns:1fr;gap:65px; }.proof-intro { max-width:500px;position:static; }.proof-intro h2 { font-size:55px; }.proof-intro .deployment { flex-direction:row; }.landing-footer { padding:var(--s9) var(--gutter) 0; }.stage-inner { padding:105px var(--gutter) var(--s9); }.card { padding:18px; } }
 @media (max-width:600px) { .bar { gap:8px; }.bar-links { gap:18px; }.bar-links a { font-size:var(--t1); }.bar-actions { gap:18px; }.planet-story { height:640vh; }.story-viewport { height:100svh;min-height:870px;padding-top:88px; }.story-topline { font-size:var(--t1); }.story-copy>.eyebrow { margin-top:27px;font-size:var(--t1);margin-bottom:16px; }.shell-landing .story-copy .hero { font-size:62px;max-width:5.7em;line-height:.98;margin-bottom:18px; }.story-viewport:not(.story-chapter-0) .story-copy .hero { font-size:43px;max-width:8.4em;min-height:84px; }.shell-landing .story-copy .hero-lede { width:100%;font-size:var(--t2);line-height:var(--lh-body);max-width:36ch;margin-bottom:17px; }.story-copy .start-enter { min-width:160px;font-size:var(--t1);padding:12px 15px;gap:40px; }.hero-access { display:none; }.hero-objects.story-world { width:min(112vw,440px);right:calc(50% - min(56vw,220px));top:590px; }.satellite-top { top:11%;right:17%;font-size:var(--t1); }.satellite-top .instrument-label { font-size:var(--t1); }.satellite-bottom { left:13%;bottom:13%;font-size:var(--t1); }.satellite-bottom .instrument-label { font-size:var(--t1); }.story-readings { bottom:51px;gap:13px;padding:19px 0; }.story-readings strong { font-size:var(--t4); }.story-readings strong small { font-size:var(--t1); }.story-readings .instrument-label { font-size:var(--t1);letter-spacing:.03em;line-height:var(--lh-body);max-width:17ch; }.story-readings>a { gap:9px; }.story-bottomline { height:48px;font-size:var(--t1); }.story-bottomline>button { font-size:var(--t1);letter-spacing:0; }.chapter-steps { gap:0; }.chapter-steps button { width:17px;padding:6px; }.chapter-steps button span { width:3px;height:3px; }.world-controls { bottom:166px;right:5%;gap:18px; }.world-controls button { font-size:var(--t1); }.node-label { font-size:var(--t1); }.node-label small { font-size:var(--t1); }.world-layer-labels { font-size:var(--t1);gap:17px;right:12%; }.world-layer-labels span { padding-left:15px; }.moon-satellite { font-size:var(--t1);left:66%; }.observatory-room { min-height:1080px;height:auto;padding-top:93px; }.room-topline { font-size:var(--t1); }.room-intro { margin-top:28px;width:100%; }.room-intro h1 { font-size:44px;margin:12px 0; }.room-intro>p:not(.eyebrow) { max-width:32ch;font-size:var(--t2); }.room-intro .eyebrow { font-size:var(--t1); }.room-world { width:min(112vw,560px);left:50%;top:485px; }.room-instruments { top:720px;left:5%;right:5%;width:auto; }.room-instruments>.instrument-label { font-size:var(--t1); }.room-instruments dl { display:grid;grid-template-columns:1.2fr .8fr 1fr;gap:12px;margin:14px 0; }.room-instruments dt { font-size:var(--t1); }.room-instruments dd { font-size:var(--t4); }.room-instruments dd small { display:none; }.room-instruments dl>div { margin:0; }.room-instruments .text-link { font-size:var(--t1); }.room-view-controls { top:666px;bottom:auto;left:5%;right:5%;justify-content:flex-end;gap:22px; }.room-view-controls button { font-size:var(--t1); }.room-timeline { bottom:65px;padding-top:15px; }.filmstrip { gap:8px; }.filmstrip>button { width:56px;padding-left:3px;padding-right:3px; }.filmstrip>button small { font-size:var(--t1); }.filmstrip>button span { font-size:var(--t1); }.timeline-scrubber { width:135px;font-size:var(--t1); }.timeline-scrubber .instrument-note { font-size:var(--t1); }.room-footer { font-size:var(--t1);gap:15px; }.room-footer>span:nth-child(2) { text-align:right; }.room-availability { bottom:43px;font-size:var(--t1); }.atlas-tools { top:725px;left:5%;right:5%;width:auto; }.atlas-search { width:100%; }.filter-tabs { margin:10px 0; }.atlas-tools .instrument-note { max-width:none;font-size:var(--t1); }.atlas-profile-list { margin-top:10px; }.atlas-profile-list button { padding:11px 0;font-size:var(--t1); }.orbit-dock { position:absolute;top:290px;right:5%;left:5%;width:auto;max-height:565px;background:var(--bg);padding:15px 22px; }.room-docked .room-world { left:50%;width:112vw;opacity:.35; }.orbit-dock h2 { margin-top:14px;font-size:37px; }.dock-caption { font-size:var(--t1); }.dock-specs { margin:12px 0; }.dock-specs>div { padding:10px 0; }.body-score { width:106px;right:7%;top:178px; }.body-room .room-intro h1 { max-width:4.2em;font-size:51px; }.body-room .room-intro>p:not(.eyebrow) { max-width:21ch; }.body-room .room-source { font-size:var(--t1); }.body-room .room-world { top:489px; }.log-strip { position:absolute;top:720px;left:5%;right:5%;width:auto;margin:0;gap:10px; }.log-strip>.instrument-label { margin-top:0; }.log-journey { display:grid;grid-template-columns:65px 1fr;gap:4px 15px;width:100%;padding:12px; }.log-journey svg { grid-row:1/4;margin:0; }.log-journey span,.log-journey strong,.log-journey small { margin:0; }.log-strip>.text-link { flex:auto; }.proof-intro h2 { font-size:47px; }.survey-proof { gap:var(--s8);padding:var(--s9) var(--gutter); }.claim-title { font-size:var(--t2); }.claim>summary { gap:12px; }.claim-status { font-size:var(--t1); }.ledger-head { flex-wrap:wrap;gap:5px; }.footer-invitation>a { font-size:48px;padding-bottom:40px; }.footer-baseline { flex-wrap:wrap;gap:20px;font-size:var(--t1); }.footer-baseline>span { display:none; }.footer-brand { font-size:var(--t5); }.inner-footer { font-size:var(--t1);gap:20px; }.card { padding:16px; }.stage-inner h2 { font-size:34px; }.lede { font-size:var(--t2); }.room-world .world-atlas .node-label { font-size:var(--t1);left:23px;padding:4px 6px; }.world-atlas .node-label small { font-size:var(--t1); } }
 @media (prefers-reduced-motion:reduce) { *,*::before,*::after { animation:none!important;transition:none!important;scroll-behavior:auto!important; } }
 @media print { .bar,.world-controls,.room-view-controls,.room-timeline,.orbit-dock,.skip-link,.story-bottomline,.story-readings,.landing-footer { display:none; }.planet-story { height:auto; }.story-viewport,.observatory-room { height:900px;position:relative; }.story-copy .hero { font-size:60px!important; }.room-footer { position:absolute; }.survey-proof { break-before:page; } }
