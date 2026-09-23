@@ -556,9 +556,9 @@ export function CreditGlobe({
         <text x={CENTER} y={CENTER - 2} textAnchor="middle" className="globe-figure">
           {denied ? "denied" : `${(current.apr / 100).toFixed(2)}%`}
         </text>
-        <text x={CENTER} y={CENTER + 18} textAnchor="middle" className="globe-sub">
+        {points.length > 1 && <text x={CENTER} y={CENTER + 18} textAnchor="middle" className="globe-sub">
           loan {i + 1}
-        </text>
+        </text>}
       </svg>
 
       {/* The instrument. Only figures that were loaded: a utilization
