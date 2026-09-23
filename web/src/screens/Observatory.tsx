@@ -6,7 +6,7 @@ import { screenForPath, sectionForScreen } from "../lib/navigation";
 import { bps, units } from "../lib/data";
 import { readBook } from "../lib/book";
 import { bindingPhrase } from "../lib/bindings";
-import { borrowerNode, cohortNodes, originations, profileNodes, surveyDate, useSurvey, type Projection } from "../lib/observatory";
+import { borrowerNode, cohortNodes, loanArcs, originations, profileNodes, surveyDate, useSurvey, type Projection } from "../lib/observatory";
 
 const ROOM_COPY: Record<string, { title: string; copy: string }> = {
   "/observatory": { title: "Observatory", copy: "Watch the money move. Every agent that borrowed, its loans, and the pool they came from." },
@@ -53,6 +53,14 @@ export function Observatory() {
   // the two rooms apart is what stops a reader reading a scenario as a
   // borrower.
   const borrowers = [...borrowerNode(loan), ...cohortNodes(survey.cohort)];
+  // The scrubber walks the RETAINED run's originations, so only those are
+  // truncated by it. The cohort's arcs are not part of that history and
+  // stay drawn -- hiding them at step 1 would make the globe look emptier
+  // the further back a reader scrubs, which says nothing true.
+  const shownArcs = [
+    ...loanArcs(survey.run).slice(0, activeIndex + 1),
+    ...loanArcs(null, survey.cohort),
+  ];
   const nodes = isAtlas ? profiles : isMoons || isLog ? [] : borrowers;
   const selectedProfile = isAtlas ? survey.comparison?.profiles.find(p => p.name === selection) : null;
   const selectedAgent = !isAtlas && !isMoons && !isLog
@@ -93,7 +101,7 @@ export function Observatory() {
       <p>{info.copy}</p>
     </header>
     </div>
-    <div className="room-world"><World book={isAtlas ? readBook(null) : book} nodes={nodes} loans={isAtlas || isMoons || isLog ? [] : loans.slice(0, activeIndex + 1)} projection={projection} selected={selection ?? undefined} onSelect={select} replay={replay} paused={paused} /></div>
+    <div className="room-world"><World book={isAtlas ? readBook(null) : book} nodes={nodes} loans={isAtlas || isMoons || isLog ? [] : shownArcs} projection={projection} selected={selection ?? undefined} onSelect={select} replay={replay} paused={paused} /></div>
     {isBody && <div className={`body-score ${(outcome?.capacity?.score ?? 0) >= 800 ? "score-exceptional" : ""}`}><svg viewBox="0 0 180 140" role="img" aria-label={`Score ${outcome?.capacity?.score ?? "unavailable"} on the engine's 300–900 scale`}><path d="M26.1 109.26 A68 68 0 1 1 153.9 109.26" fill="none" stroke="var(--border)" strokeWidth="2" pathLength="100" /><path d="M26.1 109.26 A68 68 0 1 1 153.9 109.26" fill="none" stroke="currentColor" strokeWidth="2" pathLength="100" strokeDasharray={`${Math.max(0, Math.min(100, ((outcome?.capacity?.score ?? 300) - 300) / 600 * 100))} 100`} /><text x="90" y="86" textAnchor="middle">{outcome?.capacity?.score ?? "—"}</text><text className="score-label" x="90" y="109" textAnchor="middle">CREDIT SCORE</text></svg><span>300–900 · native engine scale</span></div>}
     {showDock && <aside className="orbit-dock" aria-labelledby="dock-title"><div className="dock-heading"><span className="instrument-label">{isMoons ? "BOOK" : isLog ? "ARC" : "AGENT"}</span><button ref={dockClose} className="action action-small" type="button" aria-label="Close spec sheet" onClick={closeDock}>Close</button></div><h2 id="dock-title">{isMoons ? "Facility" : selectedIndexed ? `Arc ${selectedIndexed.loanId}` : selectedProfile ? selectedProfile.name : selectedAgent ? selectedAgent.name : "Retained agent"}</h2><p className="dock-caption">{isMoons ? "One pool, holding its own cash and its own limits." : selectedProfile?.blurb ?? (isLog ? "Rebuilt from public chain records." : selectedAgent ? `${selectedAgent.assessments.length} loan${selectedAgent.assessments.length === 1 ? "" : "s"} on its own credit account.` : "What it repaid sets what it can borrow.")}</p><dl className="dock-specs">{isMoons ? <><div><dt>Cash free to lend</dt><dd>{units(book.idle?.toString())}</dd></div><div><dt>Currently lent out</dt><dd>{units(book.outstanding?.toString())}</dd></div><div><dt>Utilization</dt><dd>{book.utilization === null ? "Unmeasured" : `${(book.utilization * 100).toFixed(1)}%`}</dd></div><div><dt>Never paid back</dt><dd>{units(book.loss?.toString())}</dd></div></> : selectedIndexed ? <><div><dt>Status</dt><dd>{selectedIndexed.status}</dd></div><div><dt>Principal</dt><dd>{units(selectedIndexed.principal)}</dd></div><div><dt>Interest earned</dt><dd>{units(selectedIndexed.interestCollected)}</dd></div><div><dt>Never paid back</dt><dd>{units(selectedIndexed.principalLoss)}</dd></div></> : <><div><dt>Score</dt><dd>{selectedOutcome?.capacity?.score ?? "Unmeasured"}</dd></div><div><dt>Credit limit</dt><dd>{units(selectedOutcome?.capacity?.agent_capacity)}</dd></div><div><dt>Limited by</dt><dd>{bindingPhrase(selectedOutcome?.capacity?.agent_binding)}</dd></div><div><dt>Interest rate</dt><dd>{bps(selectedOutcome?.terms?.apr_bps)}</dd></div><div><dt>Loan length</dt><dd>{selectedOutcome?.terms ? `${selectedOutcome.terms.term_seconds / 86400} days` : "—"}</dd></div><div><dt>Decision</dt><dd>{selectedOutcome?.decision === "ApprovedOrigination" ? "Approved" : selectedOutcome?.decision ?? "Unmeasured"}</dd></div></>}</dl><Link className="action action-primary dock-link" to={isMoons ? "/lender" : isLog ? "/indexed" : isAtlas ? "/compare" : "/assessment"}>See the full record</Link><span className="dock-source">{isAtlas ? "Comparison fixture · one policy" : isLog ? "Indexer · chain-derived evidence" : "Retained run · development route"}</span></aside>}
     <div className="room-view-controls" role="group" aria-label="View controls">
