@@ -20,9 +20,9 @@ const CHAPTERS: { title: string; label: string; copy: string; projection: Projec
   { title: "Go look for yourself.", label: "08 / The observatory", copy: "Pick an agent, open its record, re-run the decision in your browser. If a number is missing, the page says so.", projection: "globe", note: "Check it rather than trust it." },
 ];
 
-export function ClaimRow({ claim }: { claim: Claim }) {
+export function ClaimRow({ claim, initiallyOpen = false }: { claim: Claim; initiallyOpen?: boolean }) {
   return (
-    <details className={`claim claim-${claim.status}`}>
+    <details className={`claim claim-${claim.status}`} open={initiallyOpen}>
       <summary>
         <span className="claim-title">{claim.title}</span>{" "}
         <span className="claim-status">{claim.status === "earned" ? "live" : "building"}</span>
@@ -31,7 +31,7 @@ export function ClaimRow({ claim }: { claim: Claim }) {
       <div className="claim-body">
         <p className="claim-detail">{claim.detail}</p>
         <p className="claim-support"><span className="claim-support-label">Runs on</span>{claim.support}</p>
-        {claim.to && <Link to={claim.to} className="claim-link">Inspect the record <span aria-hidden="true">↗</span></Link>}
+        {claim.to && <Link to={claim.to} className="claim-link">Inspect the record</Link>}
       </div>
     </details>
   );
@@ -44,7 +44,6 @@ export function Start() {
   const [chapter, setChapter] = useState(0);
   const [paused, setPaused] = useState(false);
   const [replay, setReplay] = useState(0);
-  const [progress, setProgress] = useState(0);
   const loans = originations(survey.run);
   const last = loans.at(-1);
   const book = readBook(survey.run);
@@ -62,7 +61,6 @@ export function Start() {
       if (!el) return;
       const extent = el.offsetHeight - window.innerHeight;
       const p = Math.max(0, Math.min(1, -el.getBoundingClientRect().top / Math.max(1, extent)));
-      setProgress(p);
       setChapter(Math.min(8, Math.floor(p * 9)));
     };
     const scroll = () => { if (!frame) frame = requestAnimationFrame(update); };
@@ -79,9 +77,8 @@ export function Start() {
   return <>
     <div className="planet-story" ref={story}>
       <section className={`story-viewport story-chapter-${chapter}`} aria-label="The credit body, an interactive field guide">
-        <div className="story-topline"><span>THE AGENT CREDIT PROTOCOL</span><span>AN OPEN FIELD OF POSSIBILITY <span className="tiny-cross">+</span></span></div>
         <div className="split-left story-copy">
-          <p className="eyebrow"><span className="status-pin" />{current.label}</p>
+          <p className="eyebrow">{current.label}</p>
           <h1 className="hero" key={current.title}>{current.title}</h1>
           <div className="hero-objects story-world">
             <World book={book} nodes={borrowerNode(last)} loans={loans} projection={current.projection} paused={paused} replay={replay} onSelect={id => navigate(id === "facility" ? "/moons" : "/body")} />
@@ -89,27 +86,28 @@ export function Start() {
           <div className="satellite satellite-top"><span className="satellite-line" /><div><span className="instrument-label">FIG. {String(chapter + 1).padStart(2, "0")}</span><p>{current.note}</p></div></div>
           <div className="satellite satellite-bottom"><span className="instrument-label">ATMOSPHERE</span><span>{book.utilization === null ? "Awaiting measurement" : `${((1 - book.utilization) * 100).toFixed(1)}% headroom`}</span><span className="satellite-line" /></div>
           <p className="hero-lede">{current.copy}</p>
-          <Link to={chapter === 7 ? "/atlas" : "/observatory"} className="start-enter">{chapter === 7 ? "Compare the borrowers" : "See it working"} <span aria-hidden="true">↗</span></Link>
+          <Link to={chapter === 7 ? "/atlas" : "/observatory"} className="start-enter">{chapter === 7 ? "Compare the borrowers" : "See it working"}</Link>
           <p className="hero-access">Every number came from a real run.</p>
         </div>
-        <div className="world-controls"><button type="button" onClick={() => setPaused(!paused)} aria-pressed={paused}>{paused ? "Resume rotation" : "Pause rotation"}<span aria-hidden="true">{paused ? "▷" : "Ⅱ"}</span></button>{loans.length > 0 && <button type="button" onClick={() => setReplay(v => v + 1)}>Replay a loan <span>↗</span></button>}</div>
+        <div className="world-controls"><button type="button" onClick={() => setPaused(!paused)} aria-pressed={paused}>{paused ? "Resume rotation" : "Pause rotation"}</button>{loans.length > 0 && <button type="button" onClick={() => setReplay(v => v + 1)}>Replay a loan</button>}</div>
         <div className="story-readings">
           <Link to="/lender"><span className="instrument-label">01 / CASH FREE TO LEND</span><strong>{book.idle === null ? "—" : units(book.idle.toString())}<small> units</small></strong></Link>
           <Link to="/agent"><span className="instrument-label">02 / LATEST INTEREST RATE</span><strong>{bps(last?.payload.outcome.terms?.apr_bps)}</strong></Link>
           <Link to="/arc"><span className="instrument-label">03 / LOANS MADE</span><strong>{survey.run ? String(loans.length).padStart(2, "0") : "—"}<small> loans</small></strong></Link>
-          <div className="reading-provenance"><span className="status-pin" /><span>{survey.loading ? "Loading" : survey.run ? "Real run, saved" : "No data loaded"}<small>{surveyDate(survey.run) ?? "Run the demo to see the numbers."}</small></span></div>
+          <div className="reading-provenance"><span className="status-pin" /><span>{survey.loading ? "Loading" : survey.run ? "Retained development run" : "No data loaded"}<small>{surveyDate(survey.run) ?? "Run the demo to see the numbers."}</small></span></div>
         </div>
-        <div className="story-bottomline"><button type="button" onClick={() => goToChapter(chapter === 8 ? 0 : chapter + 1)}>{chapter === 8 ? "BACK TO THE START ↑" : "KEEP SCROLLING ↓"}</button><div className="chapter-steps" role="group" aria-label="Sections">{CHAPTERS.map((c, i) => <button type="button" key={c.label} aria-label={c.label} aria-pressed={chapter === i} onClick={() => goToChapter(i)}><span /></button>)}</div><span>{String(chapter + 1).padStart(2, "0")} <span className="muted">/ 09</span></span></div>
-        <div className="story-progress" style={{ transform: `scaleX(${progress})` }} />
+        <div className="story-bottomline"><button type="button" onClick={() => goToChapter(chapter === 8 ? 0 : chapter + 1)}>{chapter === 8 ? "BACK TO START" : "NEXT CHAPTER"}</button><div className="chapter-steps" role="group" aria-label="Sections">{CHAPTERS.map((c, i) => <button type="button" key={c.label} aria-label={c.label} aria-pressed={chapter === i} onClick={() => goToChapter(i)}><span /></button>)}</div><span>{String(chapter + 1).padStart(2, "0")} <span className="muted">/ 09</span></span></div>
       </section>
     </div>
     <section className="survey-proof" aria-labelledby="weather-title">
-      <p className="eyebrow proof-kicker">09 / WEATHER THAT HAPPENED</p>
       <div className="proof-intro">
+        <p className="eyebrow proof-kicker">09 / WEATHER THAT HAPPENED</p>
         <h2 id="weather-title">A record.<br /><em>Not a promise.</em></h2>
-        <p>Every figure has a source. Every decision leaves a trace. Open the records and see what this body can prove.</p>
-        <Link to="/replay" className="text-link">Replay a decision <span aria-hidden="true">↗</span></Link>
-        <Deployment />
+        <div className="proof-context">
+          <p>Every figure has a source. Every decision leaves a trace. Open the records and see what this body can prove.</p>
+          <Link to="/replay" className="text-link">Replay a decision</Link>
+          <Deployment />
+        </div>
       </div>
       <div className="ledger" aria-labelledby="ledger-title">
         <header className="ledger-head"><h3 id="ledger-title">The field record</h3><p><strong>{EARNED} of {EARNED + UNEARNED} work today.</strong></p></header>
@@ -118,18 +116,21 @@ export function Start() {
           if (rows.length === 0) return null;
           return <section className="claim-group" key={g.key} aria-labelledby={`claims-${g.key}`}>
             <div className="claim-group-intro"><h4 id={`claims-${g.key}`}>{g.title}</h4><p>{g.blurb}</p></div>
-            <div className="claim-group-rows">{rows.map(c => <ClaimRow key={c.title} claim={c} />)}</div>
+            <div className="claim-group-rows">{rows.map((c, i) => <ClaimRow key={c.title} claim={c} initiallyOpen={g.key === "proof" && i === 0} />)}</div>
           </section>;
         })}
-        <details className="refused">
-          <summary><span className="claim-title">What this does not claim</span><span className="record-toggle" aria-hidden="true" /></summary>
-          <div className="refused-body">
-            <ul>{REFUSED.map(r => <li key={r}>{r}</li>)}</ul>
-            <p>Determinism buys auditability, not accuracy. Replaying a decision proves what the model did.</p>
-          </div>
-        </details>
+        <div className="ledger-boundary">
+          <p>Evidence has limits.</p>
+          <details className="refused">
+            <summary><span className="claim-title">What this does not claim</span><span className="record-toggle" aria-hidden="true" /></summary>
+            <div className="refused-body">
+              <ul>{REFUSED.map(r => <li key={r}>{r}</li>)}</ul>
+              <p>Determinism buys auditability, not accuracy. Replaying a decision proves what the model did.</p>
+            </div>
+          </details>
+        </div>
       </div>
     </section>
-    <footer className="landing-footer"><div className="footer-invitation"><span className="eyebrow">THERE IS MORE TO THIS WORLD.</span><Link to="/observatory">See it working.<span aria-hidden="true">↗</span></Link></div><div className="footer-baseline"><Link className="footer-brand" to="/"><BrandMark />credence.</Link><span>Credit has a memory.</span><Link to="/guide">Read the field guide ↗</Link></div></footer>
+    <footer className="landing-footer"><div className="footer-invitation"><span className="eyebrow">THERE IS MORE TO THIS WORLD.</span><Link to="/observatory">See it working.</Link></div><div className="footer-baseline"><Link className="footer-brand" to="/"><BrandMark />credence.</Link><span>Credit has a memory.</span><Link to="/guide">Field guide</Link></div></footer>
   </>;
 }
