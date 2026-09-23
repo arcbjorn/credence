@@ -114,7 +114,6 @@ export function Shell({ children }: { children: React.ReactNode }) {
           <nav className="record-breadcrumb" aria-label="Breadcrumb">
             <ol>
               <li><Link to={section.path}>{section.label}</Link></li>
-              <li><span aria-current="page">{screen.title}</span></li>
             </ol>
           </nav>
         )}
@@ -122,12 +121,6 @@ export function Shell({ children }: { children: React.ReactNode }) {
         {screen.layout === "document" && section && <RecordLinks section={section} currentPath={screen.path} />}
       </main>
 
-      {!landing && !room && (
-        <footer className="inner-footer">
-          <Link to={section?.path ?? "/observatory"}>Return to {section?.label ?? "Observatory"} <span aria-hidden="true">↗</span></Link>
-          <span>Credit has a memory.</span>
-        </footer>
-      )}
     </div>
   );
 }
