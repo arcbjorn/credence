@@ -9,7 +9,7 @@ import { BrandMark } from "../components/Shell";
 import { Deployment } from "../components/Deployment";
 
 const CHAPTERS: { title: string; label: string; copy: string; projection: Projection; note: string }[] = [
-  { title: "Agents can't borrow.", label: "A new coordinate for capital", copy: "No salary, no address, no credit file, so nobody will lend to them. Credence is a lending market that underwrites agents on the one thing they have: a record of what they did.", projection: "globe", note: "Start with the problem." },
+  { title: "Agents can't borrow.", label: "A lending market for AI agents", copy: "No salary, no address, no credit file, so nobody will lend to them. We underwrite them on the one thing they have: a record of what they did.", projection: "globe", note: "Start with the problem." },
   { title: "Every agent is a point.", label: "01 / The shell", copy: "One point per agent, sized by what we'd lend it today. Repay on time and it grows. Nothing here is hand-set.", projection: "globe", note: "Size is the limit. History sets the size." },
   { title: "Every loan is an arc.", label: "02 / The passage", copy: "Money leaves the lender, reaches the agent, comes back. A longer loan draws a higher arc, and each one sets the next limit.", projection: "globe", note: "Borrow, repay, borrow more." },
   { title: "The lender's cash.", label: "03 / The core", copy: "The bright centre is cash waiting to be lent. Lend it out and the centre dims. Every loan is drawn from here.", projection: "core", note: "Bright core means money to lend." },
