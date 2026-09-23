@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, NavLink, useLocation } from "react-router";
-import { SECTIONS, screenForPath, sectionForScreen } from "../lib/navigation";
+import { PRIMARY_LINKS, screenForPath, sectionForScreen } from "../lib/navigation";
 import { RecordLinks } from "./RecordLinks";
 
 export function BrandMark() {
@@ -86,11 +86,11 @@ export function Shell({ children }: { children: React.ReactNode }) {
           <BrandMark /><span>credence<span className="wordmark-period">.</span></span>
         </NavLink>
         <nav aria-label="Primary navigation" id="primary-navigation" className={`bar-links ${open ? "bar-open" : ""}`}>
-          {SECTIONS.map(item => {
-            const active = section?.id === item.id;
+          {PRIMARY_LINKS.map(item => {
+            const active = screen.path === item.path || (screen.path !== "/log" && section?.path === item.path);
             return (
               <Link
-                key={item.id}
+                key={item.path}
                 to={item.path}
                 className={active ? "active" : undefined}
                 aria-current={active ? (screen.path === item.path ? "page" : "location") : undefined}
@@ -100,10 +100,10 @@ export function Shell({ children }: { children: React.ReactNode }) {
           })}
         </nav>
         <div className="bar-actions">
-          <button type="button" className="theme-switch" aria-label={dark ? "Use paper theme" : "Use night theme"} onClick={() => setDark(!dark)}>
+          <button type="button" className="action action-icon theme-switch" aria-label={dark ? "Use paper theme" : "Use night theme"} onClick={() => setDark(!dark)}>
             <span aria-hidden="true">◐</span>
           </button>
-          <button ref={menuButton} type="button" className="bar-toggle" aria-expanded={open} aria-controls="primary-navigation" aria-label={open ? "Close navigation" : "Open navigation"} onClick={() => setOpen(!open)}>
+          <button ref={menuButton} type="button" className="action bar-toggle" aria-expanded={open} aria-controls="primary-navigation" aria-label={open ? "Close navigation" : "Open navigation"} onClick={() => setOpen(!open)}>
             {open ? "Close" : "Menu"}
           </button>
         </div>
