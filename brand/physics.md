@@ -23,7 +23,7 @@ never zero, healthy, approved, or live by default.
 | Moon | A moon is an actual retained facility, never an invented market. More moons require more independently identified books. Distance can encode risk only with comparable risk evidence. | This release has one retained facility |
 | Satellite | Labels and instruments sit outside the object. Leader lines connect them to what they describe. | The same values as the corresponding record |
 | Section | Identity, reputation, escrow and settlement are the four layers. Spacing explains structure; it does not imply an unmeasured quantity. | Architectural diagram; amounts appear only when retained |
-| Eclipse | The overlapping shadow grows with measured utilization. Its distance is a projection of that ratio, not a second risk score. | The same utilization as the atmosphere |
+| Eclipse | The fraction of the light's area covered by the shadow equals utilization. Fit both spheres within the frame, shade them with the current theme's materials, and hide nodes behind the opaque shadow. | The same utilization as the atmosphere |
 
 The borrower in the repayment run and the comparison profiles are different
 sources. A scenario is not another registered production agent. The indexed
@@ -45,8 +45,9 @@ loan ordinal, or use a result from one to mark the other's loan repaid.
 - **Field guide**: Survey, Shell, Core, Weather, Moons and Scars.
 
 The same header appears on the introduction, in every room and on every
-record: Observatory, Atlas, Moons, Body and Field guide. The logo returns
-to the introduction. A record keeps its parent section highlighted.
+record: Observatory, Atlas, Moons, Body, Log and Field guide. The logo returns
+to the introduction. Log has its own active header link; other records keep
+their parent section highlighted. Only one header destination is active.
 
 | Section | Records |
 | --- | --- |
@@ -56,11 +57,17 @@ to the introduction. A record keeps its parent section highlighted.
 | Body | Agent overview, Assessment detail, Enforcement |
 | Field guide | Evidence, Replay |
 
-Rooms expose their records through “Explore records” beside their
-introduction. Detailed pages show a parent breadcrumb, one page heading,
-and related records after the content. Never add a second global menu of
-all records. Titles, navigation and relationships come from
+Rooms expose descriptive record links below their instruments, without a
+collapsed menu. Detailed pages show a parent breadcrumb, one page heading,
+visible sibling links after the introduction, and related records after the
+content. The homepage offers direct routes to Log, Lender, Three agents and
+Replay. Never add a second global menu of all records. Titles, navigation and relationships come from
 `web/src/lib/navigation.ts`.
+
+Actions use one shared button family: filled for the main action, bordered
+for supporting actions, and grouped segments for mutually exclusive modes.
+Record links carry a title, description and direction arrow. Their padding
+does not change on hover. Mobile content flows in reading and focus order.
 
 The homepage enters the Observatory. A link naming the Atlas opens the
 Atlas. Globe and Map controls change the current projection only; they
@@ -78,8 +85,8 @@ night-theme tokens as well. Teal marks identity and measurement, moss marks
 capacity, and vermilion marks refusal and loss. Gold `#c4a574` is used only
 for a measured score of at least 800.
 
-Three type families: Space Grotesk for the world and navigation; Instrument
-Serif for the intimate agent, dock and guide; IBM Plex Mono for instruments.
+Three type families: Space Grotesk for the world and navigation; Playfair
+Display for page titles, the intimate agent, dock and guide; IBM Plex Mono for instruments.
 Never set the whole product in a monospace font. Instruments use tabular
 figures and 9–12px labels; primary copy remains comfortably readable.
 
