@@ -96,6 +96,40 @@ export function profileNodes(comparison: Comparison | null): WorldNode[] {
   });
 }
 
+/**
+ * Where the money comes from, as a point on the object.
+ *
+ * Every arc used to start at a hardcoded `point(-22, 60)` that no node
+ * occupied, so the origin dot sat at a coordinate with no referent and
+ * the picture never said what the lines came OUT of.
+ *
+ * The pool is a real destination in the interface already -- `/moons`
+ * opens it, and `facility` is the selection id both the moon satellite
+ * and the room instruments use -- so it gets a node like anything else a
+ * reader can click.
+ *
+ * Its coordinates are FIXED rather than laid out with the agents: it is
+ * the one point every arc shares, and a pool that wandered as the cohort
+ * grew would drag the whole picture with it.
+ */
+export const POOL_ID = "facility";
+export const POOL_POSITION = { latitude: -22, longitude: 60 } as const;
+
+export function poolNode(book: { idle: bigint | null; outstanding: bigint | null }): WorldNode[] {
+  // Nothing measured means no pool to draw. A zero-sized point would
+  // claim a facility with no cash rather than one nobody has read.
+  if (book.idle === null && book.outstanding === null) return [];
+  const total = (book.idle ?? 0n) + (book.outstanding ?? 0n);
+  return [{
+    id: POOL_ID,
+    label: "Lending pool",
+    capacity: total.toString(),
+    score: null,
+    denied: false,
+    ...POOL_POSITION,
+  }];
+}
+
 export function borrowerNode(loan: Assessment | undefined): WorldNode[] {
   if (!loan) return [];
   return [{ id: "borrower", label: "Retained agent", capacity: loan.payload.outcome.capacity?.agent_capacity ?? "0", score: loan.payload.outcome.capacity?.score ?? null, denied: false, latitude: 24, longitude: -36 }];
@@ -152,6 +186,7 @@ export function populationNodes(
   loan: Assessment | undefined,
   comparison: Comparison | null,
   cohort: Cohort | null = null,
+  book: { idle: bigint | null; outstanding: bigint | null } | null = null,
 ): WorldNode[] {
   const all = [
     ...borrowerNode(loan),
@@ -176,57 +211,83 @@ export function populationNodes(
   // The borrower keeps its fixed coordinates: it is the one node another
   // screen links to, and having it move as the cohort grows would make it
   // unfindable.
-  return unique.map((node, i) =>
+  const laid = unique.map((node, i) =>
     node.id === "borrower"
       ? node
       : { ...node, ...lattice(unique.length, i) },
   );
+
+  // The pool goes on LAST and keeps its fixed coordinates: it is the one
+  // point every passage shares, so laying it out with the agents would
+  // move the origin of every arc as the cohort grew.
+  return book ? [...laid, ...poolNode(book)] : laid;
 }
 
 /**
- * One drawn loan: which agent took it, and how big it was.
+ * One agent's borrowing, as a single passage from the pool.
  *
- * `World` used to be handed a bare `Assessment[]` and route EVERY arc to
- * `nodes[0]`, so five loans to one borrower landed on the same two points
- * with the same tenor and drew five times over each other. What looked
- * like a single line was the whole book.
+ * This was one arc PER LOAN, which drew seventeen curves for five
+ * relationships: `cinder` alone got a six-deep fan while `sable` got one
+ * line, so the picture's density was the loan count rather than anything
+ * a reader could act on. It also meant the fan had to be invented --
+ * successive loans share both endpoints, so each was lifted higher than
+ * the last to stop them overlapping, which is geometry standing in for a
+ * quantity that is not spatial.
  *
- * Carrying the agent id here lets each arc end at its own node and take
- * its own colour, which is what makes a second loan visible as a second
- * loan.
+ * One arc per agent instead. The line says "this agent borrows from this
+ * pool"; how MUCH and how OFTEN are carried by its weight and by the
+ * figures in the dock, where a number belongs.
  */
 export interface LoanArc {
-  /** The node id this loan was drawn for, matching `WorldNode.id`. */
+  /** The node id this passage reaches, matching `WorldNode.id`. */
   agent: string;
-  principal: string;
+  /** Every approved origination's principal, summed. Base units. */
+  borrowed: string;
+  /** How many approved originations the agent has taken. */
+  loans: number;
+  /** The longest term it borrowed for, which sets the arc's height. */
   term_seconds: number;
 }
 
-const arcOf = (agent: string, a: Assessment): LoanArc => ({
-  agent,
-  principal: a.payload.outcome.approved_principal ?? "0",
-  term_seconds: a.payload.outcome.terms?.term_seconds ?? 0,
-});
+/** Fold one agent's approved originations into a single passage. */
+function passage(agent: string, assessments: Assessment[]): LoanArc | null {
+  let borrowed = 0n;
+  let loans = 0;
+  let term = 0;
+  for (const a of assessments) {
+    const outcome = a.payload.outcome;
+    if (outcome.decision !== "ApprovedOrigination") continue;
+    loans += 1;
+    // Base units are uint256. Summed as BigInt because a realistic book
+    // loses precision as a double, and this figure sets a line width a
+    // reader compares against other lines.
+    borrowed += BigInt(outcome.approved_principal ?? "0");
+    term = Math.max(term, outcome.terms?.term_seconds ?? 0);
+  }
+  // An agent that borrowed nothing has no passage. Drawing one would
+  // show a transfer that never happened.
+  return loans === 0
+    ? null
+    : { agent, borrowed: borrowed.toString(), loans, term_seconds: term };
+}
 
 /**
- * Every origination the globe should draw, attributed to its borrower.
+ * One passage per agent that actually borrowed.
  *
  * The retained run's loans belong to the `borrower` node; each cohort
- * agent's belong to its own. Only approved originations are drawn: a
- * refusal moved no money, and drawing one would show a transfer that
- * never happened.
+ * agent's belong to its own. Refusals are excluded: a denial moved no
+ * money.
  */
 export function loanArcs(
   run: Run | null,
   cohort: Cohort | null = null,
 ): LoanArc[] {
-  const arcs = originations(run).map(a => arcOf("borrower", a));
+  const arcs: LoanArc[] = [];
+  const retained = passage("borrower", run?.assessments ?? []);
+  if (retained) arcs.push(retained);
   for (const agent of cohort?.agents ?? []) {
-    for (const a of agent.assessments) {
-      if (a.payload.outcome.decision === "ApprovedOrigination") {
-        arcs.push(arcOf(agent.name, a));
-      }
-    }
+    const drawn = passage(agent.name, agent.assessments);
+    if (drawn) arcs.push(drawn);
   }
   return arcs;
 }
