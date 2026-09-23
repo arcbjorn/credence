@@ -305,34 +305,10 @@ td { padding-top:15px;padding-bottom:15px; }
 
 
 
-/* Matches the record pages' 66px title. At 84px over 12px body the
-   guide ran a 7x jump between its display type and its prose, which
-   is what made a reading page feel cramped. */
-
-
-.guide-layout { display:grid;grid-template-columns:150px minmax(0,1fr) minmax(0,.82fr);gap:var(--s8) var(--s10);align-items:start;min-height:520px; }
-/* The sphere is drawn 17.75% inside its own canvas, so a top-aligned
-   canvas leaves the globe floating below the text beside it. The
-   negative inset closes that gap. A percentage margin resolves
-   against WIDTH, which pushed the canvas off-view -- so this is a
-   fraction of the column's own height via aspect-ratio instead. */
-.guide-world { align-self:center;margin-top:calc(var(--s9) * -1); }
-.guide-layout>nav { display:flex;flex-direction:column;align-self:start; }
-.guide-layout>nav button { display:flex;align-items:center;gap:var(--s4);background:none;border:0;border-bottom:1px solid var(--border);padding:var(--s4) 0;font:var(--t3) var(--sans);text-align:left;transition:color .15s; }
-.guide-layout>nav button:hover { color:var(--machine); }
-.guide-layout>nav button>span { font:var(--t1) var(--mono);color:var(--text-dim); }
-
-.guide-layout>nav button[aria-pressed=true] { color:var(--machine); }
-
-.guide-layout article h2 { font:400 32px/var(--lh-display) var(--serif);letter-spacing:0;margin:0 0 var(--s5); }
-.guide-layout article p { color:var(--text-dim);font:var(--t3)/var(--lh-body) var(--sans);max-width:58ch;margin:0 0 var(--s7); }
-.guide-footnote { border-top:1px solid var(--border);font:var(--t1)/var(--lh-body) var(--mono);color:var(--text-dim);margin-top:var(--s9);padding-top:var(--s5);max-width:58ch; }
-.guide-world { margin:0 -45px; }
 .empty-coordinate { display:grid;grid-template-columns:1fr 1.1fr;align-items:center;min-height:65vh; }
 
 .empty-coordinate p { color:var(--text-dim); }
-@media(max-width:900px) { .guide-layout { grid-template-columns:120px 1fr;gap:30px; }.guide-world { grid-column:2;grid-row:2;margin:-50px 0 0;max-width:400px; }.guide-layout article { padding-top:40px; }.empty-coordinate { grid-template-columns:1fr; }.empty-coordinate .credit-world { max-width:500px; } }
-@media(max-width:600px) { .guide-layout { grid-template-columns:1fr;gap:0; }.guide-layout>nav { flex-direction:row;overflow-x:auto;gap:20px;margin-top:10px; }.guide-layout>nav button { gap:6px;flex-shrink:0;font-size:var(--t1); }.guide-layout article { padding-top:32px; }.guide-layout article h2 { font-size:36px; }.guide-world { grid-column:1;grid-row:auto;margin:-10px -15px; }}
+@media(max-width:900px) { .empty-coordinate { grid-template-columns:1fr; }.empty-coordinate .credit-world { max-width:500px; } }
 
 .story-world .credit-world { transition:transform .8s var(--truck); }
 .story-chapter-1 .story-world .credit-world { transform:scale(1.08); }
@@ -354,23 +330,6 @@ td { padding-top:15px;padding-bottom:15px; }
 .record-breadcrumb a:hover,.room-breadcrumb a:hover { color:var(--machine); }
 
 .room-breadcrumb { display:flex;gap:10px;align-items:center; }
-.room-records { pointer-events:auto;position:relative;width:fit-content;margin:12px 0 0; }
-.room-records summary { display:flex;align-items:center;gap:24px;padding:7px 0;border-bottom:1px solid var(--border);font:var(--t1) var(--sans);color:var(--text);list-style:none;cursor:pointer; }
-.room-records summary::-webkit-details-marker { display:none; }
-.room-records summary::marker { content:''; }
-
-.room-records nav { position:absolute;top:calc(100% + 8px);left:0;width:280px;max-width:85vw;display:grid;background:var(--bg);border:1px solid var(--border);box-shadow:0 12px 30px #0000000d; }
-.room-records nav a { display:block;padding:14px 16px;text-decoration:none;font:var(--t2)/var(--lh-snug) var(--sans); }
-.room-records nav a+a { border-top:1px solid var(--border); }
-.room-records nav a:hover { color:var(--machine);background:var(--sunken); }
-.room-records nav small { display:block;margin-top:4px;font:var(--t1)/var(--lh-body) var(--sans);color:var(--text-dim); }
-.related-records { margin-top:52px;padding-top:24px;border-top:1px solid var(--border); }
-.related-records>.eyebrow { margin:0 0 20px; }
-.related-records>div { display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:24px; }
-.related-records a { padding:8px 0;text-decoration:none;font:var(--t3)/var(--lh-snug) var(--sans); }
-.related-records a>span { display:flex;justify-content:space-between;gap:16px; }
-.related-records a:hover { color:var(--machine); }
-.related-records small { display:block;margin-top:7px;font:var(--t2)/var(--lh-body) var(--sans);color:var(--text-dim); }
 .projection-controls { display:flex;gap:2px;padding:2px;border:1px solid var(--border);background:var(--bg);border-radius:3px; }
 .room-view-controls { align-items:center; }
 .room-view-controls .projection-controls button { background:transparent;padding:6px 10px;backdrop-filter:none; }
