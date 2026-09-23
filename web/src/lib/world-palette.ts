@@ -4,7 +4,9 @@ const LIGHT = {
   rim: "#6a9484", contour: "#396c5d", meridian: "#467d6c",
   grain: ["#466e5c", "#709584"], atmosphere: "64, 126, 104", haze: .10,
   core: ["rgba(255,255,248,.98)", "rgba(250,255,237,.88)", "rgba(240,255,223,.38)", "rgba(211,237,214,.12)"],
-  arc: "#276f60", pulse: "#f7fff0", eclipse: "#4a685e",
+  arc: "#276f60", pulse: "#f7fff0",
+  eclipse: ["#a8b9a9", "#789184", "#466356", "#2d473c", "#20392f"],
+  eclipseRim: ["#c8d4c6", "#678173", "#354d40"],
   moon: ["#e4eee0", "#a0beaa", "#4a7160"], dark: false,
 } as const;
 const DARK = {
@@ -12,7 +14,9 @@ const DARK = {
   rim: "#a5c4b6", contour: "#bacdc0", meridian: "#a6c7b6",
   grain: ["#e6ebd9", "#95b6a9"], atmosphere: "90, 153, 140", haze: .19,
   core: ["rgba(230,244,221,.94)", "rgba(213,235,207,.8)", "rgba(154,194,160,.32)", "rgba(88,150,129,.16)"],
-  arc: "#b1d1c1", pulse: "#eff8df", eclipse: "#101817",
+  arc: "#b1d1c1", pulse: "#eff8df",
+  eclipse: ["#607c6c", "#344d40", "#1a3026", "#0c1b14", "#070f0b"],
+  eclipseRim: ["#94ab94", "#354e3d", "#15261c"],
   moon: ["#b8c5aa", "#5a7565", "#142722"], dark: true,
 } as const;
 
