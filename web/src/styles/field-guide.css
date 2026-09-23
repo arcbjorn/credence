@@ -1,0 +1,80 @@
+/* The guide owns its layout at every breakpoint. The figure stays with its chapter. */
+.field-guide > .page-header { margin-bottom: var(--s7); }
+.guide-layout {
+  display: grid;
+  grid-template-columns: 168px minmax(0, 1fr);
+  align-items: start;
+  gap: var(--s7);
+  padding-top: var(--s7);
+  border-top: 1px solid var(--border);
+}
+.guide-chapters { display: grid; gap: var(--s1); min-width: 0; }
+.guide-chapters button {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  width: 100%;
+  min-width: 0;
+  min-height: 48px;
+  padding: var(--s3);
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text-dim);
+  font: 500 var(--t3)/1.5 var(--sans);
+  text-align: left;
+}
+.guide-chapter-number { flex: none; color: var(--text-dim); font: var(--t1)/1 var(--mono); font-variant-numeric: tabular-nums; }
+.guide-chapters button[aria-pressed="true"] {
+  border-color: var(--border);
+  background: var(--sunken);
+  color: var(--text);
+  box-shadow: inset 2px 0 var(--machine);
+}
+.guide-chapters button[aria-pressed="true"] .guide-chapter-number { color: var(--machine); }
+.guide-chapter {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  align-items: start;
+  gap: clamp(24px, 3vw, 48px);
+  min-width: 0;
+}
+.guide-copy { min-width: 0; }
+.guide-copy h2 {
+  margin: 0 0 var(--s5);
+  font: 400 clamp(28px, 2.5vw, 36px)/var(--lh-display) var(--serif);
+  letter-spacing: 0;
+  text-wrap: balance;
+}
+.guide-copy p { margin: 0 0 var(--s6); max-width: 54ch; color: var(--text-dim); font: var(--t3)/var(--lh-body) var(--sans); }
+.guide-copy .action { max-width: 100%; }
+.guide-figure {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s4);
+  min-width: 0;
+  margin: 0;
+  padding-left: var(--s6);
+  border-left: 1px solid var(--border);
+}
+.guide-world { width: 100%; max-width: 440px; min-width: 0; }
+.guide-world .moon-satellite { left: auto; right: var(--s3); top: auto; bottom: var(--s3); }
+.guide-figure figcaption { width: 100%; max-width: 44ch; margin: 0; color: var(--text-dim); font: var(--t2)/1.6 var(--sans); }
+@media (hover: hover) {
+  .guide-chapters button:hover { color: var(--text); background: var(--sunken); border-color: var(--border); }
+}
+@media (max-width: 1100px) {
+  .guide-layout { grid-template-columns: minmax(0, 1fr); gap: var(--s7); }
+  .guide-chapters { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: var(--s2); }
+  .guide-chapters button { justify-content: center; gap: var(--s2); padding-inline: var(--s2); border-color: var(--border); font-size: var(--t2); }
+  .guide-chapters button[aria-pressed="true"] { box-shadow: inset 0 -2px var(--machine); }
+}
+@media (max-width: 640px) {
+  .guide-layout { padding-top: var(--s6); gap: var(--s6); }
+  .guide-chapters { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .guide-chapter { grid-template-columns: minmax(0, 1fr); gap: var(--s7); }
+  .guide-copy h2 { font-size: 28px; }
+  .guide-figure { padding: var(--s4) 0 0; border-left: 0; border-top: 1px solid var(--border); }
+  .guide-world { max-width: 360px; }
+}
