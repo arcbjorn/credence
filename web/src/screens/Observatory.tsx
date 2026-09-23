@@ -6,7 +6,7 @@ import { screenForPath, sectionForScreen } from "../lib/navigation";
 import { bps, units } from "../lib/data";
 import { readBook } from "../lib/book";
 import { bindingPhrase } from "../lib/bindings";
-import { borrowerNode, cohortNodes, loanArcs, originations, profileNodes, surveyDate, useSurvey, type Projection } from "../lib/observatory";
+import { borrowerNode, cohortNodes, loanArcs, originations, poolNode, profileNodes, surveyDate, useSurvey, type Projection } from "../lib/observatory";
 
 const ROOM_COPY: Record<string, { title: string; copy: string }> = {
   "/observatory": { title: "Observatory", copy: "Watch the money move. Every agent that borrowed, its loans, and the pool they came from." },
@@ -52,7 +52,7 @@ export function Observatory() {
   // room for assessed profiles, which never touched a chain -- keeping
   // the two rooms apart is what stops a reader reading a scenario as a
   // borrower.
-  const borrowers = [...borrowerNode(loan), ...cohortNodes(survey.cohort)];
+  const borrowers = [...borrowerNode(loan), ...cohortNodes(survey.cohort), ...poolNode(book)];
   // The scrubber walks the RETAINED run's originations, so only those are
   // truncated by it. The cohort's arcs are not part of that history and
   // stay drawn -- hiding them at step 1 would make the globe look emptier
