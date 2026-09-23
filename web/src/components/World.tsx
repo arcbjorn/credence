@@ -281,12 +281,11 @@ export function World({ book, nodes = [], loans = [], projection = "globe", sele
   return (
     <div className={`credit-world world-${projection} ${labels ? "" : "world-whisper"}`} ref={wrapper} style={{ position: "relative", width: "100%", aspectRatio: "1 / 1", minWidth: 0 }} onPointerEnter={() => setHovered(true)} onPointerLeave={() => setHovered(false)} onFocus={() => setFocused(true)} onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) setFocused(false); }}>
       <canvas ref={canvas} width={800} height={800} className="world-canvas" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} role="img" aria-label={`Credit body, ${projection} projection. ${book.utilization === null ? "Book measurements unavailable." : `${(book.utilization * 100).toFixed(1)}% utilization.`} ${nodes.length} ${nodes.length === 1 ? "profile" : "profiles"}. Surface texture is illustrative.`} />
-      <div className="world-pole world-pole-n" aria-hidden="true">N</div><div className="world-pole world-pole-s" aria-hidden="true">S</div>
       {nodes.map((node, i) => <button key={node.id} ref={el => { if (el) buttons.current.set(node.id, el); else buttons.current.delete(node.id); }} type="button" className={`world-node ${node.denied ? "node-hollow" : ""} ${selected === node.id ? "node-selected" : ""} ${node.score !== null && node.score >= 800 ? "node-exceptional" : ""} ${35 + i * 18 > 60 ? "node-flip" : ""}`} style={{ left: `${35 + i * 18}%`, top: `${36 + i * 12}%` }} aria-label={`${node.label}, score ${node.score ?? "unmeasured"}${node.denied ? ", denied" : ""}`} aria-pressed={selected === node.id} onClick={() => onSelect?.(node.id)}>
         <span className="node-point" /><span className="node-label">{node.label}<small>{node.denied ? "RESTRICTED" : node.score !== null ? `SCORE ${node.score}` : "UNMEASURED"}</small></span>
       </button>)}
-      {projection === "layers" && <div className="world-layer-labels"><span>01 / Identity</span><span>02 / Reputation</span><span>03 / Escrow</span><span>04 / Settlement</span></div>}
-      {projection === "moons" && book.idle !== null && <button type="button" className="moon-satellite" onClick={() => onSelect?.("facility")} aria-label="Dock with the retained facility">Retained facility <span>Dock ↗</span></button>}
+      {projection === "layers" && <div className="world-layer-labels"><span>Identity</span><span>Reputation</span><span>Escrow</span><span>Settlement</span></div>}
+      {projection === "moons" && book.idle !== null && <button type="button" className="moon-satellite" onClick={() => onSelect?.("facility")} aria-label="Dock with the retained facility">Open facility</button>}
     </div>
   );
 }
