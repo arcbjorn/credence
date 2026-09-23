@@ -38,8 +38,8 @@ export function EvidenceInspector() {
       .catch((e: Error) => setError(e.message));
   }, []);
 
-  if (error) return <div className="error">{error}</div>;
-  if (!run) return <p className="lede">Loading retained evidence…</p>;
+  if (error) return <><RecordHeader title="Evidence" /><div className="error">{error}</div></>;
+  if (!run) return <RecordHeader title="Evidence">Loading retained evidence…</RecordHeader>;
 
   const hash = which ?? run.assessments.at(-1)?.input_hash;
   const snapshot = hash ? run.snapshots[hash] : undefined;
