@@ -118,10 +118,9 @@ export function Lifecycle() {
       </div>
 
       <p className="lede" style={{ marginTop: 12 }}>
-        An unresolved forecast stays on this list. Dropping it would let a
-        record improve by abandoning the forecasts going badly, which is
-        the failure <code>docs/06</code> weights against by counting only
-        what resolved.
+        An unresolved forecast stays on this list and carries no score.
+        Dropping it would let a record improve by abandoning the forecasts
+        going badly, so only resolved forecasts count.
       </p>
 
       <details>

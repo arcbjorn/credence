@@ -49,10 +49,9 @@ export function Lender() {
     return (
       <>
         <RecordHeader title="Lender">
-          This run recorded no vault ledgers. Re-run{" "}
-          <code>LOANS=3 scripts/demo-repay.sh</code>, then{" "}
-          <code>pnpm data</code>.
+          No vault balances retained in this run.
         </RecordHeader>
+        <details><summary>Data setup</summary><p>Run <code>LOANS=3 scripts/demo-repay.sh</code>, then <code>pnpm data</code>.</p></details>
       </>
     );
   }
@@ -60,8 +59,8 @@ export function Lender() {
   return (
     <>
       <RecordHeader title="Lender">
-        The epoch's ledgers, read from the vault on chain. Kept apart
-        because they are different facts — uncollected interest is not
+        The epoch's ledgers, read from the vault on chain. They are kept
+        apart because they are different facts — uncollected interest is not
         cash a lender can withdraw.
       </RecordHeader>
 
@@ -70,7 +69,7 @@ export function Lender() {
           <h3>Idle cash</h3>
           <p className="figure figure-growth">{amount(find("idle cash"))}</p>
           <p className="lede" style={{ margin: 0 }}>
-            Available to lend, and the only figure that is settled cash.
+            Available to lend, and the only figure here that is settled cash.
           </p>
         </div>
 
@@ -95,7 +94,7 @@ export function Lender() {
           <h3>Realized loss</h3>
           <p className="figure figure-alarm">{amount(find("realized loss"))}</p>
           <p className="lede" style={{ margin: 0 }}>
-            Borne by the vault after a borrower's equity was exhausted.
+            Borne by the vault after the borrower's equity was exhausted.
             Zero is the correct value for a clean epoch.
           </p>
         </div>
@@ -109,12 +108,12 @@ export function Lender() {
         if (realized === "-" || realized === "0") return null;
         return (
           <>
-            <h3 style={{ marginTop: 28 }}>An epoch that lost money</h3>
+            <h3 style={{ marginTop: 28 }}>Defaulted epoch</h3>
             <p className="lede">
-              The same ledgers from <code>scripts/demo-default.sh</code>,
-              where the asset fell far enough to break principal. Shown
-              beside the clean epoch because a realized-loss figure that
-              can only ever read zero proves nothing about loss accounting.
+              The same ledgers from <code>scripts/demo-default.sh</code>, where
+              the asset fell far enough to break principal. Shown beside the
+              clean epoch because a realized-loss figure that can only ever
+              read zero proves nothing about loss accounting.
             </p>
             <div className="grid">
               <div className="card rail rail-machine">
@@ -128,9 +127,9 @@ export function Lender() {
                 <h3>Realized loss</h3>
                 <p className="figure figure-alarm">{realized}</p>
                 <p className="lede" style={{ margin: 0 }}>
-                  Principal the market destroyed, borne by the vault after
-                  the borrower's equity was exhausted. Written off on
-                  chain, not asserted here.
+                  Principal the market destroyed, borne by the vault after the
+                  borrower's equity was exhausted. Written off on chain, not
+                  asserted here.
                 </p>
               </div>
               <div className="card rail rail-machine">
@@ -139,8 +138,8 @@ export function Lender() {
                   {amount(lossOf("principal outstanding"))}
                 </p>
                 <p className="lede" style={{ margin: 0 }}>
-                  Zero: the loan resolved. The loss is recorded as loss,
-                  not left sitting as exposure.
+                  Zero: the loan resolved. The loss is recorded as loss, not
+                  left sitting as exposure.
                 </p>
               </div>
             </div>

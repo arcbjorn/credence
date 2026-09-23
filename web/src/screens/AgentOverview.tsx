@@ -58,9 +58,7 @@ export function AgentOverview() {
           </>
         ) : (
           <>
-            No originations in this run. The lede used to assert three
-            loans regardless, which read as a claim about data that was not
-            on screen.
+            No originations retained in this run.
           </>
         )}
       </RecordHeader>
@@ -122,16 +120,16 @@ export function AgentOverview() {
       </div>
 
       {originations.length === 0 && (
-        <p className="lede">
-          Generate the bundle with <code>pnpm data</code> after{" "}
-          <code>LOANS=3 scripts/demo-repay.sh</code>.
-        </p>
+        <details>
+          <summary>Data setup</summary>
+          <p>
+            Generate the bundle with <code>pnpm data</code> after{" "}
+            <code>LOANS=3 scripts/demo-repay.sh</code>.
+          </p>
+        </details>
       )}
 
-      <details>
-        {/* Counted, not hardcoded. The bundle holds however many loans
-            the demo that produced it ran, and a release check ending on
-            LOANS=2 left this reading "all three" beside two rows. */}
+      {originations.length > 0 && <details>
         <summary>
           Model and policy, identical across all {originations.length}
         </summary>
@@ -139,7 +137,7 @@ export function AgentOverview() {
 {`model_hash   ${originations[0]?.model_hash ?? "-"}
 policy_hash  ${originations[0]?.policy_hash ?? "-"}`}
         </pre>
-      </details>
+      </details>}
     </>
   );
 }

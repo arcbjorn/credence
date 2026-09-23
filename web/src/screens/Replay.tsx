@@ -114,12 +114,13 @@ export function Replay() {
       {report && (
         <div style={{ display: "grid", gap: 12 }}>
           <div className={report.matched ? "match" : "difference"}>
-            {report.matched ? "MATCH" : "DIFFERENCE"}
+            {report.matched ? "Matches retained assessment" : "Differs from retained assessment"}
             {ran === "tampered" && report.matched && (
-              <> — replay is vacuous: altered evidence still matched</>
+              <> — replay is vacuous: the altered evidence still matched, so
+              this run proves nothing about the snapshot.</>
             )}
             {ran === "tampered" && !report.matched && (
-              <> — correct: the altered snapshot does not reproduce</>
+              <> — correct: the altered snapshot does not reproduce.</>
             )}
           </div>
 
@@ -142,11 +143,17 @@ export function Replay() {
             </div>
           )}
 
-          <div className="card" style={{ display: "grid", gap: 10 }}>
+        </div>
+      )}
+      {report && (
+        <details>
+          <summary>Identifiers for this replay</summary>
+          <div className="card" style={{ display: "grid", gap: 10, marginTop: 8 }}>
+            <Hash label="model_hash" value={MODEL_HASH} />
             <Hash label="assessment_id" value={report.assessment_id} />
             <Hash label="input_hash" value={report.input_hash} />
           </div>
-        </div>
+        </details>
       )}
     </>
   );

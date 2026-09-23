@@ -46,9 +46,9 @@ export function Comparison_() {
   return (
     <>
       <RecordHeader title="Three agents">
-        The same policy and the same model, applied to three accounts that
-        differ in one respect at a time. What separates them is what they
-        have demonstrated and what they are currently holding.
+        One policy and one model, applied to three accounts that differ in
+        a single respect at a time. What separates them is what they have
+        demonstrated and what they are currently holding.
       </RecordHeader>
 
       <div className="modes">
@@ -142,13 +142,12 @@ export function Comparison_() {
         <p style={{ marginBottom: 0 }}>
           The third account has the <strong>same flawless record</strong> as
           the second and is refused anyway, because stress capacity binds
-          first. That is the claim <code>docs/03</code> makes: a perfect
-          record does not survive a dangerous position.
+          first — a perfect record does not survive a dangerous position.
         </p>
       </div>
 
       <details>
-        <summary>One policy and one model, across all three</summary>
+        <summary>Policy and model</summary>
         <div className="card" style={{ display: "grid", gap: 10, marginTop: 8 }}>
           <Hash label="policy_hash" value={cmp.policy_hash} />
           <Hash label="model_hash" value={cmp.model_hash} />

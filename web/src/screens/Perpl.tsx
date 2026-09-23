@@ -116,12 +116,13 @@ export function PerplPanel() {
   if (error) {
     return (
       <section>
-        <h1 className="record-title">Perpl market risk</h1>
-        <p className="empty">
-          No capture to show ({error}). Run{" "}
+        <RecordHeader title="Perpl market risk">Market evaluation is unavailable.</RecordHeader>
+        <div className="error">{error}</div>
+        <details><summary>Data setup</summary><p>
+          Refresh the capture with{" "}
           <code>bash scripts/build-perpl-data.sh</code>, which reads the live
           venue and writes <code>web/public/data/perpl.json</code>.
-        </p>
+        </p></details>
       </section>
     );
   }
@@ -129,8 +130,7 @@ export function PerplPanel() {
   if (!data) {
     return (
       <section>
-        <h1 className="record-title">Perpl market risk</h1>
-        <p className="empty">Loading the capture&hellip;</p>
+        <RecordHeader title="Perpl market risk">Loading the capture…</RecordHeader>
       </section>
     );
   }
@@ -151,13 +151,13 @@ export function PerplPanel() {
   return (
     <section>
       <RecordHeader title="Perpl market risk">
-        Observed orderbook depth, funding and realized volatility from{" "}
+        Observed market depth and volatility for{" "}
         <strong>
           {data.venue.symbol} (market {data.venue.market_id})
         </strong>{" "}
-        on Perpl, driving the three mandatory stress scenarios. The engine runs
-        in this tab, so what you see is its own output rather than a second
-        implementation of it.
+        on Perpl, driving the three mandatory stress scenarios. The engine
+        runs in this tab, so what you see is its own output rather than a
+        second implementation of it.
       </RecordHeader>
 
       <div className="modes">
@@ -202,10 +202,6 @@ export function PerplPanel() {
                 <th>Summed from</th>
                 <td className="num">{data.book.bid_levels} bid levels</td>
               </tr>
-              <tr>
-                <th>Side</th>
-                <td className="num">bid</td>
-              </tr>
             </tbody>
           </table>
         </div>
@@ -241,11 +237,10 @@ export function PerplPanel() {
         funding rate is the premium longs pay shorts; the engine&rsquo;s{" "}
         <code>funding_rate_bps</code> is the lender&rsquo;s cost of capital,
         deducted from gross interest. They share a name and nothing else, and
-        wiring one into the other would silently corrupt loan pricing. What
-        persistent one-sided funding indicates is <em>crowding</em> &mdash;
-        leveraged positioning that unwinds faster than it accumulates, which is
-        a reason to read a calm volatility number with suspicion rather than a
-        number to feed the engine.
+        wiring one into the other would silently corrupt loan pricing.
+        Persistent one-sided funding indicates <em>crowding</em> — leveraged
+        positioning that unwinds faster than it accumulates, which is a reason
+        to read a calm volatility number with suspicion.
       </p>
 
       <h3>The book that depth was summed from</h3>
@@ -288,8 +283,8 @@ export function PerplPanel() {
       <p className="note">
         Depth sums the <strong>bid</strong> side only. Liquidating collateral
         sells, so it trades into bids; counting asks would report depth that
-        cannot absorb the modelled trade. The stress model divides by depth in a
-        square-root impact term, so overstating it understates impact and
+        cannot absorb the modelled trade. The stress model divides by depth in
+        a square-root impact term, so overstating it understates impact and
         over-lends.
       </p>
 
@@ -299,12 +294,9 @@ export function PerplPanel() {
       ) : (
         <>
           <p className="note">
-            One retained origination snapshot from the{" "}
-            <code>{data.snapshot_source}</code> run, evaluated twice at the
-            same clock. Only the market evidence differs, so any difference
-            below is attributable to the market and nothing else.
+            The <code>{data.snapshot_source}</code> account, policy and clock
+            stay fixed. Only market evidence changes.
           </p>
-          <Hash value={MODEL_HASH} label="engine" />
           <div className="scroll">
             <table>
               <thead>
@@ -383,9 +375,7 @@ export function PerplPanel() {
           <p className="note">
             {delta !== null && delta < 0 ? (
               <>
-                <strong>Observing the market lends less.</strong> Real depth is
-                thinner than the declared placeholder, so the liquidity and
-                combined scenarios recover less and capacity falls{" "}
+                Observed depth reduces stress recovery and capacity falls{" "}
                 {Math.abs(delta).toFixed(1)}%.
               </>
             ) : !stressBinds ? (
@@ -395,13 +385,8 @@ export function PerplPanel() {
                   <span title={binding}>{bindingPhrase(binding)}</span>, not by
                   the market.
                 </strong>{" "}
-                Capacity is a <code>min()</code> over several constraints, and
-                only the stress term reads market evidence. The scenarios above
-                do differ &mdash; the observed book recovers less under
-                liquidity &mdash; but a constraint that does not read the market
-                is what sets the limit here, so a thinner book cannot lower it.
-                Reading this as &ldquo;the market is deep enough&rdquo; would be
-                wrong.
+                Only stress capacity uses market evidence. An unchanged limit
+                does not establish adequate market depth.
               </>
             ) : (
               <>
@@ -409,13 +394,10 @@ export function PerplPanel() {
                 placeholder, so capacity does not fall.
               </>
             )}{" "}
-            The <em>price</em> shock is identical in both columns because the
-            declared floor binds: realized volatility of{" "}
-            {bps(data.market.realized_volatility_bps)} scaled by the policy
-            multiple sits below the floor, so the floor is what the scenario
-            applies. That is the floor doing its job &mdash; without it, a calm
-            window would assert nothing.
+            Both columns use the policy's minimum price shock because scaled
+            volatility falls below that floor.
           </p>
+          <details><summary>Model identifier</summary><Hash value={MODEL_HASH} label="engine" /></details>
         </>
       )}
     </section>

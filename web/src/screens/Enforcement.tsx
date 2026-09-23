@@ -38,10 +38,9 @@ export function Enforcement() {
     return (
       <>
         <RecordHeader title="Enforcement">
-          This run recorded no checks. Re-run{" "}
-          <code>LOANS=3 scripts/demo-repay.sh</code> and then{" "}
-          <code>pnpm data</code>.
+          No enforcement checks retained in this run.
         </RecordHeader>
+        <details><summary>Data setup</summary><p>Run <code>LOANS=3 scripts/demo-repay.sh</code>, then <code>pnpm data</code>.</p></details>
       </>
     );
   }
@@ -53,19 +52,19 @@ export function Enforcement() {
   return (
     <>
       <RecordHeader title="Enforcement">
-        The account holds real value, and the contract refuses to release
-        it while the loan is open. Both refusals below are transactions
-        that reverted on chain.
+        The account holds real collateral, and the contract refuses to
+        release it while the loan is open. Both refusals below are
+        transactions that reverted against the deployment.
       </RecordHeader>
 
       {held && (
         <div className="card rail rail-growth" style={{ marginBottom: 18 }}>
-          <h3>What the account holds</h3>
+          <h3>Collateral held</h3>
           <p className="figure figure-growth">
             {units(held.detail.split(" ")[0], heldDecimals(held.detail))}
           </p>
           <p className="lede" style={{ margin: 0 }}>
-            Withdrawable in principle — the balance is really there. The
+            Withdrawable in principle — the balance is really there, so the
             refusals below are not an empty account.
           </p>
         </div>
@@ -74,29 +73,29 @@ export function Enforcement() {
       <div className="grid">
         {ownerRefused && (
           <div className="card rail rail-alarm">
-            <h3>The owner is refused</h3>
+            <h3>Owner withdrawal</h3>
             <p>Debt is open, so the account will not release collateral.</p>
             <code className="hash">{ownerRefused.detail}</code>
             <p className="lede" style={{ marginTop: 8, marginBottom: 0 }}>
-              This is the lender protection. The owner has every right of
-              ownership and still cannot withdraw.
+              Lender protection: the owner holds every right of ownership and
+              still cannot withdraw.
             </p>
           </div>
         )}
         {strangerRefused && (
           <div className="card rail rail-machine">
-            <h3>A stranger is refused</h3>
+            <h3>Unauthorized withdrawal</h3>
             <p>Not the owner, so the call never reaches the debt check.</p>
             <code className="hash">{strangerRefused.detail}</code>
             <p className="lede" style={{ marginTop: 8, marginBottom: 0 }}>
-              A <strong>different</strong> error. If these two matched, the
-              first refusal would only be proving access control.
+              A <strong>different</strong> error. If the two matched, the first
+              refusal would only be proving access control.
             </p>
           </div>
         )}
       </div>
 
-      <h3 style={{ marginTop: 24 }}>Every check, against the deployment</h3>
+      <h3 style={{ marginTop: 24 }}>Every check against the deployment</h3>
       <div className="card scroll">
         <table>
           <thead>

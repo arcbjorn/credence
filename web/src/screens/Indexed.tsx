@@ -150,8 +150,8 @@ function LoanCard({ loan, events }: { loan: IndexedLoan; events: IndexedEvent[] 
         </p>
       ) : (
         <p className="lede">
-          Still open — nothing has been recovered or written off yet, so
-          there is no final accounting to check.
+          Still open — nothing recovered or written off yet, so there is no
+          final accounting to check.
         </p>
       )}
 
@@ -183,8 +183,7 @@ function LoanCard({ loan, events }: { loan: IndexedLoan; events: IndexedEvent[] 
         {loan.resolvedAt && loan.resolvedAt !== "0"
           ? `, resolved ${at(loan.resolvedAt)}`
           : ""}
-        . Every row above is a transaction on chain; the hashes are real
-        and resolve against the same deployment.
+        . Every row above is a transaction on chain.
       </p>
     </div>
   );
@@ -208,8 +207,10 @@ export function IndexedLifecycle() {
     return (
       <>
         <RecordHeader title="Indexed lifecycle">
-          The indexer has not been run against this chain.
+          Indexed records are unavailable.
         </RecordHeader>
+        <details>
+        <summary>Data setup</summary>
         <div className="card rail rail-machine">
           <p style={{ marginTop: 0 }}>
             Sync it, then regenerate the bundle:
@@ -221,6 +222,7 @@ export function IndexedLifecycle() {
             The first needs Docker — HyperIndex runs Postgres in it.
           </p>
         </div>
+        </details>
       </>
     );
   }
@@ -246,8 +248,8 @@ export function IndexedLifecycle() {
       {data.loans.length === 0 ? (
         <div className="card rail rail-machine">
           <p style={{ margin: 0 }}>
-            The indexer synced and found no loans on this deployment. That
-            is an empty chain, not a failed sync.
+            The indexer synced and found no loans on this deployment. That is
+            an empty chain, not a failed sync.
           </p>
         </div>
       ) : (
