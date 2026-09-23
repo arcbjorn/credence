@@ -48,7 +48,7 @@ const AGENT_LIGHT = [
   "#9a6bab", // lilac
   "#3f8f96", // teal-cyan
   "#a8763d", // ochre
-  "#7b8a3e", // olive
+  "#5f8a54", // sage
   "#b3617d", // rose
   "#5d74a8", // slate blue
 ] as const;
@@ -59,7 +59,7 @@ const AGENT_DARK = [
   "#d3aee0", // lilac
   "#8ad4d8", // teal-cyan
   "#e6c38f", // ochre
-  "#c4d18c", // olive
+  "#a8d3a0", // sage
   "#eeaabe", // rose
   "#aab9e4", // slate blue
 ] as const;
