@@ -32,7 +32,7 @@ const comparison: Comparison = { policy_hash: "policy", model_hash: "model", pro
 ] };
 
 beforeEach(() => {
-  vi.mocked(useSurvey).mockReturnValue({ run, comparison, indexed: { loans: [], events: [] }, loading: false, unavailable: [] });
+  vi.mocked(useSurvey).mockReturnValue({ run, comparison, indexed: { loans: [], events: [] }, cohort: null, loading: false, unavailable: [] });
 });
 const room = (path: string) => render(<MemoryRouter initialEntries={[path]}><App /></MemoryRouter>);
 
@@ -167,7 +167,7 @@ describe("the credit rooms", () => {
   });
 
   it("keeps profile evidence usable when the book is unavailable", () => {
-    vi.mocked(useSurvey).mockReturnValue({ run: null, comparison, indexed: null, loading: false, unavailable: ["book", "indexed log"] });
+    vi.mocked(useSurvey).mockReturnValue({ run: null, comparison, indexed: null, cohort: null, loading: false, unavailable: ["book", "indexed log"] });
     room("/atlas");
     expect(screen.getByRole("button", { name: "Proven, score 900" })).toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("book, indexed log unavailable");

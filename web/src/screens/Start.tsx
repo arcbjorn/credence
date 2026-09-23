@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router";
 import { units, bps } from "../lib/data";
 import { readBook } from "../lib/book";
 import { CLAIMS, EARNED, GROUPS, REFUSED, UNEARNED, type Claim } from "../lib/claims";
-import { borrowerNode, originations, surveyDate, useSurvey, type Projection } from "../lib/observatory";
+import { originations, populationNodes, surveyDate, useSurvey, type Projection } from "../lib/observatory";
 import { ExploreRecords, LinkArrow } from "../components/RecordLinks";
 import { World } from "../components/World";
 import { BrandMark } from "../components/Shell";
@@ -82,7 +82,7 @@ export function Start() {
           <p className="eyebrow">{current.label}</p>
           <h1 className="hero" key={current.title}>{current.title}</h1>
           <div className="hero-objects story-world">
-            <World book={book} nodes={borrowerNode(last)} loans={loans} projection={current.projection} paused={paused} replay={replay} onSelect={id => navigate(id === "facility" ? "/moons" : "/body")} />
+            <World book={book} nodes={populationNodes(last, survey.comparison, survey.cohort)} loans={loans} projection={current.projection} paused={paused} replay={replay} onSelect={id => navigate(id === "facility" ? "/moons" : id === "borrower" ? "/body" : "/atlas")} />
           </div>
           <div className="satellite satellite-top"><span className="satellite-line" /><div><span className="instrument-label">FIG. {String(chapter + 1).padStart(2, "0")}</span><p>{current.note}</p></div></div>
           <div className="satellite satellite-bottom"><span className="instrument-label">ATMOSPHERE</span><span>{book.utilization === null ? "Awaiting measurement" : `${((1 - book.utilization) * 100).toFixed(1)}% headroom`}</span><span className="satellite-line" /></div>

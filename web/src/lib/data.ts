@@ -288,6 +288,27 @@ export interface Perpl {
   snapshot_source: string;
 }
 
+/**
+ * One agent of the cohort, with its own credit account and its own record.
+ *
+ * `demo-cohort.sh` drives several accounts against ONE facility, which is
+ * the only run in the bundle where more than one agent borrows. Kept
+ * apart from `Run` because the shape differs: a run is one account over
+ * time, a cohort is several accounts at one time, and pooling them would
+ * merge four histories into a fifth agent that never existed.
+ */
+export interface CohortAgent {
+  name: string;
+  /** The `CreditAccount` this agent borrowed through, on chain. */
+  account: string;
+  assessments: Assessment[];
+  snapshots: Record<string, Snapshot>;
+}
+
+export interface Cohort {
+  agents: CohortAgent[];
+}
+
 export interface Indexed {
   loans: IndexedLoan[];
   events: IndexedEvent[];
@@ -348,6 +369,15 @@ export const loadIndexed = () => fetchJSON<Indexed>("data/indexed.json");
  * an empty book that reads like a dead market.
  */
 export const loadPerpl = () => fetchJSON<Perpl>("data/perpl.json");
+
+/**
+ * The multi-agent cohort, written by `scripts/demo-cohort.sh`.
+ *
+ * Absent until that demo is run. That is a different state from "a
+ * facility with one borrower", and the globe says which rather than
+ * quietly rendering a market of one.
+ */
+export const loadCohort = () => fetchJSON<Cohort>("data/cohort.json");
 
 /** Base units to a readable decimal. Never rounds a displayed amount. */
 export function units(raw: string | number | undefined, decimals = 6): string {
