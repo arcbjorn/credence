@@ -101,10 +101,10 @@ export function Replay() {
       </div>
 
       <p style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-        <button onClick={() => void run_(false)} disabled={busy}>
+        <button className="action action-primary" type="button" onClick={() => void run_(false)} disabled={busy}>
           Replay the retained assessment
         </button>
-        <button onClick={() => void run_(true)} disabled={busy}>
+        <button className="action" type="button" onClick={() => void run_(true)} disabled={busy}>
           Replay with one digit altered
         </button>
       </p>
