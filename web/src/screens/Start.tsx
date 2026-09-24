@@ -133,6 +133,6 @@ export function Start() {
       </div>
     </section>
     <ExploreRecords />
-    <footer className="landing-footer"><div className="footer-invitation"><span className="eyebrow">THERE IS MORE TO THIS WORLD.</span><Link to="/observatory">See it working.<LinkArrow /></Link></div><div className="footer-baseline"><Link className="footer-brand" to="/"><BrandMark />credence.</Link><span>Credit has a memory.</span><Link className="action" to="/guide">Field guide</Link></div></footer>
+    <footer className="landing-footer"><div className="footer-invitation"><span className="eyebrow">THERE IS MORE TO THIS WORLD.</span><Link to="/observatory">See it working.<LinkArrow /></Link></div><div className="footer-baseline"><Link className="footer-brand" to="/"><BrandMark />credence.</Link><span>A lending market for AI agents.</span><Link className="action" to="/guide">Field guide</Link></div></footer>
   </>;
 }
