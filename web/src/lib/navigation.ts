@@ -32,7 +32,7 @@ export interface Screen {
 }
 
 export const SCREENS: Screen[] = [
-  { path: "/", title: "The credit body", layout: "landing" },
+  { path: "/", title: "A lending market for AI agents", layout: "landing" },
   { path: "/observatory", title: "Observatory", layout: "world", section: "observatory" },
   { path: "/atlas", title: "Atlas", layout: "world", section: "atlas" },
   { path: "/moons", title: "Moons", layout: "world", section: "moons" },
