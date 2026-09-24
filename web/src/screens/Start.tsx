@@ -105,7 +105,7 @@ export function Start() {
         <p className="eyebrow proof-kicker">09 / WEATHER THAT HAPPENED</p>
         <h2 id="weather-title">A record.<br /><em>Not a promise.</em></h2>
         <div className="proof-context">
-          <p>Every figure has a source. Every decision leaves a trace. Open the records and see what this body can prove.</p>
+          <p>Each claim names the evidence it needs and whether that evidence exists. Claims that lack it stay on the list with the reason.</p>
           <Link to="/replay" className="action">Replay a decision</Link>
           <Deployment />
         </div>
