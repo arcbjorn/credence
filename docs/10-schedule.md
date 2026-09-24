@@ -9,7 +9,7 @@
 | **18–22 Sep · baseline milestone** | Connect gateway, contracts, interface; deploy prototype network | One complete performer path and one failure path with retained evidence and transaction references |
 | **23–25 Sep** | Other two scenarios, forecast scoring, identity continuity, registry publication and independent reader, event reconciliation | Same engine handles all agents; release identity evidence complete; **Kuru gate decided 21 Sep — included (D34)** |
 | **26 Sep–2 Oct** | Selected provider integrations and CRE; Kuru only after its gate | Each claimed integration passes acceptance; **note redemption complete — met 21 Sep, 11 days early** |
-| **3–5 Oct** | Resolve cross-component issues; **freeze contracts, schemas, model, fixtures**; prepare isolated transport change | Working JSON release candidate; no blocker on mandatory paths |
+| **3–5 Oct** | Resolve cross-component issues; **freeze contracts, schemas, model, fixtures**; prepare isolated transport change | Working JSON release candidate; no blocker on mandatory paths. **Frozen 24 Sep as `v0.2.0-rc1`, 9 days early**, with every acceptance row re-run (`releases/2026-09-24.md`) |
 | **6 Oct** | Gate the isolated protobuf/gRPC transport change against frozen artifacts | Same reference vectors and applicable acceptance matrix pass; otherwise retain JSON |
 | **7–9 Oct** | Exercise failures, restore from retained data, rehearse, record | Verification report, accessible deployment, both recordings |
 | **10–12 Oct** | Public profile, write-up, code access, integration evidence, bounty entries | Submission complete, links checked from a clean viewer context |
