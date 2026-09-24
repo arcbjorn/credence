@@ -28,6 +28,7 @@ The product claim:
 | 12 | [Claims & Roadmap](12-claims-roadmap.md) | What may be claimed; the bridge to the vision |
 | 13 | [Decision Log](13-decision-log.md) | What changed from the vision, and why |
 | 14 | [Verification Report](14-verification-report.md) | What was actually checked, what it produced, and what is still unproven |
+| 15 | [Submission](15-submission.md) | The text for the 12 October entry and its bounty entries |
 
 Diagrams: [`diagrams/`](diagrams/) — architecture, loan lifecycle, underwriting order.
 
