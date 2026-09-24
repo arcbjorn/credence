@@ -42,8 +42,8 @@ export function Lifecycle() {
   return (
     <>
       <RecordHeader title="Loan lifecycle">
-        Each loan commits a forecast before it is funded, then the forecast
-        is scored against what actually happened.
+        Each loan commits a forecast before it is funded. The forecast is
+        scored when the loan resolves.
       </RecordHeader>
 
       <div className="modes">
