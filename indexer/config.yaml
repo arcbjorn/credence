@@ -13,6 +13,11 @@
 # `eth_getLogs` at a 100-block range -- which is also the plainest
 # argument for HyperSync here: reconstructing a lifecycle over that RPC
 # means ~620,000 sequential requests.
+#
+# The address must be the manifest's `loan_manager`. A redeploy on 19
+# September moved the manifest and left this on the previous manager, so
+# the testnet index rebuilt a deployment nobody was looking at.
+# `scripts/index-testnet.sh` now refuses to start when the two disagree.
 name: credence
 description: Loan lifecycle reconstructed from LoanManager events
 
@@ -43,11 +48,11 @@ contracts:
 
 chains:
   - id: 10143
-    start_block: 62425291
+    start_block: 63805994
     contracts:
       - name: LoanManager
         address:
-          - 0x40dc8Dd6f677c37DF05959BE5F7656CbF0fd16bB
+          - 0xe48BD50543b122E34D956F17BC63E61252d1a7c4
 
   - id: 31337
     start_block: 0

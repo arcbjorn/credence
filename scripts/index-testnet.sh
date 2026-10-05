@@ -37,6 +37,30 @@ if ! docker info >/dev/null 2>&1; then
   exit 1
 fi
 
+# The committed config names the testnet manager by hand, and a redeploy
+# moves the manifest without touching it. That happened on 19 September:
+# this indexed the previous manager for two weeks, and nothing failed,
+# because an index of the wrong contract is still a well-formed index.
+INDEXED=$(python3 - <<'PY'
+lines = open("config.yaml").read().splitlines()
+for i, line in enumerate(lines):
+    if line.strip() == "- id: 10143":
+        for nxt in lines[i + 1:]:
+            if nxt.strip().startswith("- 0x"):
+                print(nxt.strip()[2:].lower())
+                break
+        break
+PY
+)
+DEPLOYED=$(python3 -c "import json;print(json.load(open('$ROOT/contracts/deployments/10143.json'))['addresses']['loan_manager'].lower())")
+if [ "$INDEXED" != "$DEPLOYED" ]; then
+  echo "indexer/config.yaml indexes $INDEXED on 10143," >&2
+  echo "but the manifest's loan_manager is $DEPLOYED." >&2
+  echo "Point the config at the manifest's manager, with start_block set to" >&2
+  echo "the block its code first appears at." >&2
+  exit 1
+fi
+
 # Skip the local chain: this run is about the deployed one. Generated
 # rather than committed, for the same reason config.local.yaml is.
 cp config.yaml "$CONFIG"
