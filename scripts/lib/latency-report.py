@@ -59,9 +59,12 @@ def main():
         "| Field | Value |",
         "|---|---|",
     ]
-    for key in ("chain", "rpc", "manager", "account", "loans", "principal", "hold"):
+    labels = {"chain": "Chain", "rpc": "RPC", "manager": "Loan manager",
+              "account": "Credit account", "loans": "Loans", "principal": "Principal",
+              "hold": "Hold"}
+    for key, label in labels.items():
         if key in params:
-            lines.append(f"| {key.capitalize()} | `{params[key]}` |")
+            lines.append(f"| {label} | `{params[key]}` |")
     if rtt:
         lines.append(f"| Round trip, this machine to the RPC | median {fmt(statistics.median(rtt))} (n={len(rtt)}) |")
     lines += [
