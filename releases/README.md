@@ -97,3 +97,12 @@ runs read-only against the canonical deployment.
 
 Everything after the tag is an extension, developed in isolation and
 re-checked before merging.
+
+## Latency records
+
+`scripts/measure-latency.sh` writes `latency-<date>.md` here, with the
+raw observations beside it in `latency-<date>.jsonl`. It is a different
+kind of record from the release checks above: it runs loans on the
+deployment the manifest names and reports how long each step took, so
+it measures rather than passes or fails. Every transaction it sent is
+listed by hash, so each figure can be checked on chain.

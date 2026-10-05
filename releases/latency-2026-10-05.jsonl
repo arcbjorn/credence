@@ -1,0 +1,38 @@
+{"kind": "rtt", "ms": [126.3, 37.9, 36.2, 36.6, 36.0, 36.5, 37.7, 36.0, 37.3, 34.2, 37.3, 37.7, 41.6, 36.7, 37.6, 36.6, 36.6, 38.3, 36.6, 39.0]}
+{"kind": "tx", "tx": "0x17f9feb6da431cc3bc2bdcb78e9fc67c0e92d900b543dc23a2114ec0a3331078", "to": "0x005c2f7b3b97a5206871770181ade095079e9d58", "selector": "0xa55526db", "status": 1, "block": 68450613, "block_time": 1791218184, "gas": 32718, "ms": 351.2}
+{"kind": "engine", "bytes_in": 4427, "ms": 6.1}
+{"kind": "tx", "tx": "0x92cf9129c4b400b3dbbd07383d5e43eb194610478a18115c6542afde40023b35", "to": "0x90ec21bdc378f1932d94293a87ce187a93b39db8", "selector": "0x441e8198", "status": 1, "block": 68450626, "block_time": 1791218188, "gas": 171285, "ms": 380.5}
+{"kind": "tx", "tx": "0xce9f83e614b0b0fdf3ee38f251095f2e16314906c5a52ee17c5c412bb3079ac7", "to": "0x138eab945f8e45aa852dac281e5449f4a054a8b5", "selector": "0xffec3c99", "status": 1, "block": 68450628, "block_time": 1791218189, "gas": 65440, "ms": 250.3}
+{"kind": "tx", "tx": "0xba598749a1d0af3f594e8ae5106efbbdc2b67f247d01c18661feebb81f17239e", "to": "0xe48bd50543b122e34d956f17bc63e61252d1a7c4", "selector": "0x543cde58", "status": 1, "block": 68450630, "block_time": 1791218190, "gas": 871214, "ms": 387.9}
+{"kind": "index_wait", "loan": 4, "tx": "0xba598749a1d0af3f594e8ae5106efbbdc2b67f247d01c18661feebb81f17239e"}
+{"kind": "tx", "tx": "0xe901b51bab5068f18989ea5a246b91812ddbaca73c37bcb634582248c990629d", "to": "0x005c2f7b3b97a5206871770181ade095079e9d58", "selector": "0xa55526db", "status": 1, "block": 68450668, "block_time": 1791218201, "gas": 39261, "ms": 256.4}
+{"kind": "tx", "tx": "0xa99ec7bfe420a65d0938b4c86e7b64254becb7ee4498431bf487003110cc0546", "to": "0x138eab945f8e45aa852dac281e5449f4a054a8b5", "selector": "0xffec3c99", "status": 1, "block": 68450670, "block_time": 1791218202, "gas": 89310, "ms": 238.2}
+{"kind": "tx", "tx": "0xa7250e8b53bf633978dc92d6ce35345374bc8a5783bee8d84cdc8d60c2467d21", "to": "0x138eab945f8e45aa852dac281e5449f4a054a8b5", "selector": "0x1cff79cd", "status": 1, "block": 68450672, "block_time": 1791218202, "gas": 363295, "ms": 269.4}
+{"kind": "tx", "tx": "0xc05ca2e1f78445282157617b9c302525fad07de3c4600e22f5edd00b06798d2b", "to": "0xe48bd50543b122e34d956f17bc63e61252d1a7c4", "selector": "0x371fd8e6", "status": 1, "block": 68450674, "block_time": 1791218203, "gas": 248445, "ms": 377.5}
+{"kind": "index_wait", "loan": 4, "tx": "0xc05ca2e1f78445282157617b9c302525fad07de3c4600e22f5edd00b06798d2b"}
+{"kind": "engine", "bytes_in": 4302, "ms": 9.8}
+{"kind": "tx", "tx": "0x04691f4dd2f0125a58244ef250224f6043c251e209744e6183ff4592e962dcd4", "to": "0x90ec21bdc378f1932d94293a87ce187a93b39db8", "selector": "0x441e8198", "status": 1, "block": 68450678, "block_time": 1791218204, "gas": 171315, "ms": 119.8}
+{"kind": "tx", "tx": "0xb07986e6f1c9a0bc05d5d62cc4de9d964eab322bc9f613f5033ea0ab5f5af690", "to": "0x138eab945f8e45aa852dac281e5449f4a054a8b5", "selector": "0xffec3c99", "status": 1, "block": 68450679, "block_time": 1791218204, "gas": 89310, "ms": 238.2}
+{"kind": "tx", "tx": "0x8ac1f08f533b05b8d22f6cf4876fb59ad4e90671d8316181f90ff1d287a7456b", "to": "0xe48bd50543b122e34d956f17bc63e61252d1a7c4", "selector": "0x543cde58", "status": 1, "block": 68450681, "block_time": 1791218205, "gas": 871243, "ms": 244.4}
+{"kind": "index_wait", "loan": 5, "tx": "0x8ac1f08f533b05b8d22f6cf4876fb59ad4e90671d8316181f90ff1d287a7456b"}
+{"kind": "tx", "tx": "0xaa801afd6d3e21085dc998b95081edf9566b823741098b64adbf0e27617b7b99", "to": "0x005c2f7b3b97a5206871770181ade095079e9d58", "selector": "0xa55526db", "status": 1, "block": 68450719, "block_time": 1791218217, "gas": 39261, "ms": 375.2}
+{"kind": "tx", "tx": "0xf42fb2c2cbf9dba525bbb824cfb85c5aaaee53404a99d2e7dece1e53ea9a7edc", "to": "0x138eab945f8e45aa852dac281e5449f4a054a8b5", "selector": "0xffec3c99", "status": 1, "block": 68450722, "block_time": 1791218217, "gas": 89324, "ms": 386.3}
+{"kind": "tx", "tx": "0xc161d245f7ee174784d4933d843a6895931bdc8ce5318a00fc8fda86edae0eae", "to": "0x138eab945f8e45aa852dac281e5449f4a054a8b5", "selector": "0x1cff79cd", "status": 1, "block": 68450724, "block_time": 1791218218, "gas": 363309, "ms": 512.4}
+{"kind": "tx", "tx": "0x104869c1cb8c75729aa68790d6ac6ddb3be43c0d6b3b555b3b89b50301c86761", "to": "0xe48bd50543b122e34d956f17bc63e61252d1a7c4", "selector": "0x371fd8e6", "status": 1, "block": 68450726, "block_time": 1791218219, "gas": 248445, "ms": 118.6}
+{"kind": "index_wait", "loan": 5, "tx": "0x104869c1cb8c75729aa68790d6ac6ddb3be43c0d6b3b555b3b89b50301c86761"}
+{"kind": "engine", "bytes_in": 4302, "ms": 7.9}
+{"kind": "index", "loan": 4, "event": "Repaid", "tx": "0xc05ca2e1f78445282157617b9c302525fad07de3c4600e22f5edd00b06798d2b", "ms": 16628.8}
+{"kind": "index", "loan": 4, "event": "Originated", "tx": "0xba598749a1d0af3f594e8ae5106efbbdc2b67f247d01c18661feebb81f17239e", "ms": 29980.2}
+{"kind": "index", "loan": 5, "event": "Repaid", "tx": "0x104869c1cb8c75729aa68790d6ac6ddb3be43c0d6b3b555b3b89b50301c86761", "ms": 1061.2}
+{"kind": "index", "loan": 5, "event": "Originated", "tx": "0x8ac1f08f533b05b8d22f6cf4876fb59ad4e90671d8316181f90ff1d287a7456b", "ms": 14629.9}
+{"kind": "tx", "tx": "0x3e4771bc234386d6bb1d0a11a7f5040572b8e61433243fa22fabe3ad189df0e9", "to": "0x90ec21bdc378f1932d94293a87ce187a93b39db8", "selector": "0x441e8198", "status": 1, "block": 68450731, "block_time": 1791218220, "gas": 171330, "ms": 374.8}
+{"kind": "tx", "tx": "0x9f3482edf0abf91d26965e3a6421dca1e2760356591ca9e34bb6dffd6559b5cd", "to": "0x138eab945f8e45aa852dac281e5449f4a054a8b5", "selector": "0xffec3c99", "status": 1, "block": 68450733, "block_time": 1791218221, "gas": 89310, "ms": 378.2}
+{"kind": "tx", "tx": "0xde93ccc09e7897c07fcf57722d3c3a443ef3421ceae3a6e2dcad009a74e492bc", "to": "0xe48bd50543b122e34d956f17bc63e61252d1a7c4", "selector": "0x543cde58", "status": 1, "block": 68450735, "block_time": 1791218221, "gas": 884306, "ms": 645.8}
+{"kind": "index_wait", "loan": 6, "tx": "0xde93ccc09e7897c07fcf57722d3c3a443ef3421ceae3a6e2dcad009a74e492bc"}
+{"kind": "index", "loan": 6, "event": "Originated", "tx": "0xde93ccc09e7897c07fcf57722d3c3a443ef3421ceae3a6e2dcad009a74e492bc", "ms": 666.1}
+{"kind": "tx", "tx": "0x9de901f533f735871b50727bf3744ab3491118c40898ea3d3bac3777b73b0d07", "to": "0x005c2f7b3b97a5206871770181ade095079e9d58", "selector": "0xa55526db", "status": 1, "block": 68450774, "block_time": 1791218233, "gas": 39261, "ms": 374.4}
+{"kind": "tx", "tx": "0x5b16762dd5cfc0a7a07f3736cb34f7b4d110af52e5b5cf3bc2288ec60388ab3b", "to": "0x138eab945f8e45aa852dac281e5449f4a054a8b5", "selector": "0xffec3c99", "status": 1, "block": 68450781, "block_time": 1791218235, "gas": 74437, "ms": 510.3}
+{"kind": "tx", "tx": "0x42b3c4c93b1a103a191f5b1c75b59ea1d82c5d209d14f74fa7a7e905b670cd4d", "to": "0x138eab945f8e45aa852dac281e5449f4a054a8b5", "selector": "0x1cff79cd", "status": 1, "block": 68450784, "block_time": 1791218236, "gas": 302758, "ms": 378.9}
+{"kind": "tx", "tx": "0x341fb79ed95c2807ee010527768d5945fd9b4ae6f2b764c0fa202cb433724cad", "to": "0xe48bd50543b122e34d956f17bc63e61252d1a7c4", "selector": "0x371fd8e6", "status": 1, "block": 68450787, "block_time": 1791218237, "gas": 217924, "ms": 378.5}
+{"kind": "index_wait", "loan": 6, "tx": "0x341fb79ed95c2807ee010527768d5945fd9b4ae6f2b764c0fa202cb433724cad"}
+{"kind": "index", "loan": 6, "event": "Repaid", "tx": "0x341fb79ed95c2807ee010527768d5945fd9b4ae6f2b764c0fa202cb433724cad", "ms": 43056.5}
