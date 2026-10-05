@@ -702,3 +702,11 @@ interoperability -- those rest on the separate evidence recorded above.
 Engine runtime, input size, provider lag, event reconciliation lag, transaction status. One scripted command runs the offline scenario suite; another starts the demo environment. Document required credentials and optional integrations explicitly.
 
 Persist SQLite on durable storage and take a consistent backup **before recording the demonstration.**
+
+`scripts/backup-evidence.sh` does both: it copies the demos' retained
+evidence from `/tmp` to `~/.credence/evidence/<stamp>`, using SQLite's
+online backup for the databases and writing checksums beside them.
+`--restore <dir>` puts a backup back and refuses one whose checksums do
+not match. `/tmp` is not durable on macOS even without a reboot: files
+untouched for three days are deleted, and on 5 October everything the
+23 September runs had retained was gone.
