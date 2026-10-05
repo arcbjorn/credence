@@ -81,16 +81,6 @@ PY
 # The same four environment collisions `index-local.sh` documents. See
 # that script for why each one is here; the causes are identical.
 ENVIO_PG_PORT=${ENVIO_PG_PORT:-5433}
-if lsof -iTCP:"$ENVIO_PG_PORT" -sTCP:LISTEN >/dev/null 2>&1 &&
-  ! docker ps --format '{{.Names}}' | grep -qx envio-postgres; then
-  for candidate in 5440 5441 5442 5443; do
-    if ! lsof -iTCP:"$candidate" -sTCP:LISTEN >/dev/null 2>&1; then
-      ENVIO_PG_PORT=$candidate
-      break
-    fi
-  done
-fi
-export ENVIO_PG_PORT
 
 if [ -z "${HASURA_GRAPHQL_ENDPOINT:-}" ]; then
   HASURA_GRAPHQL_ENDPOINT=http://localhost:8080/v1/metadata
@@ -115,6 +105,23 @@ if docker ps -a --format '{{.Names}}' | grep -qxE 'envio-postgres|envio-hasura';
   docker rm -f envio-postgres envio-hasura >/dev/null 2>&1 || true
   docker volume rm envio-postgres-data >/dev/null 2>&1 || true
 fi
+
+# Only now, with our own containers gone, does a held port mean another
+# project. Checked before the cleanup -- as this script did until 5
+# October -- our own envio-postgres passed the test, was then removed, and
+# envio started against a port another project's Postgres still held:
+# Hasura up, no Postgres, a four-minute timeout. `index-local.sh` had the
+# same fix on 21 September; this copy never got it.
+if lsof -nP -iTCP:"$ENVIO_PG_PORT" -sTCP:LISTEN >/dev/null 2>&1; then
+  for candidate in 5440 5441 5442 5443; do
+    if ! lsof -nP -iTCP:"$candidate" -sTCP:LISTEN >/dev/null 2>&1; then
+      echo "port $ENVIO_PG_PORT is held by another project; using $candidate"
+      ENVIO_PG_PORT=$candidate
+      break
+    fi
+  done
+fi
+export ENVIO_PG_PORT
 
 ./node_modules/.bin/envio codegen --config "$CONFIG"
 
