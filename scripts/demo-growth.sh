@@ -85,7 +85,7 @@ export DEPLOYMENT_ID=7
 . "$ROOT/scripts/lib/manifest.sh"
 MANIFEST_KEEP=$(credence_manifest_snapshot \
   "$ROOT/contracts/deployments/$CHAIN_ID.json")
-forge script script/Deploy.s.sol --rpc-url "$RPC" --broadcast >/dev/null
+forge script script/Deploy.s.sol --rpc-url "$RPC" --broadcast --slow >/dev/null
 credence_manifest_restore "$ROOT/contracts/deployments/$CHAIN_ID.json" \
   "$MANIFEST_KEEP"
 MANIFEST="$ROOT/contracts/deployments/$CHAIN_ID.json"
@@ -121,7 +121,7 @@ export AGENT_ADDRESS=$(cast wallet address --private-key \
 export SETTLEMENT_TOKEN=$SETTLEMENT VAULT_ADDRESS=$VAULT
 export LOAN_MANAGER_ADDRESS=$MANAGER RISKY_ASSET=$RISKY STRATEGY_ADAPTER=$ADAPTER
 SCENARIO_LOG="$WORK/scenario-deploy.log"
-if ! forge script script/Scenario.s.sol --rpc-url "$RPC" --broadcast \
+if ! forge script script/Scenario.s.sol --rpc-url "$RPC" --broadcast --slow \
   >"$SCENARIO_LOG" 2>&1; then
   echo "the scenario script failed:" >&2
   tail -40 "$SCENARIO_LOG" >&2

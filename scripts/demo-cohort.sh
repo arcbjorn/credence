@@ -68,7 +68,7 @@ export DEPLOYMENT_ID=7
 . "$ROOT/scripts/lib/manifest.sh"
 MANIFEST_KEEP=$(credence_manifest_snapshot \
   "$ROOT/contracts/deployments/$CHAIN_ID.json")
-forge script script/Deploy.s.sol --rpc-url "$RPC" --broadcast >/dev/null
+forge script script/Deploy.s.sol --rpc-url "$RPC" --broadcast --slow >/dev/null
 credence_manifest_restore "$ROOT/contracts/deployments/$CHAIN_ID.json" \
   "$MANIFEST_KEEP"
 MANIFEST="$ROOT/contracts/deployments/$CHAIN_ID.json"
@@ -139,7 +139,7 @@ while IFS=: read -r NAME EQUITY RISKY_EQUITY PRINCIPAL LOANS; do
   else
     SCRIPT=script/AddAccount.s.sol
   fi
-  if ! forge script "$SCRIPT" --rpc-url "$RPC" --broadcast >"$LOG" 2>&1; then
+  if ! forge script "$SCRIPT" --rpc-url "$RPC" --broadcast --slow >"$LOG" 2>&1; then
     echo "  $NAME: the account script failed:" >&2
     tail -30 "$LOG" >&2
     exit 1

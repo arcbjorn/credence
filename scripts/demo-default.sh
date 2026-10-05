@@ -52,7 +52,7 @@ rm -rf broadcast/*/"$CHAIN_ID" cache/*.s.sol/"$CHAIN_ID"
 export DEPLOYER_KEY=0x$DEPLOYER
 export ATTESTOR_ADDRESS=$(cast wallet address --private-key "0x$SIGNER")
 export DEPLOYMENT_ID=7
-forge script script/Deploy.s.sol --rpc-url "$RPC" --broadcast >/dev/null
+forge script script/Deploy.s.sol --rpc-url "$RPC" --broadcast --slow >/dev/null
 MANIFEST="$ROOT/contracts/deployments/$CHAIN_ID.json"
 addr() { python3 -c "import json,sys;print(json.load(open('$MANIFEST'))['addresses']['$1'])"; }
 ORACLE=$(addr oracle);       VAULT=$(addr vault)
@@ -65,7 +65,7 @@ PRICE_SOURCE=$(addr price_source); ADAPTER=$(addr adapter)
 export AGENT_ADDRESS=$(cast wallet address --private-key "0x$AGENT")
 export SETTLEMENT_TOKEN=$SETTLEMENT VAULT_ADDRESS=$VAULT
 export LOAN_MANAGER_ADDRESS=$MANAGER RISKY_ASSET=$RISKY STRATEGY_ADAPTER=$ADAPTER
-ACCOUNT=$(forge script script/Scenario.s.sol --rpc-url "$RPC" --broadcast 2>&1 \
+ACCOUNT=$(forge script script/Scenario.s.sol --rpc-url "$RPC" --broadcast --slow 2>&1 \
   | grep -o 'credit account 0x[0-9a-fA-F]\{40\}' | awk '{print $3}')
 echo "credit account $ACCOUNT"
 

@@ -79,7 +79,13 @@ export DEPLOYMENT_ID=7
 . "$ROOT/scripts/lib/manifest.sh"
 MANIFEST_KEEP=$(credence_manifest_snapshot \
   "$ROOT/contracts/deployments/$CHAIN_ID.json")
-forge script script/Deploy.s.sol --rpc-url "$RPC" --broadcast >/dev/null
+# `--slow` sends each transaction after the previous one confirms. Without
+# it forge sends them all at once, and when anvil mines a block before the
+# last ones arrive it leaves those queued for good: the account's nonce
+# matches, nothing is mined, and the deploy waits forever. 1 in 30 fresh
+# deploys on 5 October, 0 in 30 with the flag. It applies to every script
+# that broadcasts, on any chain.
+forge script script/Deploy.s.sol --rpc-url "$RPC" --broadcast --slow >/dev/null
 credence_manifest_restore "$ROOT/contracts/deployments/$CHAIN_ID.json" \
   "$MANIFEST_KEEP"
 MANIFEST="$ROOT/contracts/deployments/$CHAIN_ID.json"
@@ -123,7 +129,7 @@ export LOAN_MANAGER_ADDRESS=$MANAGER RISKY_ASSET=$RISKY STRATEGY_ADAPTER=$ADAPTE
 # pipeline. A failure nobody can read costs more than the few lines this
 # takes.
 SCENARIO_LOG="$WORK/scenario-deploy.log"
-if ! forge script script/Scenario.s.sol --rpc-url "$RPC" --broadcast \
+if ! forge script script/Scenario.s.sol --rpc-url "$RPC" --broadcast --slow \
   >"$SCENARIO_LOG" 2>&1; then
   echo "the scenario script failed:" >&2
   tail -40 "$SCENARIO_LOG" >&2
