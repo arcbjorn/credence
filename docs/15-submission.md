@@ -61,6 +61,9 @@ was still running when the check reached it and passed afterwards.
   is rejected.
 - A default is unwound on chain and its loss lands on the lender that
   made the loan.
+- On Monad testnet, a transaction the prototype sends is confirmed in
+  375 ms at the median, across 22 transactions on the submitted
+  deployment ([`releases/latency-2026-10-05.md`](../releases/latency-2026-10-05.md)).
 - Eight of the ten claims in [`docs/12`](12-claims-roadmap.md) are
   earned. The two that are not say why.
 

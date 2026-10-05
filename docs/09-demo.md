@@ -140,3 +140,28 @@ A short primary recording and a longer technical walkthrough. Adjust lengths to 
 Demonstrate observable benefits: onchain action constraints, frequent small account updates, short feedback from transaction to reassessment. Measure request-to-confirmation, event-to-index, and input-to-assessment latency **in the submitted deployment**.
 
 **Do not attribute offchain provider speed to the chain, or cite theoretical throughput.** Report what the prototype actually exercised.
+
+### Measured on Monad testnet, 5 October
+
+`scripts/measure-latency.sh` ran three loans through deployment 7. It
+added one credit account to the live facility, and each loan was quoted,
+accepted, originated into the risky asset, unwound and repaid. The
+record lists every transaction hash:
+[`releases/latency-2026-10-05.md`](../releases/latency-2026-10-05.md).
+
+| Interval | n | Median | Range | What it measures |
+|---|---|---|---|---|
+| Request to confirmation | 22 | 375 ms | 119–646 ms | Monad testnet, plus one round trip to the public RPC (37 ms median) |
+| Event to index | 6 | 15.6 s | 0.67–43 s | Envio's HyperSync indexer |
+| Input to assessment | 3 | 8 ms | 6–10 ms | The engine and its HTTP transport, on one machine |
+
+Only the first row describes the chain. The second is the indexer's lag:
+the same chain produced both the 0.67-second and the 43-second sample.
+The third never touches a chain. All three come from small samples, so
+the record gives the range instead of percentiles.
+
+A first attempt that day added the account and then stopped. The adapter
+refused to trade because the deployment's price source had last been
+observed on 19 September. The script now refreshes the price before the
+first loan. That attempt's transactions are not in the record. The two
+runs spent 0.80 MON of testnet gas between them.
