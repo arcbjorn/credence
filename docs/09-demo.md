@@ -135,6 +135,46 @@ origin label names an item type; the others are structural.
 
 A short primary recording and a longer technical walkthrough. Adjust lengths to the verified submission rules.
 
+### Before recording
+
+Rehearsed end to end on 5 October. The order matters: the indexed
+screens read whichever indexer is running, so it must be synced to the
+deployment the demos just made, after them and before the bundle.
+
+```sh
+anvil --port 8546 --silent &          # a fresh chain
+scripts/web.sh --fresh --no-serve     # every demo, the engine, the bundle
+scripts/index-local.sh &              # wait for "indexer is ready"
+scripts/build-web-data.sh             # the bundle again, now with the index
+(cd web && pnpm build)
+scripts/backup-evidence.sh            # /tmp is not durable; see docs/11
+cd web/dist && python3 -m http.server 5173
+```
+
+To rebuild from a backup instead of re-running the demos, run
+`scripts/backup-evidence.sh --restore <dir>` and then
+`scripts/web.sh --no-serve`. Rehearsed on 5 October: with the demos'
+evidence deleted and restored, the rebuilt bundle matched the original
+byte for byte, except `perpl.json`, which is captured live from the
+venue on every build.
+
+Record the built site, not the dev server (see *Read the built site*
+below). The demos' terminal output is evidence too: beat 6's reverted
+withdrawal and beat 5b's `trigger=price_move` are printed by
+`demo-repay.sh` and `demo-monitor.sh`, in `/tmp/credence-web-*.log`.
+
+| Beat | Where it is shown |
+|---|---|
+| 1 | `#/compare`, agent profiles under one policy |
+| 2–3 | `#/borrow` to compose a request; `#/arc` for the committed forecast and terms |
+| 4, 4b | `#/arc` for three loans; `#/earned` for the rate falling on record alone |
+| 5 | `#/assessment`, the binding constraint of a decision |
+| 5b | `demo-monitor.sh` output; `#/agent` for capacity and rate over time |
+| 6 | `demo-repay.sh` output; `#/enforcement` for the on-chain limits |
+| 7 | `#/lender`, available cash, exposure and the realized loss |
+| 8 | `#/replay`, the same engine in the browser, and a tampered replay failing |
+| 9 | `demo-notes.sh` output; the Kuru listing in `docs/08` |
+
 ## Why Monad
 
 Demonstrate observable benefits: onchain action constraints, frequent small account updates, short feedback from transaction to reassessment. Measure request-to-confirmation, event-to-index, and input-to-assessment latency **in the submitted deployment**.
