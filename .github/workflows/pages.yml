@@ -111,6 +111,29 @@ jobs:
       - name: build the site
         run: bash scripts/web.sh --no-serve
 
+      # The Log and Indexed screens read the Envio index, and until 5
+      # October this job never ran one: the deployed site showed both
+      # empty, and Log is in the main header. Index the deployment the
+      # demos just made -- after them, because `web.sh` redeploys -- then
+      # bundle and build again. Not fatal: without the index the site is
+      # still whole, and those two screens say why they are empty.
+      - name: index the demo chain
+        continue-on-error: true
+        run: |
+          (cd indexer && pnpm install --frozen-lockfile)
+          bash scripts/index-local.sh > /tmp/index-local.log 2>&1 &
+          for _ in $(seq 150); do
+            grep -q "indexer is ready" /tmp/index-local.log && break
+            sleep 2
+          done
+          grep -q "indexer is ready" /tmp/index-local.log || {
+            tail -40 /tmp/index-local.log
+            exit 1
+          }
+          bash scripts/build-web-data.sh
+          (cd web && pnpm build)
+          [ -s web/dist/data/indexed.json ]
+
       # A deployment that silently lost its data would look like a broken
       # product rather than a missing step, so this fails instead.
       - name: the bundle carries its evidence
