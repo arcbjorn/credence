@@ -256,7 +256,7 @@ rather than left to default.
 |---|---|
 | HyperSync supports Monad testnet | **Yes.** `chain_id` 10143, tier GOLD, confirmed against `chains.hyperquery.xyz/active_chains` |
 | Public RPC `eth_getLogs` range | **Capped at 100 blocks** (`-32614`), which is the plainest argument for HyperSync: the manager deployed at block 62,425,291, so reconstructing its lifecycle over that RPC is ~620,000 sequential requests |
-| Manager deploy block | 62,425,291, found by bisecting `cast code` because the log range cap makes a scan impractical |
+| Manager deploy block | 63,805,994 for the current manager, 62,425,291 for the one it replaced; both found by bisecting `cast code` because the log range cap makes a scan impractical |
 | anvil | No HyperSync endpoint, so 31337 syncs over RPC. HyperSync serves the chain it actually supports; the throwaway local chain is read directly |
 
 ### What is verified, and what is not
@@ -352,6 +352,17 @@ reproduce there.
 row's transaction hash resolves on Monad testnet to block 62,425,571,
 status success, `to` the manifest's loan manager `0x40dc8Dd6…`. A reader
 can repeat that with `cast receipt` and no Credence service.
+
+> **Stale from 19 September to 5 October.** The 19 September redeploy
+> moved the manifest to manager `0xe48BD505…` and left
+> `indexer/config.yaml` on `0x40dc8Dd6…`, so the testnet index above kept
+> rebuilding the superseded deployment. Nothing failed: an index of the
+> wrong contract is still a well-formed index. Fixed 5 October. The
+> config names the current manager from block 63,805,994, and
+> `scripts/index-testnet.sh` refuses to start when the config and the
+> manifest disagree. Re-run that day, the index holds loans `10143-1` to
+> `10143-6` on the current manager: 1, 2 and 4 to 6 `Repaid`, 3 `Active`,
+> matching `status()` on chain.
 
 **~1.1 million blocks in about 2.5 seconds**, from the manager's deploy
 block to the head. The same range over the public RPC is impossible in
