@@ -99,7 +99,7 @@ cat <<INFO
 --- latency ---
   chain     $CHAIN_ID ($RPC)
   manager   $MANAGER
-  loans     $LOANS of $PRINCIPAL, held ${HOLD_SECONDS}s each, on a NEW account
+  loans     $LOANS of $PRINCIPAL, held ${HOLD_SECONDS}s each, on ${ACCOUNT:-a new account}
   index     ${INDEX_URL:-skipped}
 INFO
 
@@ -131,8 +131,9 @@ done
 grep -q "ready" "$WORK/proxy.log" || { cat "$WORK/proxy.log" >&2; exit 1; }
 PROXY=http://127.0.0.1:18545
 
-# One more account on the live facility. `--slow` sends each transaction
-# after the previous one confirms, so no sample waits behind another.
+# One more account on the live facility, unless ACCOUNT names one an
+# earlier run already added. `--slow` sends each transaction after the
+# previous one confirms, so no sample waits behind another.
 cd "$ROOT/contracts"
 export DEPLOYER_KEY=0x$DEPLOYER
 export AGENT_ADDRESS=$(cast wallet address --private-key \
@@ -141,14 +142,27 @@ export SETTLEMENT_TOKEN=$SETTLEMENT VAULT_ADDRESS=$VAULT
 export LOAN_MANAGER_ADDRESS=$MANAGER RISKY_ASSET=$RISKY STRATEGY_ADAPTER=$ADAPTER
 export AGENT_EQUITY=${AGENT_EQUITY:-4000000000}
 export AGENT_RISKY_EQUITY=${AGENT_RISKY_EQUITY:-2000000000000000000}
-if ! forge script script/AddAccount.s.sol --rpc-url "$PROXY" --broadcast --slow \
-  >"$WORK/account.log" 2>&1; then
-  tail -30 "$WORK/account.log" >&2
-  exit 1
+if [ -n "${ACCOUNT:-}" ]; then
+  [ "$(cast code "$ACCOUNT" --rpc-url "$RPC")" != 0x ] ||
+    { echo "ACCOUNT $ACCOUNT holds no code on chain $CHAIN_ID" >&2; exit 1; }
+else
+  if ! forge script script/AddAccount.s.sol --rpc-url "$PROXY" --broadcast --slow \
+    >"$WORK/account.log" 2>&1; then
+    tail -30 "$WORK/account.log" >&2
+    exit 1
+  fi
+  ACCOUNT=$(grep -o 'credit account 0x[0-9a-fA-F]\{40\}' "$WORK/account.log" | awk '{print $3}')
+  [ -n "$ACCOUNT" ] || { tail -30 "$WORK/account.log" >&2; exit 1; }
 fi
-ACCOUNT=$(grep -o 'credit account 0x[0-9a-fA-F]\{40\}' "$WORK/account.log" | awk '{print $3}')
-[ -n "$ACCOUNT" ] || { tail -30 "$WORK/account.log" >&2; exit 1; }
 echo "  account   $ACCOUNT"
+
+# The adapter refuses to trade against a price older than its bound, and
+# on a public chain nothing refreshes the deployment's fixed source
+# between runs: on 5 October it was last observed on 19 September and
+# every origination reverted AdapterCallFailed. A fresh deploy hides this,
+# which is why anvil never showed it. The operator re-stamps the same
+# price; it does not change it.
+cast send "$PRICE_SOURCE" 'touch()' --private-key "0x$DEPLOYER" --rpc-url "$PROXY" >/dev/null
 
 cd "$ROOT/gateway"
 go build -o "$WORK/credence-scenario" ./cmd/credence-scenario
