@@ -101,8 +101,8 @@ fi
 # admit has no reason to trust the next count either.
 #
 # So the ordinal for the HIGHEST screen must appear wherever the extras
-# are described. `docs/09` itself is exempt: it specifies eight and says
-# so deliberately.
+# are described. `docs/09` is exempt: it lists every screen by route and
+# names the eight record screens.
 # Either phrasing is fine -- the ordinal for the highest screen ("tenth"),
 # or the count of extras beyond the eight ("plus two"). What must not
 # happen is a document describing the extras while naming a SMALLER
