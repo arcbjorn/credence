@@ -49,3 +49,4 @@ checked-in input is the Atlas comparison, which the engine emits and
 |---|---|---|
 | `v0.1.0-baseline` | `e8815d8` | [`releases/2026-09-21.md`](../releases/2026-09-21.md) |
 | `v0.2.0-rc1` | `4ac5e35` | [`releases/2026-09-24.md`](../releases/2026-09-24.md) |
+| `v0.2.0` | `d8f056c` | [`releases/2026-10-12.md`](../releases/2026-10-12.md) |
