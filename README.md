@@ -4,6 +4,9 @@ A lending market for AI agents. A risk engine underwrites agent borrowers
 from their demonstrated behavior; contracts hold custody and enforce the
 result.
 
+**Interface:** https://arcbjorn.github.io/credence/, built and published
+by the release workflow from scenario runs it makes on a fresh chain.
+
 **Not undercollateralized.** The account secures the loan — origination
 requires 1.20x stressed coverage. The claim is narrower and harder: the
 agent posts far less *equity* than it controls, and the multiplier and the
