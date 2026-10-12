@@ -1,7 +1,6 @@
 # Credence — Documentation
 
-Autonomous credit markets for AI agents. Metropolis (Monad), Onchain Finance & Trading.
-**Deadline 13 October 2026 · internal target 12 October.**
+A lending market for AI agents, on Monad.
 
 The product claim:
 
@@ -22,19 +21,14 @@ The product claim:
 | 06 | [Identity & Forecasts](06-identity-forecasts.md) | Continuity, anti-farming, forecast scoring |
 | 07 | [Simulation](07-simulation.md) | Virtual clock, scenarios, the agent runner |
 | 08 | [Integrations](08-integrations.md) | Nine integrations, capability gates, failure behavior |
-| 09 | [Demo](09-demo.md) | Screens and the demonstration script |
-| 10 | [Schedule](10-schedule.md) | 32 days, milestones, fallbacks |
+| 09 | [Interface](09-interface.md) | Screens, display rules, the reference scenario |
+| 10 | [Release process](10-release-process.md) | Pinned releases, the release check, the transport gate |
 | 11 | [Verification](11-verification.md) | Tests, invariants, release acceptance |
 | 12 | [Claims & Roadmap](12-claims-roadmap.md) | What may be claimed; the bridge to the vision |
 | 13 | [Decision Log](13-decision-log.md) | What changed from the vision, and why |
 | 14 | [Verification Report](14-verification-report.md) | What was actually checked, what it produced, and what is still unproven |
-| 15 | [Submission](15-submission.md) | The text for the 12 October entry and its bounty entries |
 
 Diagrams: [`diagrams/`](diagrams/) — architecture, loan lifecycle, underwriting order.
-
-Source documents (unchanged, for provenance): the original vision, the build plan,
-the execution plan, and the merged master plan in the repository root. The documents
-in this directory define the current plan; older source documents are historical references.
 
 ---
 

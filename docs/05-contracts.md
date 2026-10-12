@@ -60,7 +60,7 @@ Where an initial trade is part of the approval, **fund and trade atomically**; r
 
 `LoanManager.originateAndExecute` is that path: it consumes the quote, creates the debt, funds the account, and performs the committed action in one transaction. A failing action reverts the draw with it, so no funded loan survives an action that never happened. `originate` remains for a quote whose approved action is to hold settlement tokens, where there is nothing to perform.
 
-Implemented 14 September after review; origination was previously two transactions, which left a window where a borrower could draw and never execute — holding settlement tokens the stress scenarios had assumed were deployed.
+Atomicity closes the window a two-transaction origination would leave, in which a borrower could draw and never execute, holding settlement tokens the stress scenarios assume are deployed.
 
 `approved_principal` must equal the positive `requested_principal`; a smaller or larger draw cannot consume that quote. A request above current capacity is denied with no proposed terms. Changing the amount or intended allocation requires a new commitment and assessment. The borrower may decline an approved quote without consuming it.
 
@@ -144,7 +144,7 @@ bumped state version — would let a stale quote fund.
 
    **Split honestly:** `globalCap` is the only limit the contracts hold. `facility_limit`, the account cap and the coverage ratios are the ENGINE's (there is no `max_ltv` field in `Terms`, on either side of the boundary), and they reach chain as an approved principal inside a signed envelope rather than as numbers the contracts re-derive. A quote that ignored them would be refused by the engine, not by `LoanManager`.
 
-   That is a deliberate prototype split — the engine judges, the contracts enforce custody and envelopes — but it means the contracts do not independently check the engine's arithmetic. An earlier version of this line implied they did. Corrected after review, 14 September.
+   That is a deliberate prototype split — the engine judges, the contracts enforce custody and envelopes — but it means the contracts do not independently check the engine's arithmetic.
 2. **Replay protection.** Nonce consumed once
 3. **Expiry.** `valid_until` enforced onchain
 4. **Configuration binding.** Reverts if either policy epoch/hash or configuration version/hash fails to match its pinned record
@@ -159,11 +159,6 @@ bumped state version — would let a stale quote fund.
 13. **The executable class is pinned per deployment.** An oracle acts only on the class its deployment declares, by exact match. A scenario deployment issues and executes `ScenarioOnly`; a production one requires `PrototypeEligible` and refuses scenario evidence. An assessment of any other class is accepted as a record and stores no quote
 
 ### What proves each one
-
-Added 19 September. Every invariant above was tested; none named its
-test, so a reader had no way to check the list without reading the whole
-suite. `docs/11` cites sixteen commands and this document cited none —
-an invariant a reader cannot verify is a claim.
 
 Run from `contracts/`:
 
@@ -246,12 +241,12 @@ matters most where it meets the recovery trigger.
 **An explicit `Blocked` assessment opens recovery immediately.** That is
 the instrument working: a risk decision was made and acted on.
 
-**Silence does not, for `recoveryGraceSeconds` (12 hours).** An earlier
-version treated a merely-lapsed permission the same as a withdrawn one,
-which meant an operator who also controlled the attestor could seize a
-healthy, unmatured position by withholding updates — making the real
-covenant "keep the attestor answering" rather than "stay solvent". The
-two are now distinguished on chain by `permissionWithdrawn`.
+**Silence does not, for `recoveryGraceSeconds` (12 hours).** Treating a
+merely-lapsed permission the same as a withdrawn one would let an operator
+who also controls the attestor seize a healthy, unmatured position by
+withholding updates, making the covenant "keep the attestor answering"
+rather than "stay solvent". The two are distinguished on chain by
+`permissionWithdrawn`.
 
 Past the grace window a lapse still opens recovery: an obligation nobody
 is assessing cannot stay open indefinitely. So the honest statement of
@@ -261,5 +256,4 @@ the borrower's covenant is:
 > stops assessing you for twelve hours.
 
 The second clause is a real obligation on the *lender's* side of the
-arrangement, and a borrower should read it before drawing. Reported by
-review, 14 September.
+arrangement, and a borrower should read it before drawing.

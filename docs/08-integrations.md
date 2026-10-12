@@ -4,7 +4,7 @@
 
 Five deliverables each: documented capability check, normalized adapter, fixture-based contract test, visible product use, defined failure behavior.
 
-> **An integration is complete only when the submitted environment demonstrates its actual behavior. A logo, an installed SDK, or an architecture box does not satisfy this.**
+> **An integration is complete only when the released environment demonstrates its actual behavior. A logo, an installed SDK, or an architecture box does not satisfy this.**
 
 Status: `Unverified` · `Proven in spike` · `Integrated` · `Accepted` · `Deferred`.
 
@@ -17,7 +17,7 @@ Status: `Unverified` · `Proven in spike` · `Integrated` · `Accepted` · `Defe
 | Monad RPC | Chain, tokens, read consistency, transactions, explorer | Full state plus a successful and a reverting transaction | Another RPC; selected-chain deployment still required |
 | Execution venue | Assets, custody, approvals, liquidity, pricing, bounded exit | Trade and unwind, proceeds to account | Labeled scenario venue; no external-market claim |
 | ERC-8004 | Registry addresses, ABI, binding and feedback permissions | Registered identity, attributable feedback, transfer handling, independent reader on the selected network | Local adapter for development only; integration incomplete and release identity gate remains open |
-| Envio | Events, lag, reorg handling, hosting | Reconstruct lifecycle with evidence links | Direct log indexer is baseline. **Synced against Monad testnet over HyperSync, rendered on screen, and rollback demonstrated through a simulated reorg — 18 Sep** |
+| Envio | Events, lag, reorg handling, hosting | Reconstruct lifecycle with evidence links | Direct log indexer is baseline. **Synced against Monad testnet over HyperSync, rendered on screen, and rollback demonstrated through a simulated reorg** |
 | Perpl | Supported endpoints on chosen network | A documented field changes an assessment | Feature absent |
 | Nansen | Account coverage, quotas | A sourced feature demonstrably affects a decision | Omit, disclose coverage |
 | CRE | Deployment access, network and forwarder, consumer path | Valid report accepted; invalid bounds and wrong routes rejected | Separate development-attested baseline; an existing CRE facility blocks new risk and cannot fall back to a development key |
@@ -28,9 +28,9 @@ Status: `Unverified` · `Proven in spike` · `Integrated` · `Accepted` · `Defe
 
 "One risky asset, one adapter" says what is *permitted*, not why an agent would *borrow*.
 
-**By 14 September**, specify in one paragraph: the activity, why it needs financing, how the agent decides financing is worthwhile at the offered APR, and how it exits. Without this, demo beat 2 — where the agent accepts or declines terms — has no content.
+The strategy states the activity, why it needs financing, how the agent decides financing is worthwhile at the offered APR, and how it exits. Without this, docs/09 step 2 — where the agent proposes an allocation and a financing ceiling — has no content.
 
-**Answered 13 September** in [07 · Simulation](07-simulation.md#what-the-strategy-does-and-why-it-is-financed):
+[07 · Simulation](07-simulation.md#what-the-strategy-does-and-why-it-is-financed) states it:
 spot acquisition of one risky asset at a whitelisted venue, financed
 because the agent's edge is timing and selection rather than capital, and
 lendable because the position is custodied where the keeper can reach it.
@@ -38,10 +38,9 @@ Every claim there is enforced by code — bounded adapter approvals, exact
 amount or deny, de-risking exempt from fresh permission, recovery only on
 maturity or withdrawn permission.
 
-### Assets, venue, and valuation — settled 13 September
+### Assets, venue, and valuation
 
-Due 14 September. Working default taken: named test assets and an isolated
-scenario venue.
+Named test assets on an isolated scenario venue.
 
 | Decision | Choice | Why |
 |---|---|---|
@@ -64,7 +63,7 @@ fill, and the two must be distinguishable.
 
 ### Why the basis trade is out of v0
 
-Two common arguments against it are **wrong**, and the record matters because it changes what to check at the venue gate.
+Two common arguments against it are **wrong**, and the distinction changes what the venue capability check must test.
 
 *Wrong: "margin sits off-chain, outside the custody domain."* Perpl is fully onchain on Monad, with a real Exchange contract on mainnet and testnet, and `createAccount(uint256)` is callable **onchain with collateral and no API authentication**. A contract can open and fund the account.
 
@@ -75,7 +74,7 @@ Two common arguments against it are **wrong**, and the record matters because it
 
 So a workable shape exists: `CreditAccount` owns the Perpl account; an offchain keeper holds a trade-scope key it can use to close the hedge but never to withdraw. The cost is a **downgrade, not a break** — recovery timing depends on a keeper acting rather than being contract-enforced.
 
-**The actual blocker is the calendar.** Six unresolved unknowns, all on the critical path:
+**The blocker is six unresolved unknowns:**
 
 1. Does `createAccount` succeed when called from a contract?
 2. May `target_profile` in a delegated enrollment be a contract address?
@@ -84,7 +83,7 @@ So a workable shape exists: `CreditAccount` owns the Perpl account; an offchain 
 5. How is a perp position marked onchain for coverage math?
 6. How does isolated margin compose with account coverage?
 
-**Partial spike, 12 September — unknowns 1–3 probed against testnet.** Exchange proxy `0x1964…80cc` resolves to implementation `0xbcbd…adbb` (128 KB).
+**Unknowns 1–3, probed against testnet on 12 September.** Exchange proxy `0x1964…80cc` resolves to implementation `0xbcbd…adbb` (128 KB).
 
 | # | Question | Result | Evidence |
 |---|---|---|---|
@@ -92,15 +91,17 @@ So a workable shape exists: `CreditAccount` owns the Perpl account; an offchain 
 | 2 | May `target_profile` be a contract address? | **Unresolved** | Docs define it only as "the delegated account address". No onchain operator functions (`isOperator`, `setOperator`) exist in the implementation; delegation is validated server-side by an undocumented mechanism. Needs a live enrollment attempt. |
 | 3 | Enrollment accepts EIP-1271? | **No — treat as closed** | `isValidSignature(bytes32,bytes)` absent from the implementation. Enrollment requires a secp256k1 EIP-712 wallet signature; EIP-1271 and ERC-6492 are unmentioned. A contract cannot sign enrollment. |
 
-Unknown 2 is now load-bearing and is **not resolvable from public documentation or chain state.** Unknowns 4–6 are build questions this spike did not touch.
+Unknown 2 is load-bearing and is **not resolvable from public documentation or chain state.** Unknowns 4–6 are build questions the probe did not touch.
 
-Spot-only carries **one** unknown: which venue. Eleven days to the baseline, one builder, custody plus recovery is the entire foundation. **Six critical-path unknowns do not fit; one does.**
+Spot-only carries **one** unknown: which venue.
 
-**Retained as strategy adapter #2** with a bounded 2-day spike after the baseline is pinned, resolving unknowns 1–3. The venue capability to check is **contract-callable trading and a contract-callable forced unwind** — not "is it onchain", which Perpl already is. An exchange's own liquidation mechanism does not supply Credence's required recovery *timing*.
+**Retained as a candidate strategy adapter #2, outside v0.** The venue capability to check is **contract-callable trading and a contract-callable forced unwind** — not "is it onchain", which Perpl already is. An exchange's own liquidation mechanism does not supply Credence's required recovery *timing*.
+
+**Vault-level hedging — not built.** The custody constraint that excludes the basis trade binds `CreditAccount`, which cannot sign Ed25519; it does not bind the offchain services, which already hold keys. An offchain service shorting perps against the vault's aggregate risky-asset exposure would leave custody and the contract-enforced recovery path unchanged, needs no onchain position marking, and touches none of unknowns 4–6. It would also be a new loss source with its own risk framing.
 
 ## CRE — what it proves
 
-Consensus across independent nodes on a workflow that fetches your endpoint means **N nodes agreeing on the same fabricated response.** Consensus protects workflow *execution*, not input *truth*.
+Consensus across independent nodes on a workflow that fetches a single endpoint means **N nodes agreeing on the same fabricated response.** Consensus protects workflow *execution*, not input *truth*.
 
 Two adapters, separate authorization domains: development EIP-712, and a CRE receiver validating expected forwarder and workflow identity. **Each facility pins its required route for the epoch.** A facility claiming CRE verification requires its CRE path for both origination and monitoring; a development key cannot remain an equally powerful alternative. The baseline development facility is separately bound. Adapter authentication precedes normalization into the common fields in [05 · Contracts](05-contracts.md).
 
@@ -124,9 +125,9 @@ State which upstream data remain trusted — **identical responses from one proj
 
 Contracts retain their own exposure, epoch, state, and expiry checks because state changes after workflow execution. Prove rejection of at least one fabricated out-of-bounds assessment; **do not claim this establishes the truth of every in-bounds assessment.**
 
-Request deployment access during milestone one. Preserve the distinction between local simulation and a deployed workflow.
+Preserve the distinction between local simulation and a deployed workflow.
 
-### Availability — resolved 13 September
+### Availability on Monad testnet
 
 **CRE supports Monad testnet.** Verified on chain, not from documentation:
 
@@ -136,43 +137,28 @@ Request deployment access during milestone one. Preserve the distinction between
 | KeystoneForwarder | `0xF8344CFd5c43616a4366C34E3EEE75af79a74482` — 8,592 bytes deployed |
 | MockKeystoneForwarder | `0xB9F79d863261869B234c481D1f9A7af84AeAd192` (simulation only) |
 
-Access is **gated, and not self-service** — corrected 19 September.
-`cre account access` submits a request from the CLI, which reads like a
-self-service approval and is not one. The answer, received 18 September,
-was an invitation to **book a call to discuss commercial conditions for
-workflow deployment**, together with a mutual NDA. That is an enterprise
-procurement path, not a switch that flips.
+Deploy access is **gated, and not self-service**. `cre account access`
+submits a request from the CLI; it is not an approval. The response
+(18 September) was an invitation to **discuss commercial conditions for
+workflow deployment** under a mutual NDA.
 
 Simulation needs no approval — `cre workflow simulate` runs immediately,
-and only `cre workflow deploy` waits on the commercial conversation.
+and only `cre workflow deploy` requires the commercial agreement.
 
-**Treat deploy access as unavailable for this release.** It is not a
-matter of waiting longer: a signed MNDA and a commercial agreement are
-disproportionate for a prototype that `docs/12` forbids from claiming
-third-party adoption, and nothing about the timeline makes it land before
-13 October. `docs/10`'s failure row for this — *"CRE unresolved 2 Oct →
-freeze development attestation; describe status accurately"* — is the
-path being taken, early and deliberately rather than at the deadline.
+**Deploy access is unavailable for this release.** A signed MNDA and a
+commercial agreement are disproportionate for a prototype that `docs/12`
+forbids from claiming third-party adoption. Development attestation
+remains the funding route, and CRE status is described as simulated.
 
-The bounty is unaffected. Chainlink's stated requirement is **"build,
-simulate, or deploy"**, and the workflow builds and simulates against the
-live forwarder. What is lost is one claim in `docs/12`, not the
-integration's eligibility.
-
-That matters for the claim ceiling. This document already distinguishes a
-**CRE policy-checked report** from a **recomputed assessment**; the further
-distinction is between a *simulated* workflow and a *deployed* one. Only a
-deployed workflow supports an integration claim, and the forwarder address
-above is what the receiver contract must validate `msg.sender` against.
+Beyond the distinction between a **CRE policy-checked report** and a
+**recomputed assessment**, there is one between a *simulated* workflow and
+a *deployed* one. Only a deployed workflow supports an integration claim.
+The forwarder address above is what the receiver contract must validate
+`msg.sender` against.
 
 Run `scripts/probe-testnet.sh` to re-verify.
 
-### CRE — built, simulated, not yet delivered on chain
-
-**Corrected 14 September.** This section previously said there was no
-receiver, no forwarder authentication, no workflow, and no SDK. All four
-now exist, and leaving that text standing would let a reader quote this
-document against `docs/11`.
+### CRE — built and simulated, not delivered on chain
 
 What exists:
 
@@ -187,13 +173,11 @@ The receiver validates `msg.sender` against the forwarder above,
 implements ERC-165, checks the workflow owner and id, requires the loan to
 be enrolled by the operator, and consumes each report once.
 
-#### What this still is not
-
-Being precise, because "CRE integration" reads broader than what holds:
+#### What this is not
 
 - **No DON-signed report has reached the live receiver.** The simulator's
   `Written: 1` means the write path executed and was accepted in
-  simulation; it is not a transaction. Deploy access is pending.
+  simulation; it is not a transaction. Deploy access is unavailable.
 - **The workflow is a monitoring transport.** It asks
   `credence-assessd` — a project-controlled HTTP service — for an
   assessment and reaches consensus on the reply. That is N nodes agreeing
@@ -210,25 +194,25 @@ Being precise, because "CRE integration" reads broader than what holds:
   and it means a mistaken `setSigner(Route.CRE, eoa, true)` is a funding
   door.
 - **`credence-assessd` is credentialed but still a single source.**
-  Since 14 September it requires `Authorization: Bearer <token>`, and
-  refuses to start on a non-loopback listener without one; the workflow
-  reads that token from CRE's secret store rather than from its committed
-  config. That closes "anyone who can reach the port can drive the
-  permission oracle". It does not change the paragraph above it: N nodes
-  still agree on one project-controlled reply.
+  It requires `Authorization: Bearer <token>`, and refuses to start on a
+  non-loopback listener without one; the workflow reads that token from
+  CRE's secret store rather than from its committed config. That closes
+  "anyone who can reach the port can drive the permission oracle". It does
+  not change the point above: N nodes still agree on one
+  project-controlled reply.
 - **The metadata layout was observed on the MOCK forwarder**, not the
   production Keystone one. If production metadata is not exactly 64 bytes
   with the owner at `[42:62]`, every report reverts — loudly, which is the
   right failure, but untested against the real path.
 
-> The honest sentence: **CRE authentication is built and simulated. No CRE
-> facility has originated or monitored on chain.**
+> **CRE authentication is built and simulated. No CRE facility has
+> originated or monitored on chain.**
 
-## Envio — lifecycle from the log, 18 September
+## Envio — lifecycle from the log
 
 `indexer/` is a HyperIndex project over the `LoanManager` event log.
 
-### Why it is not a bolt-on
+### Why state reads are not enough
 
 The gateway reads loan **structs** over `eth_call`. That answers "what is
 true now" and cannot answer "how did it get here": a struct read at
@@ -238,26 +222,24 @@ running totals and two timestamps — enough to report an outcome, not
 enough to reconstruct the path to it. Those intermediate facts exist only
 in the log.
 
-> Stated carefully, because an earlier draft of this section overstated
-> it. Held duration **is** derivable from a struct: the contract retains
+> Held duration **is** derivable from a struct: the contract retains
 > `originatedAt` and `resolvedAt` on purpose, and `credence-publish`
-> computes `held` from exactly those. The indexer's claim is narrower and
-> still true — the *sequence* is not recoverable from state, only the
-> endpoints.
+> computes `held` from exactly those. The *sequence* is not recoverable
+> from state, only the endpoints.
 
 So the indexer is the only component that can reconstruct a lifecycle,
 which is the `docs/11` row it serves — "replay an indexed loan after
 cursor rollback or simulated reorganization". `rollback_on_reorg` is set
 rather than left to default.
 
-### The capability check, run rather than read
+### Capability check
 
 | Item | Result |
 |---|---|
 | HyperSync supports Monad testnet | **Yes.** `chain_id` 10143, tier GOLD, confirmed against `chains.hyperquery.xyz/active_chains` |
-| Public RPC `eth_getLogs` range | **Capped at 100 blocks** (`-32614`), which is the plainest argument for HyperSync: the manager deployed at block 62,425,291, so reconstructing its lifecycle over that RPC is ~620,000 sequential requests |
+| Public RPC `eth_getLogs` range | **Capped at 100 blocks** (`-32614`), which is the plainest argument for HyperSync: the replaced manager deployed at block 62,425,291, so reconstructing its lifecycle over that RPC is ~620,000 sequential requests |
 | Manager deploy block | 63,805,994 for the current manager, 62,425,291 for the one it replaced; both found by bisecting `cast code` because the log range cap makes a scan impractical |
-| anvil | No HyperSync endpoint, so 31337 syncs over RPC. HyperSync serves the chain it actually supports; the throwaway local chain is read directly |
+| anvil | No HyperSync endpoint, so 31337 syncs over RPC. HyperSync serves the chain it supports; the throwaway local chain is read directly |
 
 ### What is verified, and what is not
 
@@ -270,12 +252,11 @@ rather than left to default.
   accumulation to an assignment fails the collections one.
 - **Handlers typecheck against the generated schema**, so an entity field
   that does not exist is a build error rather than a silent null.
-- **A full sync has now been run, 18 September.** Against the local chain
-  the `demo-default.sh` run left behind — deliberately the default path
-  rather than the simple repayment, because it exercises recovery,
-  partial collection and write-off. Envio reported `All chains are caught
-  up` and `The indexer is ready`, and the stored rows were read back from
-  Postgres:
+- **A full sync, run 18 September**, against the local chain a
+  `demo-default.sh` run leaves behind — the default scenario rather than
+  the simple repayment, because it exercises recovery, partial collection
+  and write-off. Envio reported `All chains are caught up` and `The
+  indexer is ready`, and the stored rows were read back from Postgres:
 
   ```
      id    |  status   | principalRepaid | principalLoss | heldSeconds
@@ -286,26 +267,21 @@ rather than left to default.
 
   `principalRepaid + principalLoss` is exactly the 4,000,000,000
   principal, and `principalLoss` matches the `realized_loss=2600000000`
-  the demo printed from chain state — derived here from the log alone,
+  the scenario printed from chain state — derived here from the log alone,
   with no `eth_call`. The GraphQL API serves the same rows including the
   `events` relation, and the `Defaulted` row's transaction hash resolves
   on chain to block 38 against the manager the manifest names, so an
   indexed row is checkable without trusting the indexer.
 
-- **`scripts/index-local.sh` is not yet reliable.** The sync above was
-  produced by running `envio dev` directly. The script performs the same
-  steps and works up to the point of launching it, but its redirected
-  output swallows envio's own logging, so a run that stalls is
-  indistinguishable from one that is working. Four environment
-  collisions are handled in it and each was hit for real on this
-  machine — Postgres port 5433 held by another project, IPv4 8080 held
-  by an unrelated server while Docker publishes on IPv6, a leftover
+- **`scripts/index-local.sh` is the one-command path.** It handles four
+  environment collisions: Postgres port 5433 already in use, IPv4 8080
+  held by another server while Docker publishes on IPv6, a leftover
   indexer on 9898, and codegen running against a different config than
-  the indexer. **Treat the script as a record of those traps rather than
-  a one-command path**, and run `envio dev -r --config config.local.yaml`
-  from `indexer/` when it misbehaves.
+  the indexer. It ends in `envio dev`, which prints `The indexer is ready`
+  once synced; `scripts/release-check.sh` and the interface build both
+  wait for that line.
 
-- **A screen reads it — the "Indexed" view, added 18 September.** It
+- **A screen reads it — the "Indexed" view.** It
   renders the loan beside the ordered event log that produced it, and
   prints the conservation check in words:
   `1,400 recovered + 2,600 written off = 4,000 principal`. Deliberately
@@ -316,25 +292,29 @@ rather than left to default.
   It follows the same rule as every other screen. `scripts/build-indexed-data.sh`
   reads the rows the indexer stored into the bundle, and the page renders
   the bundle — a screen querying a local GraphQL endpoint would show
-  nothing in the submitted static folder. The bundle step is the only
+  nothing in the published static build. The bundle step is the only
   optional one, because it is the only one needing Docker; absent it, the
   screen says the sync has not been run and gives the command, rather
   than rendering an empty lifecycle that reads like a loan with no
   events.
 
-- **The export is tested, and the tests caught a real defect.**
-  `web/src/lib/indexed.test.ts` pins that amounts stay strings, that a
-  resolved loan reconciles, that every loan opens with `Originated`, and
-  that events are in block order. The ordering test failed on first run:
-  the export cast `blockNumber` to text before sorting, so Postgres
-  ordered it lexicographically and block 6 landed after block 14 —
-  origination rendered last. Fixed by sorting on the numeric column and
-  casting only in the projection.
+- **The export is tested.** `web/src/lib/indexed.test.ts` pins that
+  amounts stay strings, that a resolved loan reconciles, that every loan
+  opens with `Originated`, and that events are in block order. The export
+  sorts on the numeric `blockNumber` column and casts to text only in the
+  projection; a text sort would place block 14 before block 6 and render
+  origination last.
 
-### The deployed chain, over HyperSync — 18 September
+### The deployed chain, over HyperSync
 
 With an API token in `indexer/.env`, `scripts/index-testnet.sh` indexes
-**Monad testnet itself**, not a local double. What it read:
+**Monad testnet itself**, not a local double. `indexer/config.yaml` names
+the manifest's loan manager from block 63,805,994, and the script refuses
+to start when the config and the manifest disagree. Run on 5 October, the
+index holds loans `10143-1` to `10143-6` on that manager: 1, 2 and 4 to 6
+`Repaid`, 3 `Active`, matching `status()` on chain.
+
+The 18 September sync of the replaced manager `0x40dc8Dd6…` read:
 
 ```
    id    | status | principal  | principalRepaid | interestCollected | heldSeconds
@@ -342,34 +322,22 @@ With an API token in `indexer/.env`, `scripts/index-testnet.sh` indexes
  10143-2 | Active | 4000000000 |               0 |                 0 |
 ```
 
-Both loans on the manager the manifest names. Loan 1 repaid in full;
-loan 2 is open, and carries no resolution rather than a zeroed one. The
-41-second hold is the `HOLD_SECONDS=45` the testnet run used — the same
-short hold `docs/11` records as the reason the repricing story does not
-reproduce there.
+Loan 1 repaid in full; loan 2 is open, and carries no resolution rather
+than a zeroed one. The 41-second hold is the `HOLD_SECONDS=45` the
+testnet run used — the same short hold `docs/11` records as the reason
+the repricing story does not reproduce there.
 
 **Checked against the chain rather than trusted.** The indexed `Repaid`
 row's transaction hash resolves on Monad testnet to block 62,425,571,
-status success, `to` the manifest's loan manager `0x40dc8Dd6…`. A reader
-can repeat that with `cast receipt` and no Credence service.
+status success, `to` that loan manager `0x40dc8Dd6…`. A reader can repeat
+that with `cast receipt` and no Credence service.
 
-> **Stale from 19 September to 5 October.** The 19 September redeploy
-> moved the manifest to manager `0xe48BD505…` and left
-> `indexer/config.yaml` on `0x40dc8Dd6…`, so the testnet index above kept
-> rebuilding the superseded deployment. Nothing failed: an index of the
-> wrong contract is still a well-formed index. Fixed 5 October. The
-> config names the current manager from block 63,805,994, and
-> `scripts/index-testnet.sh` refuses to start when the config and the
-> manifest disagree. Re-run that day, the index holds loans `10143-1` to
-> `10143-6` on the current manager: 1, 2 and 4 to 6 `Repaid`, 3 `Active`,
-> matching `status()` on chain.
-
-**~1.1 million blocks in about 2.5 seconds**, from the manager's deploy
+**~1.1 million blocks in about 2.5 seconds**, from that manager's deploy
 block to the head. The same range over the public RPC is impossible in
 practice: it caps `eth_getLogs` at 100 blocks, so this is ~11,000
-sequential requests. That gap is the integration's argument.
+sequential requests.
 
-### Reorg handling, demonstrated — 18 September
+### Reorg handling
 
 `docs/11` asks for a replay after a cursor rollback or a simulated
 reorganization. `scripts/verify-reorg.sh` performs one and asserts the
@@ -408,24 +376,17 @@ The mechanism is `anvil_reorg`, so this is anvil-only by construction and
 the script refuses any other chain id — asking a public chain to
 reorganize would be asking it to rewrite someone else's history.
 
-> The honest sentence: **the indexer syncs the deployed chain, its output
-> reconciles against that chain transaction by transaction, a screen
-> renders it, and it follows the chain through a reorganization.** The
-> reorg check runs against anvil; no reorganization has been observed on
-> Monad testnet, because one cannot be requested.
+> **The indexer syncs the deployed chain, its output reconciles against
+> that chain transaction by transaction, a screen renders it, and it
+> follows the chain through a reorganization.** The reorg check runs
+> against anvil; no reorganization has been observed on Monad testnet,
+> because one cannot be requested.
 
-## Kuru — gated extension
+## Kuru — note market
 
-**Feasibility experiment by 15 September:** bounded test of market creation for an existing token, settlement-token quote, fill, holder redemption. Produces an estimate; commits nothing.
+### Feasibility
 
-### Feasibility — slipped, then run: 19 September
-
-**It was not run by 15 September, and nothing recorded that.** Recorded
-here rather than left implicit, for the same reason `docs/10` records the
-screen-shell slip: an unflagged slip on a dated gate is exactly what a
-schedule exists to surface. It was run on 19 September, four days late.
-
-Every line below was established **on chain**, not from documentation, and `scripts/probe-kuru.sh` re-runs the whole check. It sends no transaction and creates no market, so a reader needs no funded key.
+Every line below was established **on chain** on 19 September, not from documentation, and `scripts/probe-kuru.sh` re-runs the whole check. It sends no transaction and creates no market, so a reader needs no funded key.
 
 | Contract | Address | Bytes |
 |---|---|---|
@@ -457,46 +418,30 @@ contract takes `deployProxy`.
 | Cost to create a market | **1,301,114 gas ≈ 0.133 MON** at the observed 102 gwei |
 | Does it accept our assets? | **Yes** — simulated with the deployment's own `TestRiskyAsset` / `TestSettlementToken`, returning market `0x3a4DEFF4029FEEc71b8AA93109DEfbE831e1cB30` |
 
-One trap worth recording: `deployProxy` reverts with **empty revert data**
-when handed addresses that hold no code. That reads exactly like an
-access-control rejection and is not one — the first attempt used
-placeholder addresses `0x1`/`0x2` and looked like a permission gate. Real
-ERC20s succeed from the same caller.
+`deployProxy` reverts with **empty revert data** when handed addresses
+that hold no code, which is indistinguishable from an access-control
+rejection. Placeholder addresses `0x1`/`0x2` revert this way; real ERC20s
+succeed from the same caller.
 
-> **The 25 September gate's feasibility condition is met: no blocker.**
-> The venue is live, creation is permissionless, the cost is negligible,
-> and it accepts the deployment's own tokens.
->
-> **That is not the same as passing the gate.** The gate also requires the
-> baseline to demonstrate custody restrictions, repayment, recovery and
-> loss accounting — which it does — and the 2 October gate then requires
-> **origination, market transfer, collection, redemption and a tested
-> default haircut**. At the time this experiment ran, none of that
-> existed, and what it priced is *creating a market*, not *tokenising a
-> receivable*. The remaining decision was a scope decision, not a
-> feasibility one.
->
-> **Resolved, 19–21 September — see below.** `NoteSeries` was built as a
-> separate funding route in an isolated deployment, so the prohibition on
-> a late baseline contract rewrite is respected: `LoanManager`,
-> `CreditVault` and `CreditAccount` are untouched, and the series
-> implements the funding-source interface the manager already calls.
+> **No feasibility blocker.** The venue is live, creation is
+> permissionless, the cost is negligible, and it accepts the deployment's
+> own tokens. This prices *creating a market*, not *tokenising a
+> receivable*; the receivable is `NoteSeries`, below.
 
 **Structure.** A separate `NoteSeries` funding route for one loan in an isolated deployment. **Never tokenize a receivable belonging to the baseline pooled vault** — each `LoanManager` binds to its allowed funding source. The series defines settlement asset, target principal, borrower, term, rate, maturity, recovery waterfall, and redemption method before funding. Fixed supply issued at origination; notes are a pro-rata claim on that loan's actual net collections. Early repayment pays accrued interest only — **the note does not promise unearned full-term interest.** Default can redeem below principal; pending recovery means pending redemption.
 
 **The same loan must never appear as both a redeemable pooled-vault asset and an independently redeemable note claim.** Notes are not eligible collateral in this release.
 
-### Built, 19 September — `NoteSeries.sol`
+### `NoteSeries.sol`
 
 `contracts/src/NoteSeries.sol`, 16 tests in `NoteSeries.t.sol`. It
 implements the **same funding-source interface** `LoanManager` already
 calls on `CreditVault` — `lend`, `recordPrincipalRepaid`,
 `recordInterestCollected`, `recordLoss`, `markReceivableUnresolved`,
 `clearReceivable`, `releaseReservation` — so the manager binds to one or
-the other without knowing which, and **the manager is unchanged**. That
-matters: `docs/08` forbids a late baseline contract rewrite to include
-Kuru, and this adds a parallel funding source rather than touching the
-baseline.
+the other without knowing which, and **the manager is unchanged**. The
+series is a parallel funding source in an isolated deployment;
+`LoanManager`, `CreditVault` and `CreditAccount` are untouched.
 
 The double-claim rule is structural rather than checked. A `LoanManager`
 holds exactly one `vault` address, so a loan funded by a series was never
@@ -514,33 +459,21 @@ Each rule in the paragraph above has a test that fails when it is removed:
 | Pending recovery means pending redemption | `test_redemptionBlockedWhileRecoveryPends` |
 | The claim is transferable | `test_transferMovesTheClaim`, `test_partialTransferSplitsTheClaimProRata` |
 
-**A test that passes is not the same as a test that bites.** Replacing
-the redemption arithmetic with face value fails five of them, including
-an underflow on the defaulted case — a face-value payout cannot be funded
-from a partial collection. The recovery-pending test initially did *not*
-bite: it left principal outstanding as well, so deleting the receivables
-guard still failed on the other one. It now repays principal first and
-isolates the receivables check, and deleting that guard fails exactly one
-test.
+**Mutation checks.** Replacing the redemption arithmetic with face value
+fails five of them, including an underflow on the defaulted case — a
+face-value payout cannot be funded from a partial collection. The
+recovery-pending test repays principal first, so it isolates the
+receivables check: deleting that guard fails exactly one test.
 
-> **What is NOT built: the market.** Nothing has been listed on Kuru, no
-> note has changed hands for consideration, and no redemption has happened
-> on chain. "Tradable" here means *transferable* — the claim moves and the
-> buyer redeems — which is a necessary part of the 2 October gate and not
-> the whole of it. That gate also wants origination through the series,
-> collection, and a tested default haircut against a live market.
-
-### Listed on Kuru — 20 September
+### Listed on Kuru
 
 `scripts/list-notes-kuru.sh` deploys a `NoteSeries`, issues its notes and
-creates a Kuru orderbook market for them, on Monad testnet.
+creates a Kuru orderbook market for them, on Monad testnet (listed
+20 September).
 
 The addresses live in the **`kuru` block of
 [`contracts/deployments/10143.json`](../contracts/deployments/10143.json)**,
-which is where every address in this project is recorded. They were
-copied into prose here until 21 September, against the rule `README.md`
-states: prose copies go stale the first time anything is redeployed, and
-three of them already had.
+which is where every address in this project is recorded.
 
 Cost: 0.3363 MON for all three deploys and the trades.
 
@@ -554,9 +487,8 @@ cast call <kuru.router> 'verifiedMarket(address)(bool)' <kuru.market> \
   --rpc-url https://testnet-rpc.monad.xyz
 ```
 
-This is not a contract that merely resembles a market; the venue says it
-is one. The notes then moved: the whole 4,000,000,000 supply is held by
-the second address and none by the issuer.
+The notes then moved: the whole 4,000,000,000 supply is held by the
+second address and none by the issuer.
 
 **What this does not establish.** Both participants are project
 controlled. Per the paragraph below, that makes this a **controlled
@@ -564,14 +496,13 @@ market with observations lacking independent validation** — it
 demonstrates that a real on-chain orderbook accepts the instrument, not
 that anyone independent would price it. Nothing here feeds back into
 underwriting, and `docs/12` keeps the tradable-note claim unearned on
-exactly that basis: a market you are both sides of is not a market that
-has valued anything.
+exactly that basis.
 
 ### Market feedback stays informational
 
 Show fundamental assessment and market-implied pricing **separately**. Do not convert note price into real-world PD without explicit models for recovery, timing, interest, and liquidity premiums.
 
-**Why.** The note market is two participants you control. That does not imply zero displayed depth — it implies the market is **controlled, with observations lacking independent validation.** A price nothing independent produced cannot move executable credit.
+**Why.** The note market is two project-controlled participants. That does not imply zero displayed depth — it implies the market is **controlled, with observations lacking independent validation.** A price nothing independent produced cannot move executable credit.
 
 **What would close it is unsettled.** A depth-based gate is a *candidate* policy requiring adversarial evaluation:
 
@@ -585,30 +516,26 @@ CANDIDATE — unproven:
 
 **Do not claim a depth threshold makes manipulation unprofitable.** Comparing cost-to-cross-the-book against a financing benefit does not establish an attacker's economic loss: trading notional is not money irreversibly spent, true cost depends on the executable curve and the unwind, displayed liquidity can vanish or belong to cooperating participants, three addresses are not three independent actors, and the payoff can sit outside the affected facility. **Tightening is itself exploitable** — it can force sales benefiting an attacker's other positions.
 
-The honest statement: **the market feedback loop is a meaningful future capability whose economic design is outstanding.** The counterfactual panel demonstrates the *mechanism* against synthetic prices; it does not show the mechanism is safe to connect.
+**The market feedback loop is a future capability whose economic design is outstanding.** The counterfactual panel demonstrates the *mechanism* against synthetic prices; it does not show the mechanism is safe to connect.
 
-**Gates.** 25 Sep — proceed only if the baseline demonstrates custody restrictions, repayment, recovery, and loss accounting, and feasibility showed no blocker. 2 Oct — must demonstrate origination, market transfer, collection, redemption, and a tested default haircut, or be excluded from the recorded demo. **No late baseline contract rewrite is justified to include Kuru.**
+## Perpl — market observation
 
-## Perpl — market observation, 20 September
-
-The engine's `MarketState` has always carried exactly two market inputs:
+The engine's `MarketState` carries exactly two market inputs:
 `realized_volatility_bps` and `liquidity_depth` (`risk/crates/risk-core/src/input.rs`).
-Volatility was observed through a generic HTTP provider. **Depth was
-declared policy**, and `gateway/market/market.go` said why:
+Volatility can be observed through a generic HTTP provider. Depth without
+a venue feed is **declared policy**, because no public feed reported the
+depth available to this protocol at liquidation
+(`gateway/market/market.go`).
 
-> no public feed reports the depth actually available to this protocol at
-> liquidation, so it is declared and labelled rather than estimated
+Perpl's orderbook is such a feed, so depth on an observed facility is a
+measurement rather than a declaration.
 
-Perpl's orderbook is such a feed. That sentence is now false, and depth on
-an observed facility is a measurement rather than a declaration.
-
-### The capability check, run rather than read
+### Capability check
 
 `scripts/probe-perpl.sh`, read-only and unauthenticated. Three findings
-would have been got wrong by reading the documentation, which is the whole
-reason `docs/08` requires the check be run:
+differ from what the documentation implies:
 
-| Read | Actual |
+| Documentation implies | Observed |
 |---|---|
 | Resolution is a TradingView string (`1h`) | Integer **seconds**. `1h` returns **HTTP 500**, which reads like an outage; `3600` on the same URL returns 200 |
 | `HTTP 400` means an unsupported resolution | It is a **candle-count cap** near 1000. `60` over 7 days fails; `60` over 6 hours returns 361 candles |
@@ -646,29 +573,27 @@ records why — the evidence never claims a measurement it did not make.
 The asymmetry is deliberate: an unobserved depth can only make the engine
 lend *less*, so taking the venue down cannot be used to extract credit.
 
-### What running it against the live venue caught
+### Candle timestamps and the skew budget
 
 A candle is stamped at its **open**, so the newest hourly candle reads up
-to 3600s old even on a perfectly live feed. Against the standard 300s skew
-budget every cycle would have been `Stale` and the facility would have
-authorized nothing.
+to 3600s old even on a live feed. Against the standard 300s skew budget
+every cycle would be `Stale` and the facility would authorize nothing.
 
-The fixtures could not have caught this — their timestamps are written by
-hand, so they never exercise a real bar's age. Stamping the candle's
-*close* would have hidden it and been worse: it would claim an observation
-from up to an hour in the future.
+Fixture timestamps are written by hand, so they never exercise a real
+bar's age. Stamping the candle's *close* instead would claim an
+observation from up to an hour in the future.
 
-The fix is a config refusal, not a loosened check: a resolution coarser
-than `evidence.max_skew_seconds` is rejected at load
+The check is not loosened. A resolution coarser than
+`evidence.max_skew_seconds` is rejected at load
 (`TestPerplResolutionMustFitTheSkewBudget`). At 60s the same observation
 is 9 seconds old.
 
-### The risk panel — 21 September
+### The risk panel
 
-The bounty names three inputs: orderbook depth, funding rates, and
-realized volatility, feeding the three named stress scenarios. Depth and
-volatility reach the engine. **Funding does not, and the distinction is
-the substantive design decision here.**
+Perpl publishes three relevant inputs: orderbook depth, funding rates,
+and realized volatility. Depth and volatility reach the engine's three
+named stress scenarios. **Funding does not, and the distinction is the
+substantive design decision here.**
 
 `pricing.rs` already has a `funding_rate_bps`. It is the **lender's cost
 of capital**, deducted from gross interest over the loan term. Perpl's
@@ -681,8 +606,8 @@ engine. What it legitimately indicates is **crowding**: over seven days of
 ETH, 78% of the non-zero samples shared the window's direction. Persistent
 one-sided funding is leveraged positioning, and leveraged positioning
 unwinds faster than it accumulates — a reason to read a calm volatility
-number with suspicion, not a number to feed a model. `docs/08` keeps
-market feedback informational; this is market feedback.
+number with suspicion, not a number to feed a model. Market feedback
+stays informational (above); this is market feedback.
 
 Zero samples are excluded from that measure. Roughly half of ETH's samples
 were zero, and counting a flat reading as agreement would make a dead
@@ -694,9 +619,8 @@ avoid (`TestFundingZeroSamplesDoNotCountAsAgreement`).
 `MarketState` sits inside the canonical snapshot that is **hashed** and
 pinned in `schemas/v1/snapshot-vector.json`. Adding a field to it breaks
 the v1 schema, invalidates every retained `input_hash`, and cascades
-through four test files — verified by trying it. Two days before the
-baseline tag, that is the wrong trade for a display feature, and the
-honest version of this integration does not need it.
+through four test files — verified by trying it. A display feature does
+not justify that, and this integration does not need it.
 
 #### Two snapshots, one clock
 
@@ -726,40 +650,27 @@ second implementation that could drift.
 #### Capacity only moves when the stress term binds
 
 Capacity is a `min()` over several constraints, and **only the stress term
-reads market evidence.** A build on 21 September picked loan 1's snapshot
-— which is bound by `HistoryGrowthCap` — and the panel showed two
-identical capacities beside scenarios that plainly differed, then
-explained it with a sentence that was simply false: *"the observed market
-is at least as deep as the declared placeholder."* Real depth was seven
-times thinner.
+reads market evidence.** A snapshot bound by another constraint, such as
+loan 1's `HistoryGrowthCap`, shows identical capacities beside scenarios
+that differ. The capture therefore prefers a snapshot whose assessment was
+bound by `StressCapacity` (`snapshots` is a dict with no meaningful order,
+so without that preference the choice is arbitrary), and the page reads
+`agent_binding` instead of inferring from a zero delta: when something
+else binds, it names that constraint and says the market cannot move the
+limit.
 
-Two fixes, because there were two faults. The capture now prefers a
-snapshot whose assessment was bound by `StressCapacity` (`snapshots` is a
-dict with no meaningful order, so the choice had been arbitrary), and the
-page reads `agent_binding` instead of inferring from a zero delta — when
-something else binds it names that constraint and says the market cannot
-move the limit, which is the true statement.
+#### Assessment clock
 
-Found by serving the built `dist/` and reading it, not by a test.
+Substituting a live observation into the retained fixture makes the
+evidence read **8.2 days stale**, and the engine returns `Unavailable`
+with `StaleRequired { age_seconds: 710300 }`. That is correct engine
+behaviour; a decision on the observed market is made at the observation
+time. The builder moves the assessment clock and the proposal window to
+the observation, and moves the baseline's with it, so the comparison
+differs by the market rather than by the clock.
 
-#### What the live run caught
-
-The retained fixture is dated ahead of the live venue, so substituting
-today's observation made the evidence read **8.2 days stale** and the
-engine returned `Unavailable` with `StaleRequired { age_seconds: 710300 }`.
-Correct behaviour, wrong question: a decision made on today's market is
-made *now*. The builder moves the assessment clock and the proposal window
-to the observation, and moves the baseline's with it — otherwise the
-comparison would differ by the clock rather than by the market.
-
-Loosening `max_evidence_age_seconds` would have "fixed" it too, and was
-never on the table: that is the one check stopping stale market data from
-authorizing a loan.
-
-Two smaller ones, both found by looking at the rendered page rather than
-by a test: the hash component renders a `<div>` and was nested inside a
-`<p>` (an invalid-DOM console error), and the snapshot source displayed as
-`tmp.nbcHaDQ3zO` because the capture recorded a `mktemp` path.
+`max_evidence_age_seconds` is not loosened: it is the one check stopping
+stale market data from authorizing a loan.
 
 ### Scope
 
@@ -771,85 +682,3 @@ v0, and nothing here revisits it.
 The panel is a **tenth screen**, beyond `docs/09`'s eight. It answers a
 different question from the assessment screens: not "what did this account
 get" but "what does today's market do to it".
-
-## Bounties
-
-**Track: Onchain Finance & Trading** ($30,000, split three ways). The track explicitly names undercollateralised lending priced on onchain credit history.
-
-Pursue only where the integration already serves the demo. Fits below are assessed against each bounty's **stated requirement**, not its sponsor name.
-
-### Pursue — already on the spine
-
-| Sponsor | Prize | Requirement | Why it fits |
-|---|---|---|---|
-| Envio | $1,000 | HyperIndex/HyperSync/HyperRPC powering a **core feature** | Lifecycle reconstruction from indexed events is a core feature, not a bolt-on |
-| Chainlink | $3,000 | CRE workflow as an orchestration layer — **"build, simulate, or deploy"** | Simulation qualifies, so the attestation path can enter even if deployment access never lands |
-
-### Pursue — a view or adapter over committed work
-
-| Sponsor | Prize | Requirement | What it costs |
-|---|---|---|---|
-| Perpl | $3,000 | Real-time analytics, risk-monitoring, or portfolio intelligence **focused on Perpl** | A **Perpl market-risk panel**: feed public orderbook depth, funding rates, and realized volatility into the same three named stress scenarios, displayed as a Perpl-focused view. The engine already consumes exactly these inputs. Perpl's market-data endpoints are public — orderbook and funding over WebSocket, funding and candles over REST, no authentication. |
-| MetaMask | $2,500 | A **plugin** giving the Agent Wallet a new trading superpower via its plugin architecture | A thin TypeScript plugin over the existing `/v1` product API, exposing the runner's tools as `mm` commands — assess, borrow, health, repay. Plugins are small packages (`@metamask/agent-sdk`; see the `ens` and `sample` examples). **The superpower is credit**: a MetaMask agent that can borrow, which no other plugin offers. 1–2 days, after the baseline. |
-
-Both are additive. Neither touches `risk-core`, the contracts, or the schedule before 22 September.
-
-### Conditional — genuine fit, gated
-
-| Sponsor | Prize | Requirement | Condition |
-|---|---|---|---|
-| Kuru | $5,000 | **New assets and markets** — a new tradable class *plus the infrastructure to make it viable* | `NoteSeries` tokenized agent debt is literally a new asset class. **Both gates met 21 September (D34)**: the instrument is built, tested and listed on a real Kuru market. The claim is the instrument and the venue accepting it — **not price discovery**, since both sides of any trade here are project-controlled. |
-| Nansen | $5,000 | A product experience **beyond exposing raw data** | Provenance-tagged enrichment that demonstrably changes an underwriting decision |
-
-### Pursue last — vault hedging automation
-
-**Perpl API ($5,000)** — *"production-ready trading bot or automation system on Perpl."*
-
-The custody constraint that removes the basis trade (D14) binds `CreditAccount`, which cannot sign Ed25519. It does **not** bind the offchain services, which already hold keys by design. And the plan already carries an unanswered risk:
-
-```text
-CreditVault lends against agents holding the risky asset
-        ↓
-agent defaults → recovery unwinds into a falling market
-        ↓
-lenders absorb the shortfall (02: realized LGD spans 0%–88%)
-        ↓
-an offchain service shorts perps on Perpl to hedge the vault's
-   aggregate risky-asset exposure
-```
-
-Why this qualifies where the basis trade does not:
-
-| | Basis trade | Vault hedge |
-|---|---|---|
-| Who trades | `CreditAccount` — cannot sign | Offchain service — already holds keys |
-| Custody domain | Broken | Untouched |
-| Recovery path | Becomes keeper-dependent | Unchanged, contract-enforced |
-| Position marked onchain for coverage | Required | **Not needed** — vault-level, not account-level |
-| Unknowns 4–6 above | All apply | **None apply** |
-
-The six unknowns exist because the perp leg must sit *inside* a credit account and be marked for coverage math. A vault-level hedge sits entirely outside that boundary.
-
-**Constraints.** Genuinely additional scope: a service holding its own keys and managing its own margin. Starts only after the 22 September baseline is pinned, and its failure must leave the demo unchanged. **For v0 it runs in scenario mode against the synthetic population**, demonstrating the mechanism — not managing real capital. A hedging bot that loses money is a new loss source, so it carries its own risk framing and its own labeled evidence.
-
-**Rank it last** — after Envio, CRE, the Perpl panel, the MetaMask plugin, and Kuru. Take it only if time remains.
-
-### Do not chase
-
-Everything else — Agora (mobile apps), Cleanverse, Aurora, Privy, Dynamic, Alchemy, Hunyuan, KIMI, Qwen, Mera — requires a product shape this release does not have.
-
-**Check eligibility, not fit:** Monad Foundation's *Best Community Team Project* ($5,000) turns on whether the team qualifies as a Metropolis community supporter. Confirm during milestone one.
-
-### Expectation
-
-| Outcome | Cumulative |
-|---|---|
-| Spine only — Envio + CRE | $1k–$4k |
-| Plus the Perpl panel and MetaMask plugin | $6.5k–$9.5k |
-| Kuru clears its gates | $11.5k–$14.5k |
-| Plus Nansen | ~$19.5k |
-| Plus the vault hedge | ~$24.5k |
-
-**Sequencing rule:** none of these may start before the 22 September baseline is pinned. Each is a leaf — a view, an adapter, or a gated extension — and a failure in any one must leave the demo unchanged.
-
-**Bounties reward eligible submissions at judges' discretion. They are not expected revenue or a guaranteed return on integration work.** An integration that would not otherwise earn a place in the demo is not worth its bounty.

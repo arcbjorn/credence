@@ -2,10 +2,10 @@
 
 The eight screens `docs/09` specifies, all built,
 plus eight beyond that list: the four observatory rooms,
-the field guide, and three interactive records. The optional
-note view is not built, and `docs/09` marks it optional.
+the field guide, and three interactive records. The note view
+is not built.
 
-| Screen | `docs/09` beat |
+| Screen | `docs/09` step |
 |---|---|
 | Agent overview | 4b — the limit rises, the APR falls, the constraint switches |
 | Agent profiles | 1 and 5 — a flawless record denied by its own book |
@@ -25,23 +25,22 @@ Three records go past reporting and let a reader act:
 | Live on Monad | Reads the deployment directly, and will sign a repayment |
 
 The globe renders agents from two sources, kept apart on purpose. The
-**cohort** (`scripts/demo-cohort.sh`) is four agents that really
-borrowed, each on its own `CreditAccount`; they appear on the
+**cohort** (`scripts/demo-cohort.sh`) is four agents that borrowed
+on chain, each on its own `CreditAccount`; they appear on the
 Observatory globe and the landing page. The **profiles**
 (`fixtures/demo/comparison.json`) are eight scenarios the engine
 assessed but which never touched a chain; they live in the Atlas. A
 reader should never have to guess which kind of agent they are looking
 at, which is why the two rooms do not mix them.
 
-Eight screens sit outside `docs/09`'s list: the observatory, atlas, moons
-and body rooms are one component (`Observatory.tsx`) serving four routes,
-the guide explains the physics, and the three records above let a reader
-act rather than read. None of them assert a beat, and each reads the same
-retained evidence the tables above do.
+Eight screens sit outside the eight record screens: the observatory, atlas,
+moons and body rooms are one component (`Observatory.tsx`) serving four
+routes, the guide explains the physics, and the three records above let a
+reader act rather than read. None of them is tied to a scenario step, and
+each reads the same retained evidence the tables above do.
 
-Beat 6 is the one `docs/09` calls **"the single most convincing moment"**.
-The screen renders what `credence-verify` recorded against the live
-deployment, and shows the two refusals side by side with their raw
+The enforcement screen renders what `credence-verify` recorded against the
+live deployment, and shows the two refusals side by side with their raw
 selectors: the owner is refused because debt is open (`0xe9d4b4e2`), a
 stranger because they are not the owner (`0x72cb8533`). They must be
 DIFFERENT errors — if they matched, the first would only be proving
@@ -56,27 +55,26 @@ clock, no entropy, per `docs/01`), which is what makes this possible at
 all.
 
 `src/lib/engine.test.ts` asserts the browser engine reproduces the exact
-figures `docs/11` publishes for the demo's third loan, and that a tampered
-snapshot produces a `DIFFERENCE`. `risk-core`'s
+figures `docs/11` publishes for the scenario's third loan, and that a
+tampered snapshot produces a `DIFFERENCE`. `risk-core`'s
 `demo_third_loan_binds_on_stress_capacity` pins the same figures natively.
 If the two ever disagree, one has drifted.
 
 The artifact is ~137KB gzipped and lazily loaded, so the first paint never
 waits on it.
 
-## Data comes from the demos, never from the interface
+## Data comes from the scenario runs, never from the interface
 
-`docs/09`: *"Every displayed number comes from a retained fixture or an
-actual transaction-derived record."*
+`docs/09`: *"Every displayed number comes from a retained fixture or a
+transaction-derived record."*
 
-`scripts/build-web-data.sh` reads the SQLite the demo scripts retained and
-emits `public/data/*.json`. That makes the rule structural rather than a
-matter of discipline: the demo produced the file, or the screen has
-nothing to render. There is no path where the interface computes a figure
-the engine never returned.
+`scripts/build-web-data.sh` reads the SQLite the scenario scripts retained
+and emits `public/data/*.json`. That makes the rule structural rather than
+a matter of discipline: a scenario run produced the file, or the screen
+has nothing to render. There is no path where the interface computes a
+figure the engine never returned.
 
-It also means the build is a **static folder** — no server to run during
-judging, nothing to fail.
+It also means the build is a **static folder**, with no server to run.
 
 ## The design
 
@@ -100,7 +98,7 @@ when offscreen, and honours reduced motion. Interactive nodes remain native
 HTML buttons. Docks support Escape and restore focus; all room controls are
 keyboard accessible. Hold Alt for whisper mode.
 
-The new visualizations do not invent live network activity. The landing
+The visualizations do not invent live network activity. The landing
 and Observatory draw the retained repayment run and the cohort that
 borrowed beside it; Atlas draws the independent comparison scenarios; Log
 draws the independent indexed records. The score
@@ -110,8 +108,8 @@ to reconstruct historical vault balances.
 
 ## Mode labels
 
-`docs/09` forbids collapsing environment and evidence modes into one green
-indicator. `src/lib/modes.ts` gives each its own label, token and
+`docs/09` forbids collapsing environment and evidence modes into one
+status indicator. `src/lib/modes.ts` gives each its own label, token and
 treatment, and `modes.test.ts` asserts there is no shared "ok" token any
 component could fall back to, and that an unrecognized origin renders
 verbatim rather than defaulting to `Observed`.
@@ -119,17 +117,17 @@ verbatim rather than defaulting to `Observed`.
 ## Running it
 
 `src/engine/` and `public/data/` are **generated and gitignored**, and the
-data comes from actual demo runs. One command does the whole path:
+data comes from actual scenario runs. One command does the whole path:
 
 ```sh
 scripts/web.sh        # from the repository root; or: make web
 ```
 
 It checks the toolchain, starts a chain if none is listening, runs the
-demos, compiles the engine, bundles what they retained, and serves the
-app. It reuses evidence that already exists, so a second run skips
-straight to the server. `--fresh` re-runs the demos; `--no-serve` builds
-the static site instead.
+scenario scripts, compiles the engine, bundles what they retained, and
+serves the app. It reuses evidence that already exists, so a second run
+skips straight to the server. `--fresh` re-runs the scenarios;
+`--no-serve` builds the static site instead.
 
 By hand, the same steps in order:
 
@@ -146,7 +144,7 @@ scripts/demo-cohort.sh
 cd web
 pnpm install
 pnpm wasm     # compile risk-core to WebAssembly
-pnpm data     # bundle the demos' retained SQLite
+pnpm data     # bundle the scenarios' retained SQLite
 pnpm dev
 ```
 
@@ -158,7 +156,8 @@ rustup target add wasm32-unknown-unknown
 ```
 
 `pnpm data` reads `/tmp/credence-{repay,monitor,default,growth,cohort}`
-— run the demos first, or point `REPAY_DB` / `MONITOR_DB` elsewhere.
+— run the scenario scripts first, or point `REPAY_DB` / `MONITOR_DB`
+elsewhere.
 
 ```sh
 pnpm test         # vitest, including the engine agreement tests

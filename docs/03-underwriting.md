@@ -37,9 +37,7 @@ Monitoring assessments evaluate the existing loan and current account policy, wi
 
 ### What proves the order
 
-Added 20 September. This document defines how every decision is made and
-cited nothing, which made the nine steps above a description rather than
-a checkable rule. Run from `risk/`:
+Run from `risk/`:
 
 | Rule | Test |
 |---|---|
@@ -67,7 +65,7 @@ an approval wearing a refusal's label.
 
 ## The five quantities
 
-Distinct everywhere. The vision conflated them.
+Distinct everywhere.
 
 ```text
 facility_limit       binding's total debt ceiling under the pinned facility policy
@@ -77,7 +75,7 @@ outstanding_debt     outstanding principal + unpaid accrued interest
 available_credit     max(facility_limit - outstanding_debt, 0)   (headroom)
 ```
 
-**`available_credit` is debt headroom, not drawable cash.** The separate `drawable_capacity` accounts for reserved interest, borrower capacity, lender liquidity, and origination gates. The one-active-loan rule can block a draw while headroom is positive; vault budget can block it too. Never present headroom as immediately borrowable. The demo's changing behavioral limit is `agent_capacity`; it does not change the pinned `facility_limit`.
+**`available_credit` is debt headroom, not drawable cash.** The separate `drawable_capacity` accounts for reserved interest, borrower capacity, lender liquidity, and origination gates. The one-active-loan rule can block a draw while headroom is positive; vault budget can block it too. Never present headroom as immediately borrowable. The behavioral limit that changes between loans is `agent_capacity`; it does not change the pinned `facility_limit`.
 
 ## Liquidation cost scales with depth
 
@@ -118,7 +116,7 @@ The penalty affects **only `forecast_cap`**, not APR or stress assumptions. Good
 
 ## Pricing
 
-A **versioned APR policy schedule**: base rate, bounded history discount, portfolio surcharge, minimum and maximum rate. Frozen with demo fixtures after behavioral testing. **Experimental terms, not empirically estimated fair prices.**
+A **versioned APR policy schedule**: base rate, bounded history discount, portfolio surcharge, minimum and maximum rate. Frozen with the scenario fixtures after behavioral testing. **Experimental terms, not empirically estimated fair prices.**
 
 Where an assumed PD is displayed, report it **separately** from the policy APR and run a consistency check:
 
@@ -198,11 +196,11 @@ Re-run the pure engine with each feature set to a **declared policy reference va
 
 **Deltas do not sum to the score.** `agent_capacity` is a `min()` over competing constraints, so effects are non-additive — a factor that is not binding contributes nothing until it becomes binding. Label each row as the change in capacity under that reference, not as score points or a decomposition. Genuine missing-data behavior is tested separately.
 
-This is stronger than a weighted panel: each value is a measured consequence a judge can reproduce with `credence risk assess`.
+This is stronger than a weighted panel: each value is a measured consequence reproducible with `credence risk assess`.
 
 ## Behavioral underwriting must be visibly causal
 
-`min()` creates a product risk that outranks every integration question. If stress capacity is 3,000 while history cap improves from 4,000 to 6,000, capacity stays 3,000 — **the history improved and the product delivered nothing.** Often correct; fatal if it is the only outcome demonstrated, because then agent behavior is decorative and this is a competent collateralized lender rather than Credence.
+`min()` creates a product risk. If stress capacity is 3,000 while history cap improves from 4,000 to 6,000, capacity stays 3,000 — **the history improved and the product delivered nothing.** Often correct; fatal if it is the only outcome the scenarios produce, because then agent behavior is decorative and this is a competent collateralized lender rather than Credence.
 
 ### Controlled ablation — release requirement
 
@@ -212,7 +210,7 @@ This is stronger than a weighted panel: each value is a measured consequence a j
 | A→C | Same, plus history | Forecast evidence only | Exact change attributable to forecast quality |
 | A→D | Same | Portfolio risk raised | Hard constraints override both; which binds, by how much |
 
-Every run reports the **binding constraint by name**. **Fixtures must be calibrated so history and forecast bind in A→B and A→C** — if stress capacity clamps every scenario, the demo cannot show behavior mattering, and the fixtures are wrong.
+Every run reports the **binding constraint by name**. **Fixtures must be calibrated so history and forecast bind in A→B and A→C** — if stress capacity clamps every scenario, no run shows behavior mattering, and the fixtures are wrong.
 
 ### Three sequential loans — release requirement
 
@@ -224,7 +222,7 @@ The ablation proves history *would* change terms. It does not show credit **comp
 | 2 | loan 1 repaid | higher | lower | history cap |
 | 3 | loans 1–2 repaid | higher still | lower still | **stress capacity** |
 
-The constraint switching by loan 3 is the `min()` story told honestly: history opens the facility until portfolio risk becomes the limit. Cheap in virtual time. **Sequential, not concurrent** — one active loan per account is unchanged.
+The constraint switching by loan 3 is the `min()` at work: history opens the facility until portfolio risk becomes the limit. Cheap in virtual time. **Sequential, not concurrent** — one active loan per account is unchanged.
 
 #### How the fixtures are calibrated
 
@@ -246,7 +244,7 @@ loan 2: apr=1147bps capacity=7533330000 binding=HistoryGrowthCap
 loan 3: apr=1094bps capacity=8117138556 binding=StressCapacity
 ```
 
-Two traps worth naming, because both silently defeat the demonstration:
+Three traps silently defeat the switch:
 
 - **A new account carries the maximum forecast penalty.** One forecast per
   loan never reaches `min_outcomes`, so the forecast cap stays at 9,600
@@ -267,7 +265,7 @@ Two traps worth naming, because both silently defeat the demonstration:
 
 ## Continuous underwriting
 
-The original's climax is a shock changing risk **while a loan is open and the agent requested nothing**. Origination checks, recovery thresholds, and post-repayment reassessment do not require that behavior — a system could pass the whole demo script without it.
+The original's central case is a shock changing risk **while a loan is open and the agent requested nothing**. Origination checks, recovery thresholds, and post-repayment reassessment do not require that behavior; a system can implement all three without it.
 
 **Release requirement:**
 
@@ -278,11 +276,12 @@ The original's climax is a shock changing risk **while a loan is open and the ag
 | Owner | Go scheduler — owns reassessment timing; contracts independently check chain time |
 | Trigger | Price move beyond policy threshold, or evidence staleness |
 | Interval | Declared per deployment in the gateway config's `scheduler` block; measured in the latency report |
+| Effect | Refreshes or blocks risk permission for subsequent risk-increasing actions; future draws still require a new origination assessment |
+| Explicitly not | Repricing the outstanding loan, or forcing recovery on its own |
+| Failure | Scheduler offline → evidence stales → risk-increasing actions blocked, repayment open. **Fail-closed, never fail-silent.** |
 
-**What "declared" means, concretely — recorded 19 September.** Four
-documents referred to "the declared interval" and none said what it was,
-which makes a bound a reader cannot check. As `scripts/demo-monitor.sh`
-runs it:
+**What "declared" means, concretely.** As `scripts/demo-monitor.sh` runs
+it:
 
 | Setting | Value | What it bounds |
 |---|---|---|
@@ -293,7 +292,7 @@ runs it:
 
 So the worst case for an unprompted update is the heartbeat, **600
 seconds**, and a 5% price move cuts it to the next scheduler tick. These
-are the demo's values; `config/gateway.example.json` carries the same
+are the scenario's values; `config/gateway.example.json` carries the same
 scheduler block with `max_evidence_age_seconds` at 3600, and a deployment
 may declare its own.
 
@@ -318,9 +317,6 @@ The trigger is `price_move`, not `staleness`: a staleness cycle would
 only prove a clock runs, where this shows an observation changing a
 standing permission. Both lines carry a transaction hash, so the update
 reached the chain rather than a log.
-| Effect | Refreshes or blocks risk permission for subsequent risk-increasing actions; future draws still require a new origination assessment |
-| Explicitly not | Repricing the outstanding loan, or forcing recovery on its own |
-| Failure | Scheduler offline → evidence stales → risk-increasing actions blocked, repayment open. **Fail-closed, never fail-silent.** |
 
 **Changing what an agent may borrow next is not the same as recovering what it already owes.** Continuous underwriting governs permission; recovery governs exposure.
 

@@ -7,9 +7,6 @@ from the operator, and this one a report delivered through the Keystone
 forwarder, where the receiver authenticates the transport rather than a
 signature.
 
-**This replaced the CRE blank-workflow template.** If you are reading a
-"Steps to run the example" section, it has come back.
-
 ## What it does, in one cycle
 
 1. The cron trigger fires on `schedule`.
@@ -28,9 +25,7 @@ expired permission blocks risk increases on its own. Stopping at the first
 error would leave later loans unassessed for the same reason, which is
 strictly worse.
 
-## What the consensus is actually worth
-
-Read this before describing the workflow as decentralized underwriting.
+## What the consensus establishes
 
 The nodes reach consensus on **one reply from one project-controlled HTTP
 service**. They do not independently read chain state. The substantive
@@ -43,9 +38,10 @@ Two further limits, both structural:
 - **Monitoring only.** A monitoring report carries no grant by
   construction, so a CRE-pinned facility can monitor but cannot fund.
   There is no CRE origination path in v0.
-- **No DON-signed report has reached the live receiver.** Deploy access is
-  pending. `Written: 1` from the simulator means the write path executed
-  and was accepted in simulation; it is not a transaction.
+- **No DON-signed report has reached the live receiver.** Deploy access
+  requires a commercial agreement with Chainlink. `Written: 1` from the
+  simulator means the write path executed and was accepted in simulation;
+  it is not a transaction.
 
 `docs/08` states the ceiling on the CRE claim and `docs/11` records the
 evidence rows.
@@ -55,7 +51,7 @@ evidence rows.
 | Field | Meaning |
 |---|---|
 | `schedule` | Reassessment cadence. `docs/11` requires an unprompted monitoring update within a declared interval; this is the declaration |
-| `riskServiceUrl` | `credence-assessd`, serving `GET /v1/assessment/{loanId}`. **Not the engine directly** — the engine is pure and cannot look a loan up by id |
+| `riskServiceUrl` | `credence-assessd`, serving `POST /v1/assess` with `{"loan_id": N}`. **Not the engine directly** — the engine is pure and cannot look a loan up by id |
 | `chainSelector` | The chain the receiver lives on |
 | `receiverAddress` | The deployed `CREReceiver`. Must be a real address: the zero placeholder and unparseable input are both refused at init, because `common.HexToAddress` turns either into the zero address and the workflow would then write into nothing, succeeding every cycle while no permission reached the oracle |
 | `gasLimit` | Bounded, so a pathological report cannot spend without limit |
@@ -69,7 +65,8 @@ of truth for addresses.
 
 ## Running it
 
-Simulation needs no approval; only `cre workflow deploy` waits on access.
+Simulation needs no approval; only `cre workflow deploy` needs deploy
+access.
 
 ```sh
 credence-assessd &   # the assessment endpoint the workflow asks

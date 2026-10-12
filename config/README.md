@@ -25,7 +25,7 @@ synthetic evidence `docs/04` forbids, so the loader refuses it.
 ```
 
 Four fields are easy to get wrong, and each is refused at load rather
-than at 3am in a scheduler log:
+than in a scheduler log:
 
 - **`resolution_seconds` is an integer number of seconds.** The venue
   answers HTTP **500** to the TradingView-style strings (`1h`), which

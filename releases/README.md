@@ -12,11 +12,10 @@ version, the chain, and a row-by-row result. **A `SKIP` is a row the run
 could not reach, never a row that passed** — `docs/11` names rows without
 evidence as pending rather than assumed, and the same rule applies here.
 
-## Cutting the 22 September baseline
+## Cutting a release
 
-`docs/10` commits to "a pinned baseline release tagged on 22 September",
-with extensions developed in isolation from it. There are no tags before
-it; this is the first.
+`docs/10` pins each release as a tag, with extensions developed in
+isolation from it.
 
 ```sh
 # 1. A clean chain, so the run indexes nothing left over.
@@ -26,7 +25,7 @@ pkill -f 'anvil --port 8546'; anvil --port 8546 --silent &
 bash scripts/release-check.sh
 
 #    For every row including the indexed lifecycle, which needs
-#    Docker and costs an extra demo run plus a sync:
+#    Docker and costs an extra scenario run plus a sync:
 RESYNC_INDEXER=1 bash scripts/release-check.sh
 
 #    The behavioural rows redeploy the manager at a fresh address and
@@ -47,21 +46,15 @@ bash scripts/verify-reorg.sh
 #    while the run is queued or in progress, so a record produced
 #    immediately after pushing says nothing about the build -- re-run
 #    it, or read `gh run list`, before tagging.
-#
-#    On 21 September a baseline tag landed on a RED build: `web` had
-#    been failing for two commits because a test required a fixture
-#    that depends on a third-party venue. No local run could have
-#    shown it, because locally the file is always present.
 git push origin master
 gh run watch
 
 # 5. Commit the record, then tag THAT commit.
-git add releases/ && git commit -m "chore(release): record the baseline check"
-git tag -a v0.1.0-baseline -m "Baseline, 22 September
+git add releases/ && git commit -m "chore(release): record the release check"
+git tag -a v<version> -m "<release name>
 
-One complete performer path and one failure path, with retained evidence
-and transaction references (docs/10). Every acceptance row re-run at this
-commit; see releases/<date>.md for the record and its skips."
+Every acceptance row re-run at this commit; see releases/<date>.md for
+the record and its skips."
 git push origin master --follow-tags
 ```
 
@@ -83,17 +76,16 @@ contains both the code the record describes and the evidence for it.
 
 ## What the baseline does and does not pin
 
-It pins a **development baseline**, not the final release. `docs/11` is
-explicit that a tagged development baseline may leave identified release
-rows pending — and one is: a deployed CRE workflow, which needs a
-commercial agreement with Chainlink.
+`v0.1.0-baseline` pins a **development baseline**, not the final release.
+`docs/11` is explicit that a tagged development baseline may leave
+identified release rows pending — and one is: a deployed CRE workflow,
+which needs a commercial agreement with Chainlink.
 
-The note-on-a-market row closed on 20 September (`NoteSeries` listed on
-Kuru), and the independent reputation reader closed on 21 September. That
-last one is now checked on **every** run rather than announced as
-unreachable: reading the registry needs no key and no funds, which is
-precisely the property the row asserts, so `scripts/verify-reputation.sh`
-runs read-only against the canonical deployment.
+The note-on-a-market row has evidence (`NoteSeries` listed on Kuru). The
+independent reputation reader is checked on **every** run: reading the
+registry needs no key and no funds, which is precisely the property the
+row asserts, so `scripts/verify-reputation.sh` runs read-only against the
+canonical deployment.
 
 Everything after the tag is an extension, developed in isolation and
 re-checked before merging.

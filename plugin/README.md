@@ -2,8 +2,7 @@
 
 Credit for a MetaMask agent: `health`, `loan`, `borrow`, `repay`.
 
-**The superpower is credit** — an agent that can borrow against its own
-demonstrated behaviour, which no other plugin offers.
+The agent borrows against its own demonstrated behaviour.
 
 ## What it cannot do
 

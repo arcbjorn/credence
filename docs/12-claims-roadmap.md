@@ -2,32 +2,32 @@
 
 ## Claims the release can earn
 
-**Status as of 19 September.** A claim is *earned* only when the support
-beside it exists and was re-run; anything else says what is missing. Eight
-of ten are earned, and the two that are not are unearned for different
-reasons. **A deployed CRE workflow is closed**: deploy access needs a
-commercial agreement with Chainlink, which is not a decision this project
-gets to make. **A tradable note is unearned on a narrower
-point than before**: the instrument exists, its redemption arithmetic is
-tested, and it is listed on a real orderbook — but every participant so
-far is project-controlled, and a controlled market has valued nothing.
+A claim is *earned* only when the support beside it exists and was re-run;
+anything else says what is missing. Eight of ten are earned, and the two
+that are not are unearned for different reasons. **A deployed CRE
+workflow is closed**: deploy access needs a commercial agreement with
+Chainlink, which is not a decision this project gets to make. **A
+tradable note is unearned on a narrow point**: the instrument exists, its
+redemption arithmetic is tested, and it is listed on a real orderbook —
+but every participant so far is project-controlled, and a controlled
+market has valued nothing.
 
 | Claim | Required support | Status |
 |---|---|---|
-| Decisions are reproducible | Retained canonical inputs plus matching replay | **Earned** — `demo-monitor.sh` beat 8 reopens the retained SQLite and replays to MATCH, with a tampered control that must DIFFER |
+| Decisions are reproducible | Retained canonical inputs plus matching replay | **Earned** — `demo-monitor.sh` step 8 reopens the retained SQLite and replays to MATCH, with a tampered control that must DIFFER |
 | Credit grows with demonstrated behavior | Three sequential loans under one policy, plus controlled ablation | **Earned** — 1200 → 1147 → 1094 bps under one policy and model hash, binding switching to `StressCapacity` at loan 3; ablation in `cargo test -p risk-core --test ablation` |
 | Current risk overrides reputation | Concentrated scenario with binding portfolio constraints | **Earned** — the Concentrated profile is `Denied` on a flawless record, on the three-agent screen and in `concentration_overrides_perfect_history` |
-| Borrowed capital is constrained | Actual contract rejection and adapter boundaries | **Earned** — beat 6 reverts on chain with two DIFFERENT selectors: `0xe9d4b4e2` for open debt, `0x72cb8533` for a stranger |
-| Losses are accounted for | Realized collection and final settlement reconcile | **Earned** — 4,000 lent = 1,400 recovered + 2,600 written off, reconciled on the lender screen since 18 September |
+| Borrowed capital is constrained | Actual contract rejection and adapter boundaries | **Earned** — step 6 reverts on chain with two DIFFERENT selectors: `0xe9d4b4e2` for open debt, `0x72cb8533` for a stranger |
+| Losses are accounted for | Realized collection and final settlement reconcile | **Earned** — 4,000 lent = 1,400 recovered + 2,600 written off, reconciled on the lender screen |
 | Underwriting is continuous | Unprompted reassessment reaching chain within a declared interval | **Earned** — `trigger=price_move` produced a `Blocked` result on chain ~1s after the observation moved, against a 600s heartbeat ([03](03-underwriting.md)) |
 | Forecasts are evaluated | Prior commitment, specified outcome protocol, retained resolutions | **Earned** — commitment precedes funding, and `LOANS=4` retains three resolved Brier scores. **Three observations permit an average, not a reliability claim** ([06](06-identity-forecasts.md)) |
 | Reputation is independently verifiable | Standalone reader using the accepted selected-network registry and no Credence endpoint | **Earned, 19 September** — two repaid obligations for agent 1830 on the canonical registry, read back from `/tmp` with no Credence endpoint. Attributable and filterable; **not** proof the referenced evidence is true, and **not** third-party adoption ([11](11-verification.md)) |
-| CRE checks an assessment | Exact deployed workflow checks and report evidence | **Not earned, and now closed rather than pending.** The receiver is deployed, 21 tests pass and the workflow simulates against the live forwarder — but deploy access turned out to require a commercial agreement, not an approval (19 Sep), so **no DON-signed report will reach the live receiver in this release** ([08](08-integrations.md)) |
-| A note is tradable debt exposure | Defined holder rights, market transfer, redemption | **Still not earned, and now for a sharper reason.** The instrument is built and tested (`NoteSeries.sol`, 16 tests) and **listed on a real Kuru orderbook on testnet, 20 Sep**, which Kuru's Router confirms with `verifiedMarket() = true`. But both participants are project-controlled, so nothing independent has priced a note. `docs/08`: *a price nothing independent produced cannot move executable credit* ([08](08-integrations.md)) |
+| CRE checks an assessment | Exact deployed workflow checks and report evidence | **Not earned, and closed rather than pending.** The receiver is deployed, 21 tests pass and the workflow simulates against the live forwarder — but deploy access requires a commercial agreement with Chainlink, so **no DON-signed report will reach the live receiver in this release** ([08](08-integrations.md)) |
+| A note is tradable debt exposure | Defined holder rights, market transfer, redemption | **Not earned.** The instrument is built and tested (`NoteSeries.sol`, 16 tests) and **listed on a real Kuru orderbook on testnet**, which Kuru's Router confirms with `verifiedMarket() = true`. But both participants are project-controlled, so nothing independent has priced a note. `docs/08`: *a price nothing independent produced cannot move executable credit* ([08](08-integrations.md)) |
 
 ## Claims the release must not make
 
-**Calibrated default probabilities** · **guaranteed liquidation recoveries** · **organic note liquidity** · **complete Sybil resistance** · **proof of offchain model execution** · **third-party adoption of published reputation** · **a bounty award**
+**Calibrated default probabilities** · **guaranteed liquidation recoveries** · **organic note liquidity** · **complete Sybil resistance** · **proof of offchain model execution** · **third-party adoption of published reputation**
 
 High APR does not establish profitability. Synthetic tests do not establish demand. Determinism establishes auditability, not accuracy.
 
@@ -39,9 +39,9 @@ High APR does not establish profitability. Synthetic tests do not establish dema
 
 ## The bridge back to the vision
 
-Deferring the hardest promises requires saying what would make them feasible. None of these are in scope for 13 October.
+Deferring the hardest promises requires saying what would make them feasible. None of these are in scope for this release.
 
-| Milestone | Evidence needed |
+| Future claim | Evidence needed |
 |---|---|
 | **Behavioral underwriting adds value** | Compare decisions and realized outcomes against a baseline policy using only collateral and current positions. The ablation shows behavior *changes* terms; this shows the change is *better*. |
 | **Broader credit becomes supportable** | Independent repayment and recovery evidence, plus an explicit mechanism for bearing exposure beyond recoverable assets — operator stake, insurance, tranching, or a first-loss provider |
@@ -49,9 +49,9 @@ Deferring the hardest promises requires saying what would make them feasible. No
 
 > **More repayment history alone is not a bridge to unsecured lending.** That transition needs a separate economic design, and naming it as such is more credible than implying history accumulation gets there on its own.
 
-## Product validation alongside the build
+## Product validation
 
-Prepare a one-page facility example for an agent operator and a capital provider: required equity, permitted strategy, offered terms, custody restrictions, loss waterfall, withdrawal timing.
+Validation starts from a one-page facility example for an agent operator and a capital provider: required equity, permitted strategy, offered terms, custody restrictions, loss waterfall, withdrawal timing.
 
 The useful questions are concrete:
 
@@ -61,8 +61,6 @@ The useful questions are concrete:
 - Which operational failures would change their decision?
 
 > **Which agent operator needs this financing today, and which capital provider would fund it under these recovery rules?**
-
-One credible operator and one credible lender evaluating the same facility would strengthen the submission more than any additional integration.
 
 Treat interviews and counterparties as separate from synthetic usage metrics.
 
@@ -86,5 +84,5 @@ The account can be overcollateralized while the agent contributes less than the 
 **"Someone already built agent credit scores."**
 Conceptually adjacent work exists; we make no claim about what it does or does not demonstrate. State what Credence demonstrates directly: a forecast committed onchain before disbursement and scored against a defined rule, an assessment replayed byte-identically from retained evidence, a prohibited withdrawal reverting onchain, a default with reconciled lender loss, three sequential loans under one policy, and a controlled ablation showing which evidence moved the terms.
 
-**"Is your demo data real?"**
-The economic histories and generated market scenarios are synthetic and labeled per factor. Contract transactions and account observations may be real on the test network, while still reflecting project-generated economic activity. The interface distinguishes both origins and any replayed agent trace. These scenarios exercise failure paths that an independent borrower population could not establish during the 32-day build.
+**"Is your data real?"**
+The economic histories and generated market scenarios are synthetic and labeled per factor. Contract transactions and account observations may be real on the test network, while still reflecting project-generated economic activity. The interface distinguishes both origins and any replayed agent trace. These scenarios exercise failure paths that would otherwise need an independent borrower population.

@@ -47,15 +47,15 @@ Foundry unit plus invariant and fuzz tests. **Test observable failures, not priv
 - Normalize a recorded provider response; verify units, coverage, provenance — `go test ./evidence/ ./market/`. `TestHTTPProviderParsesCandles` normalizes a recorded reply; `TestFailedAccountReadIsMissingNotEmpty` pins the provenance rule `docs/01` states — a failed read is **`Missing` with no value and its origin unchanged**, never quietly `Observed`-empty and never reclassified as synthetic; `TestAllChainReadsUseOneBlockReference` pins coverage, so one snapshot cannot mix heights
 - Exercise timeouts, partial responses, unexpected asset IDs, stale and conflicting prices — `go test ./market/ ./evidence/`. A provider that never answers, one whose context is cancelled, a body truncated mid-JSON, and a response naming a field the config does not expect each yield an **error rather than an observation**: a silently-zeroed volatility would read as the calmest possible market. Staleness is `TestMarketBeyondSkewBoundIsStale` and `TestStalePriceMakesAccountEvidenceStale`; `docs/04`'s declared `MaxSkewSeconds` is the bound, never an implicit tolerance
 - Restart Go during a submitted transaction; reconcile without resubmitting an already-funded loan — `go test ./publisher/ ./store/`. `TestCrashedSubmissionReconcilesAfterRestart` loses the process mid-submission, `TestLostJournalStillReconcilesFromChain` loses the journal as well, and both recover the outcome by **reading chain state rather than resending**: a retry that funded a second loan would be the one failure this row exists to prevent
-- Replay an indexed loan after cursor rollback or simulated reorganization — **`scripts/verify-reorg.sh`, 18 September; re-run 21 September and now part of `RESYNC_INDEXER=1 scripts/release-check.sh`.** A repayment is reorganized away, the indexer rolls `Repaid` back to `Active` (`fromBlock: 16, toBlock: 6, rollbackedEvents: 2`), and the replayed repayment returns at the new block rather than the discarded one. See [08 · Integrations](08-integrations.md#reorg-handling-demonstrated--18-september)
-- **Run the demo with no optional APIs and confirm the scenario baseline still works** — holds, re-checked 20 September. Perpl is now wired (`gateway/market/perpl.go`) but stays **strictly optional**: it is reached only when `market.perpl` is present in the configuration, and `TestReaderWithoutDepthProviderUsesDeclaredDepth` pins that a reader without it behaves exactly as before. No API key exists to omit — every Perpl endpoint used is public and unauthenticated (`scripts/probe-perpl.sh`), and `grep -rn 'API_KEY' gateway/` still finds nothing outside tests. The three demos need a chain and the Go toolchain and nothing else, which is what `docs/08`'s "the baseline must work with zero optional providers" promises
-- Restore retained SQLite data and reproduce a selected historical assessment — `scripts/demo-monitor.sh` beat 8. It reopens `credence.db` from disk, joins the retained assessment to the snapshot its `input_hash` names, and replays it through the engine. **A MATCH that cannot become a DIFFERENCE proves nothing**, so the same pair is replayed again with one field altered and must be rejected
-- Reject invalid CRE report paths and bindings; distinguish simulated from deployed execution — `forge test --match-contract CREReceiver` (21 tests). The receiver checks forwarder, workflow owner, workflow id, loan enrolment and report replay, each failing closed. Simulated-versus-deployed is recorded in [08 · Integrations](08-integrations.md): **no DON-signed report has reached the live receiver**, and none will in this release: deploy access requires a commercial agreement, not an approval (19 Sep)
-- If the note extension is included, test ownership transfer, collection, holder redemption, and default payout conservation — **applicable, and met.** `NoteSeries` was built on 19 September and listed on Kuru on 20 September (see [08 · Integrations](08-integrations.md#listed-on-kuru--20-september)). `forge test --match-contract NoteSeries` covers transfer, collection, redemption and the default haircut; `scripts/demo-notes.sh` runs the same path on chain and asserts a seller redeeming twice gets `NothingToRedeem` and that `idleCash` reaches zero
+- Replay an indexed loan after cursor rollback or simulated reorganization — **`scripts/verify-reorg.sh`, run by `RESYNC_INDEXER=1 scripts/release-check.sh`.** A repayment is reorganized away, the indexer rolls `Repaid` back to `Active` (`fromBlock: 16, toBlock: 6, rollbackedEvents: 2`), and the replayed repayment returns at the new block rather than the discarded one. See [08 · Integrations](08-integrations.md#reorg-handling)
+- **Run the scenarios with no optional APIs and confirm the baseline still works** — holds, re-checked 20 September. Perpl is wired (`gateway/market/perpl.go`) but stays **strictly optional**: it is reached only when `market.perpl` is present in the configuration, and `TestReaderWithoutDepthProviderUsesDeclaredDepth` pins that a reader without it behaves exactly as before. No API key exists to omit — every Perpl endpoint used is public and unauthenticated (`scripts/probe-perpl.sh`), and `grep -rn 'API_KEY' gateway/` finds nothing outside tests. The three scenario scripts need a chain and the Go toolchain and nothing else, which is what `docs/08`'s "the baseline must work with zero optional providers" requires
+- Restore retained SQLite data and reproduce a selected historical assessment — `scripts/demo-monitor.sh` step 8. It reopens `credence.db` from disk, joins the retained assessment to the snapshot its `input_hash` names, and replays it through the engine. **A MATCH that cannot become a DIFFERENCE proves nothing**, so the same pair is replayed again with one field altered and must be rejected
+- Reject invalid CRE report paths and bindings; distinguish simulated from deployed execution — `forge test --match-contract CREReceiver` (21 tests). The receiver checks forwarder, workflow owner, workflow id, loan enrolment and report replay, each failing closed. Simulated-versus-deployed is recorded in [08 · Integrations](08-integrations.md): **no DON-signed report has reached the live receiver**, and none will in this release: deploy access requires a commercial agreement with Chainlink
+- If the note extension is included, test ownership transfer, collection, holder redemption, and default payout conservation — **applicable, and met.** `NoteSeries` is built and listed on Kuru (see [08 · Integrations](08-integrations.md#listed-on-kuru)). `forge test --match-contract NoteSeries` covers transfer, collection, redemption and the default haircut; `scripts/demo-notes.sh` runs the same path on chain and asserts a seller redeeming twice gets `NothingToRedeem` and that `idleCash` reaches zero
 
 ## Release acceptance
 
-The final release requires evidence in every row below. A tagged development baseline may leave explicitly identified release rows pending, as scheduled in [10 · Schedule](10-schedule.md). Optional integration checks apply only to included capabilities; they cannot waive a required row.
+The final release requires evidence in every row below. A tagged development baseline may leave explicitly identified release rows pending ([10 · Release process](10-release-process.md)). Optional integration checks apply only to included capabilities; they cannot waive a required row.
 
 | Requirement | Evidence required |
 |---|---|
@@ -74,15 +74,15 @@ The final release requires evidence in every row below. A tagged development bas
 | Integration honesty | Claimed capabilities backed by artifacts; modes labeled |
 | Reproducibility | Clean setup completes the documented scenario without private data |
 
-## Evidence status — 13 September, re-verified 18 September
+## Evidence status
 
 > **Every row below was re-run on 18 September** against the pinned
 > toolchain (Foundry v1.8.3), from a clean chain, and the figures are
-> those the commands produced on that run rather than the ones recorded
-> when each row was first written. Thirteen of fourteen reproduce. The
-> exception is the independent-reader row, corrected above.
+> those the commands produced on that run. The independent-reader row did
+> not reproduce on that run; its evidence is from 19 September (see
+> [Independent reader](#independent-reader--erc-8004)).
 >
-> Two notes for a reader following this table verbatim:
+> Two notes on running these commands:
 >
 > - `forge test …` runs from `contracts/`, and `cargo test …` from
 >   `risk/`. Run bare from the repository root they fail to resolve
@@ -106,12 +106,12 @@ assumed; a green suite is not evidence for a behavioural claim.
 | **Three stress cases** | evidence | reported in every assessment; `cargo test -p risk-core --test stress` |
 | Forecast evaluation | evidence | `LOANS=4 scripts/demo-repay.sh` commits before funding and scores on resolution; `go test ./store/ -run Brier` pins the arithmetic |
 | Custody protection | evidence | `forge test --match-test ownerHasNoBypass` |
-| Default handling | evidence | `scripts/demo-default.sh` — a 2.6e9 realized loss, written off on chain and **now visible on the lender screen**. Until 18 September that run retained nothing, so the interface read the clean epoch and its realized-loss figure was structurally always zero |
-| Replay | evidence | `scripts/demo-monitor.sh` (beat 8, with its tampering control) |
+| Default handling | evidence | `scripts/demo-default.sh` — a 2.6e9 realized loss, written off on chain and **visible on the lender screen** |
+| Replay | evidence | `scripts/demo-monitor.sh` (step 8, with its tampering control) |
 | Missing / stale data | evidence | `forge test --match-test ExecuteRequiresStandingPermission`; engine blocks on stale required evidence |
-| **Independent reputation reader** | **evidence, 19 September; re-checked every release from 21 September** | `scripts/demo-erc8004.sh` against the canonical registries on Monad testnet published the obligations; `scripts/verify-reputation.sh` reads them back. The registry now holds **13 signals across four obligation tags** for agent **1830**, three of them deployment-scoped (`loan:d741baa0:1`, `loan:dab9ccac:1`, `loan:dab9ccac:2`) and one legacy unscoped `loan:1` that `ParseLoanTag` refuses to claim. **Reading needs no key and no funds** — one `eth_call` — which is the property this row asserts, so it runs at every release check rather than being announced as unreachable. See [Independent reader](#independent-reader--erc-8004-14-september) |
+| **Independent reputation reader** | **evidence, 19 September; re-checked at every release check** | `scripts/demo-erc8004.sh` against the canonical registries on Monad testnet published the obligations; `scripts/verify-reputation.sh` reads them back. The registry holds **13 signals across four obligation tags** for agent **1830**, three of them deployment-scoped (`loan:d741baa0:1`, `loan:dab9ccac:1`, `loan:dab9ccac:2`) and one legacy unscoped `loan:1` that `ParseLoanTag` refuses to claim. **Reading needs no key and no funds** — one `eth_call` — which is the property this row asserts, so it runs at every release check. See [Independent reader](#independent-reader--erc-8004) |
 | Integration honesty | evidence | scenario facility and test assets labelled; `TestRiskyAsset` is named *NOT ETH* |
-| Reproducibility | evidence, re-verified 20 September | **From a fresh `git clone` to a temp directory**, not from a working tree: `scripts/setup.sh` then the three demos reproduce the documented figures exactly — 1200/1147/1094 bps with the binding constraint switching at loan 3, replay MATCH with its tamper control, and `realized_loss=2600000000`. `scripts/web.sh --no-serve` then builds the WebAssembly engine, the bundle and the static site |
+| Reproducibility | evidence, re-verified 20 September | **From a fresh `git clone` to a temp directory**, not from a working tree: `scripts/setup.sh` then the three scenario scripts reproduce the documented figures exactly — 1200/1147/1094 bps with the binding constraint switching at loan 3, replay MATCH with its tamper control, and `realized_loss=2600000000`. `scripts/web.sh --no-serve` then builds the WebAssembly engine, the bundle and the static site |
 
 Observed on 13 September for the sequential-loans row, one policy and
 model hash throughout, only demonstrated history varying:
@@ -123,8 +123,8 @@ loan 3: apr=1094bps capacity=8117138556 binding=StressCapacity
 ```
 
 The limit rises, the APR falls, and the binding constraint **switches from
-history to stress capacity at loan 3** — the `min()` story told honestly:
-history opens the facility until portfolio risk becomes the limit.
+history to stress capacity at loan 3**: history opens the facility until
+portfolio risk becomes the limit.
 
 **A fourth loan makes the limit FALL, and that is correct.** Running
 `LOANS=4` — the command the forecast-evaluation row below uses — produces
@@ -134,10 +134,8 @@ and the account's settlement balance shrinks each cycle as interest is
 paid out: 10.000e9, 9.993e9, 9.987e9, 9.981e9. A smaller book stresses to
 a smaller number.
 
-Recorded because the sentence above says "the limit rises", and a reader
-who runs the four-loan command would otherwise see it contradicted. The
-claim is about what history does while history binds; it was never that
-capacity rises forever. `sequential_loans_compound_credit` holds the
+The claim is about what history does while history binds, not that
+capacity rises without bound. `sequential_loans_compound_credit` holds the
 account constant and varies only the record, which is why it asserts
 monotonicity and this run does not.
 
@@ -160,10 +158,9 @@ Three observations permit an average, **not a reliability claim**
 
 ### Independent reader — what is and is not demonstrated
 
-> **Corrected 14 September.** An earlier version of this section implied
-> the reader would port to a real registry by changing an address. It will
-> not: the local adapter and ERC-8004 share no selectors, and the value
-> model differs. What follows describes the LOCAL adapter only.
+> This reader does not port to a real registry by changing an address: the
+> local adapter and ERC-8004 share no selectors, and the value model
+> differs. What follows describes the LOCAL adapter only.
 
 `tools/reader/read_feedback.py` prints an agent's obligation history from
 a JSON-RPC endpoint alone. It imports only the Python standard library and
@@ -189,17 +186,16 @@ Signals stay separate (`docs/06`): repayments, defaults, interest, and
 loss are reported independently and never collapsed into a score.
 
 > **This runs against a local adapter, and that does not satisfy the
-> release row.** `docs/08` permits one for development while the identity
-> gate stays open; the row requires publication to the selected network's
-> ERC-8004-compatible registry, with its address and compatibility
-> evidence in the deployment manifest. The registry compatibility gate is
-> **15 September**. The reader is written against an ABI the real registry
+> release row.** `docs/08` permits one for development; the row requires
+> publication to the selected network's ERC-8004-compatible registry, with
+> its address and compatibility evidence in the deployment manifest. The
+> reader is written against an ABI the real registry
 > does **not** share: `agentEntries` exists only on the local adapter and
 > reverts against ERC-8004, whose read path is
 > `readAllFeedback(uint256,address[],string,string,bool)` — `0xd9d84224`,
 > confirmed in the deployed implementation. It is a rewrite.
 
-## Public-chain deployment — 14 September
+## Public-chain deployment
 
 Deployed to **Monad testnet (chain 10143)** and verified by reading the
 chain back, not by trusting the deploy script's exit code:
@@ -207,13 +203,6 @@ chain back, not by trusting the deploy script's exit code:
 **Addresses live in
 [`contracts/deployments/10143.json`](../contracts/deployments/10143.json)**,
 which is the only place they are recorded.
-
-This table used to repeat them and went stale the first time anything was
-redeployed — it named a `RiskOracle` three deployments old while the
-manifest named the live one, so a reader comparing the two documents found
-a contradiction rather than an address. That is the same failure the
-README already fixed by pointing here, and this document had not.
-Reported by review, 14 September.
 
 Three loans completed the full lifecycle on the public chain, and all
 deployment checks passed against it — including the one that
@@ -237,7 +226,7 @@ Three defects, none of which a local run could have found:
   so every custom error was distinguishable locally; Monad returns it in
   a separate `data` field and *also* decodes the bytes into the message
   as text, where `0x72cb8533` renders as `r˅3`. Every custom error was
-  therefore identical to every other on a public chain, and the beat-6
+  therefore identical to every other on a public chain, and the step-6
   check that distinguishes debt from access control reported `unknown`
   against contracts that had behaved correctly.
 - **The hold had no implementation for a chain that cannot warp.** The
@@ -253,8 +242,6 @@ Three defects, none of which a local run could have found:
 
 ### The sequential-loans row does not reproduce on testnet
 
-Stated plainly, because the testnet run looks like a weaker result:
-
 ```
 loan 1: apr=1200bps capacity=6200000000 binding=HistoryGrowthCap
 loan 2: apr=1200bps capacity=6200170000 binding=HistoryGrowthCap
@@ -268,12 +255,12 @@ of the history credit a five-day hold earns. The observed capacity growth
 is ~5,600x smaller, which is that rule and the binding `min()` acting
 together.
 
-A public chain cannot warp time, and holding three loans for five days
-each is not a demo. **The row's evidence therefore remains the local
+A public chain cannot warp time, so reproducing the row there needs three
+five-day holds. **The row's evidence therefore remains the local
 run**, where the elapsed term is real within the chain's own clock. The
 testnet run demonstrates portability and enforcement, not repricing.
 
-## Independent reader — ERC-8004, 14 September
+## Independent reader — ERC-8004
 
 Sub-claims A and B of `docs/06` are met against the **canonical ERC-8004
 registries on Monad testnet**, not a local adapter:
@@ -290,7 +277,7 @@ a local double whose selectors match the deployed contract exactly, so the
 path runs without a funded key; pointed at the canonical addresses it uses
 the real thing.
 
-Observed on the live registry:
+Observed on the live registry on 14 September:
 
 ```
 loan 1: credence.outcome.repaid value=4000000000
@@ -304,59 +291,51 @@ agent 1830: repaid   principal=4000000000 interest=746 loss=0 held=49s
 
 `tools/reader/read_erc8004.py` produced that last line from the chain
 alone, run from a directory outside the repository, importing only the
-Python standard library.
+Python standard library. Those entries do not reproduce against the
+current manifest.
 
-> **Corrected and re-run, 19 September.** The 14 September entries did not
-> reproduce against the manifest, and the row sat pending for five days.
-> Both causes are now fixed and the row is closed.
->
-> **Cause one: the wrong agent.** `demo-repay.sh` defaulted `AGENT_ID=184`
-> against a registry address holding no code, and the 14 September testnet
-> run did not override them, so every loan bound to a made-up identity.
-> Fixed in `90aff6a`: the identity comes from the manifest's `erc8004`
-> block, and a non-local chain refuses the placeholder outright.
->
-> **Cause two: the manifest lost its registry.** `Deploy.s.sol` builds the
-> manifest from scratch and overwrites the file, because Solidity cannot
-> merge JSON. That is right for the addresses it just deployed and wrong
-> for the rest: the ERC-8004 registries and the CRE forwarders describe
-> the **chain**, and survive a redeploy in reality. A redeploy deleted the
-> `erc8004` block, and the fix above then correctly refused to run —
-> having had the agent id it needed deleted out from under it. The refusal
-> was the guard working; the deletion was a second bug.
-> `scripts/lib/manifest.sh` now snapshots those blocks before the deploy
-> and merges them back after, never overwriting a key the deploy wrote.
->
-> Observed on the canonical registry, agent **1830**, manager
-> `0xe48BD50543b122E34D956F17BC63E61252d1a7c4` — the one the manifest
-> names:
->
-> ```
-> agent 1830: 13 entries covering 2 obligation(s)
->   loan 1  repaid  principal=4000000000  interest=822  loss=0  held=54s
->   loan 2  repaid  principal=4000000000  interest=807  loss=0  held=53s
->   repaid=2  recovered=0  defaulted=0
-> ```
->
-> `tools/reader/read_erc8004.py` produced that from **`/tmp`**, outside the
-> repository, importing only the Python standard library and talking to
-> nothing but a public RPC. Republishing reports `already published` for
-> both and adds nothing, so a retried queue cannot double-count an
-> outcome.
->
-> **Two obligations, not three.** The run originates three loans; the
-> third had not resolved when publishing ran, and an unresolved loan has
-> no outcome to publish. The five older entries from the superseded
-> manager are still on chain and are **not counted** — the reader reports
-> them as "not obligation records", which is the deployment-scoped tag
-> doing its job rather than an omission.
->
-> One trap worth recording: an interrupted earlier run left an orphaned
-> `credence-scenario` process alive, competing for nonces on the same
-> deployer account. The second run originated nothing for twenty-five
-> minutes and looked hung. It was not — it was losing every nonce race.
-> Check for stray `credence-scenario` processes before concluding a
-> testnet run has stalled.
+**The agent identity comes from the manifest.** `demo-repay.sh` reads it
+from the manifest's `erc8004` block, and a non-local chain refuses the
+placeholder `AGENT_ID=184`, which names a registry address holding no
+code.
+
+**A redeploy keeps the chain's registries.** `Deploy.s.sol` builds the
+manifest from scratch and overwrites the file, because Solidity cannot
+merge JSON. That is right for the addresses it deploys and wrong for the
+rest: the ERC-8004 registries and the CRE forwarders describe the
+**chain**, and survive a redeploy. `scripts/lib/manifest.sh` snapshots
+those blocks before the deploy and merges them back after, never
+overwriting a key the deploy wrote.
+
+Observed on 19 September on the canonical registry, agent **1830**,
+manager `0xe48BD50543b122E34D956F17BC63E61252d1a7c4` — the one the
+manifest names:
+
+```
+agent 1830: 13 entries covering 2 obligation(s)
+  loan 1  repaid  principal=4000000000  interest=822  loss=0  held=54s
+  loan 2  repaid  principal=4000000000  interest=807  loss=0  held=53s
+  repaid=2  recovered=0  defaulted=0
+```
+
+`tools/reader/read_erc8004.py` produced that from **`/tmp`**, outside the
+repository, importing only the Python standard library and talking to
+nothing but a public RPC. Republishing reports `already published` for
+both and adds nothing, so a retried queue cannot double-count an
+outcome.
+
+**Two obligations, not three.** The run originates three loans; the
+third had not resolved when publishing ran, and an unresolved loan has
+no outcome to publish. The five older entries from the superseded
+manager are still on chain and are **not counted** — the reader reports
+them as "not obligation records", which is the deployment-scoped tag
+doing its job rather than an omission.
+
+An orphaned `credence-scenario` process left by an interrupted run
+competes for nonces on the same deployer account; a run that loses every
+nonce race originates nothing and looks hung. Check for stray
+`credence-scenario` processes before concluding a testnet run has
+stalled.
 
 ### What the standard forced
 
@@ -383,7 +362,7 @@ Python standard library.
   the old `keccak("loan-N")` reference. The reader recomputes the digest
   with `hashlib`, so sha256 rather than keccak keeps it stdlib-only.
 
-### What is still NOT verified
+### What is NOT verified
 
 The reader checks the registry exists, its chain id, that the agent is
 registered and owned by someone other than the client, and that every
@@ -397,18 +376,18 @@ standard attributes feedback to a client address and expects consumers to
 choose which clients they trust. Claim "independently verifiable", never
 "adopted" -- sub-claim C still requires a second team.
 
-## CRE route — 14 September
+## CRE route
 
 The CRE authorization route is built and tested; **deployment is the only
-part still gated.** `cre whoami` reports deploy access not enabled while
-the request is reviewed, and per Chainlink's documentation that gates
-`cre workflow deploy` alone -- `simulate` and `build` need nothing.
+missing part.** `cre whoami` reports deploy access not enabled, and per
+Chainlink's documentation that gates `cre workflow deploy` alone --
+`simulate` and `build` need nothing.
 
 | Piece | State |
 |---|---|
 | `CREReceiver.sol` | 21 tests, `forge test --match-contract CREReceiver` |
 | `cre/underwrite` workflow | compiles to WASM, runs in the simulator |
-| Deploy to the workflow registry | **not obtainable** — needs a commercial agreement with Chainlink, answered 18 Sep |
+| Deploy to the workflow registry | **not obtainable** — needs a commercial agreement with Chainlink |
 
 ### Verified against the live chain, not documentation
 
@@ -456,20 +435,16 @@ authorized:
 | 4 | The loan is enrolled | The workflow names a loan; the OPERATOR says what that loan is |
 | 5 | Report not already seen | The forwarder retries a reverted delivery (`docs/05` invariant 2) |
 
-**The route is not a check.** An earlier version of this table listed
-"Route is `CRE`" as check 4. It is not read from the report at all:
+**The route is not a check.** It is not read from the report at all:
 `_normalize` hardcodes `Route.CRE`, because a `MonitoringReport` has no
-route field to carry. That is stronger than a check — the route is
-structurally unforgeable — but it is not what the table said. Corrected
-after review, 14 September.
+route field to carry. That is stronger than a check: the route is
+structurally unforgeable.
 
 The receiver **authenticates, never permits**. `RiskOracle.accept` was
 split so signature and caller authentication share one recording path:
 `test_receiverDoesNotBypassOracleExpiry` and
 `test_receiverDoesNotBypassSequenceOrdering` show the oracle still applies
-its own rules to a report that passed every receiver check. (An earlier
-version of this line cited a test that does not exist; it was renamed when
-the payload was narrowed.)
+its own rules to a report that passed every receiver check.
 
 ### A monitoring report cannot carry a grant
 
@@ -532,20 +507,15 @@ than assumed.
 
 ### What is NOT built
 
-Stated plainly, because the workflow reads as complete otherwise:
-
-- ~~The assessment endpoint does not exist.~~ **Built 14 September**:
-  `credence-assessd` serves `POST /v1/assess {loan_id}` and returns a
-  normalized monitoring assessment. See below.
 - **No report has travelled the real path.** The receiver is tested
   against a stub forwarder, and the metadata layout against the live mock
   one, but a DON-signed report has never reached it. That needs deploy
   access.
-- **The continuous-underwriting row still rests on the signed route.**
+- **The continuous-underwriting row rests on the signed route.**
   `scripts/demo-monitor.sh` is the evidence for it; the CRE route is an
-  alternative authorization path, not a second demonstration of that row.
+  alternative authorization path, not additional evidence for that row.
 
-## The assessment endpoint — 14 September
+## The assessment endpoint
 
 `docs/01` keeps the engine pure: `POST /v1/assess` on the risk service
 takes a whole `{input, policy}` snapshot and performs no I/O, so it cannot
@@ -636,7 +606,7 @@ signs, generates a DON-signed report, and submits the write. The only
 thing still simulated is the chain write itself, which needs deploy
 access.
 
-## External review — 14 September
+## External review
 
 Six findings against baseline `726324c`, all confirmed and fixed. Each
 was reproduced with a failing test before the fix, and each test was
@@ -651,7 +621,7 @@ checked to fail again when the fix is reverted.
 | 5 | The price timestamp was discarded | Account evidence ages its price against the block |
 | 6 | Splitting a holding inflated recovery value | Impact is computed from aggregate exposure per asset |
 
-### 1 — the sharpest one
+### 1 — a newer loan's custody lock
 
 `repay` clears `activeLoan` before pulling settlement tokens, so a
 callback during that transfer sees a loan-free account. With a standing
@@ -659,15 +629,14 @@ quote it can draw a second loan, and the outer repayment's unconditional
 `closeDebt()` then released the NEW loan's lock -- leaving the vault owed
 principal while the owner could withdraw.
 
-The existing reentrancy tests covered re-entering `repay` and `collect`;
-neither tried to ORIGINATE. `test_repaymentCannotCloseANewerLoansDebt`
-now does.
+The reentrancy tests re-enter `repay` and `collect`;
+`test_repaymentCannotCloseANewerLoansDebt` re-enters to ORIGINATE.
 
 The fix checks `activeLoan` rather than adding a reentrancy guard, which
 keeps the rule where the rule lives: the account is locked exactly while
 it owes, whatever order the calls arrived in.
 
-### 2 and 5 — the same shape, twice
+### 2 and 5 — a value replaced by a default
 
 Both are a value that exists being replaced by a default on the way
 through. The signed binding left `AccountStateVersion` at zero while the
@@ -676,10 +645,7 @@ never match. The price observation carried a source timestamp that
 `positionsAt` dropped, so a stale price entered evidence stamped with the
 current block.
 
-Both had a comment nearby explaining exactly why the value mattered.
-Neither had a test.
-
-### 6 — worth stating precisely
+### 6 — impact computed per position
 
 Market impact grows with the square root of size, so computing it per
 position made two half-sized rows cheaper to exit than one whole one. The
@@ -692,21 +658,20 @@ impact, since they trade in their own books.
 
 ### What the review did not establish
 
-Its own framing, kept here because it is right: passing those diagnostics
-was evidence of defects, not correctness. The review performed no
+Passing those diagnostics was evidence of defects, not of correctness. The
+review performed no
 public-network deployment and established no CRE or ERC-8004
 interoperability -- those rest on the separate evidence recorded above.
 
 ## Operational measurement
 
-Engine runtime, input size, provider lag, event reconciliation lag, transaction status. One scripted command runs the offline scenario suite; another starts the demo environment. Document required credentials and optional integrations explicitly.
+Engine runtime, input size, provider lag, event reconciliation lag, transaction status. One scripted command runs the offline scenario suite; another starts the scenario environment. Document required credentials and optional integrations explicitly.
 
-Persist SQLite on durable storage and take a consistent backup **before recording the demonstration.**
+Persist SQLite on durable storage and take a consistent backup.
 
-`scripts/backup-evidence.sh` does both: it copies the demos' retained
-evidence from `/tmp` to `~/.credence/evidence/<stamp>`, using SQLite's
-online backup for the databases and writing checksums beside them.
-`--restore <dir>` puts a backup back and refuses one whose checksums do
-not match. `/tmp` is not durable on macOS even without a reboot: files
-untouched for three days are deleted, and on 5 October everything the
-23 September runs had retained was gone.
+`scripts/backup-evidence.sh` does both: it copies the scenario runs'
+retained evidence from `/tmp` to `~/.credence/evidence/<stamp>`, using
+SQLite's online backup for the databases and writing checksums beside
+them. `--restore <dir>` puts a backup back and refuses one whose checksums
+do not match. `/tmp` is not durable on macOS: files untouched for three
+days are deleted.

@@ -1,6 +1,6 @@
 # 04 · Evidence Contract
 
-Freeze schema v1 **conventions** in milestone one — asset identifiers, units, timestamps, missingness, lineage, policy references, output status — then evolve fields. Unknown major versions are rejected. **A model cannot silently consume a new feature under the old hash.**
+Freeze schema v1 **conventions** — asset identifiers, units, timestamps, missingness, lineage, policy references, output status — then evolve fields. Unknown major versions are rejected. **A model cannot silently consume a new feature under the old hash.**
 
 ## Numeric and time conventions
 
@@ -171,9 +171,7 @@ credence scenario compare --run <a> --run <b>
 
 ### What proves determinism
 
-Added 19 September. This document stated the contract and cited nothing,
-so "no I/O, clock access, or entropy" was a promise rather than a
-checkable one. Ten tests in `gateway/canonical/` pin it:
+Ten tests in `gateway/canonical/` pin it:
 
 | Property | Test |
 |---|---|
@@ -278,4 +276,4 @@ POST /v1/scenarios/runs      GET  /v1/scenarios/runs/{id}
 GET  /v1/facilities/{id}     GET  /v1/loans/{id}
 ```
 
-Mutating endpoints authenticated. Read-only judge access suffices for profiles and replay. **A public browser cannot select a funding key or invoke administrative operations.** Bounded input sizes so a replay endpoint cannot exhaust the demo service.
+Mutating endpoints authenticated. Read-only access suffices for profiles and replay. **A public browser cannot select a funding key or invoke administrative operations.** Bounded input sizes so a replay endpoint cannot exhaust the service.

@@ -1,6 +1,6 @@
 # 07 · Simulation
 
-> **Status, 14 September: built.** `gateway/sim` generates the world,
+> **Status: built.** `gateway/sim` generates the world,
 > `credence-sim` runs the evaluation, and two sealed packs live in
 > `fixtures/sim/`.
 >
@@ -14,19 +14,19 @@
 > a real chain, with `evm_increaseTime` locally and real waits on a public
 > network; the simulation is a separate evaluation, not a replacement.
 
-There is no independent borrower population or repayment history yet. The 32-day build cannot produce the multi-month arcs the thesis describes. **Build the synthetic population deliberately and say so.** A model-backed runner can make real proposals while operating on this synthetic economic evidence.
+There is no independent borrower population or repayment history yet, and none of the multi-month arcs the thesis describes. **Build the synthetic population deliberately and say so.** A model-backed runner can make real proposals while operating on this synthetic economic evidence.
 
-Presented correctly — evaluating an underwriting model against a synthetic population, which is what a risk team actually does — this is more convincing than thin real data, because it exercises failure paths real data could not surface in time.
+Evaluating an underwriting model against a synthetic population, as a risk team does, exercises failure paths that thin real data would not surface.
 
 ## Virtual clock
 
 Deterministic queue ordered by virtual timestamp, scenario sequence number, and stable event ID. Pinned generator version and seed.
 
-Each run records generator version, seed, input distribution, schedule, agent configuration, model and policy hashes, and all generated events. **A fixture pack is immutable once used in a recorded demonstration.**
+Each run records generator version, seed, input distribution, schedule, agent configuration, model and policy hashes, and all generated events. **A fixture pack is immutable once used in a recorded run.**
 
 Concurrency may fetch independent providers, but scenario events apply in deterministic order. **The simulator manipulates only scenario state; it never advances live chain timestamps.**
 
-Local-chain tests may advance their isolated test clock explicitly. Public-network demonstrations use real chain timestamps for interest, quote expiry, and maturity; use declared short loan terms or recorded transaction traces when needed. Imported virtual history remains synthetic and is accepted only by a scenario facility. Do not present virtual elapsed time as the age of a public-chain loan or its forecast window.
+Local-chain tests may advance their isolated test clock explicitly. Public-network runs use real chain timestamps for interest, quote expiry, and maturity; use declared short loan terms or recorded transaction traces when needed. Imported virtual history remains synthetic and is accepted only by a scenario facility. Do not present virtual elapsed time as the age of a public-chain loan or its forecast window.
 
 Events include market moves, liquidity changes, agent decisions, funding, execution, repayments, top-ups, stale-data periods, forecast resolution, and failed recovery.
 
@@ -46,10 +46,9 @@ Use a **development scenario set** and a **separate evaluation set** with differ
 
 ### What proves the harness
 
-Added 20 September. The separation above is the whole basis for treating
-an evaluation run as evidence, and this document cited nothing for it.
-Twenty-three tests in `gateway/sim/` do; run `go test ./sim/` from
-`gateway/`.
+The separation above is the basis for treating an evaluation run as
+evidence. Twenty-three tests in `gateway/sim/` cover the harness; run
+`go test ./sim/` from `gateway/`.
 
 | Claim | Test |
 |---|---|
@@ -76,9 +75,9 @@ that could be edited after the fact would let a disappointing run be
 quietly improved, and the seal would be decoration. The pack digest is
 sha256 over its contents, so an edit changes it and the load fails.
 
-### What the evaluation found — 14 September
+### What the evaluation found
 
-Both sets ran against the live engine, one policy and one model hash
+Both sets ran on 14 September 2026 against the live engine, one policy and one model hash
 throughout. The packs are sealed in `fixtures/sim/` and verify on load; an
 edited one fails.
 
@@ -92,22 +91,13 @@ edited one fails.
 | principal lost | **0** | **421.1e6** (4.7%) |
 | borrower equity left | 469.3e6 | **0** |
 
-**Rewritten 14 September, twice.** The figures above replace an earlier
-table, and both corrections are worth recording because the first version
-supported a claim the packs did not.
+Two properties of the runner determine these figures:
 
-The earlier table reported 8% and 41% principal loss and concluded that
-**"the unnamed shock cost five times more."** Two defects produced those
-numbers:
-
-- The runner deployed only the BORROWED principal and left the agent's
-  equity in settlement, then recovered from the risky sale alone. Equity
-  absorbed nothing, so losses were charged to lenders that the borrower's
-  own capital should have taken first. Reverting the fix reproduced it: a
-  2.4e9 lender loss beside 10e9 of untouched equity.
-- The exit charged a hardcoded 500bps liquidity haircut while the shipped
-  policy declares 2000. The world let positions out at a quarter of the
-  modelled cost.
+- The whole post-draw balance, the agent's equity as well as the borrowed
+  principal, goes into the risky asset, so equity absorbs a fall before
+  lenders do.
+- The exit charges the liquidity haircut the shipped policy declares,
+  2000bps.
 
 #### What these packs do and do not show
 
@@ -121,40 +111,30 @@ in seed, volatility, book depth, drift and loan count as well as in shock
 schedule, so the difference between them is not attributable to the shock
 alone. A controlled ablation -- one world, one schedule, the unnamed shock
 present or absent -- is what would support that claim, and it has not been
-run. The earlier "five times more" sentence did not have it either.
+run.
 
-**There are no agent declines in either pack.** An earlier version of this
-document reported 653 and built a paragraph on the agent refusing terms it
-could not justify. That figure counted engine REFUSALS -- `Denied` on
-stress capacity, mostly after a book had already fallen -- not the agent
-exercising its own judgment. The agent's ability to decline is real and
-tested (`TestAgentDeclinesTermsItCannotJustify`), but these two sealed
-runs do not exercise it, and the table now says 0 because that is what
-happened.
+**There are no agent declines in either pack.** Engine refusals --
+`Denied` on stress capacity, mostly after a book has already fallen --
+are not the agent exercising its own judgment and are not counted as
+declines. The agent's ability to decline is tested
+(`TestAgentDeclinesTermsItCannotJustify`), but these two sealed runs do
+not exercise it.
 
-**There is no keeper.** An earlier sentence described the unnamed shock as
-arriving "through the level where a keeper would have exited". Nothing in
-this harness exits a position early: open loans are marked at maturity or
-at the world's end. What the evaluation shows is a mark-to-market loss,
-not a failed liquidation.
+**There is no keeper.** Nothing in this harness exits a position early:
+open loans are marked at maturity or at the world's end. What the
+evaluation shows is a mark-to-market loss, not a failed liquidation.
 
-**One placement error, kept in the record.** The evaluation's unnamed
-shock was first scheduled for day 62, by which point the agent had stopped
-borrowing. The harness reported it as unexercised rather than counting it,
-which is how the mistake surfaced; it now falls at day 20. A shock nothing
-is exposed to tests nothing, and a harness that counted it would have
-overstated coverage.
+**Shock placement.** The evaluation's unnamed shock falls at day 20. The
+harness reports a shock no live loan is exposed to as unexercised rather
+than counting it; a shock nothing is exposed to tests nothing, and
+counting it would overstate coverage.
 
-**Two generator defects, also corrected 14 September.** Both were found by
-review rather than by the harness:
+**Generator rules that affect the figures:**
 
-- `DriftBpsPerDay / stepsPerDay` was integer division, so 15 bps/day over
-  24 hourly steps truncated to **zero**. Both worlds had no drift at all,
-  while the evaluation set documented itself as "a market that drifts
-  against the agent". Drift is now carried as a remainder.
-- A shock's label stuck to every later observation, so a loan opened weeks
-  afterwards counted as having "exercised" it -- the same overcount
-  already fixed for idle accounts, one layer down.
+- Per-step drift carries the remainder of `DriftBpsPerDay / stepsPerDay`,
+  so 15 bps/day over 24 hourly steps does not truncate to zero.
+- A shock's label is set only while the shock is in effect, so a loan
+  opened weeks afterwards does not count as having exercised it.
 
 **Do not claim default-model validation from a small synthetic population.** Report what was exercised: failure-path coverage, monotonic constraints, response latency, replay equality, realized losses within declared scenarios.
 
@@ -164,13 +144,13 @@ Measure what the implemented collection path realizes across several recovery ou
 
 The agent lives outside the risk core with structured tools: inspect account, propose allocation, estimate forecast, request or decline terms, execute, repay. Every action validated against deterministic rules.
 
-One model-backed agent supplies a retained proposal and acceptance trace, shown live or as an explicitly labeled replay in the demo. The runner records model identifier, prompt and configuration hash, tool calls, proposed forecast, expected-benefit estimate and costs on the loan horizon, and decision. **Credentials never enter the risk snapshot or browser.**
+One model-backed agent supplies a retained proposal and acceptance trace, shown live or as an explicitly labeled replay. The runner records model identifier, prompt and configuration hash, tool calls, proposed forecast, expected-benefit estimate and costs on the loan horizon, and decision. **Credentials never enter the risk snapshot or browser.**
 
 Use prerecorded decisions or a deterministic policy agent for regression runs, and **display replay mode explicitly.** A replayed trace demonstrates system behavior; it must not be presented as a fresh model decision.
 
-**The agent must be able to decline** when expected benefit, on the correct horizon after costs, does not justify the offered terms. **The demo must not force an approval to advance the script.**
+**The agent must be able to decline** when expected benefit, on the correct horizon after costs, does not justify the offered terms. **A scenario must not force an approval in order to proceed.**
 
-> **As built, 14 September.** There is **no model-backed agent**. The
+> **As built.** There is **no model-backed agent**. The
 > section above is the specification; what exists is the deterministic
 > policy agent it permits for regression runs — `sim.MomentumAgent`, a
 > momentum rule with a lookback, a leverage fraction and a maximum
@@ -178,11 +158,11 @@ Use prerecorded decisions or a deterministic policy agent for regression runs, a
 > because there is no model in the loop.
 >
 > It does decline, and `TestAgentDeclinesTermsItCannotJustify` pins that:
-> offered an absurd rate, it refuses rather than advancing the script.
+> offered an absurd rate, it refuses rather than proceeding.
 > Neither sealed pack happens to contain a decline — see the note above.
 >
-> A reader should take the paragraphs above as what a model-backed runner
-> would have to record, not as a description of this repository.
+> The paragraphs above specify what a model-backed runner would have to
+> record; they do not describe this repository.
 
 ## What the strategy does, and why it is financed
 
@@ -196,7 +176,7 @@ output cannot be redirected.
 **Why it needs credit.** The agent's edge is in *timing and selection*,
 not capital. Its own equity bounds position size, so a correct call on a
 small book earns proportionally little. Borrowing lets it take the
-position its analysis actually supports — which is the ordinary reason any
+position its analysis supports — which is the ordinary reason any
 trading desk uses financing, and the reason lenders can be paid for it.
 
 **Why a lender would fund it.** The position is custodied where the lender

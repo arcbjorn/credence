@@ -7,9 +7,8 @@ release must satisfy. This is the **report**: the rows re-run, the
 figures they produced, and the claims that are still open. A
 specification that is never filled in is a plan, not evidence.
 
-Produced 21 September 2026 against tag
-[`v0.1.0-baseline`](../releases/2026-09-21.md) and the commits after it.
-Every figure below was read from a run, not from memory.
+Every figure below was read from a run. Release tags and their records
+are listed in [10 · Release process](10-release-process.md).
 
 ## The suites
 
@@ -21,11 +20,8 @@ Every figure below was read from a run, not from memory.
 | TypeScript (`web`) | **247** | `pnpm test` |
 | TypeScript (`indexer`) | **11** | `pnpm test` |
 
-These are checked by `scripts/check-docs.sh`, not maintained by hand.
-The Solidity and web figures went stale within hours of being written
-here -- five fixes on 21 September added tests and nobody updated the
-table -- which is the same failure this document records two sections
-down. A count nothing verifies is a claim, not evidence.
+`scripts/check-docs.sh` verifies these counts against the declared tests
+on every release check.
 
 A green suite is **not** evidence for a behavioural claim — `docs/11`
 says so, and this report keeps the two separate. The behavioural
@@ -41,13 +37,7 @@ ran against and every row's result.
 A **SKIP is a row the run could not reach, never a row that passed.** The
 record names its skips; a reader must check those by hand.
 
-This paragraph used to quote a count. It said "20 passed, 0 failed, 0
-skipped" while the record said 21 passed and **1 skipped** -- a
-document restating its own rule about skips, one line after
-under-reporting one. A number copied out of a record goes stale the
-next time the record is written, so it is not copied any more.
-
-Two rows were closed on 21 September that had been skipped for days:
+Two rows need more than a local chain:
 
 - **Independent reputation reader** — `scripts/verify-reputation.sh` reads
   13 signals across 4 obligation tags for agent 1830 from the canonical
@@ -110,7 +100,7 @@ the engine policy — are byte-identical, verified.
 
 ## Restore from retained data
 
-`scripts/demo-monitor.sh` beat 8 reopens `credence.db` **from disk**,
+`scripts/demo-monitor.sh` (`docs/09` step 8) reopens `credence.db` **from disk**,
 joins the retained assessment to the snapshot its `input_hash` names, and
 replays it through the engine.
 
@@ -142,14 +132,29 @@ from history to stress capacity at loan 3** — the `min()` told honestly.
 
 Monad testnet, chain 10143. Addresses live in
 [`contracts/deployments/10143.json`](../contracts/deployments/10143.json),
-which is the only place they are recorded — prose copies go stale, and
-three of them did. Bytecode confirmed present at the manager (12,074
+which is the only place they are recorded. Bytecode confirmed present at the manager (12,074
 bytes), vault and settlement token.
 
-## What is NOT proven
+## Latency on Monad testnet
 
-Stated plainly, because a report that only lists successes is an
-advertisement.
+`scripts/measure-latency.sh` ran three loans through the deployment on a
+credit account added to its live facility for the measurement. Each loan
+was quoted, accepted, originated into the risky asset, unwound and
+repaid. Every transaction hash is in
+[`releases/latency-2026-10-05.md`](../releases/latency-2026-10-05.md).
+
+| Interval | n | Median | Range | What it measures |
+|---|---|---|---|---|
+| Request to confirmation | 22 | 375 ms | 119–646 ms | Monad testnet, plus one round trip to the public RPC (37 ms median) |
+| Event to index | 6 | 15.6 s | 0.67–43 s | Envio's HyperSync indexer |
+| Input to assessment | 3 | 8 ms | 6–10 ms | The engine and its HTTP transport, on one machine |
+
+Only the first row describes the chain. The second is the indexer's lag:
+the same chain produced both the 0.67-second and the 43-second sample.
+The third never touches a chain. The samples are small, so the record
+gives the range instead of percentiles.
+
+## What is NOT proven
 
 | Claim | Status |
 |---|---|
@@ -157,23 +162,8 @@ advertisement.
 | **Price discovery for notes** | **Not claimed.** A `NoteSeries` is listed on a real Kuru market, but **both sides of any trade are project-controlled.** That shows the venue accepts the instrument; it is not a price. `docs/08` keeps market feedback informational for exactly this reason. |
 | **Perpl funding in the engine** | **Deliberately not wired.** Perpl's funding rate is a positioning premium; the engine's `funding_rate_bps` is the lender's cost of capital. They share a name and nothing else. Funding is displayed as a crowding signal and never reaches a decision. |
 | **Assumed PD and LGD** | **Declared, not measured.** `loss_assumption` is policy. The sample here cannot validate a default probability, and presenting it as measured would be the dishonesty `docs/04` forbids. |
-| **The agent runner** | **Not built.** `agent/` does not exist; the demos drive the loop from scripts. |
+| **The agent runner** | **Not built.** `agent/` does not exist; the scenario scripts drive the loop. |
 | **Docker deployment** | **Not built.** Everything runs from `scripts/`. |
-
-## Three defects found by looking, not by testing
-
-Recorded because they describe a gap no assertion covered.
-
-| Symptom | Cause |
-|---|---|
-| `6,200HistoryGrowthCap` on the first screen | `td.num` had `padding-right: 0`; a right-aligned figure ran into the next cell |
-| Every evidence row chipped `OBSERVED ACCOUNT STATE` | The origin label named an item type, and the inspector renders one chip **per item** |
-| Capacity identical in both Perpl columns, prose claiming the market was deep enough | Capacity is a `min()`; `HistoryGrowthCap` was binding. The engine was right, the page inferred from a zero delta instead of reading `agent_binding` |
-
-All three reached `dist/` and none failed a test: **a test asserts what it
-was told to assert.** They sat in the gap between correct data and what a
-reader would conclude from it. Two now have tests; the third is
-structural.
 
 ## How to re-run this
 
@@ -183,6 +173,5 @@ RESYNC_INDEXER=1 bash scripts/release-check.sh
 ```
 
 The record lands in `releases/<date>.md` and names the commit it ran
-against. It also reports whether **CI is green on that commit** — added
-after a baseline tag was pushed onto a red build on 21 September, which
-every local row had passed.
+against. It also reports whether **CI is green on that commit**, which no
+local row can show.

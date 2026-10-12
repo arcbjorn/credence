@@ -15,7 +15,7 @@ equity 5,000  +  borrowed 5,000  =  10,000 deployed
 
 **This is collateralized lending.** The account secures the debt. The claim is *not* that reputation replaces collateral — it is that **an agent controls more capital than it owns, and its demonstrated behavior sets the multiplier and the price.** Prime brokerage is the right analogy for the shape; the delivered product is narrower.
 
-Undercollateralized lending — credit extending beyond recoverable account assets — is a later milestone with its own economic design. See [12 · Claims & Roadmap](12-claims-roadmap.md).
+Undercollateralized lending — credit extending beyond recoverable account assets — is not part of this release and needs its own economic design. See [12 · Claims & Roadmap](12-claims-roadmap.md).
 
 ## What ships
 
@@ -28,7 +28,7 @@ Undercollateralized lending — credit extending beyond recoverable account asse
 7. Forecast commitments with defined outcomes, observation windows, and scoring
 8. Three agent scenarios on one engine and one set of contract interfaces
 9. Interface distinguishing scenario evidence, observed evidence, authorization paths
-10. Reproducible deployment, invariant tests, public demonstration
+10. Reproducible deployment, invariant tests, public deployment of the interface
 
 ## What does not ship
 
@@ -45,13 +45,13 @@ Undercollateralized lending — credit extending beyond recoverable account asse
 
 | Mode | Evidence and time | Permitted effect |
 |---|---|---|
-| **Scenario** | Synthetic or recorded, explicit virtual clock | Evaluate policy; isolated test-token demonstration |
+| **Scenario** | Synthetic or recorded, explicit virtual clock | Evaluate policy; isolated test-token runs |
 | **Observed / shadow** | Current observations, real timestamps | Assess and compare. **No disbursement.** |
 | **Authorized prototype** | Actual contract state, chain time, validated attestation | Draw from the specifically bound prototype vault |
 
 Scenario history must never cross into an observed-evidence facility through a relabeled field or a reused signature. Separate deployment addresses isolate scenario facilities; a frontend toggle cannot change a contract's evidence policy.
 
-The release target is **a prototype with test capital.** Mainnet with real lender funds is a later decision, not an implied consequence of finishing this plan.
+The release target is **a prototype with test capital.** Mainnet with real lender funds is a separate decision, not an implied consequence of this release.
 
 ## Release boundary
 
@@ -61,9 +61,9 @@ The release target is **a prototype with test capital.** Mainnet with real lende
 | Deterministic underwriting and replay | Essential |
 | Explainable decisions with provenance | Essential |
 | Fixed-epoch vault accounting | Essential |
-| ERC-8004 identity and repayment evidence | Required for release; compatibility checked 15 Sep, publication and independent reader complete 25 Sep |
+| ERC-8004 identity and repayment evidence | Required for release; compatibility checked, publication and independent reader complete |
 | Forecast commitment and Brier scoring | Keep, narrowly defined |
 | Indexing and market data | Required capabilities; Envio and enrichment providers gated, with direct logs and a labeled scenario price source as baseline |
-| CRE workflow | Access 13 Sep; level fixed 25 Sep |
-| Nansen enrichment | Only if it changes a demonstrated decision |
+| CRE workflow | Integration level fixed in [08](08-integrations.md) |
+| Nansen enrichment | Only if it demonstrably changes a decision |
 | Kuru note market | Gated — [08](08-integrations.md) |

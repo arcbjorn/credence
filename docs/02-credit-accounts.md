@@ -1,12 +1,12 @@
 # 02 · Credit Accounts
 
-The foundation. Week one's work. Everything else assumes this exists.
+The foundation. Everything else assumes this exists.
 
 ## The attack this closes
 
 An operator spins up several agents, builds cheap repayment histories, borrows the maximum, and abandons them. The protocol records the defaults perfectly. **Lenders still lose.** Reputation alone cannot solve this: the attack is profitable even when identities persist.
 
-The corollary that reorders the whole plan:
+The corollary:
 
 > **Lowering a credit limit recovers nothing.** It stops future borrowing. The capital already disbursed is untouched.
 
@@ -27,25 +27,23 @@ Lender capital ──► CreditVault ──► CreditAccount ◄── agent equ
 ### Invariants — contract-enforced
 
 1. **Whitelisted adapters only.** Registered adapters, fixed selectors. No arbitrary `call` or `delegatecall`.
-2. **No withdrawal while debt is active or recovering.** Binds the **owner**, not only the agent. This is the load-bearing rule and the one the demo shows failing.
+2. **No withdrawal while debt is active or recovering.** Binds the **owner**, not only the agent. This is the load-bearing rule; `docs/09` step 6 shows a withdrawal attempt reverting.
 3. **Health maintained.** Normal adapter calls that would breach required coverage revert; the dedicated recovery path permits bounded risk reduction below normal thresholds.
 
    **How, precisely.** `CreditAccount` computes no LTV and no coverage ratio. Those are the engine's, and they arrive as the oracle's permission bit: a risk-increasing call reverts when permission is absent, expired, or bound to a different account state version. So a breach surfaces at the next assessment rather than at the moment of the trade, and the window between them is the monitoring interval.
 
-   That is weaker than "the contract checks coverage", and the difference is worth stating: an agent can trade into a breach and only be stopped on the next cycle. What the contract does guarantee is that it cannot keep doing so. Corrected after review, 14 September.
+   That is weaker than "the contract checks coverage": an agent can trade into a breach and only be stopped on the next cycle. What the contract does guarantee is that it cannot keep doing so.
 4. **Proceeds return to the account.** Adapters cannot redirect output.
 5. **Close-out ordering.** Principal, then accrued interest, then residual equity to the bound recipient.
 
 Initial funding requires agent equity. **An agent with no equity receives no credit in v0.**
 
-Precedent worth reading first: Gearbox's credit-account model — pools funding restricted accounts with approved execution routes and solvency checks.
+Precedent: Gearbox's credit-account model — pools funding restricted accounts with approved execution routes and solvency checks.
 
 ### What proves each restriction
 
-Added 19 September. These five rules are the whole of "borrowed capital
-is constrained", which `docs/12` lists as an earned claim — and this
-document cited nothing, so a reader had to take them on trust. Run from
-`contracts/`:
+These five rules are the whole of "borrowed capital is constrained",
+which `docs/12` lists as an earned claim. Run from `contracts/`:
 
 | # | Restriction | Test |
 |---|---|---|
@@ -99,19 +97,15 @@ Closeout costs are **already deducted** from the numerator in both. Origination'
 | Permission lapsed 12h+ | Recovery opens; silence is a backstop, not a trigger | `recoveryGraceSeconds` |
 | Post-unwind shortfall | Loss allocated to vault, recorded against the original binding | `CreditVault.recordLoss` |
 
-> **Corrected 14 September.** The third row used to read "Recovery
-> eligible", which is not what the contracts do: **`LoanManager` never
-> reads a coverage ratio.** It recovers on maturity, on an explicitly
-> withdrawn permission, or after 12 hours of attestor silence. A low
-> coverage ratio reaches chain only by causing the engine to withhold
-> permission — which is then the second row's trigger, not a separate one.
->
-> The distinction matters because it says who can seize an account. A
-> ratio in a document is not an on-chain condition, and a reader who
-> believed this table would expect liquidation at a threshold the
-> contracts cannot observe.
+**`LoanManager` never reads a coverage ratio.** It recovers on maturity,
+on an explicitly withdrawn permission, or after 12 hours of attestor
+silence. A low coverage ratio reaches chain only by causing the engine to
+withhold permission — which is then the withdrawn-permission trigger, not
+a separate one. This determines who can seize an account: a ratio in a
+document is not an on-chain condition, and the contracts cannot liquidate
+at a threshold they do not observe.
 
-These are **scenario-policy starting values**, to be checked against the actual asset and venue in milestone two (14–17 September). The separate minimum stressed origination coverage is also pinned in policy; passing current marked coverage alone cannot authorize a draw. These thresholds do not guarantee that a fast move cannot jump below solvency.
+These are **scenario-policy starting values**, to be checked against the actual asset and venue. The separate minimum stressed origination coverage is also pinned in policy; passing current marked coverage alone cannot authorize a draw. These thresholds do not guarantee that a fast move cannot jump below solvency.
 
 A dedicated recovery path must be able to reduce risk in an unhealthy account **even when it cannot restore the normal threshold in one step** — otherwise the health check itself prevents liquidation.
 
