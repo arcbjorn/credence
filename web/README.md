@@ -1,28 +1,22 @@
 # `web` — the interface
 
-The eight screens `docs/09` specifies, all built,
-plus eight beyond that list: the four observatory rooms,
-the field guide, and three interactive records. The note view
-is not built.
-
-| Screen | `docs/09` step |
+| Screen | Route |
 |---|---|
-| Agent overview | 4b — the limit rises, the APR falls, the constraint switches |
-| Agent profiles | 1 and 5 — a flawless record denied by its own book |
-| Assessment detail | which constraints bound one decision, and why |
-| Loan lifecycle | 3, 4, 7 — what was borrowed, and how its forecast scored |
-| Evidence | per item: origin, freshness, coverage, content hash |
-| Lender | the epoch's ledgers, kept separate |
-| Enforcement | 6 — the prohibited withdrawal, reverted on chain |
-| Replay | 8 — does retained input reproduce the assessment? |
-
-Three records go past reporting and let a reader act:
-
-| Screen | What it does |
-|---|---|
-| Borrow desk | Compose a request; the real engine prices it in the tab |
-| What a record earns | One controlled run: only the record moves, so the price moves for one reason |
-| Live on Monad | Reads the deployment directly, and will sign a repayment |
+| Agent overview | `#/agent` |
+| Agent profiles | `#/compare` |
+| Assessment detail | `#/assessment` |
+| Evidence | `#/evidence` |
+| Loan lifecycle | `#/arc` |
+| Lender | `#/lender` |
+| Replay | `#/replay` |
+| Enforcement | `#/enforcement` |
+| Borrow desk | `#/borrow` |
+| What a record earns | `#/earned` |
+| Indexed lifecycle | `#/indexed` |
+| Live on Monad | `#/live` |
+| Perpl market risk | `#/perpl` |
+| Observatory, Atlas, Moons, Body, Log | `#/observatory` to `#/log` |
+| Field guide | `#/guide` |
 
 The globe renders agents from two sources, kept apart on purpose. The
 **cohort** (`scripts/demo-cohort.sh`) is four agents that borrowed
@@ -32,12 +26,6 @@ Observatory globe and the landing page. The **profiles**
 assessed but which never touched a chain; they live in the Atlas. A
 reader should never have to guess which kind of agent they are looking
 at, which is why the two rooms do not mix them.
-
-Eight screens sit outside the eight record screens: the observatory, atlas,
-moons and body rooms are one component (`Observatory.tsx`) serving four
-routes, the guide explains the physics, and the three records above let a
-reader act rather than read. None of them is tied to a scenario step, and
-each reads the same retained evidence the tables above do.
 
 The enforcement screen renders what `credence-verify` recorded against the
 live deployment, and shows the two refusals side by side with their raw
